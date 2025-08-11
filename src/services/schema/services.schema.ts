@@ -1,0 +1,61 @@
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+
+@Schema({
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+})
+export class Service {
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  ownerId: Types.ObjectId;
+
+  @Prop({ required: true, trim: true })
+  title: string;
+
+  @Prop({ trim: true })
+  description?: string;
+
+  @Prop({ required: true })
+  price: number;
+
+  @Prop({
+    required: true,
+    enum: ['hourly', 'fixed'],
+    default: 'fixed',
+  })
+  paymentType: 'hourly' | 'fixed';
+
+  @Prop({ type: Boolean, default: true })
+  requiresAppointment: boolean;
+
+  @Prop({ type: [String], default: [] })
+  imageUrls: string[];
+
+  @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
+  category: Types.ObjectId;
+
+  @Prop({
+    type: {
+      type: String,
+      enum: ['Point'],
+      required: true,
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number],
+      required: true,
+    },
+  })
+  location: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+
+  @Prop({ required: true, trim: true })
+  video: string;
+}
+
+export const ServiceSchema = SchemaFactory.createForClass(Service);
+ServiceSchema.index({ location: '2dsphere' });
+export type ServiceDocument = Service & Document;
