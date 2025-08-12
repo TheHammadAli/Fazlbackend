@@ -8,7 +8,7 @@ import { Promotion } from './schema/promotion-schema';
 @ApiTags('Promotions')
 @Controller('promotions')
 export class PromotionController {
-  constructor(private readonly promotionService: PromotionService) {}
+  constructor(private readonly promotionService: PromotionService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a promotion' })
@@ -50,5 +50,14 @@ export class PromotionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string): Promise<void> {
     return this.promotionService.delete(id);
+  }
+
+
+
+  @Get('feed')
+  @ApiOperation({ summary: 'Get feed promotions', description: 'Fetches all promotions where isInFeed is true.' })
+  @ApiResponse({ status: 200, description: 'Feed promotions found.', type: [Promotion] })
+  async getFeedPromotions(): Promise<Promotion[]> {
+    return this.promotionService.getFeedPromotions();
   }
 }

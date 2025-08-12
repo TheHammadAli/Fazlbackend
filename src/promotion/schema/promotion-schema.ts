@@ -6,8 +6,8 @@ export class Promotion extends Document {
     @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' })
     subscriptionId: Types.ObjectId;
 
-    @Prop({ required: true, enum: ['product', 'shop'] })
-    targetType: 'product' | 'shop';
+    @Prop({ required: true, enum: ['Product', 'Shop', 'Service'] })
+    targetType: 'Product' | 'Shop' | 'Service';
 
     @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, refPath: 'targetType' })
     targetId: Types.ObjectId;
@@ -23,6 +23,9 @@ export class Promotion extends Document {
 
     @Prop({ default: false })
     isAutoRenew?: boolean;
+
+    @Prop({ default: false })
+    isInFeed?: boolean;
 }
 
 export const PromotionSchema = SchemaFactory.createForClass(Promotion);

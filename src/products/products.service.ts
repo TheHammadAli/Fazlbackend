@@ -17,6 +17,7 @@ import { ListingUtilsService } from 'src/shared/listing-util-service';
 import { UsersService } from 'src/users/users.service';
 import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-search-for.dto';
 import { FileUploadService } from 'src/common/file-upload/file-upload.service';
+import { PromotionService } from 'src/promotion/promotion.service';
 
 @Injectable()
 export class ProductsService {
@@ -27,13 +28,15 @@ export class ProductsService {
     private readonly listingUtils: ListingUtilsService,
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
+    private promotionService: PromotionService
+
   ) { }
 
   async create(
     entityId: string,
     type: 'shop' | 'personal',
     dto: CreateProductDto,
-    files: { images?: Express.Multer.File[] }
+    files: { images?: Express.Multer.File[], video?: Express.Multer.File[] }
   ): Promise<Product> {
     try {
       let location: { type: 'Point'; coordinates: [number, number] };
@@ -89,10 +92,16 @@ export class ProductsService {
       });
       let imageUrls: string[] = [];
       if (files?.images?.length) {
-        const uploadedFiles = await this.fileUploadService.uploadProductFiles(files.images, type, entityId, (createdProduct._id as Types.ObjectId).toString());
+        const uploadedFiles = await this.fileUploadService.uploadProductFiles(files.images, type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'images');
         imageUrls = uploadedFiles.map(file => file.url);
+        createdProduct.imageUrls = imageUrls;
       }
-      createdProduct.imageUrls = imageUrls;
+
+      if (files?.video?.length) {
+        const uploadedVideo = await this.fileUploadService.uploadProductFiles(files.video, type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'video');
+        createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
+      }
+
       return await createdProduct.save();
     } catch (err) {
       throw new InternalServerErrorException(err);
@@ -203,17 +212,16 @@ export class ProductsService {
   }
 
 
-  async searchProducts(query: SearchAllProductsServiceDto): Promise<PaginatedResponseDto<Product>> {
-    const filter: FilterQuery<ProductDocument> = {};
+  async searchProducts(query: SearchAllProductsServiceDto) {
+    const productSearchFilter: FilterQuery<ProductDocument> = {};
 
-    // Search by name/title (case-insensitive)
+    // Apply full search filter for regular items
     if (query.name) {
-      filter.title = { $regex: query.name, $options: 'i' };
+      productSearchFilter.title = { $regex: query.name, $options: 'i' };
     }
 
-    // Search by category
     if (query.category) {
-      filter.category = new Types.ObjectId(query.category);
+      productSearchFilter.category = new Types.ObjectId(query.category);
     }
 
     // Pagination
@@ -222,13 +230,38 @@ export class ProductsService {
     const skip = (page - 1) * limit;
 
     // Query the database
-    const [results, total] = await Promise.all([
-      this.productModel.find(filter).skip(skip).limit(limit).exec(),
-      this.productModel.countDocuments(filter),
+    const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
+    console.log('Active Promotion Product IDs:', allPromotedIds);
+    // Apply relaxed filter (e.g., only by category) for promotions
+    const promotionFilter: FilterQuery<ProductDocument> = {};
+    if (query.category) {
+      promotionFilter.category = new Types.ObjectId(query.category);
+    }
+
+    // Fetch promoted products (that match category if provided)
+    const promotedProducts = await this.productModel.find({
+      _id: { $in: allPromotedIds },
+      ...promotionFilter,
+    }).exec();
+
+    const promotedProductIds = promotedProducts.map((p: ProductDocument) => (p._id as Types.ObjectId).toString());
+
+    // Regular products filter, excluding promoted ones
+    const filteredProductSearchFilter: FilterQuery<ProductDocument> = {
+      ...productSearchFilter,
+      _id: { $nin: promotedProductIds },
+    };
+
+    const [regularProducts, total] = await Promise.all([
+      this.productModel.find(filteredProductSearchFilter).skip(skip).limit(limit).exec(),
+      this.productModel.countDocuments(filteredProductSearchFilter),
     ]);
 
     return {
-      data: results,
+      data: {
+        promotions: promotedProducts,
+        items: regularProducts,
+      },
       meta: {
         total,
         page,

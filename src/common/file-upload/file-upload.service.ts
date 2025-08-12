@@ -38,6 +38,7 @@ export class FileUploadService {
     type: string,
     entityId: string,
     productId: string,
+    fileType: 'images' | 'video' = 'images',
   ): Promise<{ key: string; url: string }[]> {
     const uploadedFiles: { key: string; url: string }[] = [];
 
@@ -45,7 +46,7 @@ export class FileUploadService {
     for (const file of files) {
       const fileExt = extname(file.originalname);
       const uniqueName = `${uuidv4()}${fileExt}`;
-      const key = `${type}/${entityId}/products/${productId}/${uniqueName}`;
+      const key = `${type}/${entityId}/products/${productId}/${fileType}/${uniqueName}`;
 
       try {
         const command = new PutObjectCommand({

@@ -66,11 +66,13 @@ export class ProductsController {
     @Param('type') type: 'shop' | 'personal',
 
     @Body() createProductDto: CreateProductDto,
-    @UploadedFiles() files: { images?: Express.Multer.File[] },
+    @UploadedFiles() files: {
+      images?: Express.Multer.File[],
+      video?: Express.Multer.File[]
+    },
   ): Promise<Product> {
     console.log
-    let imageUrls: string[] = [];
-    console.log("Files received:", files);
+
    
     createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || '{}');
 
