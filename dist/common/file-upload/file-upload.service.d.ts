@@ -4,7 +4,7 @@ export declare class FileUploadService {
     private s3;
     private bucketName;
     constructor(configService: ConfigService);
-    uploadProductFiles(files: Express.Multer.File[], type: string, entityId: string, productId: string): Promise<{
+    uploadProductFiles(files: Express.Multer.File[], type: string, entityId: string, productId: string, fileType?: 'images' | 'video'): Promise<{
         key: string;
         url: string;
     }[]>;

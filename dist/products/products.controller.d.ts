@@ -11,6 +11,7 @@ export declare class ProductsController {
     constructor(productsService: ProductsService, fileUploadService: FileUploadService);
     createProduct(entityId: string, type: 'shop' | 'personal', createProductDto: CreateProductDto, files: {
         images?: Express.Multer.File[];
+        video?: Express.Multer.File[];
     }): Promise<Product>;
     getAllByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;

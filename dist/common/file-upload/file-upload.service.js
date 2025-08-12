@@ -38,13 +38,13 @@ let FileUploadService = class FileUploadService {
             },
         });
     }
-    async uploadProductFiles(files, type, entityId, productId) {
+    async uploadProductFiles(files, type, entityId, productId, fileType = 'images') {
         const uploadedFiles = [];
         console.log('Uploading files:', files);
         for (const file of files) {
             const fileExt = (0, path_1.extname)(file.originalname);
             const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
-            const key = `${type}/${entityId}/products/${productId}/${uniqueName}`;
+            const key = `${type}/${entityId}/products/${productId}/${fileType}/${uniqueName}`;
             try {
                 const command = new client_s3_1.PutObjectCommand({
                     Bucket: this.bucketName,

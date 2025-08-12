@@ -31,8 +31,6 @@ let ProductsController = class ProductsController {
     }
     async createProduct(entityId, type, createProductDto, files) {
         console.log;
-        let imageUrls = [];
-        console.log("Files received:", files);
         createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || '{}');
         console.log('Creating product with entityId:', entityId, 'and type:', type);
         console.log('Product DTO:', createProductDto);

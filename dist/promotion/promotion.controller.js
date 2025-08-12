@@ -39,6 +39,9 @@ let PromotionController = class PromotionController {
     async delete(id) {
         return this.promotionService.delete(id);
     }
+    async getFeedPromotions() {
+        return this.promotionService.getFeedPromotions();
+    }
 };
 exports.PromotionController = PromotionController;
 __decorate([
@@ -90,6 +93,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], PromotionController.prototype, "delete", null);
+__decorate([
+    (0, common_1.Get)('feed'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get feed promotions', description: 'Fetches all promotions where isInFeed is true.' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Feed promotions found.', type: [promotion_schema_1.Promotion] }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], PromotionController.prototype, "getFeedPromotions", null);
 exports.PromotionController = PromotionController = __decorate([
     (0, swagger_1.ApiTags)('Promotions'),
     (0, common_1.Controller)('promotions'),

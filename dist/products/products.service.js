@@ -21,18 +21,21 @@ const shop_service_1 = require("../shop/shop.service");
 const listing_util_service_1 = require("../shared/listing-util-service");
 const users_service_1 = require("../users/users.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
+const promotion_service_1 = require("../promotion/promotion.service");
 let ProductsService = class ProductsService {
     productModel;
     shopService;
     listingUtils;
     userService;
     fileUploadService;
-    constructor(productModel, shopService, listingUtils, userService, fileUploadService) {
+    promotionService;
+    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService) {
         this.productModel = productModel;
         this.shopService = shopService;
         this.listingUtils = listingUtils;
         this.userService = userService;
         this.fileUploadService = fileUploadService;
+        this.promotionService = promotionService;
     }
     async create(entityId, type, dto, files) {
         try {
@@ -82,10 +85,14 @@ let ProductsService = class ProductsService {
             });
             let imageUrls = [];
             if (files?.images?.length) {
-                const uploadedFiles = await this.fileUploadService.uploadProductFiles(files.images, type, entityId, createdProduct._id.toString());
+                const uploadedFiles = await this.fileUploadService.uploadProductFiles(files.images, type, entityId, createdProduct._id.toString(), 'images');
                 imageUrls = uploadedFiles.map(file => file.url);
+                createdProduct.imageUrls = imageUrls;
             }
-            createdProduct.imageUrls = imageUrls;
+            if (files?.video?.length) {
+                const uploadedVideo = await this.fileUploadService.uploadProductFiles(files.video, type, entityId, createdProduct._id.toString(), 'video');
+                createdProduct.video = uploadedVideo[0].url;
+            }
             return await createdProduct.save();
         }
         catch (err) {
@@ -159,22 +166,40 @@ let ProductsService = class ProductsService {
         await this.productModel.updateMany({ shopId }, { $set: { location } });
     }
     async searchProducts(query) {
-        const filter = {};
+        const productSearchFilter = {};
         if (query.name) {
-            filter.title = { $regex: query.name, $options: 'i' };
+            productSearchFilter.title = { $regex: query.name, $options: 'i' };
         }
         if (query.category) {
-            filter.category = new mongoose_2.Types.ObjectId(query.category);
+            productSearchFilter.category = new mongoose_2.Types.ObjectId(query.category);
         }
         const page = query.page && query.page > 0 ? query.page : 1;
         const limit = query.limit && query.limit > 0 ? query.limit : 10;
         const skip = (page - 1) * limit;
-        const [results, total] = await Promise.all([
-            this.productModel.find(filter).skip(skip).limit(limit).exec(),
-            this.productModel.countDocuments(filter),
+        const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
+        console.log('Active Promotion Product IDs:', allPromotedIds);
+        const promotionFilter = {};
+        if (query.category) {
+            promotionFilter.category = new mongoose_2.Types.ObjectId(query.category);
+        }
+        const promotedProducts = await this.productModel.find({
+            _id: { $in: allPromotedIds },
+            ...promotionFilter,
+        }).exec();
+        const promotedProductIds = promotedProducts.map((p) => p._id.toString());
+        const filteredProductSearchFilter = {
+            ...productSearchFilter,
+            _id: { $nin: promotedProductIds },
+        };
+        const [regularProducts, total] = await Promise.all([
+            this.productModel.find(filteredProductSearchFilter).skip(skip).limit(limit).exec(),
+            this.productModel.countDocuments(filteredProductSearchFilter),
         ]);
         return {
-            data: results,
+            data: {
+                promotions: promotedProducts,
+                items: regularProducts,
+            },
             meta: {
                 total,
                 page,
@@ -192,6 +217,7 @@ exports.ProductsService = ProductsService = __decorate([
         shop_service_1.ShopService,
         listing_util_service_1.ListingUtilsService,
         users_service_1.UsersService,
-        file_upload_service_1.FileUploadService])
+        file_upload_service_1.FileUploadService,
+        promotion_service_1.PromotionService])
 ], ProductsService);
 //# sourceMappingURL=products.service.js.map

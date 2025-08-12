@@ -20,6 +20,7 @@ let Promotion = class Promotion extends mongoose_2.Document {
     endDate;
     status;
     isAutoRenew;
+    isInFeed;
 };
 exports.Promotion = Promotion;
 __decorate([
@@ -27,7 +28,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Promotion.prototype, "subscriptionId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['product', 'shop'] }),
+    (0, mongoose_1.Prop)({ required: true, enum: ['Product', 'Shop', 'Service'] }),
     __metadata("design:type", String)
 ], Promotion.prototype, "targetType", void 0);
 __decorate([
@@ -50,6 +51,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
 ], Promotion.prototype, "isAutoRenew", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], Promotion.prototype, "isInFeed", void 0);
 exports.Promotion = Promotion = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Promotion);

@@ -9,15 +9,18 @@ import { ListingUtilsService } from 'src/shared/listing-util-service';
 import { UsersService } from 'src/users/users.service';
 import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-search-for.dto';
 import { FileUploadService } from 'src/common/file-upload/file-upload.service';
+import { PromotionService } from 'src/promotion/promotion.service';
 export declare class ProductsService {
     private readonly productModel;
     private readonly shopService;
     private readonly listingUtils;
     private readonly userService;
     private readonly fileUploadService;
-    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService);
+    private promotionService;
+    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService);
     create(entityId: string, type: 'shop' | 'personal', dto: CreateProductDto, files: {
         images?: Express.Multer.File[];
+        video?: Express.Multer.File[];
     }): Promise<Product>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
@@ -29,5 +32,24 @@ export declare class ProductsService {
         type: 'Point';
         coordinates: [number, number];
     }): Promise<void>;
-    searchProducts(query: SearchAllProductsServiceDto): Promise<PaginatedResponseDto<Product>>;
+    searchProducts(query: SearchAllProductsServiceDto): Promise<{
+        data: {
+            promotions: (import("mongoose").Document<unknown, {}, ProductDocument, {}> & Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+            items: (import("mongoose").Document<unknown, {}, ProductDocument, {}> & Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+        };
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }>;
 }

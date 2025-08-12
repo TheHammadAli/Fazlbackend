@@ -10,4 +10,5 @@ export declare class PromotionController {
     findById(id: string): Promise<Promotion>;
     update(id: string, dto: UpdatePromotionDto): Promise<Promotion>;
     delete(id: string): Promise<void>;
+    getFeedPromotions(): Promise<Promotion[]>;
 }

@@ -54,6 +54,21 @@ let PromotionService = class PromotionService {
         if (!result)
             throw new common_1.NotFoundException('Promotion not found');
     }
+    async getFeedPromotions() {
+        return this.promotionModel.find({ isInFeed: true }).sort({ createdAt: -1 }).exec();
+    }
+    async getActivePromotionProductIds() {
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        const promotions = await this.promotionModel.find({
+            startDate: { $lte: endOfDay },
+            endDate: { $gte: startOfDay },
+        }).lean();
+        return promotions.map(p => p.targetId.toString());
+    }
 };
 exports.PromotionService = PromotionService;
 exports.PromotionService = PromotionService = __decorate([

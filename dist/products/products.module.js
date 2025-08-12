@@ -15,6 +15,7 @@ const product_schema_1 = require("./schema/product.schema");
 const shop_module_1 = require("../shop/shop.module");
 const shared_module_1 = require("../shared/shared.module");
 const users_module_1 = require("../users/users.module");
+const promotion_module_1 = require("../promotion/promotion.module");
 let ProductsModule = class ProductsModule {
 };
 exports.ProductsModule = ProductsModule;
@@ -25,6 +26,7 @@ exports.ProductsModule = ProductsModule = __decorate([
             (0, common_1.forwardRef)(() => shop_module_1.ShopModule),
             (0, common_1.forwardRef)(() => shared_module_1.SharedModule),
             (0, common_1.forwardRef)(() => users_module_1.UsersModule),
+            (0, common_1.forwardRef)(() => promotion_module_1.PromotionModule),
         ],
         controllers: [products_controller_1.ProductsController],
         providers: [products_service_1.ProductsService],
