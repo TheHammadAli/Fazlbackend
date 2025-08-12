@@ -1,0 +1,84 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AppModule = void 0;
+const common_1 = require("@nestjs/common");
+const app_controller_1 = require("./app.controller");
+const app_service_1 = require("./app.service");
+const auth_module_1 = require("./auth/auth.module");
+const users_module_1 = require("./users/users.module");
+const products_module_1 = require("./products/products.module");
+const search_module_1 = require("./search/search.module");
+const config_1 = require("@nestjs/config");
+const mongoose_1 = require("@nestjs/mongoose");
+const shop_module_1 = require("./shop/shop.module");
+const category_module_1 = require("./category/category.module");
+const services_module_1 = require("./services/services.module");
+const chat_module_1 = require("./chat/chat.module");
+const payment_module_1 = require("./payment/payment.module");
+const reviews_module_1 = require("./reviews/reviews.module");
+const throttler_1 = require("@nestjs/throttler");
+const nestjs_i18n_1 = require("nestjs-i18n");
+const orders_module_1 = require("./orders/orders.module");
+const subscription_module_1 = require("./subscription/subscription.module");
+const promotion_module_1 = require("./promotion/promotion.module");
+const path = require("path");
+const isProduction = process.env.NODE_ENV === 'production';
+console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction);
+let AppModule = class AppModule {
+};
+exports.AppModule = AppModule;
+exports.AppModule = AppModule = __decorate([
+    (0, common_1.Module)({
+        imports: [
+            config_1.ConfigModule.forRoot(),
+            throttler_1.ThrottlerModule.forRoot({
+                throttlers: [
+                    {
+                        ttl: 60,
+                        limit: 100,
+                    },
+                ],
+            }),
+            nestjs_i18n_1.I18nModule.forRoot({
+                fallbackLanguage: 'en',
+                loaderOptions: {
+                    path: path.join(process.cwd(), 'src/i18n/'),
+                    watch: !isProduction,
+                },
+                resolvers: [
+                    { use: nestjs_i18n_1.QueryResolver, options: ['lang', 'locale', 'l'] },
+                    nestjs_i18n_1.AcceptLanguageResolver,
+                ],
+            }),
+            mongoose_1.MongooseModule.forRootAsync({
+                imports: [config_1.ConfigModule],
+                useFactory: async (configService) => ({
+                    uri: configService.get('MONGODB_URI'),
+                }),
+                inject: [config_1.ConfigService],
+            }),
+            auth_module_1.AuthModule,
+            users_module_1.UsersModule,
+            products_module_1.ProductsModule,
+            services_module_1.ServicesModule,
+            search_module_1.SearchModule,
+            shop_module_1.ShopModule,
+            category_module_1.CategoryModule,
+            chat_module_1.ChatModule,
+            payment_module_1.PaymentModule,
+            reviews_module_1.ReviewsModule,
+            orders_module_1.OrdersModule,
+            subscription_module_1.SubscriptionModule,
+            promotion_module_1.PromotionModule,
+        ],
+        controllers: [app_controller_1.AppController],
+        providers: [app_service_1.AppService],
+    })
+], AppModule);
+//# sourceMappingURL=app.module.js.map
