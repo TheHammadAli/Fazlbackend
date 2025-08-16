@@ -7,6 +7,9 @@ export declare class UsersService {
     private userModel;
     constructor(userModel: Model<UserDocument>);
     createUser(createUserDto: CreateUpdateUserDto): Promise<User>;
+    hashPassword(password: string): Promise<string>;
+    findUserByEmail(email: string): Promise<UserDocument | null>;
+    findByResetToken(resetPasswordToken: string): Promise<UserDocument | null>;
     validateUserForLogin(email: string, password: string): Promise<UserDocument | false>;
     updateUser(userId: string, updateData: Partial<User>): Promise<User>;
     findByIdWithToken(userId: string): Promise<UserDocument>;

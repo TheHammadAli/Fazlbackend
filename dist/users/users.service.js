@@ -32,7 +32,7 @@ let UsersService = class UsersService {
             if (existingUser) {
                 throw new common_1.ConflictException('Email is already registered');
             }
-            const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+            const hashedPassword = await this.hashPassword(createUserDto.password);
             const newUser = new this.userModel({
                 ...createUserDto,
                 password: hashedPassword,
@@ -43,6 +43,23 @@ let UsersService = class UsersService {
         catch (err) {
             throw new app_error_1.AppError(err);
         }
+    }
+    async hashPassword(password) {
+        const salt = await bcrypt.genSalt();
+        return await bcrypt.hash(password, salt);
+    }
+    async findUserByEmail(email) {
+        return await this.userModel.findOne({ email }).exec();
+    }
+    async findByResetToken(resetPasswordToken) {
+        const results = await this.userModel
+            .findOne({ resetPasswordToken })
+            .select('+resetPasswordExpires')
+            .exec();
+        if (!results) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        return results;
     }
     async validateUserForLogin(email, password) {
         const user = await this.userModel.findOne({ email }).select('+password');

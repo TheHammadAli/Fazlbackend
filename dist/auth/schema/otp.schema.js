@@ -13,14 +13,21 @@ exports.OtpSchema = exports.Otp = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 let Otp = class Otp {
     phoneNumber;
+    email;
     code;
     createdAt;
+    type;
+    expiresAt;
 };
 exports.Otp = Otp;
 __decorate([
-    (0, mongoose_1.Prop)({ required: true }),
+    (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], Otp.prototype, "phoneNumber", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Otp.prototype, "email", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
@@ -29,6 +36,14 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", Date)
 ], Otp.prototype, "createdAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 'phone' }),
+    __metadata("design:type", String)
+], Otp.prototype, "type", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Date)
+], Otp.prototype, "expiresAt", void 0);
 exports.Otp = Otp = __decorate([
     (0, mongoose_1.Schema)()
 ], Otp);

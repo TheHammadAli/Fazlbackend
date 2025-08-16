@@ -1,8 +1,11 @@
 import { Document } from 'mongoose';
 export declare class Otp {
-    phoneNumber: string;
+    phoneNumber?: string;
+    email?: string;
     code: string;
     createdAt: Date;
+    type: string;
+    expiresAt?: Date;
 }
 export type OtpDocument = Otp & Document;
 export declare const OtpSchema: import("mongoose").Schema<Otp, import("mongoose").Model<Otp, any, any, any, Document<unknown, any, Otp, any> & Otp & {

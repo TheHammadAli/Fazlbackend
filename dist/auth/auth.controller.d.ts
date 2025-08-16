@@ -31,4 +31,28 @@ export declare class AuthController {
     }): Promise<{
         valid: boolean;
     }>;
+    sendEmailVerification(email: string, lang: string): Promise<{
+        data: string;
+        message: string;
+    }>;
+    verifyEmail(token: string): Promise<{
+        email: string | undefined;
+        message: string;
+    }>;
+    sendForgotPassword(email: string, lang: string): Promise<{
+        message: string;
+        data?: undefined;
+    } | {
+        message: string;
+        data: string;
+    }>;
+    verifyResetToken(token: string): Promise<{
+        valid: boolean;
+    }>;
+    resetPassword(body: {
+        token: string;
+        newPassword: string;
+    }): Promise<{
+        message: string;
+    }>;
 }

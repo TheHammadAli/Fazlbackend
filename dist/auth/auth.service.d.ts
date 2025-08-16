@@ -34,5 +34,23 @@ export declare class AuthService {
         message: string;
     }>;
     sendOtp(phoneNumber: string): Promise<void>;
+    sendEmailVerificationLink(email: string, lang?: string): Promise<{
+        data: string;
+    }>;
+    verifyEmailToken(token: string): Promise<{
+        email: string | undefined;
+        message: string;
+    }>;
     verifyOtp(phoneNumber: string, code: string): Promise<boolean>;
+    sendForgotPasswordEmail(email: string, lang?: string): Promise<{
+        message: string;
+        data?: undefined;
+    } | {
+        message: string;
+        data: string;
+    }>;
+    verifyResetPasswordToken(token: string): Promise<import("../users/schema/users.schema").UserDocument>;
+    resetPassword(token: string, newPassword: string): Promise<{
+        message: string;
+    }>;
 }

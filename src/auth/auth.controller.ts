@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards,Headers  } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Headers, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { JwtAuthGuard } from './guard/jwt-auth-guard';
@@ -21,7 +21,7 @@ import { I18n, I18nContext } from 'nestjs-i18n';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard)
@@ -34,17 +34,17 @@ export class AuthController {
 
   @Post('login')
   @ApiHeader({
-  name: 'accept-language',
-  description: 'Language code (e.g. en, ur)',
-  required: false,
-})
+    name: 'accept-language',
+    description: 'Language code (e.g. en, ur)',
+    required: false,
+  })
   @ApiOperation({ summary: 'Login and get access + refresh tokens' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 201, description: 'User successfully logged in' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  loginUser(@Body() loginDto: LoginDto,  @Headers('accept-language') lang: string,) {
-     const language = lang?.split(',')[0] || 'en';
-    return this.authService.loginUser(loginDto,language);
+  loginUser(@Body() loginDto: LoginDto, @Headers('accept-language') lang: string,) {
+    const language = lang?.split(',')[0] || 'en';
+    return this.authService.loginUser(loginDto, language);
   }
 
   @Post('refreshToken')
@@ -58,8 +58,8 @@ export class AuthController {
 
   // === New endpoint to send OTP ===
   @Post('send-otp')
-   @Throttle({ default: { limit: 4, ttl: 60000 } })  
-   @ApiOperation({ summary: 'Send OTP to phone number' })
+  @Throttle({ default: { limit: 4, ttl: 60000 } })
+  @ApiOperation({ summary: 'Send OTP to phone number' })
   @ApiBody({ schema: { properties: { phoneNumber: { type: 'string' } }, required: ['phoneNumber'] } })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
   async sendOtp(@Body('phoneNumber') phoneNumber: string) {
@@ -75,6 +75,57 @@ export class AuthController {
   async verifyOtp(@Body() body: { phoneNumber: string; code: string }) {
     const valid = await this.authService.verifyOtp(body.phoneNumber, body.code);
     return { valid };
+  }
+
+  @Post('send-email-verification')
+  @ApiOperation({ summary: 'Send email verification link' })
+  @ApiBody({ schema: { properties: { email: { type: 'string' } }, required: ['email'] } })
+  @ApiResponse({ status: 200, description: 'Verification link sent' })
+  async sendEmailVerification(@Body('email') email: string, @Headers('accept-language') lang: string) {
+    const language = lang?.split(',')[0] || 'en';
+    const result = await this.authService.sendEmailVerificationLink(email, language);
+    return { message: 'Verification link sent', ...result };
+  }
+
+  // === Verify Email Token ===
+  @Get('verify-email')
+  @ApiOperation({ summary: 'Verify email using token from link' })
+  @ApiQuery({ name: 'token', type: 'string', required: true })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  async verifyEmail(@Query('token') token: string) {
+    const result = await this.authService.verifyEmailToken(token);
+    return result;
+  }
+
+  // === Send Forgot Password Email ===
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Send forgot password link to email' })
+  @ApiBody({ schema: { properties: { email: { type: 'string' } }, required: ['email'] } })
+  @ApiResponse({ status: 200, description: 'Reset password link sent' })
+  async sendForgotPassword(@Body('email') email: string, @Headers('accept-language') lang: string) {
+    const language = lang?.split(',')[0] || 'en';
+    const result = await this.authService.sendForgotPasswordEmail(email, language);
+    return result;
+  }
+
+  // === Verify Reset Password Token ===
+  @Get('verify-reset-token')
+  @ApiOperation({ summary: 'Verify reset password token' })
+  @ApiQuery({ name: 'token', type: 'string', required: true })
+  @ApiResponse({ status: 200, description: 'Token is valid' })
+  async verifyResetToken(@Body('token') token: string) {
+    const user = await this.authService.verifyResetPasswordToken(token);
+    return { valid: !!user };
+  }
+
+  // === Reset Password ===
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password using token' })
+  @ApiBody({ schema: { properties: { token: { type: 'string' }, newPassword: { type: 'string' } }, required: ['token', 'newPassword'] } })
+  @ApiResponse({ status: 200, description: 'Password reset successful' })
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    const result = await this.authService.resetPassword(body.token, body.newPassword);
+    return result;
   }
 
 

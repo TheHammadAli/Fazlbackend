@@ -44,6 +44,28 @@ let AuthController = class AuthController {
         const valid = await this.authService.verifyOtp(body.phoneNumber, body.code);
         return { valid };
     }
+    async sendEmailVerification(email, lang) {
+        const language = lang?.split(',')[0] || 'en';
+        const result = await this.authService.sendEmailVerificationLink(email, language);
+        return { message: 'Verification link sent', ...result };
+    }
+    async verifyEmail(token) {
+        const result = await this.authService.verifyEmailToken(token);
+        return result;
+    }
+    async sendForgotPassword(email, lang) {
+        const language = lang?.split(',')[0] || 'en';
+        const result = await this.authService.sendForgotPasswordEmail(email, language);
+        return result;
+    }
+    async verifyResetToken(token) {
+        const user = await this.authService.verifyResetPasswordToken(token);
+        return { valid: !!user };
+    }
+    async resetPassword(body) {
+        const result = await this.authService.resetPassword(body.token, body.newPassword);
+        return result;
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -106,6 +128,58 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyOtp", null);
+__decorate([
+    (0, common_1.Post)('send-email-verification'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send email verification link' }),
+    (0, swagger_1.ApiBody)({ schema: { properties: { email: { type: 'string' } }, required: ['email'] } }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Verification link sent' }),
+    __param(0, (0, common_1.Body)('email')),
+    __param(1, (0, common_1.Headers)('accept-language')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "sendEmailVerification", null);
+__decorate([
+    (0, common_1.Get)('verify-email'),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify email using token from link' }),
+    (0, swagger_1.ApiQuery)({ name: 'token', type: 'string', required: true }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Email verified successfully' }),
+    __param(0, (0, common_1.Query)('token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send forgot password link to email' }),
+    (0, swagger_1.ApiBody)({ schema: { properties: { email: { type: 'string' } }, required: ['email'] } }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Reset password link sent' }),
+    __param(0, (0, common_1.Body)('email')),
+    __param(1, (0, common_1.Headers)('accept-language')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "sendForgotPassword", null);
+__decorate([
+    (0, common_1.Get)('verify-reset-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify reset password token' }),
+    (0, swagger_1.ApiQuery)({ name: 'token', type: 'string', required: true }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Token is valid' }),
+    __param(0, (0, common_1.Body)('token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyResetToken", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    (0, swagger_1.ApiOperation)({ summary: 'Reset password using token' }),
+    (0, swagger_1.ApiBody)({ schema: { properties: { token: { type: 'string' }, newPassword: { type: 'string' } }, required: ['token', 'newPassword'] } }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Password reset successful' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resetPassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

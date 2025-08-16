@@ -10,6 +10,8 @@ export declare class User {
     isVerified: Boolean;
     location: Location;
     refreshToken?: string | null;
+    resetPasswordToken?: string | null;
+    resetPasswordExpires?: Date | null;
 }
 export declare const UserSchema: import("mongoose").Schema<User, import("mongoose").Model<User, any, any, any, Document<unknown, any, User, any> & User & {
     _id: import("mongoose").Types.ObjectId;

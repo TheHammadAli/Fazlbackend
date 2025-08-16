@@ -21,6 +21,8 @@ let User = class User {
     isVerified;
     location;
     refreshToken;
+    resetPasswordToken;
+    resetPasswordExpires;
 };
 exports.User = User;
 __decorate([
@@ -65,6 +67,14 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, select: false }),
     __metadata("design:type", Object)
 ], User.prototype, "refreshToken", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, select: false }),
+    __metadata("design:type", Object)
+], User.prototype, "resetPasswordToken", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, select: false }),
+    __metadata("design:type", Object)
+], User.prototype, "resetPasswordExpires", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

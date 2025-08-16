@@ -9,33 +9,34 @@ import { Model } from 'mongoose';
 import { Otp, OtpDocument } from './schema/otp.schema';
 import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
+import * as crypto from 'crypto';
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
 
 
- constructor(
-  @InjectModel(Otp.name) private otpModel: Model<OtpDocument>,
-  private readonly userService: UsersService,
-  private readonly jwtService: JwtService,
-  private readonly configService: ConfigService, // ✅ Add this
-  private readonly i18n: I18nService
-) {
-  // this.twilioClient = new Twilio(
-  //   this.configService.get('TWILIO_ACCOUNT_SID'),
-  //   this.configService.get('TWILIO_AUTH_TOKEN')
-  // );
-}
+  constructor(
+    @InjectModel(Otp.name) private otpModel: Model<OtpDocument>,
+    private readonly userService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService, // ✅ Add this
+    private readonly i18n: I18nService
+  ) {
+    // this.twilioClient = new Twilio(
+    //   this.configService.get('TWILIO_ACCOUNT_SID'),
+    //   this.configService.get('TWILIO_AUTH_TOKEN')
+    // );
+  }
 
-  async loginUser(loginDto: LoginDto,lang: string = 'en') {
+  async loginUser(loginDto: LoginDto, lang: string = 'en') {
     console.log("Check for language", lang);
     const user = await this.userService.validateUserForLogin(
       loginDto.email,
       loginDto.password,
     );
     if (!user) {
-       return {
-        message:  this.i18n.translate('auth.auth.invalid_credentials', { lang }),
+      return {
+        message: this.i18n.translate('auth.auth.invalid_credentials', { lang }),
       };
     }
     console.log(user.location);
@@ -128,37 +129,135 @@ export class AuthService {
     // });
 
     // Upsert OTP in DB
-    await this.otpModel.findOneAndUpdate(
+    return await this.otpModel.findOneAndUpdate(
       { phoneNumber },
       {
         phoneNumber,
         code: otpCode,
         createdAt: new Date(),
+        type: 'phone',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 mins expiration
       },
       { upsert: true, new: true }
     );
   }
 
-async verifyOtp(phoneNumber: string, code: string): Promise<boolean> {
-  const record = await this.otpModel.findOne({ phoneNumber });
+  async sendEmailVerificationLink(email: string, lang: string = 'en') {
+    // Generate a token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  if (!record) return false;
+    // Upsert OTP for email verification
+    await this.otpModel.findOneAndUpdate(
+      { email, type: 'email_verification' },
+      {
+        email,
+        code: token,
+        type: 'email_verification',
+        createdAt: new Date(),
+        expiresAt: expires,
+      },
+      { upsert: true, new: true }
+    );
 
-  // Check expiration (5 mins window)
-  const isExpired =
-    new Date().getTime() - new Date(record.createdAt).getTime() > 5 * 60 * 1000;
-  if (isExpired) {
-    await this.otpModel.deleteOne({ phoneNumber }); // Delete expired OTP
-    return false;
+    return {
+      data: token,
+    }
+  }
+  async verifyEmailToken(token: string) {
+    console.log('Verifying email token:', token);
+    // Find OTP record for email verification
+    const record = await this.otpModel.findOne({ code: token, type: 'email_verification' });
+    console.log('Record', record);
+    if (!record) {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+
+    // Check expiration
+    const isExpired =
+      (record.expiresAt && record.expiresAt < new Date()) ||
+      (record.createdAt && (new Date().getTime() - new Date(record.createdAt).getTime() > 24 * 60 * 60 * 1000));
+    if (isExpired) {
+      await this.otpModel.deleteOne({ code: token, type: 'email_verification' });
+      throw new UnauthorizedException('Verification token has expired');
+    }
+
+    // Optionally, delete the token after verification
+    await this.otpModel.deleteOne({ code: token, type: 'email_verification' });
+
+    return { email: record.email, message: 'Email verified successfully' };
   }
 
-  const isValid = record.code === code;
+  async verifyOtp(phoneNumber: string, code: string): Promise<boolean> {
+    const record = await this.otpModel.findOne({ phoneNumber });
 
-  if (isValid) {
-    await this.otpModel.deleteOne({ phoneNumber }); // Delete OTP after successful verification
+    if (!record) return false;
+
+    // Check expiration (5 mins window)
+    const isExpired =
+      new Date().getTime() - new Date(record.createdAt).getTime() > 5 * 60 * 1000;
+    if (isExpired) {
+      await this.otpModel.deleteOne({ phoneNumber }); // Delete expired OTP
+      return false;
+    }
+
+    const isValid = record.code === code;
+
+    if (isValid) {
+      await this.otpModel.deleteOne({ phoneNumber }); // Delete OTP after successful verification
+    }
+
+    return isValid;
   }
 
-  return isValid;
-}
+  async sendForgotPasswordEmail(email: string, lang: string = 'en') {
+    const user = await this.userService.findUserByEmail(email);
+    if (!user) {
+      return { message: this.i18n.translate('auth.auth.email_not_found', { lang }) };
+    }
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Save token and expiry to user
+    await this.userService.updateUser(user.id, {
+      resetPasswordToken: token,
+      resetPasswordExpires: expires,
+    });
+
+    // Send email (adjust URL as needed)
+
+    // await this.mailerService.sendMail({
+    //   to: user.email,
+    //   subject: 'Reset your password',
+    //   template: './reset-password', // e.g. src/templates/reset-password.hbs
+    //   context: { name: user.name, resetUrl },
+    // });
+
+    return { message: this.i18n.translate('auth.auth.reset_link_sent', { lang }), data: token };
+  }
+
+
+  async verifyResetPasswordToken(token: string) {
+    const user = await this.userService.findByResetToken(token);
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
+      throw new UnauthorizedException('Reset token has expired');
+    }
+    return user;
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.verifyResetPasswordToken(token);
+    await this.userService.updateUser(user.id, {
+      password: newPassword,
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+    });
+    return { message: 'Password reset successful' };
+  }
 
 }

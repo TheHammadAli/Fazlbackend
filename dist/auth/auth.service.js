@@ -21,6 +21,7 @@ const mongoose_2 = require("mongoose");
 const otp_schema_1 = require("./schema/otp.schema");
 const config_1 = require("@nestjs/config");
 const nestjs_i18n_1 = require("nestjs-i18n");
+const crypto = require("crypto");
 let AuthService = class AuthService {
     otpModel;
     userService;
@@ -111,11 +112,43 @@ let AuthService = class AuthService {
     }
     async sendOtp(phoneNumber) {
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        await this.otpModel.findOneAndUpdate({ phoneNumber }, {
+        return await this.otpModel.findOneAndUpdate({ phoneNumber }, {
             phoneNumber,
             code: otpCode,
             createdAt: new Date(),
+            type: 'phone',
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000),
         }, { upsert: true, new: true });
+    }
+    async sendEmailVerificationLink(email, lang = 'en') {
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await this.otpModel.findOneAndUpdate({ email, type: 'email_verification' }, {
+            email,
+            code: token,
+            type: 'email_verification',
+            createdAt: new Date(),
+            expiresAt: expires,
+        }, { upsert: true, new: true });
+        return {
+            data: token,
+        };
+    }
+    async verifyEmailToken(token) {
+        console.log('Verifying email token:', token);
+        const record = await this.otpModel.findOne({ code: token, type: 'email_verification' });
+        console.log('Record', record);
+        if (!record) {
+            throw new common_1.UnauthorizedException('Invalid or expired verification token');
+        }
+        const isExpired = (record.expiresAt && record.expiresAt < new Date()) ||
+            (record.createdAt && (new Date().getTime() - new Date(record.createdAt).getTime() > 24 * 60 * 60 * 1000));
+        if (isExpired) {
+            await this.otpModel.deleteOne({ code: token, type: 'email_verification' });
+            throw new common_1.UnauthorizedException('Verification token has expired');
+        }
+        await this.otpModel.deleteOne({ code: token, type: 'email_verification' });
+        return { email: record.email, message: 'Email verified successfully' };
     }
     async verifyOtp(phoneNumber, code) {
         const record = await this.otpModel.findOne({ phoneNumber });
@@ -131,6 +164,38 @@ let AuthService = class AuthService {
             await this.otpModel.deleteOne({ phoneNumber });
         }
         return isValid;
+    }
+    async sendForgotPasswordEmail(email, lang = 'en') {
+        const user = await this.userService.findUserByEmail(email);
+        if (!user) {
+            return { message: this.i18n.translate('auth.auth.email_not_found', { lang }) };
+        }
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
+        await this.userService.updateUser(user.id, {
+            resetPasswordToken: token,
+            resetPasswordExpires: expires,
+        });
+        return { message: this.i18n.translate('auth.auth.reset_link_sent', { lang }), data: token };
+    }
+    async verifyResetPasswordToken(token) {
+        const user = await this.userService.findByResetToken(token);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid or expired reset token');
+        }
+        if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
+            throw new common_1.UnauthorizedException('Reset token has expired');
+        }
+        return user;
+    }
+    async resetPassword(token, newPassword) {
+        const user = await this.verifyResetPasswordToken(token);
+        await this.userService.updateUser(user.id, {
+            password: newPassword,
+            resetPasswordToken: null,
+            resetPasswordExpires: null,
+        });
+        return { message: 'Password reset successful' };
     }
 };
 exports.AuthService = AuthService;

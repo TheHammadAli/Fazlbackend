@@ -15,7 +15,7 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
   async createUser(createUserDto: CreateUpdateUserDto): Promise<User> {
     try {
       const existingUser = await this.userModel.findOne({
@@ -24,7 +24,7 @@ export class UsersService {
       if (existingUser) {
         throw new ConflictException('Email is already registered');
       }
-      const hashedPassword = await bcrypt.hash(createUserDto.password, 10); // bcryptjs
+      const hashedPassword = await this.hashPassword(createUserDto.password);
 
       const newUser = new this.userModel({
         ...createUserDto,
@@ -38,6 +38,30 @@ export class UsersService {
     }
   }
 
+  async hashPassword(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt();
+    return await bcrypt.hash(password, salt);
+
+  }
+
+
+  async findUserByEmail(email: string): Promise<UserDocument | null> {
+    return await this.userModel.findOne({ email }).exec();
+  }
+
+  async findByResetToken(
+    resetPasswordToken: string,
+  ): Promise<UserDocument | null> {
+    const results = await this.userModel
+      .findOne({ resetPasswordToken })
+      .select('+resetPasswordExpires')
+      .exec();
+    if (!results) {
+      throw new NotFoundException('User not found');
+    }
+    return results
+  }
+
   async validateUserForLogin(
     email: string,
     password: string,
@@ -46,10 +70,10 @@ export class UsersService {
     if (!user) {
       return false
     }
-   
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-   return false
+      return false
     }
 
     return user;
@@ -109,7 +133,7 @@ export class UsersService {
     ]);
 
     return {
-     
+
       data: users,
       meta: {
         total,
