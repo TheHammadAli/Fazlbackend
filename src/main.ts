@@ -7,22 +7,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: (origin: string, callback: (arg0: Error | null, arg1: boolean) => any) => {
-      if (!origin) return callback(null, true); // Postman, mobile apps
-
-      if (process.env.NODE_ENV === 'production') {
-        if (origin === 'https://my-frontend.com') return callback(null, true);
-        return callback(new Error('Not allowed by CORS'), false);
-      } else {
-        // DEV: allow any localhost / 127.* IP dynamically
-        if (/^https?:\/\/(localhost|127\.\d+\.\d+\.\d+):\d+$/.test(origin)) {
-          return callback(null, true);
-        }
-        // Optionally allow all other origins temporarily
-        return callback(null, true);
-      }
-    },
-    credentials: true,
+    origin: '*',       // allow all origins
+    credentials: false // no cookies / sessions
   });
 
 
