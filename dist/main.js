@@ -13,15 +13,15 @@ async function bootstrap() {
             if (!origin)
                 return callback(null, true);
             if (process.env.NODE_ENV === 'production') {
-                if (origin === 'https://my-frontend.com') {
-                    callback(null, true);
-                }
-                else {
-                    callback(new Error('Not allowed by CORS'));
-                }
+                if (origin === 'https://my-frontend.com')
+                    return callback(null, true);
+                return callback(new Error('Not allowed by CORS'), false);
             }
             else {
-                callback(null, true);
+                if (/^https?:\/\/(localhost|127\.\d+\.\d+\.\d+):\d+$/.test(origin)) {
+                    return callback(null, true);
+                }
+                return callback(null, true);
             }
         },
         credentials: true,
