@@ -7,7 +7,7 @@ export declare class SearchController {
     private readonly productsService;
     private readonly servicesService;
     constructor(searchService: SearchService, productsService: ProductsService, servicesService: ServicesService);
-    searchNearby(type: 'product' | 'service', category: string, radius: string, latitude: string, longitude: string, page?: string, limit?: string): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../products/schema/product.schema").ProductDocument> | import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../services/schema/services.schema").ServiceDocument>>;
+    searchNearby(type: 'product' | 'service', category: string, radius: string, latitude: string, longitude: string, page?: string, limit?: string): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../services/schema/services.schema").ServiceDocument> | import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../products/schema/product.schema").ProductDocument>>;
     searchAllProducts(query: SearchAllProductsServiceDto): Promise<{
         data: {
             promotions: (import("mongoose").Document<unknown, {}, import("../products/schema/product.schema").ProductDocument, {}> & import("../products/schema/product.schema").Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
