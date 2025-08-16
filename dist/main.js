@@ -9,22 +9,8 @@ const swagger_1 = require("@nestjs/swagger");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors({
-        origin: (origin, callback) => {
-            if (!origin)
-                return callback(null, true);
-            if (process.env.NODE_ENV === 'production') {
-                if (origin === 'https://my-frontend.com')
-                    return callback(null, true);
-                return callback(new Error('Not allowed by CORS'), false);
-            }
-            else {
-                if (/^https?:\/\/(localhost|127\.\d+\.\d+\.\d+):\d+$/.test(origin)) {
-                    return callback(null, true);
-                }
-                return callback(null, true);
-            }
-        },
-        credentials: true,
+        origin: '*',
+        credentials: false
     });
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
     app.useGlobalInterceptors(new success_response_interceptor_1.SuccessResponseInterceptor());
