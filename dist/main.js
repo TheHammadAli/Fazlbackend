@@ -8,6 +8,24 @@ const platform_socket_io_1 = require("@nestjs/platform-socket.io");
 const swagger_1 = require("@nestjs/swagger");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.enableCors({
+        origin: (origin, callback) => {
+            if (!origin)
+                return callback(null, true);
+            if (process.env.NODE_ENV === 'production') {
+                if (origin === 'https://my-frontend.com') {
+                    callback(null, true);
+                }
+                else {
+                    callback(new Error('Not allowed by CORS'));
+                }
+            }
+            else {
+                callback(null, true);
+            }
+        },
+        credentials: true,
+    });
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
     app.useGlobalInterceptors(new success_response_interceptor_1.SuccessResponseInterceptor());
     app.useWebSocketAdapter(new platform_socket_io_1.IoAdapter(app));

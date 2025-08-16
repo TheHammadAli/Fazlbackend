@@ -171,7 +171,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyResetToken", null);
 __decorate([
-    (0, common_1.Post)('reset-password'),
+    (0, common_1.Put)('reset-password'),
     (0, swagger_1.ApiOperation)({ summary: 'Reset password using token' }),
     (0, swagger_1.ApiBody)({ schema: { properties: { token: { type: 'string' }, newPassword: { type: 'string' } }, required: ['token', 'newPassword'] } }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Password reset successful' }),

@@ -208,7 +208,7 @@ export class AuthService {
     }
 
     return isValid;
-  }
+  } 
 
   async sendForgotPasswordEmail(email: string, lang: string = 'en') {
     const user = await this.userService.findUserByEmail(email);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards, Headers, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Headers, Query, Put } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { JwtAuthGuard } from './guard/jwt-auth-guard';
@@ -119,7 +119,7 @@ export class AuthController {
   }
 
   // === Reset Password ===
-  @Post('reset-password')
+  @Put('reset-password')
   @ApiOperation({ summary: 'Reset password using token' })
   @ApiBody({ schema: { properties: { token: { type: 'string' }, newPassword: { type: 'string' } }, required: ['token', 'newPassword'] } })
   @ApiResponse({ status: 200, description: 'Password reset successful' })
