@@ -197,6 +197,32 @@ let AuthService = class AuthService {
         });
         return { message: 'Password reset successful' };
     }
+    async findOrCreateUserByEmail(payload) {
+        let user = await this.userService.findUserByEmail(payload.email);
+        if (!user) {
+            await this.userService.createUser({
+                email: payload.email,
+                provider: 'google',
+                password: '',
+                name: '',
+                phone: '',
+                address: '',
+                roles: [],
+                language: 'en',
+                isVerified: false,
+                location: {
+                    type: 'Point',
+                    coordinates: [0, 0],
+                },
+            });
+        }
+        return user;
+    }
+    createJwtToken(payload) {
+        return this.jwtService.sign(payload, {
+            expiresIn: '10h',
+        });
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([

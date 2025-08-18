@@ -53,4 +53,9 @@ export declare class AuthService {
     resetPassword(token: string, newPassword: string): Promise<{
         message: string;
     }>;
+    findOrCreateUserByEmail(payload: {
+        sub: string;
+        email: string;
+    }): Promise<import("../users/schema/users.schema").UserDocument | null>;
+    createJwtToken(payload: any): string;
 }

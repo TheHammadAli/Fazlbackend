@@ -18,6 +18,7 @@ const search_service_1 = require("./search.service");
 const products_service_1 = require("../products/products.service");
 const services_service_1 = require("../services/services.service");
 const product_service_search_for_dto_1 = require("./dto/product-service-search-for.dto");
+const swagger_1 = require("@nestjs/swagger");
 let SearchController = class SearchController {
     searchService;
     productsService;
@@ -26,6 +27,9 @@ let SearchController = class SearchController {
         this.searchService = searchService;
         this.productsService = productsService;
         this.servicesService = servicesService;
+    }
+    async autocomplete(query) {
+        return this.searchService.autocompleteLocations(query);
     }
     async searchNearby(type, category, radius, latitude, longitude, page = '1', limit = '10') {
         if (!['product', 'service'].includes(type)) {
@@ -74,6 +78,20 @@ let SearchController = class SearchController {
     }
 };
 exports.SearchController = SearchController;
+__decorate([
+    (0, common_1.Get)('autocomplete-locations'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get location autocomplete suggestions from Google Places API' }),
+    (0, swagger_1.ApiQuery)({
+        name: 'q',
+        type: String,
+        required: true,
+        description: 'Search query (e.g. partial city or address)'
+    }),
+    __param(0, (0, common_1.Query)('q')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SearchController.prototype, "autocomplete", null);
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('type')),

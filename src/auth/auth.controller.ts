@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards, Headers, Query, Put } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Headers, Query, Put, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { JwtAuthGuard } from './guard/jwt-auth-guard';
@@ -17,6 +17,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { I18n, I18nContext } from 'nestjs-i18n';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -126,6 +127,30 @@ export class AuthController {
   async resetPassword(@Body() body: { token: string; newPassword: string }) {
     const result = await this.authService.resetPassword(body.token, body.newPassword);
     return result;
+  }
+
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  googleAuth() {
+    // Redirects to Google login page
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  googleAuthRedirect(@Req() req) {
+
+    console.log('Google Auth Callback:', req.user);
+    // Create JWT after Google login
+    const payload = {
+      sub: req.user.id,
+      email: req.user.email,
+      provider: req.user.provider,
+    };
+    const token = this.authService.createJwtToken(payload);
+
+    // Return token to frontend (or set as HTTP-only cookie)
+    return { token };
   }
 
 

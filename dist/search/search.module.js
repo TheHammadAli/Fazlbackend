@@ -13,12 +13,13 @@ const search_controller_1 = require("./search.controller");
 const products_module_1 = require("../products/products.module");
 const services_module_1 = require("../services/services.module");
 const shop_module_1 = require("../shop/shop.module");
+const config_1 = require("@nestjs/config");
 let SearchModule = class SearchModule {
 };
 exports.SearchModule = SearchModule;
 exports.SearchModule = SearchModule = __decorate([
     (0, common_1.Module)({
-        imports: [products_module_1.ProductsModule, services_module_1.ServicesModule, shop_module_1.ShopModule],
+        imports: [products_module_1.ProductsModule, services_module_1.ServicesModule, shop_module_1.ShopModule, config_1.ConfigModule],
         controllers: [search_controller_1.SearchController],
         providers: [search_service_1.SearchService],
     })

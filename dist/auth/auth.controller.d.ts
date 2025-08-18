@@ -55,4 +55,8 @@ export declare class AuthController {
     }): Promise<{
         message: string;
     }>;
+    googleAuth(): void;
+    googleAuthRedirect(req: any): {
+        token: string;
+    };
 }

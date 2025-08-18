@@ -208,7 +208,7 @@ export class AuthService {
     }
 
     return isValid;
-  } 
+  }
 
   async sendForgotPasswordEmail(email: string, lang: string = 'en') {
     const user = await this.userService.findUserByEmail(email);
@@ -260,4 +260,35 @@ export class AuthService {
     return { message: 'Password reset successful' };
   }
 
+  async findOrCreateUserByEmail(payload: { sub: string; email: string }) {
+    // Check if user exists
+    let user = await this.userService.findUserByEmail(payload.email);
+    if (!user) {
+      // Create new user
+      await this.userService.createUser({
+        email: payload.email,
+        // Add any other default fields as needed
+        provider: 'google', // or set based on your logic
+        password: '',
+        name: '',
+        phone: '',
+        address: '',
+        roles: [],
+        language: 'en',
+        isVerified: false,
+        location: {
+          type: 'Point',
+          coordinates: [0, 0], // Default coordinates, adjust as needed
+        },
+      });
+    }
+    return user;
+  }
+
+
+  createJwtToken(payload: any) {
+    return this.jwtService.sign(payload, {
+      expiresIn: '10h',
+    });
+  }
 }

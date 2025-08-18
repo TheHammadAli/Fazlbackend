@@ -40,6 +40,7 @@ class CreateUpdateUserDto {
     language;
     isVerified;
     location;
+    provider;
 }
 exports.CreateUpdateUserDto = CreateUpdateUserDto;
 __decorate([
@@ -98,4 +99,9 @@ __decorate([
     (0, class_transformer_1.Type)(() => LocationDto),
     __metadata("design:type", LocationDto)
 ], CreateUpdateUserDto.prototype, "location", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'local' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUpdateUserDto.prototype, "provider", void 0);
 //# sourceMappingURL=create-update-User.dto.js.map

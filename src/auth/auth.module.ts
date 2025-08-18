@@ -8,14 +8,14 @@ import { JwtStrategy } from './strategies/jwt-strategy';
 import { UsersModule } from 'src/users/users.module';
 import { Otp, OtpSchema } from './schema/otp.schema'
 import { MongooseModule } from '@nestjs/mongoose';
-
+import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
   imports: [
     ConfigModule, // Optional but good to explicitly include
     UsersModule,
     PassportModule,
-    
+
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -26,12 +26,12 @@ import { MongooseModule } from '@nestjs/mongoose';
         },
       }),
     }),
-     MongooseModule.forFeature([
+    MongooseModule.forFeature([
       { name: Otp.name, schema: OtpSchema }, // ⬅️ Add OTP schema here
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
   exports: [AuthService], // Export AuthService if needed elsewhere
 })
-export class AuthModule {}
+export class AuthModule { }

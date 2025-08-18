@@ -3,7 +3,7 @@ import { SearchService } from './search.service';
 import { ProductsService } from 'src/products/products.service';
 import { ServicesService } from 'src/services/services.service';
 import { SearchAllProductsServiceDto } from './dto/product-service-search-for.dto';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery } from '@nestjs/swagger';
 @Controller('search')
 export class SearchController {
   constructor(
@@ -11,6 +11,18 @@ export class SearchController {
     private readonly productsService: ProductsService,
     private readonly servicesService: ServicesService,
   ) { }
+
+  @Get('autocomplete-locations')
+  @ApiOperation({ summary: 'Get location autocomplete suggestions from Google Places API' })
+  @ApiQuery({
+    name: 'q',
+    type: String,
+    required: true,
+    description: 'Search query (e.g. partial city or address)'
+  })
+  async autocomplete(@Query('q') query: string) {
+    return this.searchService.autocompleteLocations(query);
+  }
 
   @Get()
   async searchNearby(

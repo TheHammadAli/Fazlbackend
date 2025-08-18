@@ -21,6 +21,7 @@ const current_user_decorator_1 = require("../common/decorators/current-user.deco
 const refreshToken_dto_1 = require("./dto/refreshToken-dto");
 const throttler_1 = require("@nestjs/throttler");
 const swagger_1 = require("@nestjs/swagger");
+const passport_1 = require("@nestjs/passport");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
@@ -65,6 +66,18 @@ let AuthController = class AuthController {
     async resetPassword(body) {
         const result = await this.authService.resetPassword(body.token, body.newPassword);
         return result;
+    }
+    googleAuth() {
+    }
+    googleAuthRedirect(req) {
+        console.log('Google Auth Callback:', req.user);
+        const payload = {
+            sub: req.user.id,
+            email: req.user.email,
+            provider: req.user.provider,
+        };
+        const token = this.authService.createJwtToken(payload);
+        return { token };
     }
 };
 exports.AuthController = AuthController;
@@ -180,6 +193,21 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
+__decorate([
+    (0, common_1.Get)('google'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('google')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "googleAuth", null);
+__decorate([
+    (0, common_1.Get)('google/callback'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('google')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "googleAuthRedirect", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

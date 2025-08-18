@@ -76,4 +76,8 @@ export class CreateUpdateUserDto {
   @ValidateNested()
   @Type(() => LocationDto)
   location: LocationDto;
+
+  @ApiProperty({ example: 'local' })
+  @IsString()
+  provider: string;
 }

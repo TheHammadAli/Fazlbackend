@@ -13,5 +13,6 @@ export declare class CreateUpdateUserDto {
     language: 'en' | 'ur';
     isVerified: boolean;
     location: LocationDto;
+    provider: string;
 }
 export {};
