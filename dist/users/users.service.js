@@ -19,10 +19,13 @@ const users_schema_1 = require("./schema/users.schema");
 const bcrypt = require("bcryptjs");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 let UsersService = class UsersService {
     userModel;
-    constructor(userModel) {
+    fileUploadService;
+    constructor(userModel, fileUploadService) {
         this.userModel = userModel;
+        this.fileUploadService = fileUploadService;
     }
     async createUser(createUserDto) {
         try {
@@ -33,11 +36,18 @@ let UsersService = class UsersService {
                 throw new common_1.ConflictException('Email is already registered');
             }
             const hashedPassword = await this.hashPassword(createUserDto.password);
+            let imageUrl = "default-avatar.png";
             const newUser = new this.userModel({
                 ...createUserDto,
+                image: "default-avatar.png",
                 password: hashedPassword,
             });
             const savedUser = await newUser.save();
+            if (createUserDto.image) {
+                imageUrl = await this.fileUploadService.uploadUserImage(newUser._id, createUserDto.image);
+                savedUser.image = imageUrl;
+            }
+            await savedUser.save();
             return savedUser.toJSON();
         }
         catch (err) {
@@ -73,15 +83,44 @@ let UsersService = class UsersService {
         return user;
     }
     async updateUser(userId, updateData) {
-        if (updateData.password) {
-            const salt = await bcrypt.genSalt();
-            updateData.password = await bcrypt.hash(updateData.password, salt);
+        try {
+            Object.keys(updateData).forEach((key) => {
+                if (updateData[key] === '' ||
+                    updateData[key] === null ||
+                    typeof updateData[key] === 'undefined') {
+                    delete updateData[key];
+                }
+            });
+            if (updateData.password) {
+                const salt = await bcrypt.genSalt();
+                updateData.password = await bcrypt.hash(updateData.password, salt);
+            }
+            const existingUser = await this.userModel.findById(userId).exec();
+            if (!existingUser) {
+                throw new common_1.NotFoundException('User not found');
+            }
+            let imageFile = updateData.image;
+            updateData.image = existingUser.image;
+            updateData.location = existingUser.location;
+            const updateUser = await this.userModel.updateOne({ _id: userId }, { $set: updateData });
+            if (updateUser.modifiedCount === 0) {
+                throw new common_1.NotFoundException('No changes made to the user');
+            }
+            let imageUrl = existingUser.image;
+            if (imageFile) {
+                imageUrl = await this.fileUploadService.uploadUserImage(userId, imageFile);
+            }
+            updateData.image = imageUrl;
+            const updatedUser = await this.userModel.findByIdAndUpdate(userId, updateData, { new: true });
+            if (!updatedUser) {
+                throw new common_1.NotFoundException('User not found');
+            }
+            updatedUser.image = imageUrl;
+            return updatedUser;
         }
-        const updatedUser = await this.userModel.findByIdAndUpdate(userId, updateData, { new: true });
-        if (!updatedUser) {
-            throw new common_1.NotFoundException('User not found');
+        catch (err) {
+            throw new app_error_1.AppError(err);
         }
-        return updatedUser;
     }
     async findByIdWithToken(userId) {
         const user = await this.userModel
@@ -122,6 +161,6 @@ exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(users_schema_1.User.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __metadata("design:paramtypes", [mongoose_2.Model, file_upload_service_1.FileUploadService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

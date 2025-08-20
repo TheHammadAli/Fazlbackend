@@ -19,7 +19,7 @@ let Service = class Service {
     price;
     paymentType;
     requiresAppointment;
-    imageUrls;
+    images;
     category;
     location;
     video;
@@ -56,7 +56,7 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({ type: [String], default: [] }),
     __metadata("design:type", Array)
-], Service.prototype, "imageUrls", void 0);
+], Service.prototype, "images", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Category', required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
@@ -77,7 +77,7 @@ __decorate([
     __metadata("design:type", Object)
 ], Service.prototype, "location", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, trim: true }),
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)
 ], Service.prototype, "video", void 0);
 exports.Service = Service = __decorate([

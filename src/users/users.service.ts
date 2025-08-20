@@ -12,10 +12,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { FileUploadService } from 'src/common/file-upload/file-upload.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>, private readonly fileUploadService: FileUploadService,) { }
   async createUser(createUserDto: CreateUpdateUserDto): Promise<User> {
     try {
       const existingUser = await this.userModel.findOne({
@@ -25,13 +27,23 @@ export class UsersService {
         throw new ConflictException('Email is already registered');
       }
       const hashedPassword = await this.hashPassword(createUserDto.password);
+      let imageUrl = "default-avatar.png"; // Default image URL
 
       const newUser = new this.userModel({
         ...createUserDto,
+        image: "default-avatar.png", // Default image if none provided
         password: hashedPassword,
       });
 
+
+
       const savedUser = await newUser.save();
+
+      if (createUserDto.image) {
+        imageUrl = await this.fileUploadService.uploadUserImage(newUser._id as unknown as string, createUserDto.image); // Function to handle image upload
+        savedUser.image = imageUrl; // Ensure the image is stored as a filename
+      }
+      await savedUser.save(); // Save the user again to update the image field
       return savedUser.toJSON();
     } catch (err) {
       throw new AppError(err);
@@ -79,23 +91,59 @@ export class UsersService {
     return user;
   }
 
-  async updateUser(userId: string, updateData: Partial<User>): Promise<User> {
-    if (updateData.password) {
-      const salt = await bcrypt.genSalt();
-      updateData.password = await bcrypt.hash(updateData.password, salt);
+  async updateUser(userId: string, updateData: Partial<UpdateUserDto>): Promise<User> {
+
+    try {
+      Object.keys(updateData).forEach((key) => {
+        if (
+          updateData[key] === '' ||   // empty string
+          updateData[key] === null || // null
+          typeof updateData[key] === 'undefined'
+        ) {
+          delete updateData[key]; // remove it from updateData
+        }
+      });
+
+      if (updateData.password) {
+        const salt = await bcrypt.genSalt();
+        updateData.password = await bcrypt.hash(updateData.password, salt);
+      }
+
+      const existingUser = await this.userModel.findById(userId).exec();
+      if (!existingUser) {
+        throw new NotFoundException('User not found');
+      }
+      let imageFile = updateData.image;
+      updateData.image = existingUser.image; // Preserve existing image if not updated
+      updateData.location = existingUser.location; // Preserve existing location if not updated
+      const updateUser = await this.userModel.updateOne({ _id: userId }, { $set: updateData });
+      if (updateUser.modifiedCount === 0) {
+        throw new NotFoundException('No changes made to the user');
+      }
+
+      let imageUrl = existingUser.image; // Keep existing image URL if not updated
+      if (imageFile) {
+        imageUrl = await this.fileUploadService.uploadUserImage(userId, imageFile); // Function to handle image upload
+      }
+
+      updateData.image = imageUrl; // Ensure the image is stored as a filename
+
+
+
+      const updatedUser = await this.userModel.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true },
+      );
+
+      if (!updatedUser) {
+        throw new NotFoundException('User not found');
+      }
+      updatedUser.image = imageUrl; // Ensure the image is stored as a filename
+      return updatedUser;
+    } catch (err) {
+      throw new AppError(err);
     }
-
-    const updatedUser = await this.userModel.findByIdAndUpdate(
-      userId,
-      updateData,
-      { new: true },
-    );
-
-    if (!updatedUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    return updatedUser;
   }
 
   async findByIdWithToken(userId: string): Promise<UserDocument> {

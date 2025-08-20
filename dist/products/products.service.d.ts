@@ -18,15 +18,13 @@ export declare class ProductsService {
     private readonly fileUploadService;
     private promotionService;
     constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService);
-    create(entityId: string, type: 'shop' | 'personal', dto: CreateProductDto, files: {
-        images?: Express.Multer.File[];
-        video?: Express.Multer.File[];
-    }): Promise<Product>;
+    create(entityId: string, type: 'shop' | 'personal', dto: CreateProductDto, userId: string): Promise<Product>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getById(id: string): Promise<Product>;
     update(productId: string, updateDto: UpdateProductDto): Promise<Product>;
     delete(productId: string): Promise<void>;
+    deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;
     updateLocationByShopId(shopId: string, location: {
         type: 'Point';

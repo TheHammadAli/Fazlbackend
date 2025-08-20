@@ -25,25 +25,14 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
   category: Types.ObjectId
 
-  @Prop({
-    type: {
-      discountPercent: { type: Number, required: true },
-      validUntil: { type: Date, required: true },
-    },
-    required: false,
-    _id: false,
-  })
-  promotion?: {
-    discountPercent: number;
-    validUntil: Date;
-  };
+
 
   @Prop({ type: String, enum: ['retail', 'classified'], required: true })
   type: 'retail' | 'classified';
 
   @Prop({ type: [String], default: [] })
-  imageUrls: string[];
-  @Prop({ required: true, trim: true })
+  images: string[];
+  @Prop({ required: false, trim: true })
   video: string;
 
   @Prop({
@@ -63,7 +52,7 @@ export class Product {
     coordinates: [number, number];
   };
 
-   @Prop({
+  @Prop({
     type: [
       {
         name: { type: String, required: true },

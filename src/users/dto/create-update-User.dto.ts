@@ -77,7 +77,24 @@ export class CreateUpdateUserDto {
   @Type(() => LocationDto)
   location: LocationDto;
 
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload image',
+  })
+  image: any; // NestJS will handle file upload
+
   @ApiProperty({ example: 'local' })
   @IsString()
   provider: string;
+
+  @ApiProperty({ example: 'refreshToken' })
+  refreshToken: null | string;
+
+  @ApiProperty({ example: 'resetPasswordToken' })
+  resetPasswordToken: null | string;
+
+  @ApiProperty({ example: 'resetPasswordExpires' })
+  resetPasswordExpires: null | Date;
 }

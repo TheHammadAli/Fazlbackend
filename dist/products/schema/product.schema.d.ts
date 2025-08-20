@@ -6,12 +6,8 @@ export declare class Product {
     description: string;
     price: number;
     category: Types.ObjectId;
-    promotion?: {
-        discountPercent: number;
-        validUntil: Date;
-    };
     type: 'retail' | 'classified';
-    imageUrls: string[];
+    images: string[];
     video: string;
     location: {
         type: 'Point';

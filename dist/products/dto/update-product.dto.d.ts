@@ -1,6 +1,6 @@
-declare class PromotionDto {
-    discountPercent?: number;
-    validUntil?: Date;
+declare class ProductParameterDto {
+    name: string;
+    variants: string[];
 }
 export declare class UpdateProductDto {
     title?: string;
@@ -8,7 +8,8 @@ export declare class UpdateProductDto {
     type: 'retail' | 'classified';
     price?: number;
     category?: string;
-    imageUrls?: string[];
-    promotion?: PromotionDto;
+    images: any;
+    video: any;
+    parameters?: ProductParameterDto[];
 }
 export {};

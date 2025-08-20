@@ -22,6 +22,7 @@ const swagger_1 = require("@nestjs/swagger");
 const create_request_dto_1 = require("./dto/create-request-dto");
 const update_request_dto_1 = require("./dto/update-request-dto");
 const update_job_dto_1 = require("./dto/update-job-dto");
+const platform_express_1 = require("@nestjs/platform-express");
 let ServicesController = class ServicesController {
     servicesService;
     constructor(servicesService) {
@@ -36,14 +37,30 @@ let ServicesController = class ServicesController {
     updateJobStatus(dto) {
         return this.servicesService.updateJobStatus(dto);
     }
-    async create(userId, dto) {
-        return await this.servicesService.create(userId, dto);
+    async create(req, dto, files) {
+        const user = req.user;
+        if (files?.images && files.images.length > 0) {
+            dto.images = files.images;
+        }
+        else {
+            dto.images = [];
+        }
+        if (files?.video && files.video.length > 0) {
+            dto.video = files.video;
+        }
+        else {
+            dto.video = [];
+        }
+        return await this.servicesService.create(user.sub, dto);
     }
-    async update(serviceId, dto) {
+    async update(serviceId, dto, files) {
+        if (files?.images && files.images.length > 0) {
+            dto.images = files.images;
+        }
+        if (files?.video && files.video.length > 0) {
+            dto.video = files.video;
+        }
         return await this.servicesService.update(serviceId, dto);
-    }
-    async delete(serviceId) {
-        return await this.servicesService.delete(serviceId);
     }
     async getById(serviceId) {
         return await this.servicesService.getById(serviceId);
@@ -84,38 +101,34 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ServicesController.prototype, "updateJobStatus", null);
 __decorate([
-    (0, common_1.Post)(':userId'),
+    (0, common_1.Post)('create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new service for a user' }),
-    (0, swagger_1.ApiParam)({ name: 'userId', required: true }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },])),
+    (0, swagger_1.ApiBody)({ type: create_service_dto_1.CreateServiceDto }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Service created successfully' }),
-    __param(0, (0, common_1.Param)('userId')),
+    __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, create_service_dto_1.CreateServiceDto]),
+    __metadata("design:paramtypes", [Object, create_service_dto_1.CreateServiceDto, Object]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "create", null);
 __decorate([
-    (0, common_1.Put)(':serviceId'),
+    (0, common_1.Put)('update/:serviceId'),
     (0, swagger_1.ApiOperation)({ summary: 'Update an existing service' }),
     (0, swagger_1.ApiParam)({ name: 'serviceId', required: true }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Service updated successfully' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },])),
+    (0, swagger_1.ApiBody)({ type: update_service_dto_1.UpdateServiceDto }),
     __param(0, (0, common_1.Param)('serviceId')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_service_dto_1.UpdateServiceDto]),
+    __metadata("design:paramtypes", [String, update_service_dto_1.UpdateServiceDto, Object]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "update", null);
-__decorate([
-    (0, common_1.Delete)(':serviceId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a service' }),
-    (0, swagger_1.ApiParam)({ name: 'serviceId', required: true }),
-    (0, swagger_1.ApiResponse)({ status: 204, description: 'Service deleted successfully' }),
-    (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
-    __param(0, (0, common_1.Param)('serviceId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], ServicesController.prototype, "delete", null);
 __decorate([
     (0, common_1.Get)(':serviceId'),
     (0, swagger_1.ApiOperation)({ summary: 'Get service by ID' }),

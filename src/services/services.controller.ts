@@ -11,12 +11,17 @@ import {
   Put,
   UseGuards,
   Patch,
+  Req,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
 import { JwtAuthGuard } from 'src/auth/guard/jwt-auth-guard';
+import { Request } from 'express';
 import {
   ApiBearerAuth,
   ApiTags,
@@ -25,10 +30,13 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { CreateRequestDto } from './dto/create-request-dto';
 import { UpdateRequestStatusDto } from './dto/update-request-dto';
 import { UpdateJobStatusDto } from './dto/update-job-dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import Video from 'twilio/lib/rest/Video';
 
 @ApiTags('Services')
 @ApiBearerAuth('jwt')
@@ -59,33 +67,60 @@ export class ServicesController {
     return this.servicesService.updateJobStatus(dto);
   }
 
-  @Post(':userId')
+  @Post('create')
   @ApiOperation({ summary: 'Create a new service for a user' })
-  @ApiParam({ name: 'userId', required: true })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },]))
+  @ApiBody({ type: CreateServiceDto })
   @ApiResponse({ status: 201, description: 'Service created successfully' })
-  async create(@Param('userId') userId: string, @Body() dto: CreateServiceDto) {
-    return await this.servicesService.create(userId, dto);
+  async create(@Req() req: Request, @Body() dto: CreateServiceDto, @UploadedFiles() files: {
+    images?: Express.Multer.File[], video?: Express.Multer.File[],
+  }) {
+
+    const user = req.user as { sub: string };
+    if (files?.images && files.images.length > 0) {
+      dto.images = files.images; // Assuming images are stored as file objects
+    } else {
+      dto.images = []; // Ensure images is always an array
+    }
+    if (files?.video && files.video.length > 0) {
+      dto.video = files.video; // Assuming video is stored as a file object
+    } else {
+      dto.video = []; // Ensure video is always an array
+    }
+    return await this.servicesService.create(user.sub, dto);
   }
 
-  @Put(':serviceId')
+  @Put('update/:serviceId')
   @ApiOperation({ summary: 'Update an existing service' })
   @ApiParam({ name: 'serviceId', required: true })
   @ApiResponse({ status: 200, description: 'Service updated successfully' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },]))
+  @ApiBody({ type: UpdateServiceDto })
   async update(
     @Param('serviceId') serviceId: string,
-    @Body() dto: UpdateServiceDto,
+    @Body() dto: UpdateServiceDto, @UploadedFiles() files: {
+      images?: Express.Multer.File[], video?: Express.Multer.File[],
+    }
   ) {
+    if (files?.images && files.images.length > 0) {
+      dto.images = files.images; // Assuming images are stored as file objects
+    }
+    if (files?.video && files.video.length > 0) {
+      dto.video = files.video; // Assuming video is stored as a file object
+    }
     return await this.servicesService.update(serviceId, dto);
   }
 
-  @Delete(':serviceId')
-  @ApiOperation({ summary: 'Delete a service' })
-  @ApiParam({ name: 'serviceId', required: true })
-  @ApiResponse({ status: 204, description: 'Service deleted successfully' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('serviceId') serviceId: string): Promise<void> {
-    return await this.servicesService.delete(serviceId);
-  }
+  // @Delete(':serviceId')
+  // @ApiOperation({ summary: 'Delete a service' })
+  // @ApiParam({ name: 'serviceId', required: true })
+  // @ApiResponse({ status: 204, description: 'Service deleted successfully' })
+  // @HttpCode(HttpStatus.NO_CONTENT)
+  // async delete(@Param('serviceId') serviceId: string): Promise<void> {
+  //   return await this.servicesService.delete(serviceId);
+  // }
 
   @Get(':serviceId')
   @ApiOperation({ summary: 'Get service by ID' })

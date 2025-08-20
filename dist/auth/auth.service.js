@@ -214,6 +214,10 @@ let AuthService = class AuthService {
                     type: 'Point',
                     coordinates: [0, 0],
                 },
+                image: "default-avatar.png",
+                refreshToken: null,
+                resetPasswordToken: null,
+                resetPasswordExpires: null,
             });
         }
         return user;

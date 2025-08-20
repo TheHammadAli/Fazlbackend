@@ -36,6 +36,7 @@ __decorate([
 class CreateUpdateShopDto {
     title;
     description;
+    image;
     location;
 }
 exports.CreateUpdateShopDto = CreateUpdateShopDto;
@@ -51,6 +52,15 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        type: 'string',
+        format: 'binary',
+        isArray: true,
+        description: 'Upload One image',
+    }),
+    __metadata("design:type", Object)
+], CreateUpdateShopDto.prototype, "image", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: LocationDto }),
     (0, class_validator_1.ValidateNested)(),

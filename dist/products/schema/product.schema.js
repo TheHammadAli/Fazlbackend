@@ -19,9 +19,8 @@ let Product = class Product {
     description;
     price;
     category;
-    promotion;
     type;
-    imageUrls;
+    images;
     video;
     location;
     parameters;
@@ -52,26 +51,15 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Product.prototype, "category", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: {
-            discountPercent: { type: Number, required: true },
-            validUntil: { type: Date, required: true },
-        },
-        required: false,
-        _id: false,
-    }),
-    __metadata("design:type", Object)
-], Product.prototype, "promotion", void 0);
-__decorate([
     (0, mongoose_1.Prop)({ type: String, enum: ['retail', 'classified'], required: true }),
     __metadata("design:type", String)
 ], Product.prototype, "type", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: [String], default: [] }),
     __metadata("design:type", Array)
-], Product.prototype, "imageUrls", void 0);
+], Product.prototype, "images", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, trim: true }),
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)
 ], Product.prototype, "video", void 0);
 __decorate([

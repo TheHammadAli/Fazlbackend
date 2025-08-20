@@ -17,10 +17,6 @@ export class CreateServiceDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiPropertyOptional({ example: 'https://www.video.mp4.com' })
-  @IsString()
-  @IsNotEmpty()
-  video: string;
 
   @ApiPropertyOptional({ example: 'We offer deep cleaning for all rooms.' })
   @IsString()
@@ -39,17 +35,24 @@ export class CreateServiceDto {
   @IsOptional()
   requiresAppointment?: boolean;
 
-  @ApiPropertyOptional({
-    type: [String],
-    example: [
-      'https://example.com/image1.jpg',
-      'https://example.com/image2.jpg',
-    ],
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload multiple images',
   })
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  imageUrls?: string[];
+  images: any; // NestJS
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload One video file',
+    maximum: 1
+  })
+  @IsNotEmpty()
+  video: any;
 
   @ApiProperty({ example: 'cleaning', description: 'Category ID or slug' })
   @IsString()

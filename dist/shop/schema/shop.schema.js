@@ -15,8 +15,8 @@ const mongoose_2 = require("mongoose");
 let Shop = class Shop {
     ownerId;
     title;
+    image;
     description;
-    logo;
     location;
 };
 exports.Shop = Shop;
@@ -29,13 +29,13 @@ __decorate([
     __metadata("design:type", String)
 ], Shop.prototype, "title", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "image", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ required: true, trim: true }),
     __metadata("design:type", String)
 ], Shop.prototype, "description", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ required: false, trim: true }),
-    __metadata("design:type", String)
-], Shop.prototype, "logo", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: {

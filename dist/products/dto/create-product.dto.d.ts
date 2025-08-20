@@ -9,7 +9,7 @@ export declare class CreateProductDto {
     category: string;
     type: 'retail' | 'classified';
     images: any;
-    video: string;
+    video: any;
     parameters?: ProductParameterDto[];
 }
 export {};

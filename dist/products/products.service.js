@@ -37,7 +37,7 @@ let ProductsService = class ProductsService {
         this.fileUploadService = fileUploadService;
         this.promotionService = promotionService;
     }
-    async create(entityId, type, dto, files) {
+    async create(entityId, type, dto, userId) {
         try {
             let location;
             const productPayload = {
@@ -54,8 +54,12 @@ let ProductsService = class ProductsService {
                     shop.location.coordinates.length !== 2) {
                     throw new common_1.BadRequestException('Shop location is missing');
                 }
+                if (shop.ownerId.toString() !== userId) {
+                    throw new common_1.ForbiddenException('You do not have permission to create products for this shop');
+                }
                 productPayload.shopId = shop._id;
                 location = shop.location;
+                console.log("product payload", productPayload);
             }
             else if (type === 'personal') {
                 const user = await this.userService.findUserById(entityId);
@@ -81,16 +85,20 @@ let ProductsService = class ProductsService {
             const createdProduct = new this.productModel({
                 ...productPayload,
                 location,
+                images: [],
+                video: "",
                 category: new mongoose_2.Types.ObjectId(dto.category),
             });
             let imageUrls = [];
-            if (files?.images?.length) {
-                const uploadedFiles = await this.fileUploadService.uploadProductFiles(files.images, type, entityId, createdProduct._id.toString(), 'images');
+            if (dto?.images?.length) {
+                const uploadedFiles = await this.fileUploadService.uploadProductFiles(dto.images, type, entityId, createdProduct._id.toString(), 'images');
                 imageUrls = uploadedFiles.map(file => file.url);
-                createdProduct.imageUrls = imageUrls;
+                createdProduct.images = imageUrls;
             }
-            if (files?.video?.length) {
-                const uploadedVideo = await this.fileUploadService.uploadProductFiles(files.video, type, entityId, createdProduct._id.toString(), 'video');
+            console.log(dto?.video, "Video Length", dto?.video);
+            if (dto?.video) {
+                const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, createdProduct._id.toString(), 'video');
+                console.log("Uploaded Video:", uploadedVideo);
                 createdProduct.video = uploadedVideo[0].url;
             }
             return await createdProduct.save();
@@ -104,7 +112,7 @@ let ProductsService = class ProductsService {
         const skip = (page - 1) * limit;
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ shopId })
+                .find({ shopId: new mongoose_2.Types.ObjectId(shopId) })
                 .populate('category')
                 .sort({ createdAt: -1 })
                 .skip(skip)
@@ -146,6 +154,26 @@ let ProductsService = class ProductsService {
         if (updateDto.category) {
             updateDto.category = new mongoose_2.Types.ObjectId(updateDto.category);
         }
+        Object.keys(updateDto).forEach((key) => {
+            if (updateDto[key] === '' ||
+                updateDto[key] === null ||
+                typeof updateDto[key] === 'undefined') {
+                delete updateDto[key];
+            }
+        });
+        const existingProduct = await this.productModel.findById(productId);
+        if (!existingProduct) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        if (updateDto.images && updateDto.images.length > 0) {
+            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, 'shop', existingProduct.shopId.toString(), productId, 'images');
+            updateDto.images = uploadedFiles.map(file => file.url);
+        }
+        if (updateDto.video) {
+            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], 'shop', existingProduct.shopId.toString(), productId, 'video');
+            console.log("Uploaded Video:", uploadedVideo);
+            updateDto.video = uploadedVideo[0].url;
+        }
         const updated = await this.productModel
             .findByIdAndUpdate(productId, updateDto, { new: true })
             .exec();
@@ -155,9 +183,36 @@ let ProductsService = class ProductsService {
         return updated;
     }
     async delete(productId) {
+        const existingProduct = await this.productModel.findById(productId);
+        if (!existingProduct) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        const type = existingProduct.shopId ? 'shop' : 'personal';
+        const entityId = existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId.toString();
+        await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
         const result = await this.productModel.findByIdAndDelete(productId);
         if (!result)
             throw new common_1.NotFoundException('Product not found');
+    }
+    async deleteProductMedia(productId, media) {
+        const existingProduct = await this.productModel.findById(productId);
+        if (!existingProduct) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        if (!media || media.length === 0) {
+            throw new common_1.BadRequestException('No media files provided for deletion');
+        }
+        await this.fileUploadService.deleteFiles(media);
+        let images = existingProduct.images || [];
+        let video = existingProduct.video;
+        images = images.filter(imgUrl => !media.includes(imgUrl));
+        if (media.includes(video)) {
+            video = "";
+        }
+        existingProduct.images = images;
+        existingProduct.video = video;
+        await existingProduct.save();
+        return true;
     }
     async searchNearbyWithCategory(category, coordinates, radius, pagination) {
         return this.listingUtils.findNearbyWithCategory(this.productModel, category, coordinates, radius, pagination);

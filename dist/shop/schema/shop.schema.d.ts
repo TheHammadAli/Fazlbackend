@@ -3,8 +3,8 @@ export type ShopDocument = Shop & Document;
 export declare class Shop {
     ownerId: Types.ObjectId;
     title: string;
+    image: string;
     description: string;
-    logo: string;
     location: {
         type: 'Point';
         coordinates: [number, number];

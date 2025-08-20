@@ -13,20 +13,6 @@ exports.CreateProductDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
-class PromotionDto {
-    discountPercent;
-    validUntil;
-}
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 10 }),
-    (0, class_validator_1.IsNumber)(),
-    __metadata("design:type", Number)
-], PromotionDto.prototype, "discountPercent", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: '2025-12-31' }),
-    (0, class_validator_1.IsDateString)(),
-    __metadata("design:type", String)
-], PromotionDto.prototype, "validUntil", void 0);
 class ProductParameterDto {
     name;
     variants;
@@ -94,10 +80,15 @@ __decorate([
     __metadata("design:type", Object)
 ], CreateProductDto.prototype, "images", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'https://video.com/v1.mp4' }),
-    (0, class_validator_1.IsString)(),
+    (0, swagger_1.ApiProperty)({
+        type: 'string',
+        format: 'binary',
+        isArray: true,
+        description: 'Upload One video file',
+        maximum: 1
+    }),
     (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], CreateProductDto.prototype, "video", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({

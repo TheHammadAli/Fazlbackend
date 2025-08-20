@@ -21,6 +21,8 @@ import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-sear
 import { UpdateJobStatusDto } from './dto/update-job-dto';
 import { UpdateRequestStatusDto } from './dto/update-request-dto';
 import { CreateRequestDto } from './dto/create-request-dto';
+import { FileUploadService } from 'src/common/file-upload/file-upload.service';
+import e from 'express';
 
 @Injectable()
 export class ServicesService {
@@ -30,6 +32,7 @@ export class ServicesService {
     @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
     private readonly listingUtils: ListingUtilsService,
+    private readonly fileUploadService: FileUploadService,
     @InjectModel(ServiceRequest.name) private readonly requestModel: Model<ServiceRequestDocument>,
   ) { }
 
@@ -38,23 +41,94 @@ export class ServicesService {
     if (!user) {
       throw new NotFoundException('user not found');
     }
-
+    const existingService = await this.serviceModel.findOne({ ownerId: user._id });
+    if (existingService) {
+      throw new BadRequestException('User already has a service');
+    }
+    if (!user.location || !user.location.coordinates || user.location.coordinates.length !== 2) {
+      throw new BadRequestException('User location is missing');
+    }
+    let images: string[] = [];
+    let imageFiles: Express.Multer.File[] = [];
+    let videoFiles: Express.Multer.File[] = [];
+    if (dto.images) {
+      imageFiles = dto.images as Express.Multer.File[];
+    }
+    if (dto.video) {
+      videoFiles = dto.video as Express.Multer.File[];
+    }
     const created = await this.serviceModel.create({
       ...dto,
       ownerId: new Types.ObjectId(userId),
       category: new Types.ObjectId(dto.category),
       location: user.location,
+      images: [],
+      video: '',
     });
+
+    if (imageFiles && imageFiles.length > 0) {
+      images = await this.fileUploadService.uploadServiceFile(userId, (created._id as Types.ObjectId).toString(), imageFiles);
+      created.images = images;
+    }
+    if (videoFiles && videoFiles.length > 0) {
+      const video = await this.fileUploadService.uploadServiceFile(userId, (created._id as Types.ObjectId).toString(), videoFiles, 'video');
+      created.video = video[0]; // Assuming only one video file is uploaded
+    }
+    await created.save(); // Save the service again to update the images and video fields
     return created.populate('category');
   }
 
-  async update(serviceId: string, dto: UpdateServiceDto): Promise<Service> {
+  async update(serviceId: string, dto: UpdateServiceDto) {
+
+    Object.keys(dto).forEach((key) => {
+      if (
+        dto[key] === '' ||   // empty string
+        dto[key] === null || // null
+        typeof dto[key] === 'undefined'
+      ) {
+        delete dto[key]; // remove it from updateData
+      }
+    });
+    const existingService = await this.serviceModel.findById(serviceId);
+    if (!existingService) {
+      throw new NotFoundException('Service not found');
+    }
+    const imageFiles = dto.images as Express.Multer.File[];
+    let images = existingService.images; // Preserve existing images if not updated
+    if (imageFiles && imageFiles.length > 0) {
+      if (existingService.images && existingService.images.length > 4) {
+        throw new BadRequestException('You can only upload up to 5 images');
+      }
+      images = await this.fileUploadService.uploadServiceFile(
+        existingService.ownerId.toString(),
+        serviceId,
+        imageFiles,
+      );
+    }
+    const videoFiles = dto.video as Express.Multer.File[];
+    let video = existingService.video; // Preserve existing video if not updated
+    let videoFile: string[] = [];
+    if (videoFiles && videoFiles.length > 0) {
+
+      videoFile = await this.fileUploadService.uploadServiceFile(
+        existingService.ownerId.toString(),
+        (existingService._id as Types.ObjectId).toString(),
+        videoFiles,
+        'video'
+      );
+    }
+
+    if (videoFile && videoFile.length > 0) {
+      video = videoFile[0]; // Assuming only one video file is uploaded
+    }
     const updated = await this.serviceModel
       .findByIdAndUpdate(
         serviceId,
         {
           ...dto,
           ...(dto.category && { category: new Types.ObjectId(dto.category) }),
+          images: images,
+          video: video,
         },
         { new: true },
       )
@@ -63,16 +137,26 @@ export class ServicesService {
     if (!updated) {
       throw new NotFoundException('Service not found');
     }
-
-    return updated;
+    console.log('Updated Service:', video);
+    return { ...dto, images, video }; // Ensure the images and video are included in the returned object
   }
 
   async delete(serviceId: string): Promise<void> {
+    const existingService = await this.serviceModel.findById(serviceId);
+    if (!existingService) {
+      throw new NotFoundException('Service not found'); // Ensure the service exists before attempting to delete
+    }
+    const media = [...existingService.images, existingService.video];
+    if (media && media.length > 0) {
+      await this.fileUploadService.deleteFiles(media); // Delete associated media files
+    }
     const result = await this.serviceModel.findByIdAndDelete(serviceId);
     if (!result) {
       throw new NotFoundException('Service not found');
     }
   }
+
+
 
   async getById(serviceId: string): Promise<Service> {
     const service = await this.serviceModel
@@ -294,5 +378,37 @@ export class ServicesService {
       },
       data: requests,
     };
+  }
+
+  async deleteServiceMedia(
+    serviceId: string, media: string[]) {
+    const service = await this.serviceModel.findById(serviceId);
+    if (!service) {
+      throw new NotFoundException('Service not found');
+    }
+    if (!media || media.length === 0) {
+      throw new BadRequestException('No media files provided for deletion');
+    }
+
+    // Remove media files from storage
+    await this.fileUploadService.deleteFiles(media);
+
+    // Remove media from product document
+    let images = service.images || [];
+    let video = service.video;
+
+    // Remove any images that match the URLs
+    images = images.filter(imgUrl => !media.includes(imgUrl));
+
+    // Remove video if its URL is in the media array
+    if (media.includes(video)) {
+      video = "";
+    }
+
+    // Update the product
+    service.images = images;
+    service.video = video;
+    await service.save();
+    return { message: 'Selected service media deleted successfully' };
   }
 }

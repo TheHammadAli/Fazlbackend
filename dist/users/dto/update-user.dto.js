@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateUpdateUserDto = void 0;
+exports.UpdateUserDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
@@ -30,103 +30,85 @@ __decorate([
     (0, class_validator_1.IsNumber)({}, { each: true }),
     __metadata("design:type", Array)
 ], LocationDto.prototype, "coordinates", void 0);
-class CreateUpdateUserDto {
-    email;
+class UpdateUserDto {
     password;
-    name;
     phone;
     address;
     roles;
     language;
-    isVerified;
     location;
     image;
-    provider;
     refreshToken;
     resetPasswordToken;
     resetPasswordExpires;
 }
-exports.CreateUpdateUserDto = CreateUpdateUserDto;
+exports.UpdateUserDto = UpdateUserDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'user@example.com' }),
-    (0, class_validator_1.IsEmail)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "email", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'secret123' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'secret123' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(6),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "password", void 0);
+], UpdateUserDto.prototype, "password", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'John Doe' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: '+923001234567' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "name", void 0);
+], UpdateUserDto.prototype, "phone", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '+923001234567' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Street 1, City' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "phone", void 0);
+], UpdateUserDto.prototype, "address", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Street 1, City' }),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "address", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({
+    (0, swagger_1.ApiPropertyOptional)({
         example: ['buyer'],
         enum: ['buyer', 'seller', 'admin', 'subadmin'],
         isArray: true,
     }),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ArrayNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(['buyer', 'seller', 'admin', 'subadmin'], { each: true }),
     __metadata("design:type", Array)
-], CreateUpdateUserDto.prototype, "roles", void 0);
+], UpdateUserDto.prototype, "roles", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['en', 'ur'], example: 'en' }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: ['en', 'ur'], example: 'en' }),
     (0, class_validator_1.IsEnum)(['en', 'ur'], { message: 'Language must be either en or ur' }),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "language", void 0);
+], UpdateUserDto.prototype, "language", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: true }),
-    (0, class_validator_1.IsBoolean)(),
-    __metadata("design:type", Boolean)
-], CreateUpdateUserDto.prototype, "isVerified", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ type: LocationDto }),
+    (0, swagger_1.ApiPropertyOptional)({ type: LocationDto }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.ValidateNested)(),
     (0, class_transformer_1.Type)(() => LocationDto),
     __metadata("design:type", LocationDto)
-], CreateUpdateUserDto.prototype, "location", void 0);
+], UpdateUserDto.prototype, "location", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({
+    (0, swagger_1.ApiPropertyOptional)({
         type: 'string',
         format: 'binary',
         isArray: true,
         description: 'Upload image',
     }),
     __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "image", void 0);
+], UpdateUserDto.prototype, "image", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'local' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'refreshToken' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateUpdateUserDto.prototype, "provider", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'refreshToken' }),
     __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "refreshToken", void 0);
+], UpdateUserDto.prototype, "refreshToken", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'resetPasswordToken' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'resetPasswordToken' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "resetPasswordToken", void 0);
+], UpdateUserDto.prototype, "resetPasswordToken", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'resetPasswordExpires' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'resetPasswordExpires' }),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "resetPasswordExpires", void 0);
-//# sourceMappingURL=create-update-User.dto.js.map
+], UpdateUserDto.prototype, "resetPasswordExpires", void 0);
+//# sourceMappingURL=update-user.dto.js.map

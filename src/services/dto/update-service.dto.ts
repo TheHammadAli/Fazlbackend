@@ -5,7 +5,7 @@ import {
   IsEnum,
   IsArray,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateServiceDto {
   @ApiPropertyOptional({ example: 'Home Cleaning Deluxe' })
@@ -34,17 +34,24 @@ export class UpdateServiceDto {
   @IsOptional()
   requiresAppointment?: boolean;
 
-  @ApiPropertyOptional({
-    type: [String],
-    example: [
-      'https://example.com/image1.jpg',
-      'https://example.com/image2.jpg',
-    ],
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload multiple images',
   })
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  imageUrls?: string[];
+  @ApiPropertyOptional()
+  images: any; // NestJS
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload One video file',
+    maximum: 1
+  })
+  @ApiPropertyOptional()
+  video: any;
 
   @ApiPropertyOptional({ example: 'cleaning' })
   @IsString()

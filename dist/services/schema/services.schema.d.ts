@@ -6,7 +6,7 @@ export declare class Service {
     price: number;
     paymentType: 'hourly' | 'fixed';
     requiresAppointment: boolean;
-    imageUrls: string[];
+    images: string[];
     category: Types.ObjectId;
     location: {
         type: 'Point';

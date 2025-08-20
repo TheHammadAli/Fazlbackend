@@ -22,6 +22,7 @@ let User = class User {
     location;
     refreshToken;
     resetPasswordToken;
+    image;
     resetPasswordExpires;
     provider;
 };
@@ -72,6 +73,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, select: false }),
     __metadata("design:type", Object)
 ], User.prototype, "resetPasswordToken", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, select: false }),
+    __metadata("design:type", Object)
+], User.prototype, "image", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: Date, select: false }),
     __metadata("design:type", Object)

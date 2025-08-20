@@ -15,11 +15,11 @@ export class Shop {
   @Prop({ required: true, trim: true })
   title: string;
 
+  @Prop({ required: false, trim: true })
+  image: string;
+
   @Prop({ required: true, trim: true })
   description: string;
-
-  @Prop({ required: false, trim: true })
-  logo: string;
 
   @Prop({
     type: {

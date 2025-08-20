@@ -4,6 +4,7 @@ export declare class UpdateServiceDto {
     price?: number;
     paymentType?: 'hourly' | 'fixed';
     requiresAppointment?: boolean;
-    imageUrls?: string[];
+    images: any;
+    video: any;
     category?: string;
 }

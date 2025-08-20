@@ -15,6 +15,7 @@ const shop_schema_1 = require("./schema/shop.schema");
 const shared_module_1 = require("../shared/shared.module");
 const products_module_1 = require("../products/products.module");
 const services_module_1 = require("../services/services.module");
+const users_module_1 = require("../users/users.module");
 let ShopModule = class ShopModule {
 };
 exports.ShopModule = ShopModule;
@@ -24,6 +25,7 @@ exports.ShopModule = ShopModule = __decorate([
             mongoose_1.MongooseModule.forFeature([{ name: shop_schema_1.Shop.name, schema: shop_schema_1.ShopSchema }]),
             (0, common_1.forwardRef)(() => shared_module_1.SharedModule),
             (0, common_1.forwardRef)(() => products_module_1.ProductsModule),
+            (0, common_1.forwardRef)(() => users_module_1.UsersModule),
             (0, common_1.forwardRef)(() => services_module_1.ServicesModule),
         ],
         providers: [shop_service_1.ShopService],

@@ -20,24 +20,38 @@ const update_product_dto_1 = require("./dto/update-product.dto");
 const pagination_dto_1 = require("../common/dto/pagination.dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
-const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const swagger_1 = require("@nestjs/swagger");
 let ProductsController = class ProductsController {
     productsService;
-    fileUploadService;
-    constructor(productsService, fileUploadService) {
+    constructor(productsService) {
         this.productsService = productsService;
-        this.fileUploadService = fileUploadService;
     }
-    async createProduct(entityId, type, createProductDto, files) {
-        console.log;
+    async createProduct(entityId, type, req, createProductDto, files) {
+        if (files?.images && files.images.length > 0) {
+            createProductDto.images = files.images;
+        }
+        else {
+            createProductDto.images = [];
+        }
+        if (files?.video && files.video.length > 0) {
+            createProductDto.video = files.video[0];
+        }
+        else {
+            createProductDto.video = null;
+        }
         createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || '{}');
-        console.log('Creating product with entityId:', entityId, 'and type:', type);
-        console.log('Product DTO:', createProductDto);
-        return this.productsService.create(entityId, type, createProductDto, files);
+        const user = req.user;
+        return this.productsService.create(entityId, type, createProductDto, user.sub);
     }
     async getAllByShop(shopId, paginationDto) {
         return this.productsService.getAllProductsByShop(shopId, paginationDto);
+    }
+    async deleteProductMedia(productId, media) {
+        if (!Array.isArray(media) || media.length === 0) {
+            throw new common_1.BadRequestException('No media files provided for deletion');
+        }
+        await this.productsService.deleteProductMedia(productId, media);
+        return { message: 'Selected product media deleted successfully' };
     }
     async getAllProductsByUser(userId, paginationDto) {
         return this.productsService.getAllProductsByUser(userId, paginationDto);
@@ -45,7 +59,14 @@ let ProductsController = class ProductsController {
     async getById(id) {
         return this.productsService.getById(id);
     }
-    async update(id, updateProductDto) {
+    async update(id, updateProductDto, files) {
+        if (files?.images && files.images.length > 0) {
+            updateProductDto.images = files.images;
+        }
+        if (files?.video && files.video.length > 0) {
+            updateProductDto.video = files.video[0];
+        }
+        updateProductDto.parameters = JSON.parse(updateProductDto.parameters?.toString() || '');
         return this.productsService.update(id, updateProductDto);
     }
     async delete(id) {
@@ -56,7 +77,7 @@ let ProductsController = class ProductsController {
 exports.ProductsController = ProductsController;
 __decorate([
     (0, common_1.Post)(':entityId/:type'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }])),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },])),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new product (shop or personal listing)' }),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiParam)({
@@ -76,10 +97,11 @@ __decorate([
     }),
     __param(0, (0, common_1.Param)('entityId')),
     __param(1, (0, common_1.Param)('type')),
-    __param(2, (0, common_1.Body)()),
-    __param(3, (0, common_1.UploadedFiles)()),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Body)()),
+    __param(4, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, create_product_dto_1.CreateProductDto, Object]),
+    __metadata("design:paramtypes", [String, String, Object, create_product_dto_1.CreateProductDto, Object]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "createProduct", null);
 __decorate([
@@ -94,6 +116,32 @@ __decorate([
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getAllByShop", null);
+__decorate([
+    (0, common_1.Delete)(':id/media'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete selected media files for a product' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Product ID' }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: {
+                media: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Array of media file URLs to delete',
+                },
+            },
+            required: ['media'],
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Selected product media deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Product not found' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'No media files provided for deletion' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('media')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Array]),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "deleteProductMedia", null);
 __decorate([
     (0, common_1.Get)('user/:userId'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all products for a User' }),
@@ -118,12 +166,15 @@ __decorate([
 __decorate([
     (0, common_1.Put)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Update product by ID' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiParam)({ name: 'id', required: true }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },])),
     (0, swagger_1.ApiBody)({ type: update_product_dto_1.UpdateProductDto }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_product_dto_1.UpdateProductDto]),
+    __metadata("design:paramtypes", [String, update_product_dto_1.UpdateProductDto, Object]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "update", null);
 __decorate([
@@ -140,7 +191,6 @@ exports.ProductsController = ProductsController = __decorate([
     (0, swagger_1.ApiBearerAuth)('jwt'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('products'),
-    __metadata("design:paramtypes", [products_service_1.ProductsService,
-        file_upload_service_1.FileUploadService])
+    __metadata("design:paramtypes", [products_service_1.ProductsService])
 ], ProductsController);
 //# sourceMappingURL=products.controller.js.map

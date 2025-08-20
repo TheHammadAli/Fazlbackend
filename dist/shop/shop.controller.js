@@ -20,16 +20,29 @@ const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 const mongoose_1 = require("mongoose");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const swagger_1 = require("@nestjs/swagger");
+const platform_express_1 = require("@nestjs/platform-express");
 let ShopController = class ShopController {
     shopService;
     constructor(shopService) {
         this.shopService = shopService;
     }
-    async createShop(dto, req) {
+    async createShop(dto, req, files) {
         const user = req.user;
+        if (files?.image && files.image.length > 0) {
+            dto.image = files.image[0];
+        }
+        if (dto.location) {
+            dto.location = JSON.parse(dto.location?.toString() || '{}');
+        }
         return this.shopService.createShop(new mongoose_1.Types.ObjectId(user.sub), dto);
     }
-    async updateShop(id, dto) {
+    async updateShop(id, dto, files) {
+        if (files?.image && files.image.length > 0) {
+            dto.image = files.image[0];
+        }
+        if (dto.location) {
+            dto.location = JSON.parse(dto.location?.toString() || '{}');
+        }
         return this.shopService.updateShop(id, dto);
     }
     async getShop(id) {
@@ -43,22 +56,28 @@ exports.ShopController = ShopController;
 __decorate([
     (0, common_1.Post)('create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new shop' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'image', maxCount: 1 }])),
     (0, swagger_1.ApiBody)({ type: create_update_shop_dto_1.CreateUpdateShopDto }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_update_shop_dto_1.CreateUpdateShopDto, Object]),
+    __metadata("design:paramtypes", [create_update_shop_dto_1.CreateUpdateShopDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "createShop", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Update existing shop by ID' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: String }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'image', maxCount: 1 }])),
     (0, swagger_1.ApiBody)({ type: create_update_shop_dto_1.CreateUpdateShopDto }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, create_update_shop_dto_1.CreateUpdateShopDto]),
+    __metadata("design:paramtypes", [String, create_update_shop_dto_1.CreateUpdateShopDto, Object]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "updateShop", null);
 __decorate([

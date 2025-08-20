@@ -14,12 +14,12 @@ const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class CreateServiceDto {
     title;
-    video;
     description;
     price;
     paymentType;
     requiresAppointment;
-    imageUrls;
+    images;
+    video;
     category;
 }
 exports.CreateServiceDto = CreateServiceDto;
@@ -32,12 +32,6 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateServiceDto.prototype, "title", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'https://www.video.mp4.com' }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], CreateServiceDto.prototype, "video", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'We offer deep cleaning for all rooms.' }),
     (0, class_validator_1.IsString)(),
@@ -60,18 +54,25 @@ __decorate([
     __metadata("design:type", Boolean)
 ], CreateServiceDto.prototype, "requiresAppointment", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({
-        type: [String],
-        example: [
-            'https://example.com/image1.jpg',
-            'https://example.com/image2.jpg',
-        ],
+    (0, swagger_1.ApiProperty)({
+        type: 'string',
+        format: 'binary',
+        isArray: true,
+        description: 'Upload multiple images',
     }),
-    (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.IsString)({ each: true }),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Array)
-], CreateServiceDto.prototype, "imageUrls", void 0);
+    __metadata("design:type", Object)
+], CreateServiceDto.prototype, "images", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        type: 'string',
+        format: 'binary',
+        isArray: true,
+        description: 'Upload One video file',
+        maximum: 1
+    }),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", Object)
+], CreateServiceDto.prototype, "video", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'cleaning', description: 'Category ID or slug' }),
     (0, class_validator_1.IsString)(),

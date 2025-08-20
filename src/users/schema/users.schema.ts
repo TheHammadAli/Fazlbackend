@@ -46,6 +46,8 @@ export class User {
   @Prop({ type: String, select: false })
   resetPasswordToken?: string | null;
 
+  @Prop({ type: String, select: false })
+  image?: string | null;
   @Prop({ type: Date, select: false })
   resetPasswordExpires?: Date | null;
 

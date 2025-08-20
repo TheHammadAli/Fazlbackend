@@ -279,7 +279,12 @@ export class AuthService {
         location: {
           type: 'Point',
           coordinates: [0, 0], // Default coordinates, adjust as needed
+
         },
+        image: "default-avatar.png",
+        refreshToken: null,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
       });
     }
     return user;

@@ -6,7 +6,9 @@ import {
   Post,
   Put,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ShopService } from './shop.service';
 import { CreateUpdateShopDto } from './dto/create-update-shop.dto';
@@ -21,28 +23,52 @@ import {
   ApiOperation,
   ApiParam,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Shops')
 @ApiBearerAuth('jwt')
 @UseGuards(JwtAuthGuard)
 @Controller('shops')
 export class ShopController {
-  constructor(private readonly shopService: ShopService) {}
+  constructor(private readonly shopService: ShopService) { }
 
   @Post('create')
   @ApiOperation({ summary: 'Create a new shop' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'image', maxCount: 1 }]))
   @ApiBody({ type: CreateUpdateShopDto })
-  async createShop(@Body() dto: CreateUpdateShopDto, @Req() req: Request) {
+  async createShop(@Body() dto: CreateUpdateShopDto, @Req() req: Request, @UploadedFiles() files: {
+    image?: Express.Multer.File[],
+
+  }) {
     const user = req.user as { sub: string };
+    if (files?.image && files.image.length > 0) {
+      dto.image = files.image[0]; // Assuming the image is stored as a file object
+    }
+    if (dto.location) {
+      dto.location = JSON.parse(dto.location?.toString() || '{}');
+    }
     return this.shopService.createShop(new Types.ObjectId(user.sub), dto);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update existing shop by ID' })
   @ApiParam({ name: 'id', type: String })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'image', maxCount: 1 }]))
   @ApiBody({ type: CreateUpdateShopDto })
-  async updateShop(@Param('id') id: string, @Body() dto: CreateUpdateShopDto) {
+  async updateShop(@Param('id') id: string, @Body() dto: CreateUpdateShopDto, @UploadedFiles() files: {
+    image?: Express.Multer.File[],
+  }) {
+
+    if (files?.image && files.image.length > 0) {
+      dto.image = files.image[0]; // Assuming the image is stored as a file object
+    }
+    if (dto.location) {
+      dto.location = JSON.parse(dto.location?.toString() || '{}');
+    }
     return this.shopService.updateShop(id, dto);
   }
 

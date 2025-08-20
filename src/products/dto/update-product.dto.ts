@@ -9,16 +9,18 @@ import {
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-class PromotionDto {
-  @ApiPropertyOptional({ example: 20 })
-  @IsNumber()
-  @IsOptional()
-  discountPercent?: number;
 
-  @ApiPropertyOptional({ example: '2025-10-01' })
-  @IsDateString()
-  @IsOptional()
-  validUntil?: Date;
+
+
+class ProductParameterDto {
+  @ApiPropertyOptional({ example: 'Color' })
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional({ example: ['Red', 'Blue'] })
+  @IsArray()
+  @IsString({ each: true })
+  variants: string[];
 }
 
 export class UpdateProductDto {
@@ -46,18 +48,41 @@ export class UpdateProductDto {
   @IsOptional()
   category?: string;
 
+
   @ApiPropertyOptional({
     type: [String],
-    example: ['https://img.com/p3.jpg'],
+    example: ['https://img.com/p1.jpg', 'https://img.com/p2.jpg'],
   })
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  imageUrls?: string[];
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload multiple images',
+  })
+  images: any; // NestJS
 
-  @ApiPropertyOptional({ type: PromotionDto })
-  @ValidateNested()
-  @Type(() => PromotionDto)
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload One video file',
+    maximum: 1
+  })
+
+  video: any;
+
+
+  @ApiPropertyOptional({
+    type: [ProductParameterDto],
+    example: [
+      { name: 'Color', variants: ['Red', 'Blue'] },
+      { name: 'Size', variants: ['S', 'M', 'L'] },
+    ],
+    description: 'Custom product parameters like size, color, etc.',
+  })
   @IsOptional()
-  promotion?: PromotionDto;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductParameterDto)
+  parameters?: ProductParameterDto[];
 }

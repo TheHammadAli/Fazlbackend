@@ -11,6 +11,7 @@ export declare class User {
     location: Location;
     refreshToken?: string | null;
     resetPasswordToken?: string | null;
+    image?: string | null;
     resetPasswordExpires?: Date | null;
     provider?: string | null;
 }

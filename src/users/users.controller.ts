@@ -7,7 +7,9 @@ import {
   Post,
   Put,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUpdateUserDto } from './dto/create-update-User.dto';
@@ -20,22 +22,36 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators/public.decorator';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('jwt')
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Public()
   @Post('createUser')
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Create a new user (public)' })
   @ApiBody({ type: CreateUpdateUserDto })
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'image', maxCount: 1 }]))
   @ApiBearerAuth(undefined) // 👈 This hides the lock icon and Bearer field in Swagger
-  async createUser(@Body() createUserDto: CreateUpdateUserDto) {
+  async createUser(@Body() createUserDto: CreateUpdateUserDto, @UploadedFiles() files: {
+    image?: Express.Multer.File[],
+
+  },) {
+    if (files?.image && files.image.length > 0) {
+      createUserDto.image = files.image[0]
+    } else {
+      createUserDto.image = 'default-avatar.png'; // Set a default image if none provided
+    }
+    createUserDto.location = JSON.parse(createUserDto.location?.toString() || '{}');
     const user = await this.usersService.createUser(createUserDto);
     if (!user) {
       throw new InternalServerErrorException();
@@ -46,11 +62,23 @@ export class UsersController {
   @Put(':id')
   @ApiOperation({ summary: 'Update a user (protected)' })
   @ApiParam({ name: 'id', type: String })
-  @ApiBody({ type: CreateUpdateUserDto })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'image', maxCount: 1 }]))
+  @ApiBody({ type: UpdateUserDto })
   async updateUser(
     @Param('id') userId: string,
-    @Body() updateUserDto: CreateUpdateUserDto,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFiles() files: {
+      image?: Express.Multer.File[],
+    },
   ): Promise<User> {
+    if (files?.image && files.image.length > 0) {
+      updateUserDto.image = files.image[0];
+    }
+    if (updateUserDto.location) {
+      console.log('Location before parsing:', updateUserDto.location);
+      updateUserDto.location = JSON.parse(updateUserDto.location?.toString() || '{}');
+    }
     return this.usersService.updateUser(userId, updateUserDto);
   }
 

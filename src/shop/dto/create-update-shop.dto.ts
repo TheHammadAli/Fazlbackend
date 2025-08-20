@@ -9,7 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class LocationDto {
   @ApiProperty({ enum: ['Point'], example: 'Point' })
@@ -34,10 +34,20 @@ export class CreateUpdateShopDto {
   @IsNotEmpty()
   title: string;
 
+
   @ApiProperty({ example: 'Selling the latest smart gadgets and accessories.' })
   @IsString()
   @IsNotEmpty()
   description: string;
+
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload One image',
+  })
+  image: any;
 
   @ApiProperty({ type: LocationDto })
   @ValidateNested()

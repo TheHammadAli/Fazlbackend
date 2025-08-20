@@ -13,6 +13,10 @@ export declare class CreateUpdateUserDto {
     language: 'en' | 'ur';
     isVerified: boolean;
     location: LocationDto;
+    image: any;
     provider: string;
+    refreshToken: null | string;
+    resetPasswordToken: null | string;
+    resetPasswordExpires: null | Date;
 }
 export {};

@@ -20,15 +20,18 @@ const mongoose_2 = require("mongoose");
 const listing_util_service_1 = require("../shared/listing-util-service");
 const users_service_1 = require("../users/users.service");
 const service_request_schema_1 = require("./schema/service_request.schema");
+const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 let ServicesService = class ServicesService {
     serviceModel;
     userService;
     listingUtils;
+    fileUploadService;
     requestModel;
-    constructor(serviceModel, userService, listingUtils, requestModel) {
+    constructor(serviceModel, userService, listingUtils, fileUploadService, requestModel) {
         this.serviceModel = serviceModel;
         this.userService = userService;
         this.listingUtils = listingUtils;
+        this.fileUploadService = fileUploadService;
         this.requestModel = requestModel;
     }
     async create(userId, dto) {
@@ -36,27 +39,93 @@ let ServicesService = class ServicesService {
         if (!user) {
             throw new common_1.NotFoundException('user not found');
         }
+        const existingService = await this.serviceModel.findOne({ ownerId: user._id });
+        if (existingService) {
+            throw new common_1.BadRequestException('User already has a service');
+        }
+        if (!user.location || !user.location.coordinates || user.location.coordinates.length !== 2) {
+            throw new common_1.BadRequestException('User location is missing');
+        }
+        let images = [];
+        let imageFiles = [];
+        let videoFiles = [];
+        if (dto.images) {
+            imageFiles = dto.images;
+        }
+        if (dto.video) {
+            videoFiles = dto.video;
+        }
         const created = await this.serviceModel.create({
             ...dto,
             ownerId: new mongoose_2.Types.ObjectId(userId),
             category: new mongoose_2.Types.ObjectId(dto.category),
             location: user.location,
+            images: [],
+            video: '',
         });
+        if (imageFiles && imageFiles.length > 0) {
+            images = await this.fileUploadService.uploadServiceFile(userId, created._id.toString(), imageFiles);
+            created.images = images;
+        }
+        if (videoFiles && videoFiles.length > 0) {
+            const video = await this.fileUploadService.uploadServiceFile(userId, created._id.toString(), videoFiles, 'video');
+            created.video = video[0];
+        }
+        await created.save();
         return created.populate('category');
     }
     async update(serviceId, dto) {
+        Object.keys(dto).forEach((key) => {
+            if (dto[key] === '' ||
+                dto[key] === null ||
+                typeof dto[key] === 'undefined') {
+                delete dto[key];
+            }
+        });
+        const existingService = await this.serviceModel.findById(serviceId);
+        if (!existingService) {
+            throw new common_1.NotFoundException('Service not found');
+        }
+        const imageFiles = dto.images;
+        let images = existingService.images;
+        if (imageFiles && imageFiles.length > 0) {
+            if (existingService.images && existingService.images.length > 4) {
+                throw new common_1.BadRequestException('You can only upload up to 5 images');
+            }
+            images = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), serviceId, imageFiles);
+        }
+        const videoFiles = dto.video;
+        let video = existingService.video;
+        let videoFile = [];
+        if (videoFiles && videoFiles.length > 0) {
+            videoFile = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), existingService._id.toString(), videoFiles, 'video');
+        }
+        if (videoFile && videoFile.length > 0) {
+            video = videoFile[0];
+        }
         const updated = await this.serviceModel
             .findByIdAndUpdate(serviceId, {
             ...dto,
             ...(dto.category && { category: new mongoose_2.Types.ObjectId(dto.category) }),
+            images: images,
+            video: video,
         }, { new: true })
             .populate('category');
         if (!updated) {
             throw new common_1.NotFoundException('Service not found');
         }
-        return updated;
+        console.log('Updated Service:', video);
+        return { ...dto, images, video };
     }
     async delete(serviceId) {
+        const existingService = await this.serviceModel.findById(serviceId);
+        if (!existingService) {
+            throw new common_1.NotFoundException('Service not found');
+        }
+        const media = [...existingService.images, existingService.video];
+        if (media && media.length > 0) {
+            await this.fileUploadService.deleteFiles(media);
+        }
         const result = await this.serviceModel.findByIdAndDelete(serviceId);
         if (!result) {
             throw new common_1.NotFoundException('Service not found');
@@ -220,16 +289,37 @@ let ServicesService = class ServicesService {
             data: requests,
         };
     }
+    async deleteServiceMedia(serviceId, media) {
+        const service = await this.serviceModel.findById(serviceId);
+        if (!service) {
+            throw new common_1.NotFoundException('Service not found');
+        }
+        if (!media || media.length === 0) {
+            throw new common_1.BadRequestException('No media files provided for deletion');
+        }
+        await this.fileUploadService.deleteFiles(media);
+        let images = service.images || [];
+        let video = service.video;
+        images = images.filter(imgUrl => !media.includes(imgUrl));
+        if (media.includes(video)) {
+            video = "";
+        }
+        service.images = images;
+        service.video = video;
+        await service.save();
+        return { message: 'Selected service media deleted successfully' };
+    }
 };
 exports.ServicesService = ServicesService;
 exports.ServicesService = ServicesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(services_schema_1.Service.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
-    __param(3, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
+    __param(4, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         users_service_1.UsersService,
         listing_util_service_1.ListingUtilsService,
+        file_upload_service_1.FileUploadService,
         mongoose_2.Model])
 ], ServicesService);
 //# sourceMappingURL=services.service.js.map

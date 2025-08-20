@@ -10,6 +10,10 @@ import {
   UseInterceptors,
   UseGuards,
   Put,
+  Req,
+  HttpCode,
+  HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -30,7 +34,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { Types } from 'mongoose';
+import { Request } from 'express';
 
 @ApiTags('Products')
 @ApiBearerAuth('jwt')
@@ -39,11 +43,12 @@ import { Types } from 'mongoose';
 export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
-    private readonly fileUploadService: FileUploadService,
   ) { }
 
   @Post(':entityId/:type')
-  @UseInterceptors(FileFieldsInterceptor([{ name: 'images', maxCount: 5 }]))
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },]))
+
+
   @ApiOperation({ summary: 'Create a new product (shop or personal listing)' })
   @ApiConsumes('multipart/form-data')
   @ApiParam({
@@ -64,21 +69,26 @@ export class ProductsController {
   async createProduct(
     @Param('entityId') entityId: string,
     @Param('type') type: 'shop' | 'personal',
-
+    @Req() req: Request,
     @Body() createProductDto: CreateProductDto,
     @UploadedFiles() files: {
       images?: Express.Multer.File[],
       video?: Express.Multer.File[]
     },
   ): Promise<Product> {
-    console.log
-
-   
+    if (files?.images && files.images.length > 0) {
+      createProductDto.images = files.images;
+    } else {
+      createProductDto.images = [];
+    }
+    if (files?.video && files.video.length > 0) {
+      createProductDto.video = files.video[0];
+    } else {
+      createProductDto.video = null; // Set to null if no video is uploaded
+    }
     createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || '{}');
-
-    console.log('Creating product with entityId:', entityId, 'and type:', type);
-    console.log('Product DTO:', createProductDto);
-    return this.productsService.create(entityId, type, createProductDto, files);
+    const user = req.user as { sub: string };
+    return this.productsService.create(entityId, type, createProductDto, user.sub);
   }
 
   @Get(':shopId')
@@ -91,6 +101,36 @@ export class ProductsController {
     @Query() paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<Product>> {
     return this.productsService.getAllProductsByShop(shopId, paginationDto);
+  }
+
+  @Delete(':id/media')
+  @ApiOperation({ summary: 'Delete selected media files for a product' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiBody({
+    schema: {
+      properties: {
+        media: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of media file URLs to delete',
+        },
+      },
+      required: ['media'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Selected product media deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiResponse({ status: 400, description: 'No media files provided for deletion' })
+  @HttpCode(HttpStatus.OK)
+  async deleteProductMedia(
+    @Param('id') productId: string,
+    @Body('media') media: string[],
+  ) {
+    if (!Array.isArray(media) || media.length === 0) {
+      throw new BadRequestException('No media files provided for deletion');
+    }
+    await this.productsService.deleteProductMedia(productId, media);
+    return { message: 'Selected product media deleted successfully' };
   }
 
 
@@ -115,12 +155,26 @@ export class ProductsController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Update product by ID' })
+  @ApiConsumes('multipart/form-data')
   @ApiParam({ name: 'id', required: true })
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },]))
   @ApiBody({ type: UpdateProductDto })
   async update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
+    @UploadedFiles() files: {
+      images?: Express.Multer.File[],
+      video?: Express.Multer.File[]
+    },
   ): Promise<Product> {
+    if (files?.images && files.images.length > 0) {
+      updateProductDto.images = files.images;
+    }
+    if (files?.video && files.video.length > 0) {
+      updateProductDto.video = files.video[0];
+    }
+    updateProductDto.parameters = JSON.parse(updateProductDto.parameters?.toString() || '');
+
     return this.productsService.update(id, updateProductDto);
   }
 

@@ -30,7 +30,7 @@ export class Service {
   requiresAppointment: boolean;
 
   @Prop({ type: [String], default: [] })
-  imageUrls: string[];
+  images: string[];
 
   @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
   category: Types.ObjectId;
@@ -52,7 +52,7 @@ export class Service {
     coordinates: [number, number];
   };
 
-  @Prop({ required: true, trim: true })
+  @Prop({ required: false, trim: true })
   video: string;
 }
 

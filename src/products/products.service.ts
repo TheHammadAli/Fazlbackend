@@ -36,7 +36,7 @@ export class ProductsService {
     entityId: string,
     type: 'shop' | 'personal',
     dto: CreateProductDto,
-    files: { images?: Express.Multer.File[], video?: Express.Multer.File[] }
+    userId: string
   ): Promise<Product> {
     try {
       let location: { type: 'Point'; coordinates: [number, number] };
@@ -60,8 +60,12 @@ export class ProductsService {
           throw new BadRequestException('Shop location is missing');
         }
 
+        if (shop.ownerId.toString() !== userId) {
+          throw new ForbiddenException('You do not have permission to create products for this shop');
+        }
         productPayload.shopId = shop._id as Types.ObjectId;
         location = shop.location;
+        console.log("product payload", productPayload)
       } else if (type === 'personal') {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
@@ -88,17 +92,20 @@ export class ProductsService {
       const createdProduct = new this.productModel({
         ...productPayload,
         location,
+        images: [],
+        video: "",
         category: new Types.ObjectId(dto.category),
       });
       let imageUrls: string[] = [];
-      if (files?.images?.length) {
-        const uploadedFiles = await this.fileUploadService.uploadProductFiles(files.images, type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'images');
+      if (dto?.images?.length) {
+        const uploadedFiles = await this.fileUploadService.uploadProductFiles(dto.images, type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'images');
         imageUrls = uploadedFiles.map(file => file.url);
-        createdProduct.imageUrls = imageUrls;
+        createdProduct.images = imageUrls;
       }
-
-      if (files?.video?.length) {
-        const uploadedVideo = await this.fileUploadService.uploadProductFiles(files.video, type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'video');
+      console.log(dto?.video, "Video Length", dto?.video);
+      if (dto?.video) {
+        const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'video');
+        console.log("Uploaded Video:", uploadedVideo);
         createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
       }
 
@@ -117,7 +124,7 @@ export class ProductsService {
 
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ shopId })
+        .find({ shopId: new Types.ObjectId(shopId) })
         .populate('category')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -171,6 +178,44 @@ export class ProductsService {
     if (updateDto.category) {
       (updateDto as any).category = new Types.ObjectId(updateDto.category);
     }
+    Object.keys(updateDto).forEach((key) => {
+      if (
+        updateDto[key] === '' ||   // empty string
+        updateDto[key] === null || // null
+        typeof updateDto[key] === 'undefined'
+      ) {
+        delete updateDto[key]; // remove it from updateData
+      }
+    });
+
+
+    const existingProduct = await this.productModel.findById(productId);
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (updateDto.images && updateDto.images.length > 0) {
+      const uploadedFiles = await this.fileUploadService.uploadProductFiles(
+        updateDto.images,
+        'shop', // Assuming type is 'shop' for this example
+        existingProduct.shopId.toString(),
+        productId,
+        'images',
+      );
+      updateDto.images = uploadedFiles.map(file => file.url);
+    }
+    if (updateDto.video) {
+      const uploadedVideo = await this.fileUploadService.uploadProductFiles(
+        [updateDto.video],
+        'shop', // Assuming type is 'shop' for this example
+        existingProduct.shopId.toString(),
+        productId,
+        'video',
+      );
+
+      console.log("Uploaded Video:", uploadedVideo);
+      updateDto.video = uploadedVideo[0].url; // Assuming only one video is uploaded
+    }
 
     const updated = await this.productModel
       .findByIdAndUpdate(productId, updateDto, { new: true })
@@ -184,8 +229,47 @@ export class ProductsService {
   }
 
   async delete(productId: string): Promise<void> {
+    const existingProduct = await this.productModel.findById(productId);
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+    const type = existingProduct.shopId ? 'shop' : 'personal';
+    const entityId = existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString();
+    await this.fileUploadService.deleteEntityProducts(type,entityId, productId);
     const result = await this.productModel.findByIdAndDelete(productId);
     if (!result) throw new NotFoundException('Product not found');
+  }
+
+  async deleteProductMedia(productId: string, media: string[]) {
+    const existingProduct = await this.productModel.findById(productId);
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+    if (!media || media.length === 0) {
+      throw new BadRequestException('No media files provided for deletion');
+    }
+
+    // Remove media files from storage
+    await this.fileUploadService.deleteFiles(media);
+
+    // Remove media from product document
+    let images = existingProduct.images || [];
+    let video = existingProduct.video;
+
+    // Remove any images that match the URLs
+    images = images.filter(imgUrl => !media.includes(imgUrl));
+
+    // Remove video if its URL is in the media array
+    if (media.includes(video)) {
+      video = "";
+    }
+
+    // Update the product
+    existingProduct.images = images;
+    existingProduct.video = video;
+    await existingProduct.save();
+
+    return true;
   }
 
   async searchNearbyWithCategory(

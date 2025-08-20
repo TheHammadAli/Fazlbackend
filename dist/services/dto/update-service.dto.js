@@ -18,7 +18,8 @@ class UpdateServiceDto {
     price;
     paymentType;
     requiresAppointment;
-    imageUrls;
+    images;
+    video;
     category;
 }
 exports.UpdateServiceDto = UpdateServiceDto;
@@ -54,18 +55,26 @@ __decorate([
     __metadata("design:type", Boolean)
 ], UpdateServiceDto.prototype, "requiresAppointment", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({
-        type: [String],
-        example: [
-            'https://example.com/image1.jpg',
-            'https://example.com/image2.jpg',
-        ],
+    (0, swagger_1.ApiProperty)({
+        type: 'string',
+        format: 'binary',
+        isArray: true,
+        description: 'Upload multiple images',
     }),
-    (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.IsString)({ each: true }),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Array)
-], UpdateServiceDto.prototype, "imageUrls", void 0);
+    (0, swagger_1.ApiPropertyOptional)(),
+    __metadata("design:type", Object)
+], UpdateServiceDto.prototype, "images", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        type: 'string',
+        format: 'binary',
+        isArray: true,
+        description: 'Upload One video file',
+        maximum: 1
+    }),
+    (0, swagger_1.ApiPropertyOptional)(),
+    __metadata("design:type", Object)
+], UpdateServiceDto.prototype, "video", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'cleaning' }),
     (0, class_validator_1.IsString)(),

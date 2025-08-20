@@ -5,8 +5,16 @@ import { JwtPayload } from 'src/auth/strategies/jwt-strategy';
 export declare class ShopController {
     private readonly shopService;
     constructor(shopService: ShopService);
-    createShop(dto: CreateUpdateShopDto, req: Request): Promise<import("./schema/shop.schema").Shop>;
-    updateShop(id: string, dto: CreateUpdateShopDto): Promise<import("./schema/shop.schema").Shop>;
+    createShop(dto: CreateUpdateShopDto, req: Request, files: {
+        image?: Express.Multer.File[];
+    }): Promise<import("mongoose").FlattenMaps<import("./schema/shop.schema").Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
+    }>>;
+    updateShop(id: string, dto: CreateUpdateShopDto, files: {
+        image?: Express.Multer.File[];
+    }): Promise<import("./schema/shop.schema").Shop>;
     getShop(id: string): Promise<import("./schema/shop.schema").ShopDocument>;
     getMyShops(user: JwtPayload): Promise<import("./schema/shop.schema").Shop[]>;
 }

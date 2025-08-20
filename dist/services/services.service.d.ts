@@ -11,14 +11,25 @@ import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-sear
 import { UpdateJobStatusDto } from './dto/update-job-dto';
 import { UpdateRequestStatusDto } from './dto/update-request-dto';
 import { CreateRequestDto } from './dto/create-request-dto';
+import { FileUploadService } from 'src/common/file-upload/file-upload.service';
 export declare class ServicesService {
     private readonly serviceModel;
     private readonly userService;
     private readonly listingUtils;
+    private readonly fileUploadService;
     private readonly requestModel;
-    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, listingUtils: ListingUtilsService, requestModel: Model<ServiceRequestDocument>);
+    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>);
     create(userId: string, dto: CreateServiceDto): Promise<Service>;
-    update(serviceId: string, dto: UpdateServiceDto): Promise<Service>;
+    update(serviceId: string, dto: UpdateServiceDto): Promise<{
+        images: string[];
+        video: string;
+        title?: string;
+        description?: string;
+        price?: number;
+        paymentType?: "hourly" | "fixed";
+        requiresAppointment?: boolean;
+        category?: string;
+    }>;
     delete(serviceId: string): Promise<void>;
     getById(serviceId: string): Promise<Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;
@@ -56,4 +67,7 @@ export declare class ServicesService {
         __v: number;
     }>;
     getServiceRequestsByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<ServiceRequest>>;
+    deleteServiceMedia(serviceId: string, media: string[]): Promise<{
+        message: string;
+    }>;
 }

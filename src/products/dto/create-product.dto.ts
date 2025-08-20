@@ -10,15 +10,6 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-class PromotionDto {
-  @ApiProperty({ example: 10 })
-  @IsNumber()
-  discountPercent: number;
-
-  @ApiProperty({ example: '2025-12-31' })
-  @IsDateString()
-  validUntil: string;
-}
 
 class ProductParameterDto {
   @ApiProperty({ example: 'Color' })
@@ -58,7 +49,7 @@ export class CreateProductDto {
     type: [String],
     example: ['https://img.com/p1.jpg', 'https://img.com/p2.jpg'],
   })
-   @ApiProperty({
+  @ApiProperty({
     type: 'string',
     format: 'binary',
     isArray: true,
@@ -66,10 +57,15 @@ export class CreateProductDto {
   })
   images: any; // NestJS
 
-  @ApiProperty({ example: 'https://video.com/v1.mp4' })
-  @IsString()
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    isArray: true,
+    description: 'Upload One video file',
+    maximum: 1
+  })
   @IsNotEmpty()
-  video: string;
+  video: any;
 
   @ApiPropertyOptional({
     type: [ProductParameterDto],
