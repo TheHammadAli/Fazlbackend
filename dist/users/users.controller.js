@@ -31,7 +31,7 @@ let UsersController = class UsersController {
             createUserDto.image = files.image[0];
         }
         else {
-            createUserDto.image = 'default-avatar.png';
+            createUserDto.image = null;
         }
         createUserDto.location = JSON.parse(createUserDto.location?.toString() || '{}');
         const user = await this.usersService.createUser(createUserDto);

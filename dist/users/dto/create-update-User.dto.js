@@ -42,9 +42,6 @@ class CreateUpdateUserDto {
     location;
     image;
     provider;
-    refreshToken;
-    resetPasswordToken;
-    resetPasswordExpires;
 }
 exports.CreateUpdateUserDto = CreateUpdateUserDto;
 __decorate([
@@ -117,16 +114,4 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "provider", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'refreshToken' }),
-    __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "refreshToken", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'resetPasswordToken' }),
-    __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "resetPasswordToken", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 'resetPasswordExpires' }),
-    __metadata("design:type", Object)
-], CreateUpdateUserDto.prototype, "resetPasswordExpires", void 0);
 //# sourceMappingURL=create-update-User.dto.js.map

@@ -282,9 +282,7 @@ export class AuthService {
 
         },
         image: "default-avatar.png",
-        refreshToken: null,
-        resetPasswordToken: null,
-        resetPasswordExpires: null,
+
       });
     }
     return user;

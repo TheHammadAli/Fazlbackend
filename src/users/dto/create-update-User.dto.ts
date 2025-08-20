@@ -13,7 +13,7 @@ import {
   ArrayNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Location } from '../schema/users.interfaces';
 
 class LocationDto implements Location {
@@ -89,12 +89,4 @@ export class CreateUpdateUserDto {
   @IsString()
   provider: string;
 
-  @ApiProperty({ example: 'refreshToken' })
-  refreshToken: null | string;
-
-  @ApiProperty({ example: 'resetPasswordToken' })
-  resetPasswordToken: null | string;
-
-  @ApiProperty({ example: 'resetPasswordExpires' })
-  resetPasswordExpires: null | Date;
 }

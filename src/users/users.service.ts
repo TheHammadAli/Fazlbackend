@@ -38,7 +38,7 @@ export class UsersService {
 
 
       const savedUser = await newUser.save();
-
+      console.log("User image", createUserDto.image);
       if (createUserDto.image) {
         imageUrl = await this.fileUploadService.uploadUserImage(newUser._id as unknown as string, createUserDto.image); // Function to handle image upload
         savedUser.image = imageUrl; // Ensure the image is stored as a filename

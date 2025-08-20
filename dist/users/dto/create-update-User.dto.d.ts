@@ -15,8 +15,5 @@ export declare class CreateUpdateUserDto {
     location: LocationDto;
     image: any;
     provider: string;
-    refreshToken: null | string;
-    resetPasswordToken: null | string;
-    resetPasswordExpires: null | Date;
 }
 export {};

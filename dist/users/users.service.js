@@ -43,6 +43,7 @@ let UsersService = class UsersService {
                 password: hashedPassword,
             });
             const savedUser = await newUser.save();
+            console.log("User image", createUserDto.image);
             if (createUserDto.image) {
                 imageUrl = await this.fileUploadService.uploadUserImage(newUser._id, createUserDto.image);
                 savedUser.image = imageUrl;

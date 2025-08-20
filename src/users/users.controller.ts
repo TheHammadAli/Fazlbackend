@@ -27,6 +27,7 @@ import {
 import { Public } from 'src/common/decorators/public.decorator';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { create } from 'domain';
 
 @ApiTags('Users')
 @ApiBearerAuth('jwt')
@@ -49,7 +50,7 @@ export class UsersController {
     if (files?.image && files.image.length > 0) {
       createUserDto.image = files.image[0]
     } else {
-      createUserDto.image = 'default-avatar.png'; // Set a default image if none provided
+      createUserDto.image = null;
     }
     createUserDto.location = JSON.parse(createUserDto.location?.toString() || '{}');
     const user = await this.usersService.createUser(createUserDto);
