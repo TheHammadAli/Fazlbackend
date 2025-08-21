@@ -16,15 +16,9 @@ export declare class AuthService {
     private twilioClient;
     constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService);
     loginUser(loginDto: LoginDto, lang?: string): Promise<{
-        message: string;
-        refreshToken?: undefined;
-        accessToken?: undefined;
-        user?: undefined;
-    } | {
         refreshToken: string;
         accessToken: string;
         user: UserDocument;
-        message?: undefined;
     }>;
     refreshTokens(refreshToken: RefreshTokenDto): Promise<{
         accessToken: string;

@@ -7,15 +7,9 @@ export declare class AuthController {
     constructor(authService: AuthService);
     getCurrentUser(user: JwtPayload): JwtPayload;
     loginUser(loginDto: LoginDto, lang: string): Promise<{
-        message: string;
-        refreshToken?: undefined;
-        accessToken?: undefined;
-        user?: undefined;
-    } | {
         refreshToken: string;
         accessToken: string;
         user: import("../users/schema/users.schema").UserDocument;
-        message?: undefined;
     }>;
     refreshToken(token: RefreshTokenDto): Promise<{
         accessToken: string;

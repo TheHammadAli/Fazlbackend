@@ -40,9 +40,7 @@ let AuthService = class AuthService {
         console.log("Check for language", lang);
         const user = await this.userService.validateUserForLogin(loginDto.email, loginDto.password);
         if (!user) {
-            return {
-                message: this.i18n.translate('auth.auth.invalid_credentials', { lang }),
-            };
+            throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.invalid_credentials', { lang }));
         }
         console.log(user);
         const payload = {

@@ -36,9 +36,8 @@ export class AuthService {
       loginDto.password,
     );
     if (!user) {
-      return {
-        message: this.i18n.translate('auth.auth.invalid_credentials', { lang }),
-      };
+      throw new UnauthorizedException(this.i18n.translate('auth.auth.invalid_credentials', { lang }));
+
     }
     console.log(user);
     const payload = {
