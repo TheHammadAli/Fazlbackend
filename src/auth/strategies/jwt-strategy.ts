@@ -9,6 +9,7 @@ export interface JwtPayload {
   email: string;
   roles: string[];
   location: Location;
+  image: string | null;
 }
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -34,11 +35,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    console.log('JWT Payload:', payload);
     return {
       sub: payload.sub,
       email: payload.email,
       roles: payload.roles,
       location: payload.location,
+      image: payload.image,
     };
   }
 }

@@ -6,6 +6,7 @@ import { Model } from 'mongoose';
 import { OtpDocument } from './schema/otp.schema';
 import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
+import { UserDocument } from 'src/users/schema/users.schema';
 export declare class AuthService {
     private otpModel;
     private readonly userService;
@@ -22,12 +23,12 @@ export declare class AuthService {
     } | {
         refreshToken: string;
         accessToken: string;
-        user: import("../users/schema/users.schema").UserDocument;
+        user: UserDocument;
         message?: undefined;
     }>;
     refreshTokens(refreshToken: RefreshTokenDto): Promise<{
         accessToken: string;
-        user: import("../users/schema/users.schema").UserDocument;
+        user: UserDocument;
         refreshToken: string;
     }>;
     logout(refreshToken: string): Promise<{
@@ -49,13 +50,39 @@ export declare class AuthService {
         message: string;
         data: string;
     }>;
-    verifyResetPasswordToken(token: string): Promise<import("../users/schema/users.schema").UserDocument>;
+    verifyResetPasswordToken(token: string): Promise<UserDocument>;
     resetPassword(token: string, newPassword: string): Promise<{
         message: string;
     }>;
     findOrCreateUserByEmail(payload: {
         sub: string;
         email: string;
-    }): Promise<import("../users/schema/users.schema").UserDocument | null>;
+    }): Promise<{
+        name: string;
+        email: string;
+        password: string;
+        roles: string[];
+        phone: string;
+        language: "en" | "ur";
+        isVerified: Boolean;
+        location: import("../users/schema/users.interfaces").Location;
+        refreshToken?: string | null;
+        resetPasswordToken?: string | null;
+        image?: string | null;
+        resetPasswordExpires?: Date | null;
+        provider?: string | null;
+        _id: unknown;
+        $locals: Record<string, unknown>;
+        $op: "save" | "validate" | "remove" | null;
+        $where: Record<string, unknown>;
+        baseModelName?: string;
+        collection: import("mongoose").Collection;
+        db: import("mongoose").Connection;
+        errors?: import("mongoose").Error.ValidationError;
+        id?: any;
+        isNew: boolean;
+        schema: import("mongoose").Schema;
+        accessToken: string;
+    }>;
     createJwtToken(payload: any): string;
 }

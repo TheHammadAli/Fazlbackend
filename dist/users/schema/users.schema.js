@@ -28,7 +28,7 @@ let User = class User {
 };
 exports.User = User;
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, trim: true }),
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)
 ], User.prototype, "name", void 0);
 __decorate([
@@ -36,7 +36,7 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "email", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, select: false }),
+    (0, mongoose_1.Prop)({ required: false, select: false }),
     __metadata("design:type", String)
 ], User.prototype, "password", void 0);
 __decorate([
@@ -48,7 +48,7 @@ __decorate([
     __metadata("design:type", Array)
 ], User.prototype, "roles", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, unique: true }),
+    (0, mongoose_1.Prop)({ required: false, unique: true }),
     __metadata("design:type", String)
 ], User.prototype, "phone", void 0);
 __decorate([
@@ -56,11 +56,11 @@ __decorate([
         type: {
             type: String,
             enum: ['Point'],
-            required: true,
+            required: false,
         },
         coordinates: {
             type: [Number],
-            required: true,
+            required: false,
         },
     }),
     __metadata("design:type", Object)
@@ -74,7 +74,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "resetPasswordToken", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, select: false }),
+    (0, mongoose_1.Prop)({ type: String }),
     __metadata("design:type", Object)
 ], User.prototype, "image", void 0);
 __decorate([

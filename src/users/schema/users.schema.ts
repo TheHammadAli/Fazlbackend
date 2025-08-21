@@ -7,13 +7,13 @@ import { Location } from './users.interfaces';
   toObject: { virtuals: true },
 })
 export class User {
-  @Prop({ required: true, trim: true })
+  @Prop({ required: false, trim: true })
   name: string;
 
   @Prop({ required: true, unique: true, lowercase: true })
   email: string;
 
-  @Prop({ required: true, select: false }) // Hide password in queries
+  @Prop({ required: false, select: false }) // Hide password in queries
   password: string;
 
   @Prop({
@@ -23,7 +23,7 @@ export class User {
   })
   roles: string[];
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: false, unique: true })
   phone: string;
   language: 'en' | 'ur';
   isVerified: Boolean;
@@ -31,11 +31,11 @@ export class User {
     type: {
       type: String,
       enum: ['Point'],
-      required: true,
+      required: false,
     },
     coordinates: {
       type: [Number],
-      required: true,
+      required: false,
     },
   })
   location: Location;
@@ -46,7 +46,7 @@ export class User {
   @Prop({ type: String, select: false })
   resetPasswordToken?: string | null;
 
-  @Prop({ type: String, select: false })
+  @Prop({ type: String })
   image?: string | null;
   @Prop({ type: Date, select: false })
   resetPasswordExpires?: Date | null;

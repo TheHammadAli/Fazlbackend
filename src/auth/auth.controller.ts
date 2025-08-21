@@ -138,19 +138,15 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  googleAuthRedirect(@Req() req) {
+  async googleAuthRedirect(@Req() req) {
 
     console.log('Google Auth Callback:', req.user);
     // Create JWT after Google login
-    const payload = {
-      sub: req.user.id,
-      email: req.user.email,
-      provider: req.user.provider,
-    };
-    const token = this.authService.createJwtToken(payload);
+    const payload = await this.authService.findOrCreateUserByEmail(req.user);
+    console.log('Payload after Google login:', payload);
 
     // Return token to frontend (or set as HTTP-only cookie)
-    return { token };
+    return { payload };
   }
 
 

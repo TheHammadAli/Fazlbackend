@@ -10,6 +10,7 @@ import { Otp, OtpDocument } from './schema/otp.schema';
 import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
 import * as crypto from 'crypto';
+import { UserDocument } from 'src/users/schema/users.schema';
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
@@ -39,12 +40,13 @@ export class AuthService {
         message: this.i18n.translate('auth.auth.invalid_credentials', { lang }),
       };
     }
-    console.log(user.location);
+    console.log(user);
     const payload = {
       sub: user.id, // or user.id
       email: user.email,
       roles: user.roles, // if you have roles
       location: user.location,
+      image: user.image
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -80,6 +82,7 @@ export class AuthService {
         email: user.email,
         roles: user.roles,
         location: user.location,
+        image: user.image
       };
 
       const newAccessToken = this.jwtService.sign(newPayload, {
@@ -265,7 +268,7 @@ export class AuthService {
     let user = await this.userService.findUserByEmail(payload.email);
     if (!user) {
       // Create new user
-      await this.userService.createUser({
+      user = (await this.userService.createUser({
         email: payload.email,
         // Add any other default fields as needed
         provider: 'google', // or set based on your logic
@@ -281,14 +284,21 @@ export class AuthService {
           coordinates: [0, 0], // Default coordinates, adjust as needed
 
         },
-        image: "default-avatar.png",
+        image: null,
 
-      });
+      })) as unknown as UserDocument;
+
     }
-    return user;
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '1h',
+    });
+
+    return {
+      accessToken,
+      ...user
+    }
+
   }
-
-
   createJwtToken(payload: any) {
     return this.jwtService.sign(payload, {
       expiresIn: '10h',

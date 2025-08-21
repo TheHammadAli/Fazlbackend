@@ -69,15 +69,11 @@ let AuthController = class AuthController {
     }
     googleAuth() {
     }
-    googleAuthRedirect(req) {
+    async googleAuthRedirect(req) {
         console.log('Google Auth Callback:', req.user);
-        const payload = {
-            sub: req.user.id,
-            email: req.user.email,
-            provider: req.user.provider,
-        };
-        const token = this.authService.createJwtToken(payload);
-        return { token };
+        const payload = await this.authService.findOrCreateUserByEmail(req.user);
+        console.log('Payload after Google login:', payload);
+        return { payload };
     }
 };
 exports.AuthController = AuthController;
@@ -206,7 +202,7 @@ __decorate([
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AuthController.prototype, "googleAuthRedirect", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),

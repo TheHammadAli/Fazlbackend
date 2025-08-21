@@ -44,12 +44,13 @@ let AuthService = class AuthService {
                 message: this.i18n.translate('auth.auth.invalid_credentials', { lang }),
             };
         }
-        console.log(user.location);
+        console.log(user);
         const payload = {
             sub: user.id,
             email: user.email,
             roles: user.roles,
             location: user.location,
+            image: user.image
         };
         const accessToken = this.jwtService.sign(payload, {
             expiresIn: '1h',
@@ -77,6 +78,7 @@ let AuthService = class AuthService {
                 email: user.email,
                 roles: user.roles,
                 location: user.location,
+                image: user.image
             };
             const newAccessToken = this.jwtService.sign(newPayload, {
                 expiresIn: '1h',
@@ -200,7 +202,7 @@ let AuthService = class AuthService {
     async findOrCreateUserByEmail(payload) {
         let user = await this.userService.findUserByEmail(payload.email);
         if (!user) {
-            await this.userService.createUser({
+            user = (await this.userService.createUser({
                 email: payload.email,
                 provider: 'google',
                 password: '',
@@ -214,10 +216,16 @@ let AuthService = class AuthService {
                     type: 'Point',
                     coordinates: [0, 0],
                 },
-                image: "default-avatar.png",
-            });
+                image: null,
+            }));
         }
-        return user;
+        const accessToken = this.jwtService.sign(payload, {
+            expiresIn: '1h',
+        });
+        return {
+            accessToken,
+            ...user
+        };
     }
     createJwtToken(payload) {
         return this.jwtService.sign(payload, {

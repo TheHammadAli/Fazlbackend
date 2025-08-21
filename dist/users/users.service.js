@@ -60,7 +60,7 @@ let UsersService = class UsersService {
         return await bcrypt.hash(password, salt);
     }
     async findUserByEmail(email) {
-        return await this.userModel.findOne({ email }).exec();
+        return await this.userModel.findOne({ email }).lean().exec();
     }
     async findByResetToken(resetPasswordToken) {
         const results = await this.userModel
