@@ -214,6 +214,7 @@ export class AuthService {
 
   async sendForgotPasswordEmail(email: string, lang: string = 'en') {
     const user = await this.userService.findUserByEmail(email);
+    console.log("User found for forgot password:", user);
     if (!user) {
       throw new UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
     }
@@ -294,7 +295,7 @@ export class AuthService {
 
     return {
       accessToken,
-      ...user
+      ...user.toObject()
     }
 
   }

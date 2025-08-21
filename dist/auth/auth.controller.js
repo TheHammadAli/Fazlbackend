@@ -73,7 +73,7 @@ let AuthController = class AuthController {
         console.log('Google Auth Callback:', req.user);
         const payload = await this.authService.findOrCreateUserByEmail(req.user);
         console.log('Payload after Google login:', payload);
-        return { payload };
+        return payload;
     }
 };
 exports.AuthController = AuthController;

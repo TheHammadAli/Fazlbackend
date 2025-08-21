@@ -167,6 +167,7 @@ let AuthService = class AuthService {
     }
     async sendForgotPasswordEmail(email, lang = 'en') {
         const user = await this.userService.findUserByEmail(email);
+        console.log("User found for forgot password:", user);
         if (!user) {
             throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
         }
@@ -222,7 +223,7 @@ let AuthService = class AuthService {
         });
         return {
             accessToken,
-            ...user
+            ...user.toObject()
         };
     }
     createJwtToken(payload) {

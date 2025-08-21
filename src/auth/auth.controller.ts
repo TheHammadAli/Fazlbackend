@@ -146,7 +146,7 @@ export class AuthController {
     console.log('Payload after Google login:', payload);
 
     // Return token to frontend (or set as HTTP-only cookie)
-    return { payload };
+    return payload
   }
 
 

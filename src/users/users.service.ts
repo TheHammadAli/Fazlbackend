@@ -58,7 +58,7 @@ export class UsersService {
 
 
   async findUserByEmail(email: string): Promise<UserDocument | null> {
-    return await this.userModel.findOne({ email }).lean().exec();
+    return await this.userModel.findOne({ email }).exec();
   }
 
   async findByResetToken(

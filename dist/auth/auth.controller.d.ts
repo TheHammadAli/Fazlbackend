@@ -47,33 +47,5 @@ export declare class AuthController {
         message: string;
     }>;
     googleAuth(): void;
-    googleAuthRedirect(req: any): Promise<{
-        payload: {
-            name: string;
-            email: string;
-            password: string;
-            roles: string[];
-            phone: string;
-            language: "en" | "ur";
-            isVerified: Boolean;
-            location: import("../users/schema/users.interfaces").Location;
-            refreshToken?: string | null;
-            resetPasswordToken?: string | null;
-            image?: string | null;
-            resetPasswordExpires?: Date | null;
-            provider?: string | null;
-            _id: unknown;
-            $locals: Record<string, unknown>;
-            $op: "save" | "validate" | "remove" | null;
-            $where: Record<string, unknown>;
-            baseModelName?: string;
-            collection: import("mongoose").Collection;
-            db: import("mongoose").Connection;
-            errors?: import("mongoose").Error.ValidationError;
-            id?: any;
-            isNew: boolean;
-            schema: import("mongoose").Schema;
-            accessToken: string;
-        };
-    }>;
+    googleAuthRedirect(req: any): Promise<any>;
 }
