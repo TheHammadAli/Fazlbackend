@@ -215,7 +215,7 @@ export class AuthService {
   async sendForgotPasswordEmail(email: string, lang: string = 'en') {
     const user = await this.userService.findUserByEmail(email);
     if (!user) {
-      return { message: this.i18n.translate('auth.auth.email_not_found', { lang }) };
+      throw new UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
     }
     // Generate token
     const token = crypto.randomBytes(32).toString('hex');
