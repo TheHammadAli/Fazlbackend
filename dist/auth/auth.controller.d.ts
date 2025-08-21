@@ -35,9 +35,6 @@ export declare class AuthController {
     }>;
     sendForgotPassword(email: string, lang: string): Promise<{
         message: string;
-        data?: undefined;
-    } | {
-        message: string;
         data: string;
     }>;
     verifyResetToken(token: string): Promise<{

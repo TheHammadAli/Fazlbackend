@@ -39,9 +39,6 @@ export declare class AuthService {
     verifyOtp(phoneNumber: string, code: string): Promise<boolean>;
     sendForgotPasswordEmail(email: string, lang?: string): Promise<{
         message: string;
-        data?: undefined;
-    } | {
-        message: string;
         data: string;
     }>;
     verifyResetPasswordToken(token: string): Promise<UserDocument>;

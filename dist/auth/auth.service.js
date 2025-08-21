@@ -168,7 +168,7 @@ let AuthService = class AuthService {
     async sendForgotPasswordEmail(email, lang = 'en') {
         const user = await this.userService.findUserByEmail(email);
         if (!user) {
-            return { message: this.i18n.translate('auth.auth.email_not_found', { lang }) };
+            throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
         }
         const token = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 60 * 60 * 1000);
