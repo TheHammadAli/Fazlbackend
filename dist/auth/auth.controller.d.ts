@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { JwtPayload } from './strategies/jwt-strategy';
@@ -47,5 +48,7 @@ export declare class AuthController {
         message: string;
     }>;
     googleAuth(): void;
-    googleAuthRedirect(req: any): Promise<any>;
+    googleAuthRedirect(req: any, res: Response): Promise<{
+        accessToken: string;
+    }>;
 }

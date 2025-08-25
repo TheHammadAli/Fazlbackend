@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards, Headers, Query, Put, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Headers, Query, Put, Req, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { JwtAuthGuard } from './guard/jwt-auth-guard';
@@ -138,15 +139,14 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req) {
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
 
     console.log('Google Auth Callback:', req.user);
     // Create JWT after Google login
     const payload = await this.authService.findOrCreateUserByEmail(req.user);
-    console.log('Payload after Google login:', payload);
 
-    // Return token to frontend (or set as HTTP-only cookie)
     return payload
+    //  return res.redirect('http://localhost:3001/google/auth/success?token=' + payload.accessToken);
   }
 
 

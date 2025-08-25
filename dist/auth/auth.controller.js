@@ -69,10 +69,9 @@ let AuthController = class AuthController {
     }
     googleAuth() {
     }
-    async googleAuthRedirect(req) {
+    async googleAuthRedirect(req, res) {
         console.log('Google Auth Callback:', req.user);
         const payload = await this.authService.findOrCreateUserByEmail(req.user);
-        console.log('Payload after Google login:', payload);
         return payload;
     }
 };
@@ -200,8 +199,9 @@ __decorate([
     (0, common_1.Get)('google/callback'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('google')),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "googleAuthRedirect", null);
 exports.AuthController = AuthController = __decorate([

@@ -54,6 +54,9 @@ export class User {
 
   @Prop({ type: String, select: false })
   provider?: string | null;
+
+  @Prop({ type: String })
+  address?: string | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

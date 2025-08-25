@@ -218,16 +218,11 @@ let AuthService = class AuthService {
                 image: null,
             }));
         }
-        user = await this.userService.findUserByEmail(payload.email);
-        if (!user) {
-            throw new common_1.UnauthorizedException('User creation failed');
-        }
         const accessToken = this.jwtService.sign(payload, {
             expiresIn: '1h',
         });
         return {
             accessToken,
-            ...user.toObject()
         };
     }
     createJwtToken(payload) {

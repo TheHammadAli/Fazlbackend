@@ -289,17 +289,14 @@ export class AuthService {
       })) as unknown as UserDocument;
 
     }
-    user = await this.userService.findUserByEmail(payload.email); // Fetch the newly created user
-    if (!user) {
-      throw new UnauthorizedException('User creation failed');
-    }
+    
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '1h',
     });
 
     return {
       accessToken,
-      ...user.toObject()
+     
     }
 
   }

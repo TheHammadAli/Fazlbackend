@@ -48,6 +48,8 @@ export declare class AuthService {
     findOrCreateUserByEmail(payload: {
         sub: string;
         email: string;
-    }): Promise<any>;
+    }): Promise<{
+        accessToken: string;
+    }>;
     createJwtToken(payload: any): string;
 }

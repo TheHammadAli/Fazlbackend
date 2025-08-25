@@ -25,6 +25,7 @@ let User = class User {
     image;
     resetPasswordExpires;
     provider;
+    address;
 };
 exports.User = User;
 __decorate([
@@ -85,6 +86,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, select: false }),
     __metadata("design:type", Object)
 ], User.prototype, "provider", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String }),
+    __metadata("design:type", Object)
+], User.prototype, "address", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,
