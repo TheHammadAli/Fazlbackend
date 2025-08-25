@@ -268,7 +268,7 @@ export class AuthService {
     let user = await this.userService.findUserByEmail(payload.email);
     if (!user) {
       // Create new user
-      user = (await this.userService.createUser({
+      const newUser = (await this.userService.createUser({
         email: payload.email,
         // Add any other default fields as needed
         provider: 'google', // or set based on your logic
@@ -288,6 +288,10 @@ export class AuthService {
 
       })) as unknown as UserDocument;
 
+    }
+    user = await this.userService.findUserByEmail(payload.email); // Fetch the newly created user
+    if (!user) {
+      throw new UnauthorizedException('User creation failed');
     }
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '1h',

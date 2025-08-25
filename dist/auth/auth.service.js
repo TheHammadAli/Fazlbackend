@@ -201,7 +201,7 @@ let AuthService = class AuthService {
     async findOrCreateUserByEmail(payload) {
         let user = await this.userService.findUserByEmail(payload.email);
         if (!user) {
-            user = (await this.userService.createUser({
+            const newUser = (await this.userService.createUser({
                 email: payload.email,
                 provider: 'google',
                 password: '',
@@ -217,6 +217,10 @@ let AuthService = class AuthService {
                 },
                 image: null,
             }));
+        }
+        user = await this.userService.findUserByEmail(payload.email);
+        if (!user) {
+            throw new common_1.UnauthorizedException('User creation failed');
         }
         const accessToken = this.jwtService.sign(payload, {
             expiresIn: '1h',

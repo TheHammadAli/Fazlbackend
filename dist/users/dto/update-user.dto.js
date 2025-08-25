@@ -95,19 +95,19 @@ __decorate([
     __metadata("design:type", Object)
 ], UpdateUserDto.prototype, "image", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: null }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
 ], UpdateUserDto.prototype, "refreshToken", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: null }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
 ], UpdateUserDto.prototype, "resetPasswordToken", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: new Date }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "" }),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], UpdateUserDto.prototype, "resetPasswordExpires", void 0);

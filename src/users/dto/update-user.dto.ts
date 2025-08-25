@@ -75,17 +75,17 @@ export class UpdateUserDto {
     })
     image?: any;
 
-    @ApiPropertyOptional({ example: null })
+    @ApiPropertyOptional({ example: "" })
     @IsOptional()
     @IsString()
     refreshToken?: null | string;
 
-    @ApiPropertyOptional({ example: null })
+    @ApiPropertyOptional({ example: "" })
     @IsOptional()
     @IsString()
     resetPasswordToken?: null | string;
 
-    @ApiPropertyOptional({ example: new Date })
+    @ApiPropertyOptional({ example: "" })
     @IsOptional()
     resetPasswordExpires?: null | Date;
 }
