@@ -46,7 +46,7 @@ export class User {
   @Prop({ type: String, select: false })
   resetPasswordToken?: string | null;
 
-  @Prop({ type: String || null || undefined, default: null })
+  @Prop({ type: String || null || undefined, default: "default-avatar.png" })
   image?: string | null;
   @Prop({ type: Date, select: false })
   resetPasswordExpires?: Date | null;
@@ -55,7 +55,7 @@ export class User {
   @Prop({ type: String, select: false })
   provider?: string | null;
 
-  @Prop({ type: String, default: "default-avatar.png" })
+  @Prop({ type: String, })
   address?: string | null;
 }
 
