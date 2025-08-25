@@ -100,23 +100,24 @@ let UsersService = class UsersService {
             if (!existingUser) {
                 throw new common_1.NotFoundException('User not found');
             }
-            let imageFile = updateData.image || "default-avatar.png";
-            updateData.image = existingUser.image;
-            updateData.location = existingUser.location;
-            const updateUser = await this.userModel.updateOne({ _id: userId }, { $set: updateData });
-            if (updateUser.modifiedCount === 0) {
-                throw new common_1.NotFoundException('No changes made to the user');
+            console.log("Existing User:", existingUser);
+            let imageUrl = existingUser.image || "default-avatar.png";
+            console.log("Image URL:", imageUrl);
+            console.log("Update Data Image:", updateData.image);
+            if (updateData.image &&
+                typeof updateData.image === "object" &&
+                "buffer" in updateData.image &&
+                "originalname" in updateData.image) {
+                imageUrl = await this.fileUploadService.uploadUserImage(userId, updateData.image);
             }
-            let imageUrl = existingUser.image;
-            if (imageFile) {
-                imageUrl = await this.fileUploadService.uploadUserImage(userId, imageFile);
+            if (!updateData.location) {
+                updateData.location = existingUser.location;
             }
             updateData.image = imageUrl;
-            const updatedUser = await this.userModel.findByIdAndUpdate(userId, updateData, { new: true });
+            const updatedUser = await this.userModel.findByIdAndUpdate(userId, { $set: updateData });
             if (!updatedUser) {
                 throw new common_1.NotFoundException('User not found');
             }
-            updatedUser.image = imageUrl;
             return updatedUser;
         }
         catch (err) {

@@ -92,18 +92,19 @@ export class UsersService {
   }
 
   async updateUser(userId: string, updateData: Partial<UpdateUserDto>): Promise<User> {
-
     try {
+      // Remove empty, null, or undefined fields
       Object.keys(updateData).forEach((key) => {
         if (
-          updateData[key] === '' ||   // empty string
-          updateData[key] === null || // null
+          updateData[key] === '' ||
+          updateData[key] === null ||
           typeof updateData[key] === 'undefined'
         ) {
-          delete updateData[key]; // remove it from updateData
+          delete updateData[key];
         }
       });
 
+      // Handle password hashing
       if (updateData.password) {
         const salt = await bcrypt.genSalt();
         updateData.password = await bcrypt.hash(updateData.password, salt);
@@ -113,38 +114,45 @@ export class UsersService {
       if (!existingUser) {
         throw new NotFoundException('User not found');
       }
-      let imageFile = updateData.image || "default-avatar.png";
-      updateData.image = existingUser.image; // Preserve existing image if not updated
-      updateData.location = existingUser.location; // Preserve existing location if not updated
-      const updateUser = await this.userModel.updateOne({ _id: userId }, { $set: updateData });
-      if (updateUser.modifiedCount === 0) {
-        throw new NotFoundException('No changes made to the user');
+      console.log("Existing User:", existingUser);
+
+      // Handle image only if a new one is provided
+      let imageUrl = existingUser.image || "default-avatar.png";
+      console.log("Image URL:", imageUrl);
+      console.log("Update Data Image:", updateData.image);
+      if (
+        updateData.image &&
+        typeof updateData.image === "object" &&
+        "buffer" in updateData.image &&
+        "originalname" in updateData.image
+      ) {
+        // It's a file object (from Multer)
+        imageUrl = await this.fileUploadService.uploadUserImage(userId, updateData.image);
       }
 
-      let imageUrl = existingUser.image; // Keep existing image URL if not updated
-      if (imageFile) {
-        imageUrl = await this.fileUploadService.uploadUserImage(userId, imageFile); // Function to handle image upload
+      // Preserve location if not updated
+      if (!updateData.location) {
+        updateData.location = existingUser.location;
       }
 
-      updateData.image = imageUrl; // Ensure the image is stored as a filename
-
-
+      updateData.image = imageUrl;
 
       const updatedUser = await this.userModel.findByIdAndUpdate(
         userId,
-        updateData,
-        { new: true },
+        { $set: updateData },
+
       );
 
       if (!updatedUser) {
         throw new NotFoundException('User not found');
       }
-      updatedUser.image = imageUrl; // Ensure the image is stored as a filename
+
       return updatedUser;
     } catch (err) {
       throw new AppError(err);
     }
   }
+
 
   async findByIdWithToken(userId: string): Promise<UserDocument> {
     const user = await this.userModel
