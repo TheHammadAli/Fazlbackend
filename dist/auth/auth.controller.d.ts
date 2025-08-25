@@ -48,7 +48,5 @@ export declare class AuthController {
         message: string;
     }>;
     googleAuth(): void;
-    googleAuthRedirect(req: any, res: Response): Promise<{
-        accessToken: string;
-    }>;
+    googleAuthRedirect(req: any, res: Response): Promise<void>;
 }

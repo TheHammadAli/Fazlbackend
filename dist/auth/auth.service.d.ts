@@ -48,6 +48,8 @@ export declare class AuthService {
     findOrCreateUserByEmail(payload: {
         sub: string;
         email: string;
+        firstName?: string;
+        lastName?: string;
     }): Promise<{
         accessToken: string;
     }>;

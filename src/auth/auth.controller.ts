@@ -145,8 +145,8 @@ export class AuthController {
     // Create JWT after Google login
     const payload = await this.authService.findOrCreateUserByEmail(req.user);
 
-    return payload
-    //  return res.redirect('http://localhost:3001/google/auth/success?token=' + payload.accessToken);
+
+    return res.redirect('http://localhost:3000/google/auth/success?token=' + payload.accessToken);
   }
 
 

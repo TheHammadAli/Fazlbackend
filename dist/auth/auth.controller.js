@@ -72,7 +72,7 @@ let AuthController = class AuthController {
     async googleAuthRedirect(req, res) {
         console.log('Google Auth Callback:', req.user);
         const payload = await this.authService.findOrCreateUserByEmail(req.user);
-        return payload;
+        return res.redirect('http://localhost:3000/google/auth/success?token=' + payload.accessToken);
     }
 };
 exports.AuthController = AuthController;

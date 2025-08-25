@@ -205,7 +205,7 @@ let AuthService = class AuthService {
                 email: payload.email,
                 provider: 'google',
                 password: '',
-                name: '',
+                name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : '',
                 phone: '',
                 address: '',
                 roles: [],

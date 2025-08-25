@@ -100,7 +100,7 @@ let UsersService = class UsersService {
             if (!existingUser) {
                 throw new common_1.NotFoundException('User not found');
             }
-            let imageFile = updateData.image;
+            let imageFile = updateData.image || "default-avatar.png";
             updateData.image = existingUser.image;
             updateData.location = existingUser.location;
             const updateUser = await this.userModel.updateOne({ _id: userId }, { $set: updateData });

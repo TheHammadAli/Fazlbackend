@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
 import * as crypto from 'crypto';
 import { UserDocument } from 'src/users/schema/users.schema';
+import { first } from 'rxjs';
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
@@ -263,7 +264,7 @@ export class AuthService {
     return { message: 'Password reset successful' };
   }
 
-  async findOrCreateUserByEmail(payload: { sub: string; email: string }) {
+  async findOrCreateUserByEmail(payload: { sub: string; email: string, firstName?: string, lastName?: string }): Promise<{ accessToken: string }> {
     // Check if user exists
     let user = await this.userService.findUserByEmail(payload.email);
     if (!user) {
@@ -273,7 +274,7 @@ export class AuthService {
         // Add any other default fields as needed
         provider: 'google', // or set based on your logic
         password: '',
-        name: '',
+        name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : '',
         phone: '',
         address: '',
         roles: [],
@@ -289,14 +290,14 @@ export class AuthService {
       })) as unknown as UserDocument;
 
     }
-    
+
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '1h',
     });
 
     return {
       accessToken,
-     
+
     }
 
   }

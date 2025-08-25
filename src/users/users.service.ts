@@ -113,7 +113,7 @@ export class UsersService {
       if (!existingUser) {
         throw new NotFoundException('User not found');
       }
-      let imageFile = updateData.image;
+      let imageFile = updateData.image || "default-avatar.png";
       updateData.image = existingUser.image; // Preserve existing image if not updated
       updateData.location = existingUser.location; // Preserve existing location if not updated
       const updateUser = await this.userModel.updateOne({ _id: userId }, { $set: updateData });
