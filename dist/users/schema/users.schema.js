@@ -75,7 +75,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "resetPasswordToken", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String || null || undefined, default: null }),
+    (0, mongoose_1.Prop)({ type: String || null || undefined, default: "default-avatar.png" }),
     __metadata("design:type", Object)
 ], User.prototype, "image", void 0);
 __decorate([
@@ -87,7 +87,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "provider", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, default: "default-avatar.png" }),
+    (0, mongoose_1.Prop)({ type: String, }),
     __metadata("design:type", Object)
 ], User.prototype, "address", void 0);
 exports.User = User = __decorate([
