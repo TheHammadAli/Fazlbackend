@@ -11,19 +11,23 @@ import { ConfigService } from '@nestjs/config';
 import { I18nService } from 'nestjs-i18n';
 import * as crypto from 'crypto';
 import { UserDocument } from 'src/users/schema/users.schema';
-import { first } from 'rxjs';
+import { OAuth2Client } from 'google-auth-library';
+import { access } from 'fs';
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
-
-
+  private googleClient: OAuth2Client
+  private audience: string[];
   constructor(
     @InjectModel(Otp.name) private otpModel: Model<OtpDocument>,
     private readonly userService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService, // ✅ Add this
-    private readonly i18n: I18nService
+    private readonly i18n: I18nService,
+
+
   ) {
+    this.googleClient = new OAuth2Client();
     // this.twilioClient = new Twilio(
     //   this.configService.get('TWILIO_ACCOUNT_SID'),
     //   this.configService.get('TWILIO_AUTH_TOKEN')
@@ -220,7 +224,7 @@ export class AuthService {
       throw new UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
     }
     // Generate token
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = Math.floor(100000 + Math.random() * 900000).toString()
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     // Save token and expiry to user
@@ -264,9 +268,10 @@ export class AuthService {
     return { message: 'Password reset successful' };
   }
 
-  async findOrCreateUserByEmail(payload: { sub: string; email: string, firstName?: string, lastName?: string }): Promise<{ accessToken: string }> {
+  async findOrCreateUserByEmail(payload: { sub: string; email: string, firstName?: string, lastName?: string }): Promise<{ accessToken: string, returnPayload: any }> {
     // Check if user exists
     let user = await this.userService.findUserByEmail(payload.email);
+    let returnPayload: any = {};
     if (!user) {
       // Create new user
       const newUser = (await this.userService.createUser({
@@ -289,15 +294,19 @@ export class AuthService {
 
       })) as unknown as UserDocument;
 
+      returnPayload = { sub: newUser._id, email: newUser.email, roles: newUser.roles, location: newUser.location, image: newUser.image }
+
+    } else {
+      returnPayload = user.toObject()
     }
 
-    const accessToken = this.jwtService.sign(payload, {
+    const accessToken = this.jwtService.sign(returnPayload, {
       expiresIn: '1h',
     });
 
     return {
       accessToken,
-
+      returnPayload
     }
 
   }
@@ -305,5 +314,35 @@ export class AuthService {
     return this.jwtService.sign(payload, {
       expiresIn: '10h',
     });
+  }
+
+  async verifyGoogleToken(idToken: string) {
+    console.log('Verifying Google ID token:', idToken, this.configService.get<string>('GOOGLE_CLIENT_ID'));
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: [
+          this.configService.get<string>('GOOGLE_CLIENT_ID'),
+          this.configService.get<string>('GOOGLE_CLIENT_ID_ANDROID'),
+          this.configService.get<string>('GOOGLE_CLIENT_ID_IOS'),
+
+        ].filter((value): value is string => Boolean(value)),
+      });
+
+      let payload = ticket.getPayload();
+
+      if (!payload) {
+        throw new UnauthorizedException('Invalid Google token');
+      }
+
+      console.log('Google token payload:', payload);
+
+      const user = await this.findOrCreateUserByEmail({ sub: payload['sub'] as string, email: payload['email'] as string, firstName: payload['given_name'], lastName: payload['family_name'] });
+
+      return { user, accessToken: user.accessToken };
+    } catch (err) {
+      console.error('Error verifying Google ID token:', err);
+      throw new UnauthorizedException('Google token verification failed');
+    }
   }
 }

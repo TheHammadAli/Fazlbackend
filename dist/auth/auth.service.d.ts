@@ -14,6 +14,8 @@ export declare class AuthService {
     private readonly configService;
     private readonly i18n;
     private twilioClient;
+    private googleClient;
+    private audience;
     constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService);
     loginUser(loginDto: LoginDto, lang?: string): Promise<{
         refreshToken: string;
@@ -52,6 +54,14 @@ export declare class AuthService {
         lastName?: string;
     }): Promise<{
         accessToken: string;
+        returnPayload: any;
     }>;
     createJwtToken(payload: any): string;
+    verifyGoogleToken(idToken: string): Promise<{
+        user: {
+            accessToken: string;
+            returnPayload: any;
+        };
+        accessToken: string;
+    }>;
 }

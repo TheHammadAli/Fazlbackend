@@ -19,6 +19,7 @@ const login_dto_1 = require("./dto/login-dto");
 const jwt_auth_guard_1 = require("./guard/jwt-auth-guard");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const refreshToken_dto_1 = require("./dto/refreshToken-dto");
+const google_login_dto_1 = require("./dto/google-login-dto");
 const throttler_1 = require("@nestjs/throttler");
 const swagger_1 = require("@nestjs/swagger");
 const passport_1 = require("@nestjs/passport");
@@ -73,6 +74,9 @@ let AuthController = class AuthController {
         console.log('Google Auth Callback:', req.user);
         const payload = await this.authService.findOrCreateUserByEmail(req.user);
         return res.redirect('http://localhost:3000/google/auth/success?token=' + payload.accessToken);
+    }
+    async googleLogin(body) {
+        return this.authService.verifyGoogleToken(body.idToken);
     }
 };
 exports.AuthController = AuthController;
@@ -204,6 +208,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "googleAuthRedirect", null);
+__decorate([
+    (0, common_1.Post)('google/verify/token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Login with Google ID token' }),
+    (0, swagger_1.ApiBody)({ type: google_login_dto_1.GoogleLoginDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully authenticated with Google' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid Google token' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [google_login_dto_1.GoogleLoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "googleLogin", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

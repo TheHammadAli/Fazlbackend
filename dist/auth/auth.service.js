@@ -22,6 +22,7 @@ const otp_schema_1 = require("./schema/otp.schema");
 const config_1 = require("@nestjs/config");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const crypto = require("crypto");
+const google_auth_library_1 = require("google-auth-library");
 let AuthService = class AuthService {
     otpModel;
     userService;
@@ -29,12 +30,15 @@ let AuthService = class AuthService {
     configService;
     i18n;
     twilioClient;
+    googleClient;
+    audience;
     constructor(otpModel, userService, jwtService, configService, i18n) {
         this.otpModel = otpModel;
         this.userService = userService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.i18n = i18n;
+        this.googleClient = new google_auth_library_1.OAuth2Client();
     }
     async loginUser(loginDto, lang = 'en') {
         console.log("Check for language", lang);
@@ -171,7 +175,7 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
         }
-        const token = crypto.randomBytes(32).toString('hex');
+        const token = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 60 * 60 * 1000);
         await this.userService.updateUser(user.id, {
             resetPasswordToken: token,
@@ -200,6 +204,7 @@ let AuthService = class AuthService {
     }
     async findOrCreateUserByEmail(payload) {
         let user = await this.userService.findUserByEmail(payload.email);
+        let returnPayload = {};
         if (!user) {
             const newUser = (await this.userService.createUser({
                 email: payload.email,
@@ -217,18 +222,47 @@ let AuthService = class AuthService {
                 },
                 image: null,
             }));
+            returnPayload = { sub: newUser._id, email: newUser.email, roles: newUser.roles, location: newUser.location, image: newUser.image };
         }
-        const accessToken = this.jwtService.sign(payload, {
+        else {
+            returnPayload = user.toObject();
+        }
+        const accessToken = this.jwtService.sign(returnPayload, {
             expiresIn: '1h',
         });
         return {
             accessToken,
+            returnPayload
         };
     }
     createJwtToken(payload) {
         return this.jwtService.sign(payload, {
             expiresIn: '10h',
         });
+    }
+    async verifyGoogleToken(idToken) {
+        console.log('Verifying Google ID token:', idToken, this.configService.get('GOOGLE_CLIENT_ID'));
+        try {
+            const ticket = await this.googleClient.verifyIdToken({
+                idToken,
+                audience: [
+                    this.configService.get('GOOGLE_CLIENT_ID'),
+                    this.configService.get('GOOGLE_CLIENT_ID_ANDROID'),
+                    this.configService.get('GOOGLE_CLIENT_ID_IOS'),
+                ].filter((value) => Boolean(value)),
+            });
+            let payload = ticket.getPayload();
+            if (!payload) {
+                throw new common_1.UnauthorizedException('Invalid Google token');
+            }
+            console.log('Google token payload:', payload);
+            const user = await this.findOrCreateUserByEmail({ sub: payload['sub'], email: payload['email'], firstName: payload['given_name'], lastName: payload['family_name'] });
+            return { user, accessToken: user.accessToken };
+        }
+        catch (err) {
+            console.error('Error verifying Google ID token:', err);
+            throw new common_1.UnauthorizedException('Google token verification failed');
+        }
     }
 };
 exports.AuthService = AuthService;

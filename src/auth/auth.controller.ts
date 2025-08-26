@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './guard/jwt-auth-guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './strategies/jwt-strategy';
 import { RefreshTokenDto } from './dto/refreshToken-dto';
+import { GoogleLoginDto } from './dto/google-login-dto';
 import { Throttle } from '@nestjs/throttler';
 
 import {
@@ -145,9 +146,18 @@ export class AuthController {
     // Create JWT after Google login
     const payload = await this.authService.findOrCreateUserByEmail(req.user);
 
-
     return res.redirect('http://localhost:3000/google/auth/success?token=' + payload.accessToken);
   }
 
+
+
+  @Post('google/verify/token')
+  @ApiOperation({ summary: 'Login with Google ID token' })
+  @ApiBody({ type: GoogleLoginDto })
+  @ApiResponse({ status: 200, description: 'Successfully authenticated with Google' })
+  @ApiResponse({ status: 401, description: 'Invalid Google token' })
+  async googleLogin(@Body() body: GoogleLoginDto) {
+    return this.authService.verifyGoogleToken(body.idToken);
+  }
 
 }

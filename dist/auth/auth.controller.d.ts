@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { JwtPayload } from './strategies/jwt-strategy';
 import { RefreshTokenDto } from './dto/refreshToken-dto';
+import { GoogleLoginDto } from './dto/google-login-dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -49,4 +50,11 @@ export declare class AuthController {
     }>;
     googleAuth(): void;
     googleAuthRedirect(req: any, res: Response): Promise<void>;
+    googleLogin(body: GoogleLoginDto): Promise<{
+        user: {
+            accessToken: string;
+            returnPayload: any;
+        };
+        accessToken: string;
+    }>;
 }

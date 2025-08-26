@@ -7,7 +7,11 @@ export declare class UsersController {
     constructor(usersService: UsersService);
     createUser(createUserDto: CreateUpdateUserDto, files: {
         image?: Express.Multer.File[];
-    }): Promise<User>;
+    }): Promise<import("mongoose").FlattenMaps<User & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
+    }>>;
     updateUser(userId: string, updateUserDto: UpdateUserDto, files: {
         image?: Express.Multer.File[];
     }): Promise<User>;
