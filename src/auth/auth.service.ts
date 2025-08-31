@@ -296,7 +296,7 @@ export class AuthService {
       returnPayload = { sub: newUser._id, email: newUser.email, roles: newUser.roles, location: newUser.location, image: newUser.image }
 
     } else {
-      returnPayload = user.toObject()
+      returnPayload = { ...user.toObject(), sub: user._id };
     }
 
     const accessToken = this.jwtService.sign(returnPayload, {
@@ -305,7 +305,7 @@ export class AuthService {
 
     return {
       accessToken,
-      returnPayload
+      ...returnPayload
     }
 
   }
