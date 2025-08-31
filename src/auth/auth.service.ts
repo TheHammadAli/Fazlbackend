@@ -268,7 +268,7 @@ export class AuthService {
     return { message: 'Password reset successful' };
   }
 
-  async findOrCreateUserByEmail(payload: { sub: string; email: string, firstName?: string, lastName?: string }): Promise<{ accessToken: string, returnPayload: any }> {
+  async findOrCreateUserByEmail(payload: { sub: string; email: string, firstName?: string, lastName?: string, name?: string }): Promise<{ accessToken: string, returnPayload: any }> {
     // Check if user exists
     let user = await this.userService.findUserByEmail(payload.email);
     let returnPayload: any = {};
@@ -279,7 +279,7 @@ export class AuthService {
         // Add any other default fields as needed
         provider: 'google', // or set based on your logic
         password: '',
-        name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : '',
+        name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : payload.name ? payload.name : "",
         address: '',
         roles: ['buyer'],
         language: 'en',
@@ -336,7 +336,7 @@ export class AuthService {
 
       console.log('Google token payload:', payload);
 
-      const user = await this.findOrCreateUserByEmail({ sub: payload['sub'] as string, email: payload['email'] as string, firstName: payload['given_name'], lastName: payload['family_name'] });
+      const user = await this.findOrCreateUserByEmail({ sub: payload['sub'] as string, email: payload['email'] as string, firstName: payload['given_name'], lastName: payload['family_name'], name: payload['name'] });
 
       return { user, accessToken: user.accessToken };
     } catch (err) {
