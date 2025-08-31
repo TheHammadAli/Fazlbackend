@@ -49,7 +49,7 @@ __decorate([
     __metadata("design:type", Array)
 ], User.prototype, "roles", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    (0, mongoose_1.Prop)({ unique: false, sparse: true, required: false }),
     __metadata("design:type", String)
 ], User.prototype, "phone", void 0);
 __decorate([

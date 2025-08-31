@@ -23,7 +23,7 @@ export class User {
   })
   roles: string[];
 
-  @Prop({ unique: true, sparse: true, required: false })
+  @Prop({ unique: false, sparse: true, required: false })
   phone: string;
   language: 'en' | 'ur';
   isVerified: Boolean;

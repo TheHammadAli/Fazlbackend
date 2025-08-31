@@ -58,7 +58,7 @@ export class CreateUpdateUserDto {
   @ApiProperty({
     example: ['buyer'],
     enum: ['buyer', 'seller', 'admin', 'subadmin'],
-    isArray: true,
+    isArray: true, 
   })
   @IsArray()
   @ArrayNotEmpty()
