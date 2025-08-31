@@ -22,9 +22,8 @@ export class User {
     default: ['buyer'],
   })
   roles: string[];
-
-  @Prop({ unique: false, sparse: true, required: false })
-  phone: string;
+  @Prop({ unique: true, sparse: true, required: false })
+  phone?: string;
   language: 'en' | 'ur';
   isVerified: Boolean;
   @Prop({
