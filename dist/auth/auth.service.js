@@ -203,6 +203,7 @@ let AuthService = class AuthService {
         return { message: 'Password reset successful' };
     }
     async findOrCreateUserByEmail(payload) {
+        console.log('Finding or creating user with payload:', payload);
         let user = await this.userService.findUserByEmail(payload.email);
         let returnPayload = {};
         if (!user) {
@@ -210,7 +211,7 @@ let AuthService = class AuthService {
                 email: payload.email,
                 provider: 'google',
                 password: '',
-                name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : '',
+                name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : payload.name ? payload.name : "",
                 address: '',
                 roles: ['buyer'],
                 language: 'en',
@@ -255,7 +256,7 @@ let AuthService = class AuthService {
                 throw new common_1.UnauthorizedException('Invalid Google token');
             }
             console.log('Google token payload:', payload);
-            const user = await this.findOrCreateUserByEmail({ sub: payload['sub'], email: payload['email'], firstName: payload['given_name'], lastName: payload['family_name'] });
+            const user = await this.findOrCreateUserByEmail({ sub: payload['sub'], email: payload['email'], firstName: payload['given_name'], lastName: payload['family_name'], name: payload['name'] });
             return { user, accessToken: user.accessToken };
         }
         catch (err) {

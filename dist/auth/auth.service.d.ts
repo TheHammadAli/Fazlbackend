@@ -52,6 +52,7 @@ export declare class AuthService {
         email: string;
         firstName?: string;
         lastName?: string;
+        name?: string;
     }): Promise<{
         accessToken: string;
         returnPayload: any;
