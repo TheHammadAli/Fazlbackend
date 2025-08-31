@@ -18,6 +18,7 @@ import { AcceptLanguageResolver, I18nModule, QueryResolver } from 'nestjs-i18n';
 import { OrdersModule } from './orders/orders.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { PromotionModule } from './promotion/promotion.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import * as path from 'path';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -64,6 +65,7 @@ console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction
     OrdersModule,
     SubscriptionModule,
     PromotionModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

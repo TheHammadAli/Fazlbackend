@@ -23,7 +23,7 @@ export class User {
   })
   roles: string[];
 
-  @Prop({ required: false, unique: true })
+  @Prop({ unique: true, sparse: true, required: false })
   phone: string;
   language: 'en' | 'ur';
   isVerified: Boolean;
@@ -47,7 +47,7 @@ export class User {
   resetPasswordToken?: string | null;
 
   @Prop({ type: String || null || undefined, default: "default-avatar.png" })
-  image?: string | null; 
+  image?: string | null;
   @Prop({ type: Date, select: false })
   resetPasswordExpires?: Date | null;
 

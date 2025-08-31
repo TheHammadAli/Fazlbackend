@@ -11,6 +11,7 @@ import {
   IsNumber,
   ValidateNested,
   ArrayNotEmpty,
+  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -47,8 +48,8 @@ export class CreateUpdateUserDto {
 
   @ApiProperty({ example: '+923001234567' })
   @IsString()
-  @IsNotEmpty()
-  phone: string;
+  @IsOptional()
+  phone?: string;
 
   @ApiProperty({ example: 'Street 1, City' })
   @IsString()

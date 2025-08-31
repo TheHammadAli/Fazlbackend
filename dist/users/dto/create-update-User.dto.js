@@ -65,7 +65,7 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({ example: '+923001234567' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "phone", void 0);
 __decorate([

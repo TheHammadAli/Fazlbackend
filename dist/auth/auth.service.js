@@ -211,9 +211,8 @@ let AuthService = class AuthService {
                 provider: 'google',
                 password: '',
                 name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : '',
-                phone: '',
                 address: '',
-                roles: [],
+                roles: ['buyer'],
                 language: 'en',
                 isVerified: false,
                 location: {

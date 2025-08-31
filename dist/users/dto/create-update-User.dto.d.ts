@@ -7,7 +7,7 @@ export declare class CreateUpdateUserDto {
     email: string;
     password: string;
     name: string;
-    phone: string;
+    phone?: string;
     address: string;
     roles: ('buyer' | 'seller' | 'admin' | 'subadmin')[];
     language: 'en' | 'ur';

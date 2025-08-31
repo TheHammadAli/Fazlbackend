@@ -1,0 +1,25 @@
+// notification.entity.ts
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+
+export type NotificationType = 'ORDER' | 'MESSAGE' | 'PROMOTION';
+
+@Schema({ timestamps: true })
+export class Notification extends Document {
+    @Prop({ required: true })
+    userId: Types.ObjectId // recipient
+
+    @Prop({ required: true, enum: ['ORDER', 'MESSAGE', 'PROMOTION'] })
+    type: NotificationType;
+
+    @Prop({ required: true })
+    message: string;
+
+    @Prop({ type: Object, default: {} })
+    metadata: Record<string, any>; // extra info, e.g. orderId, senderId
+
+    @Prop({ default: false })
+    read: boolean;
+}
+
+export const NotificationSchema = SchemaFactory.createForClass(Notification);

@@ -27,6 +27,7 @@ const nestjs_i18n_1 = require("nestjs-i18n");
 const orders_module_1 = require("./orders/orders.module");
 const subscription_module_1 = require("./subscription/subscription.module");
 const promotion_module_1 = require("./promotion/promotion.module");
+const notifications_module_1 = require("./notifications/notifications.module");
 const path = require("path");
 const isProduction = process.env.NODE_ENV === 'production';
 console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction);
@@ -76,6 +77,7 @@ exports.AppModule = AppModule = __decorate([
             orders_module_1.OrdersModule,
             subscription_module_1.SubscriptionModule,
             promotion_module_1.PromotionModule,
+            notifications_module_1.NotificationsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

@@ -280,9 +280,8 @@ export class AuthService {
         provider: 'google', // or set based on your logic
         password: '',
         name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : '',
-        phone: '',
         address: '',
-        roles: [],
+        roles: ['buyer'],
         language: 'en',
         isVerified: false,
         location: {
