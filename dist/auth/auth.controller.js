@@ -23,10 +23,13 @@ const google_login_dto_1 = require("./dto/google-login-dto");
 const throttler_1 = require("@nestjs/throttler");
 const swagger_1 = require("@nestjs/swagger");
 const passport_1 = require("@nestjs/passport");
+const config_1 = require("@nestjs/config");
 let AuthController = class AuthController {
     authService;
-    constructor(authService) {
+    configService;
+    constructor(authService, configService) {
         this.authService = authService;
+        this.configService = configService;
     }
     getCurrentUser(user) {
         return user;
@@ -73,7 +76,7 @@ let AuthController = class AuthController {
     async googleAuthRedirect(req, res) {
         console.log('Google Auth Callback:', req.user);
         const payload = await this.authService.findOrCreateUserByEmail(req.user);
-        return res.redirect('http://localhost:3000/google/auth/success?token=' + payload.accessToken);
+        return res.redirect(`${this.configService.get('FRONTEND_URL')}/google/auth/success?token=${payload.accessToken}`);
     }
     async googleLogin(body) {
         return this.authService.verifyGoogleToken(body.idToken);
@@ -222,6 +225,6 @@ __decorate([
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),
-    __metadata("design:paramtypes", [auth_service_1.AuthService])
+    __metadata("design:paramtypes", [auth_service_1.AuthService, config_1.ConfigService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

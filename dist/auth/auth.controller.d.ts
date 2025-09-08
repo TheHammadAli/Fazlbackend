@@ -4,9 +4,11 @@ import { LoginDto } from './dto/login-dto';
 import { JwtPayload } from './strategies/jwt-strategy';
 import { RefreshTokenDto } from './dto/refreshToken-dto';
 import { GoogleLoginDto } from './dto/google-login-dto';
+import { ConfigService } from '@nestjs/config';
 export declare class AuthController {
     private readonly authService;
-    constructor(authService: AuthService);
+    private readonly configService;
+    constructor(authService: AuthService, configService: ConfigService);
     getCurrentUser(user: JwtPayload): JwtPayload;
     loginUser(loginDto: LoginDto, lang: string): Promise<{
         refreshToken: string;

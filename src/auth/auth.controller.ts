@@ -20,11 +20,12 @@ import {
 } from '@nestjs/swagger';
 import { I18n, I18nContext } from 'nestjs-i18n';
 import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService, private readonly configService: ConfigService,) { }
 
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard)
@@ -146,7 +147,10 @@ export class AuthController {
     // Create JWT after Google login
     const payload = await this.authService.findOrCreateUserByEmail(req.user);
 
-    return res.redirect('http://localhost:3000/google/auth/success?token=' + payload.accessToken);
+    return res.redirect(
+      `${this.configService.get<string>('FRONTEND_URL')}/google/auth/success?token=${payload.accessToken}`
+    );
+
   }
 
 
