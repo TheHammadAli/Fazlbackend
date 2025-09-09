@@ -4,6 +4,7 @@ export declare class Shop {
     ownerId: Types.ObjectId;
     title: string;
     image: string;
+    address: string;
     description: string;
     location: {
         type: 'Point';

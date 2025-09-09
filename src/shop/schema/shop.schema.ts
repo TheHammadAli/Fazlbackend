@@ -18,6 +18,9 @@ export class Shop {
   @Prop({ required: false, trim: true })
   image: string;
 
+  @Prop({ required: false, trim: true })
+  address: string;
+
   @Prop({ required: true, trim: true })
   description: string;
 

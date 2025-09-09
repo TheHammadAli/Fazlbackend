@@ -35,6 +35,7 @@ __decorate([
 ], LocationDto.prototype, "coordinates", void 0);
 class CreateUpdateShopDto {
     title;
+    address;
     description;
     image;
     location;
@@ -46,6 +47,12 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "title", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Address of shop' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "address", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'Selling the latest smart gadgets and accessories.' }),
     (0, class_validator_1.IsString)(),

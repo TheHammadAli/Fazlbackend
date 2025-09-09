@@ -35,6 +35,11 @@ export class CreateUpdateShopDto {
   title: string;
 
 
+  @ApiProperty({ example: 'Address of shop' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
   @ApiProperty({ example: 'Selling the latest smart gadgets and accessories.' })
   @IsString()
   @IsNotEmpty()
