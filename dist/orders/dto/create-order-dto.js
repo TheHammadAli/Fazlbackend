@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateOrderDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 class CreateOrderDto {
     buyer;
     owner;
@@ -20,6 +21,7 @@ class CreateOrderDto {
     status;
     paymentType;
     amount;
+    variant;
     quantity;
 }
 exports.CreateOrderDto = CreateOrderDto;
@@ -55,6 +57,11 @@ __decorate([
     (0, swagger_1.ApiProperty)({ example: 499.99 }),
     __metadata("design:type", Number)
 ], CreateOrderDto.prototype, "amount", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: { "size": "M", "color": "black" } }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateOrderDto.prototype, "variant", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 1 }),
     __metadata("design:type", Number)

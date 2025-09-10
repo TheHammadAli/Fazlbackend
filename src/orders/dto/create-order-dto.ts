@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional } from 'class-validator';
 
 export class CreateOrderDto {
     @ApiProperty({ example: '6645f1d8a8c02c2b8f5a9df0', description: 'Buyer user ID' })
@@ -22,8 +23,12 @@ export class CreateOrderDto {
     @ApiPropertyOptional({ example: 'cashonDelivery', enum: ['cashonDelivery', 'Easypaisa'] })
     paymentType?: 'cashonDelivery' | 'Easypaisa';
 
-    @ApiProperty({ example: 499.99 }) 
+    @ApiProperty({ example: 499.99 })
     amount: number;
+
+    @ApiProperty({ example: { "size": "M", "color": "black" } })
+    @IsOptional()
+    variant: Record<string, any>;
 
     @ApiProperty({ example: 1 })
     quantity: number;

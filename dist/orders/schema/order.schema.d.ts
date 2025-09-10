@@ -11,6 +11,7 @@ export declare class Order {
     paymentType: paymentType;
     amount: number;
     quantity: number;
+    variant?: Record<string, any>;
 }
 export declare const OrderSchema: import("mongoose").Schema<Order, import("mongoose").Model<Order, any, any, any, Document<unknown, any, Order, any> & Order & {
     _id: Types.ObjectId;

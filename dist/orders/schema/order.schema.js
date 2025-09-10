@@ -22,6 +22,7 @@ let Order = class Order {
     paymentType;
     amount;
     quantity;
+    variant;
 };
 exports.Order = Order;
 __decorate([
@@ -60,6 +61,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Number, required: true }),
     __metadata("design:type", Number)
 ], Order.prototype, "quantity", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Object, required: false }),
+    __metadata("design:type", Object)
+], Order.prototype, "variant", void 0);
 exports.Order = Order = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

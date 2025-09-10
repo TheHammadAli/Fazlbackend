@@ -31,10 +31,13 @@ export class Order {
     @Prop({ type: String, enum: ['cashonDelivery', 'Easypaisa'], default: 'cashonDelivery' })
     paymentType: paymentType;
 
+
     @Prop({ type: Number, required: true })
     amount: number;
     @Prop({ type: Number, required: true })
     quantity: number;
+    @Prop({ type: Object, required: false })
+    variant?: Record<string, any>;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

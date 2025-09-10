@@ -7,5 +7,6 @@ export declare class CreateOrderDto {
     status?: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
     paymentType?: 'cashonDelivery' | 'Easypaisa';
     amount: number;
+    variant: Record<string, any>;
     quantity: number;
 }
