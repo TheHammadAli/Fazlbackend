@@ -61,7 +61,7 @@ export class OrdersService {
     // Read (Get specific order by ID)
     async getOrderById(orderId: string): Promise<Order> {
         if (!Types.ObjectId.isValid(orderId)) throw new BadRequestException('Invalid order ID');
-        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('ownerModel').exec();
+        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('owner').exec();
         console.log({ "order": order });
         if (!order) throw new NotFoundException('Order not found');
         return order;
@@ -90,7 +90,7 @@ export class OrdersService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ owner: new Types.ObjectId(ownerId), ownerModel }).populate('buyer').populate('product').populate('ownerModel')
+                .find({ owner: new Types.ObjectId(ownerId), ownerModel }).populate('product')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -120,7 +120,7 @@ export class OrdersService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ buyer: new Types.ObjectId(buyerId) }).populate('buyer').populate('product').populate('ownerModel')
+                .find({ buyer: new Types.ObjectId(buyerId) }).populate('product').populate('owner')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)

@@ -70,7 +70,7 @@ let OrdersService = class OrdersService {
     async getOrderById(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
             throw new common_1.BadRequestException('Invalid order ID');
-        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('ownerModel').exec();
+        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('owner').exec();
         console.log({ "order": order });
         if (!order)
             throw new common_1.NotFoundException('Order not found');
@@ -97,7 +97,7 @@ let OrdersService = class OrdersService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ owner: new mongoose_2.Types.ObjectId(ownerId), ownerModel }).populate('buyer').populate('product').populate('ownerModel')
+                .find({ owner: new mongoose_2.Types.ObjectId(ownerId), ownerModel }).populate('product')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -123,7 +123,7 @@ let OrdersService = class OrdersService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ buyer: new mongoose_2.Types.ObjectId(buyerId) }).populate('buyer').populate('product').populate('ownerModel')
+                .find({ buyer: new mongoose_2.Types.ObjectId(buyerId) }).populate('product').populate('owner')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
