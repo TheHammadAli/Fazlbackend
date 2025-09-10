@@ -61,7 +61,8 @@ export class OrdersService {
     // Read (Get specific order by ID)
     async getOrderById(orderId: string): Promise<Order> {
         if (!Types.ObjectId.isValid(orderId)) throw new BadRequestException('Invalid order ID');
-        const order = await this.orderModel.findById(orderId);
+        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('ownerModel').exec();
+        console.log({ "order": order });
         if (!order) throw new NotFoundException('Order not found');
         return order;
     }

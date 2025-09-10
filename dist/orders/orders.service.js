@@ -70,7 +70,8 @@ let OrdersService = class OrdersService {
     async getOrderById(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
             throw new common_1.BadRequestException('Invalid order ID');
-        const order = await this.orderModel.findById(orderId);
+        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('ownerModel').exec();
+        console.log({ "order": order });
         if (!order)
             throw new common_1.NotFoundException('Order not found');
         return order;
