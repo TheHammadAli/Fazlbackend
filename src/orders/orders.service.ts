@@ -90,7 +90,7 @@ export class OrdersService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ owner: new Types.ObjectId(ownerId), ownerModel })
+                .find({ owner: new Types.ObjectId(ownerId), ownerModel }).populate('buyer').populate('product').populate('ownerModel')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -120,7 +120,7 @@ export class OrdersService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ buyer: new Types.ObjectId(buyerId) })
+                .find({ buyer: new Types.ObjectId(buyerId) }).populate('buyer').populate('product').populate('ownerModel')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
