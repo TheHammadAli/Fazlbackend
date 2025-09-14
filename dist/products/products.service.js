@@ -54,9 +54,6 @@ let ProductsService = class ProductsService {
                     shop.location.coordinates.length !== 2) {
                     throw new common_1.BadRequestException('Shop location is missing');
                 }
-                if (shop.ownerId.toString() !== userId) {
-                    throw new common_1.ForbiddenException('You do not have permission to create products for this shop');
-                }
                 productPayload.shopId = shop._id;
                 location = shop.location;
                 console.log("product payload", productPayload);
