@@ -158,6 +158,38 @@ export class ServicesService {
     }
   }
 
+  async deleteServiceMedia(serviceId: string, media: string[]) {
+    const existingService = await this.serviceModel.findById(serviceId);
+    if (!existingService) {
+      throw new NotFoundException('Product not found');
+    }
+    if (!media || media.length === 0) {
+      throw new BadRequestException('No media files provided for deletion');
+    }
+
+    // Remove media files from storage
+    await this.fileUploadService.deleteFiles(media);
+
+    // Remove media from product document
+    let images = existingService.images || [];
+    let video = existingService.video;
+
+    // Remove any images that match the URLs
+    images = images.filter(imgUrl => !media.includes(imgUrl));
+
+    // Remove video if its URL is in the media array
+    if (media.includes(video)) {
+      video = "";
+    }
+
+    // Update the product
+    existingService.images = images;
+    existingService.video = video;
+    await existingService.save();
+
+    return true;
+  }
+
 
 
   async getById(serviceId: string): Promise<Service> {
@@ -382,7 +414,7 @@ export class ServicesService {
     };
   }
 
-  async deleteServiceMedia(
+  async deleteAllServiceMedia(
     serviceId: string, media: string[]) {
     const service = await this.serviceModel.findById(serviceId);
     if (!service) {

@@ -112,7 +112,7 @@ export class ProductsController {
         media: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Array of media file URLs to delete',
+        description: 'Array of media file URLs to delete',
         },
       },
       required: ['media'],

@@ -15,6 +15,7 @@ import {
   UseInterceptors,
   UploadedFile,
   UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -166,6 +167,35 @@ export class ServicesController {
   }
 
 
+  @Delete(':id/media')
+  @ApiOperation({ summary: 'Delete selected media files for a service' })
+  @ApiParam({ name: 'id', description: 'Service ID' })
+  @ApiBody({
+    schema: {
+      properties: {
+        media: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of media file URLs to delete',
+        },
+      },
+      required: ['media'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Selected service media deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  @ApiResponse({ status: 400, description: 'No media files provided for deletion' })
+  @HttpCode(HttpStatus.OK)
+  async deleteProductMedia(
+    @Param('id') serviceId: string,
+    @Body('media') media: string[],
+  ) {
+    if (!Array.isArray(media) || media.length === 0) {
+      throw new BadRequestException('No media files provided for deletion');
+    }
+    await this.servicesService.deleteServiceMedia(serviceId, media);
+    return { message: 'Selected service media deleted successfully' };
+  }
 
 
 }
