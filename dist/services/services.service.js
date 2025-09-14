@@ -133,6 +133,26 @@ let ServicesService = class ServicesService {
             throw new common_1.NotFoundException('Service not found');
         }
     }
+    async deleteServiceMedia(serviceId, media) {
+        const existingService = await this.serviceModel.findById(serviceId);
+        if (!existingService) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        if (!media || media.length === 0) {
+            throw new common_1.BadRequestException('No media files provided for deletion');
+        }
+        await this.fileUploadService.deleteFiles(media);
+        let images = existingService.images || [];
+        let video = existingService.video;
+        images = images.filter(imgUrl => !media.includes(imgUrl));
+        if (media.includes(video)) {
+            video = "";
+        }
+        existingService.images = images;
+        existingService.video = video;
+        await existingService.save();
+        return true;
+    }
     async getById(serviceId) {
         const service = await this.serviceModel
             .findById(serviceId)
@@ -291,7 +311,7 @@ let ServicesService = class ServicesService {
             data: requests,
         };
     }
-    async deleteServiceMedia(serviceId, media) {
+    async deleteAllServiceMedia(serviceId, media) {
         const service = await this.serviceModel.findById(serviceId);
         if (!service) {
             throw new common_1.NotFoundException('Service not found');

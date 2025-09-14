@@ -31,6 +31,7 @@ export declare class ServicesService {
         category?: string;
     }>;
     delete(serviceId: string): Promise<void>;
+    deleteServiceMedia(serviceId: string, media: string[]): Promise<boolean>;
     getById(serviceId: string): Promise<Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ServiceDocument>>;
@@ -67,7 +68,7 @@ export declare class ServicesService {
         __v: number;
     }>;
     getServiceRequestsByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<ServiceRequest>>;
-    deleteServiceMedia(serviceId: string, media: string[]): Promise<{
+    deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;
 }

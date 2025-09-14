@@ -71,6 +71,13 @@ let ServicesController = class ServicesController {
     async getServiceRequestsByUser(userId, page = 1, limit = 10) {
         return this.servicesService.getByUser(userId, page, limit);
     }
+    async deleteProductMedia(serviceId, media) {
+        if (!Array.isArray(media) || media.length === 0) {
+            throw new common_1.BadRequestException('No media files provided for deletion');
+        }
+        await this.servicesService.deleteServiceMedia(serviceId, media);
+        return { message: 'Selected service media deleted successfully' };
+    }
 };
 exports.ServicesController = ServicesController;
 __decorate([
@@ -173,6 +180,32 @@ __decorate([
     __metadata("design:paramtypes", [String, Number, Number]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getServiceRequestsByUser", null);
+__decorate([
+    (0, common_1.Delete)(':id/media'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete selected media files for a service' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Service ID' }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: {
+                media: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Array of media file URLs to delete',
+                },
+            },
+            required: ['media'],
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Selected service media deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Service not found' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'No media files provided for deletion' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('media')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Array]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "deleteProductMedia", null);
 exports.ServicesController = ServicesController = __decorate([
     (0, swagger_1.ApiTags)('Services'),
     (0, swagger_1.ApiBearerAuth)('jwt'),
