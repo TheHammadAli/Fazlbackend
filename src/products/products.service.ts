@@ -60,7 +60,7 @@ export class ProductsService {
           throw new BadRequestException('Shop location is missing');
         }
 
-       
+
         productPayload.shopId = shop._id as Types.ObjectId;
         location = shop.location;
         console.log("product payload", productPayload)
