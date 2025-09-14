@@ -44,7 +44,7 @@ export class AuthService {
       throw new UnauthorizedException(this.i18n.translate('auth.auth.invalid_credentials', { lang }));
 
     }
-    console.log(user);
+  
     const payload = {
       sub: user.id, // or user.id
       email: user.email,

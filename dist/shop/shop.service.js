@@ -76,7 +76,7 @@ let ShopService = class ShopService {
         return safeDto;
     }
     async getShopById(shopId) {
-        const shop = await this.shopModel.findById(shopId);
+        const shop = await this.shopModel.findById(shopId).populate('ownerId', 'name email');
         if (!shop) {
             throw new common_1.NotFoundException('Shop not found');
         }

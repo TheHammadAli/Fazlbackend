@@ -79,7 +79,7 @@ export class ShopService {
   }
 
   async getShopById(shopId: string): Promise<ShopDocument> {
-    const shop = await this.shopModel.findById(shopId);
+    const shop = await this.shopModel.findById(shopId).populate('ownerId', 'name email');
     if (!shop) {
       throw new NotFoundException('Shop not found');
     }

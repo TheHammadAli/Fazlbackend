@@ -197,17 +197,19 @@ export class ProductsService {
     if (updateDto.images && updateDto.images.length > 0) {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
         updateDto.images,
-        'shop', // Assuming type is 'shop' for this example
+        'shop',
         existingProduct.shopId.toString(),
         productId,
         'images',
       );
-      updateDto.images = uploadedFiles.map(file => file.url);
+      console.log("Uploaded Images:", uploadedFiles);
+      let newImages = uploadedFiles.map(file => file.url);
+      updateDto.images = [...(existingProduct.images || []), ...newImages];
     }
     if (updateDto.video) {
       const uploadedVideo = await this.fileUploadService.uploadProductFiles(
         [updateDto.video],
-        'shop', // Assuming type is 'shop' for this example
+        'shop',
         existingProduct.shopId.toString(),
         productId,
         'video',
@@ -235,7 +237,7 @@ export class ProductsService {
     }
     const type = existingProduct.shopId ? 'shop' : 'personal';
     const entityId = existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString();
-    await this.fileUploadService.deleteEntityProducts(type,entityId, productId);
+    await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
     const result = await this.productModel.findByIdAndDelete(productId);
     if (!result) throw new NotFoundException('Product not found');
   }

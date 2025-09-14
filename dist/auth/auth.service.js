@@ -46,7 +46,6 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.invalid_credentials', { lang }));
         }
-        console.log(user);
         const payload = {
             sub: user.id,
             email: user.email,

@@ -99,11 +99,13 @@ export class ServicesService {
       if (existingService.images && existingService.images.length > 4) {
         throw new BadRequestException('You can only upload up to 5 images');
       }
-      images = await this.fileUploadService.uploadServiceFile(
+      images = existingService.images || [];
+      let newimages = await this.fileUploadService.uploadServiceFile(
         existingService.ownerId.toString(),
         serviceId,
         imageFiles,
       );
+      images = [...images, ...newimages];
     }
     const videoFiles = dto.video as Express.Multer.File[];
     let video = existingService.video; // Preserve existing video if not updated

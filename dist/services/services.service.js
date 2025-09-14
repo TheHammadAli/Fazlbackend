@@ -92,7 +92,9 @@ let ServicesService = class ServicesService {
             if (existingService.images && existingService.images.length > 4) {
                 throw new common_1.BadRequestException('You can only upload up to 5 images');
             }
-            images = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), serviceId, imageFiles);
+            images = existingService.images || [];
+            let newimages = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), serviceId, imageFiles);
+            images = [...images, ...newimages];
         }
         const videoFiles = dto.video;
         let video = existingService.video;
