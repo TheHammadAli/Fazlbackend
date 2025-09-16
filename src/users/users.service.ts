@@ -199,4 +199,12 @@ export class UsersService {
       },
     };
   }
+
+  async saveFcmToken(userId: string, token: string) {
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      { fcmToken: token },
+      { new: true },
+    );
+  }
 }

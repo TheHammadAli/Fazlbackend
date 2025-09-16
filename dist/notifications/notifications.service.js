@@ -18,12 +18,19 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const notifications_schema_1 = require("./schema/notifications.schema");
 const users_service_1 = require("../users/users.service");
+const firebase_service_1 = require("./firebase.service");
 let NotificationsService = class NotificationsService {
     notificationModel;
     usersService;
-    constructor(notificationModel, usersService) {
+    firebaseService;
+    server;
+    constructor(notificationModel, usersService, firebaseService) {
         this.notificationModel = notificationModel;
         this.usersService = usersService;
+        this.firebaseService = firebaseService;
+    }
+    setServer(server) {
+        this.server = server;
     }
     async create(userId, message, type = 'MESSAGE') {
         const user = await this.usersService.findUserById(userId.toString());
@@ -36,6 +43,17 @@ let NotificationsService = class NotificationsService {
             read: false,
         });
         return notif.save();
+    }
+    async createAndNotify(userId, message, type = 'MESSAGE') {
+        const notif = await this.create(userId, message, type);
+        if (this.server) {
+            this.server.to(userId.toString()).emit('notification', notif);
+        }
+        const user = await this.usersService.findUserById(userId.toString());
+        if (user?.fcmToken) {
+            await this.firebaseService.sendNotification(user.fcmToken, 'New Notification', message);
+        }
+        return notif;
     }
     async findByUser(userId) {
         const user = await this.usersService.findUserById(userId.toString());
@@ -65,6 +83,7 @@ exports.NotificationsService = NotificationsService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(notifications_schema_1.Notification.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        users_service_1.UsersService])
+        users_service_1.UsersService,
+        firebase_service_1.FirebaseService])
 ], NotificationsService);
 //# sourceMappingURL=notifications.service.js.map

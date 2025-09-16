@@ -158,6 +158,9 @@ let UsersService = class UsersService {
             },
         };
     }
+    async saveFcmToken(userId, token) {
+        return this.userModel.findByIdAndUpdate(userId, { fcmToken: token }, { new: true });
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([

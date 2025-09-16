@@ -11,17 +11,19 @@ const common_1 = require("@nestjs/common");
 const notifications_service_1 = require("./notifications.service");
 const notifications_controller_1 = require("./notifications.controller");
 const notifications_schema_1 = require("./schema/notifications.schema");
+const firebase_service_1 = require("./firebase.service");
 const mongoose_1 = require("@nestjs/mongoose");
 const users_module_1 = require("../users/users.module");
 const notification_gateway_1 = require("./notification.gateway");
+const config_1 = require("@nestjs/config");
 let NotificationsModule = class NotificationsModule {
 };
 exports.NotificationsModule = NotificationsModule;
 exports.NotificationsModule = NotificationsModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: notifications_schema_1.Notification.name, schema: notifications_schema_1.NotificationSchema }]), users_module_1.UsersModule],
+        imports: [mongoose_1.MongooseModule.forFeature([{ name: notifications_schema_1.Notification.name, schema: notifications_schema_1.NotificationSchema }]), users_module_1.UsersModule, config_1.ConfigModule],
         controllers: [notifications_controller_1.NotificationsController],
-        providers: [notifications_service_1.NotificationsService, notification_gateway_1.NotificationsGateway],
+        providers: [notifications_service_1.NotificationsService, notification_gateway_1.NotificationsGateway, firebase_service_1.FirebaseService],
         exports: [notifications_service_1.NotificationsService, notification_gateway_1.NotificationsGateway],
     })
 ], NotificationsModule);

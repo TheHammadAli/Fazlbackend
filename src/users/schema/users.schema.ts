@@ -56,6 +56,9 @@ export class User {
 
   @Prop({ type: String, })
   address?: string | null;
+
+  @Prop({ type: String, required: false })
+  fcmToken?: string; // st
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

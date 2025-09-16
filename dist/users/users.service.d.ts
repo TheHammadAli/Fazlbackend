@@ -26,4 +26,9 @@ export declare class UsersService {
     findByIdWithToken(userId: string): Promise<UserDocument>;
     findUserById(userId: string): Promise<UserDocument>;
     getAllUsers(paginationDto: PaginationDto): Promise<PaginatedResponseDto<User>>;
+    saveFcmToken(userId: string, token: string): Promise<(import("mongoose").Document<unknown, {}, UserDocument, {}> & User & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
+    }) | null>;
 }

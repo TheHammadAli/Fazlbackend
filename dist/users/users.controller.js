@@ -21,6 +21,7 @@ const swagger_1 = require("@nestjs/swagger");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const platform_express_1 = require("@nestjs/platform-express");
 const update_user_dto_1 = require("./dto/update-user.dto");
+const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 let UsersController = class UsersController {
     usersService;
     constructor(usersService) {
@@ -55,6 +56,9 @@ let UsersController = class UsersController {
     }
     async getAllUsers(page = 1, limit = 10) {
         return this.usersService.getAllUsers({ page, limit });
+    }
+    async registerFcmToken(user, token) {
+        return this.usersService.saveFcmToken(user.sub, token);
     }
 };
 exports.UsersController = UsersController;
@@ -106,6 +110,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getAllUsers", null);
+__decorate([
+    (0, common_1.Post)('register-fcm-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Post acmToken against user' }),
+    (0, swagger_1.ApiBody)({ schema: { properties: { token: { type: 'string' } } }, required: true }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)('token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "registerFcmToken", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiBearerAuth)('jwt'),

@@ -26,6 +26,7 @@ let User = class User {
     resetPasswordExpires;
     provider;
     address;
+    fcmToken;
 };
 exports.User = User;
 __decorate([
@@ -90,6 +91,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, }),
     __metadata("design:type", Object)
 ], User.prototype, "address", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, required: false }),
+    __metadata("design:type", String)
+], User.prototype, "fcmToken", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

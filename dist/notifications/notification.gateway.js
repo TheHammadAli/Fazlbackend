@@ -19,27 +19,24 @@ let NotificationsGateway = class NotificationsGateway {
     constructor(notificationsService) {
         this.notificationsService = notificationsService;
     }
+    afterInit(server) {
+        this.notificationsService.setServer(server);
+    }
     handleConnection(client) {
         const userId = client.handshake.query.userId;
         if (userId) {
             client.join(userId);
-            console.log(`User ${userId} connected to notifications gateway`);
+            console.log(`User ${userId} connected`);
         }
         else {
-            console.log('A client connected without userId, disconnecting...');
             client.disconnect();
+            console.log('Client without userId disconnected');
         }
     }
     handleDisconnect(client) {
         const userId = client.handshake.query.userId;
-        if (userId) {
+        if (userId)
             console.log(`User ${userId} disconnected`);
-        }
-    }
-    async sendNotification(userId, message) {
-        const notif = await this.notificationsService.create(userId, message);
-        this.server.to(userId.toString()).emit('notification', notif);
-        return notif;
     }
 };
 exports.NotificationsGateway = NotificationsGateway;
@@ -48,11 +45,7 @@ __decorate([
     __metadata("design:type", socket_io_1.Server)
 ], NotificationsGateway.prototype, "server", void 0);
 exports.NotificationsGateway = NotificationsGateway = __decorate([
-    (0, websockets_1.WebSocketGateway)({
-        cors: {
-            origin: '*',
-        },
-    }),
+    (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' } }),
     __metadata("design:paramtypes", [notifications_service_1.NotificationsService])
 ], NotificationsGateway);
 //# sourceMappingURL=notification.gateway.js.map

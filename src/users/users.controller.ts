@@ -28,6 +28,8 @@ import { Public } from 'src/common/decorators/public.decorator';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { create } from 'domain';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { JwtPayload } from 'src/auth/strategies/jwt-strategy';
 
 @ApiTags('Users')
 @ApiBearerAuth('jwt')
@@ -97,4 +99,14 @@ export class UsersController {
   async getAllUsers(@Query('page') page = 1, @Query('limit') limit = 10) {
     return this.usersService.getAllUsers({ page, limit });
   }
+
+  @Post('register-fcm-token')
+  @ApiOperation({ summary: 'Post acmToken against user' })
+  @ApiBody({ schema: { properties: { token: { type: 'string' } } }, required: true })
+  async registerFcmToken(@CurrentUser() user: JwtPayload, @Body('token') token: string) {
+
+    return this.usersService.saveFcmToken(user.sub, token);
+  }
 }
+
+
