@@ -124,9 +124,10 @@ let ProductsService = class ProductsService {
     async getAllProductsByUser(ownerId, paginationDto) {
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
+        console.log("Fetching products for user:", ownerId);
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ ownerId })
+                .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId) })
                 .populate('category')
                 .sort({ createdAt: -1 })
                 .skip(skip)

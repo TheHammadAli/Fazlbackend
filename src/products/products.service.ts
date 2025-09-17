@@ -144,9 +144,10 @@ export class ProductsService {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
+    console.log("Fetching products for user:", ownerId);
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ ownerId })
+        .find({ ownerId: new Types.ObjectId(ownerId) })
         .populate('category')
         .sort({ createdAt: -1 })
         .skip(skip)
