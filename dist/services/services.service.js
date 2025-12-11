@@ -171,7 +171,7 @@ let ServicesService = class ServicesService {
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.serviceModel.countDocuments({ shopId: new mongoose_2.Types.ObjectId(userId) }),
+            this.serviceModel.countDocuments({ ownerId: new mongoose_2.Types.ObjectId(userId) }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -205,13 +205,10 @@ let ServicesService = class ServicesService {
         };
     }
     async createServiceRequest(dto) {
-        const { serviceId, customerId, providerId, requestedDateTime, message, } = dto;
+        const { serviceId, customerId, requestedDateTime, message, } = dto;
         const customer = customerId ? await this.userService.findUserById(customerId) : null;
-        const provider = providerId ? await this.userService.findUserById(providerId) : null;
         if (customerId && !customer)
             throw new common_1.NotFoundException('Customer not found');
-        if (providerId && !provider)
-            throw new common_1.NotFoundException('Provider not found');
         if (!serviceId || !requestedDateTime || !customerId) {
             throw new common_1.BadRequestException('Missing required fields for request creation');
         }
@@ -219,8 +216,8 @@ let ServicesService = class ServicesService {
         if (!service)
             throw new common_1.NotFoundException('Service not found');
         const request = new this.requestModel({
-            service: serviceId,
-            customer: customerId,
+            service: new mongoose_2.Types.ObjectId(serviceId),
+            customer: new mongoose_2.Types.ObjectId(customerId),
             provider: service.ownerId,
             requestedDateTime: new Date(requestedDateTime),
             status: 'pending',

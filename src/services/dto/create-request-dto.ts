@@ -6,9 +6,7 @@ export class CreateRequestDto {
     @IsString()
     serviceId: string;
 
-    @ApiProperty()
-    @IsString()
-    providerId: string;
+   
     @ApiProperty()
     @IsString()
     customerId: string;

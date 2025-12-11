@@ -46,7 +46,7 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         required: true,
-        enum: ['pending', 'accepted', 'rejected', 'proposed', 'cancelled', 'confirmed'],
+        enum: ['pending', 'accepted', 'rejected', 'proposed', 'cancelled',],
         default: 'pending',
     }),
     __metadata("design:type", String)

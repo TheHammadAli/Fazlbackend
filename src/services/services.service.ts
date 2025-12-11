@@ -218,7 +218,7 @@ export class ServicesService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.serviceModel.countDocuments({ shopId: new Types.ObjectId(userId) }),
+      this.serviceModel.countDocuments({ ownerId: new Types.ObjectId(userId) }),
     ]);
 
     return {
@@ -278,7 +278,7 @@ export class ServicesService {
     const {
       serviceId,
       customerId,
-      providerId,
+
       requestedDateTime,
 
       message,
@@ -286,10 +286,10 @@ export class ServicesService {
 
     // --- Validation: User Existence ---
     const customer = customerId ? await this.userService.findUserById(customerId) : null;
-    const provider = providerId ? await this.userService.findUserById(providerId) : null;
+
 
     if (customerId && !customer) throw new NotFoundException('Customer not found');
-    if (providerId && !provider) throw new NotFoundException('Provider not found');
+
 
     // --- Creation Flow ---
 
@@ -301,8 +301,8 @@ export class ServicesService {
     if (!service) throw new NotFoundException('Service not found');
 
     const request = new this.requestModel({
-      service: serviceId,
-      customer: customerId,
+      service: new Types.ObjectId(serviceId),
+      customer: new Types.ObjectId(customerId),
       provider: service.ownerId,
       requestedDateTime: new Date(requestedDateTime),
       status: 'pending',

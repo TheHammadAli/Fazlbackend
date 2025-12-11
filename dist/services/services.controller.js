@@ -69,7 +69,7 @@ let ServicesController = class ServicesController {
         return this.servicesService.getByUser(userId, page, limit);
     }
     async getServiceRequestsByUser(userId, page = 1, limit = 10) {
-        return this.servicesService.getByUser(userId, page, limit);
+        return this.servicesService.getServiceRequestsByUser(userId, page, limit);
     }
     async deleteProductMedia(serviceId, media) {
         if (!Array.isArray(media) || media.length === 0) {
