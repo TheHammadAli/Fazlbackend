@@ -26,7 +26,6 @@ let BroadcastController = class BroadcastController {
     }
     async createBroadcast(dto, req) {
         const user = req.user;
-        console.log('user', user);
         const buyerId = user.sub;
         const location = user.location;
         return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location);
@@ -41,6 +40,14 @@ let BroadcastController = class BroadcastController {
     }
     async getThreadMessages(broadcastId, threadId) {
         return this.broadcastService.getThreadMessages(threadId);
+    }
+    async getMyBroadcasts(req) {
+        const user = req.user;
+        return this.broadcastService.getBroadcastsByBuyer(user.sub);
+    }
+    async getReceivedBroadcasts(req) {
+        const user = req.user;
+        return this.broadcastService.getBroadcastsForSeller(user.sub);
     }
 };
 exports.BroadcastController = BroadcastController;
@@ -81,6 +88,23 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getThreadMessages", null);
+__decorate([
+    (0, common_1.Get)('/my/broadcasts'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get broadcasts created by logged-in user (buyer)' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "getMyBroadcasts", null);
+__decorate([
+    (0, common_1.Get)('/my/received'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get broadcasts where logged-in user is a seller' }),
+    (0, swagger_1.ApiBearerAuth)('jwt'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "getReceivedBroadcasts", null);
 exports.BroadcastController = BroadcastController = __decorate([
     (0, swagger_1.ApiTags)('Broadcast'),
     (0, swagger_1.ApiBearerAuth)('jwt'),

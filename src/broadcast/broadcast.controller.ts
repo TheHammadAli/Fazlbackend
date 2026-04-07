@@ -37,7 +37,7 @@ export class BroadcastController {
       sub: string;
       location: { type: string; coordinates: [number, number] };
     };
-    console.log('user', user);
+   
     const buyerId = user.sub;
     const location = user.location;
 
@@ -85,4 +85,21 @@ export class BroadcastController {
   ) {
     return this.broadcastService.getThreadMessages( threadId);
   }
+  // 📤 Buyer broadcasts
+// 📤 Buyer broadcasts
+@Get('/my/broadcasts')
+@ApiOperation({ summary: 'Get broadcasts created by logged-in user (buyer)' })
+
+async getMyBroadcasts(@Req() req: Request) {
+  const user = req.user as { sub: string };
+  return this.broadcastService.getBroadcastsByBuyer(user.sub);
 }
+
+// 📥 Seller broadcasts
+@Get('/my/received')
+@ApiOperation({ summary: 'Get broadcasts where logged-in user is a seller' })
+@ApiBearerAuth('jwt')
+async getReceivedBroadcasts(@Req() req: Request) {
+  const user = req.user as { sub: string };
+  return this.broadcastService.getBroadcastsForSeller(user.sub);
+}}

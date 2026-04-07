@@ -40,4 +40,14 @@ export declare class BroadcastService {
     } & {
         __v: number;
     })[]>;
+    getBroadcastsByBuyer(userId: string): Promise<(import("mongoose").Document<unknown, {}, Broadcast, {}> & Broadcast & {
+        _id: Types.ObjectId;
+    } & {
+        __v: number;
+    })[]>;
+    getBroadcastsForSeller(userId: string): Promise<(import("mongoose").Document<unknown, {}, Broadcast, {}> & Broadcast & {
+        _id: Types.ObjectId;
+    } & {
+        __v: number;
+    })[]>;
 }

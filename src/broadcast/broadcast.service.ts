@@ -237,4 +237,34 @@ export class BroadcastService {
       .populate('receiver', 'name')
       .sort({ createdAt: 1 });
   }
+
+  // -----------------------------
+// GET BROADCASTS CREATED BY BUYER
+// -----------------------------
+async getBroadcastsByBuyer(userId: string) {
+  return this.broadcastModel
+    .find({
+      buyer: new Types.ObjectId(userId),
+    })
+    .sort({ createdAt: -1 });
+}
+
+// -----------------------------
+// GET BROADCASTS WHERE USER IS SELLER
+// -----------------------------
+async getBroadcastsForSeller(userId: string) {
+  // 1. find threads where user is seller
+  const threads = await this.threadModel.find({
+    seller: new Types.ObjectId(userId),
+  });
+
+  const broadcastIds = threads.map((t) => t.broadcast);
+
+  // 2. fetch broadcasts
+  return this.broadcastModel
+    .find({
+      _id: { $in: broadcastIds },
+    })
+    .sort({ createdAt: -1 });
+}
 }

@@ -24,4 +24,14 @@ export declare class BroadcastController {
     } & {
         __v: number;
     })[]>;
+    getMyBroadcasts(req: Request): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast.schema").Broadcast, {}> & import("./schema/broadcast.schema").Broadcast & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    })[]>;
+    getReceivedBroadcasts(req: Request): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast.schema").Broadcast, {}> & import("./schema/broadcast.schema").Broadcast & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    })[]>;
 }

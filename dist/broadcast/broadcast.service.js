@@ -144,6 +144,24 @@ let BroadcastService = class BroadcastService {
             .populate('receiver', 'name')
             .sort({ createdAt: 1 });
     }
+    async getBroadcastsByBuyer(userId) {
+        return this.broadcastModel
+            .find({
+            buyer: new mongoose_2.Types.ObjectId(userId),
+        })
+            .sort({ createdAt: -1 });
+    }
+    async getBroadcastsForSeller(userId) {
+        const threads = await this.threadModel.find({
+            seller: new mongoose_2.Types.ObjectId(userId),
+        });
+        const broadcastIds = threads.map((t) => t.broadcast);
+        return this.broadcastModel
+            .find({
+            _id: { $in: broadcastIds },
+        })
+            .sort({ createdAt: -1 });
+    }
 };
 exports.BroadcastService = BroadcastService;
 exports.BroadcastService = BroadcastService = __decorate([
