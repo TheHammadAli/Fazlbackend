@@ -76,6 +76,15 @@ let NotificationsService = class NotificationsService {
             throw new common_1.NotFoundException(`Notification ${id} not found`);
         return { deleted: true };
     }
+    async getUnreadCount(userId) {
+        const user = await this.usersService.findUserById(userId.toString());
+        if (!user)
+            throw new common_1.BadRequestException('User does not exist');
+        return this.notificationModel.countDocuments({
+            userId: new mongoose_2.Types.ObjectId(userId),
+            read: false,
+        }).exec();
+    }
 };
 exports.NotificationsService = NotificationsService;
 exports.NotificationsService = NotificationsService = __decorate([

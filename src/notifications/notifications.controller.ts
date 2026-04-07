@@ -40,6 +40,24 @@ export class NotificationsController {
         return this.notificationsService.findByUser(userId);
     }
 
+    @Get(':userId/unread-count')
+    @ApiOperation({ summary: 'Get unread notification count for a user' })
+    @ApiParam({ name: 'userId', description: 'The ID of the user' })
+    @ApiResponse({
+        status: 200,
+        description: 'Unread notification count',
+        schema: {
+            type: 'object',
+            properties: {
+                count: { type: 'number', example: 3 },
+            },
+        },
+    })
+    async getUnreadNotificationCount(@Param('userId') userId: string) {
+        const count = await this.notificationsService.getUnreadCount(userId);
+        return { count };
+    }
+
     @Patch(':id/read')
     @ApiOperation({ summary: 'Mark a notification as read' })
     @ApiParam({ name: 'id', description: 'The ID of the notification' })
@@ -55,4 +73,36 @@ export class NotificationsController {
     async deleteNotification(@Param('id') id: string) {
         return this.notificationsService.delete(id);
     }
+ @Post('test')
+  @ApiOperation({ summary: 'Send test notification to a user' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: {
+          type: 'string',
+          example: '68507e7984b53996b8a7fe49',
+        },
+        message: {
+          type: 'string',
+          example: 'Hello from backend 🚀',
+        },
+      },
+      required: ['userId', 'message'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Notification created and sent successfully',
+  })
+  async testNotification(
+    @Body() body: { userId: string; message: string },
+  ) {
+    return this.notificationsService.createAndNotify(
+      body.userId,
+      body.message,
+      'MESSAGE',
+    );
+  }
 }
+

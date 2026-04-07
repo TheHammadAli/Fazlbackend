@@ -12,6 +12,9 @@ export declare class NotificationsController {
     }> & {
         __v: number;
     })[]>;
+    getUnreadNotificationCount(userId: string): Promise<{
+        count: number;
+    }>;
     markAsRead(id: string): Promise<import("mongoose").Document<unknown, {}, import("./schema/notifications.schema").Notification, {}> & import("./schema/notifications.schema").Notification & Required<{
         _id: unknown;
     }> & {
@@ -19,5 +22,13 @@ export declare class NotificationsController {
     }>;
     deleteNotification(id: string): Promise<{
         deleted: boolean;
+    }>;
+    testNotification(body: {
+        userId: string;
+        message: string;
+    }): Promise<import("mongoose").Document<unknown, {}, import("./schema/notifications.schema").Notification, {}> & import("./schema/notifications.schema").Notification & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
     }>;
 }

@@ -74,4 +74,14 @@ export class NotificationsService {
         if (!result) throw new NotFoundException(`Notification ${id} not found`);
         return { deleted: true };
     }
+
+    async getUnreadCount(userId: string) {
+        const user = await this.usersService.findUserById(userId.toString());
+        if (!user) throw new BadRequestException('User does not exist');
+
+        return this.notificationModel.countDocuments({
+            userId: new Types.ObjectId(userId),
+            read: false,
+        }).exec();
+    }
 }

@@ -33,4 +33,5 @@ export declare class NotificationsService {
     delete(id: string): Promise<{
         deleted: boolean;
     }>;
+    getUnreadCount(userId: string): Promise<number>;
 }
