@@ -11,14 +11,16 @@ import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-sear
 import { UpdateJobStatusDto } from './dto/update-job-dto';
 import { UpdateRequestStatusDto } from './dto/update-request-dto';
 import { CreateRequestDto } from './dto/create-request-dto';
+import { NotificationsService } from 'src/notifications/notifications.service';
 import { FileUploadService } from 'src/common/file-upload/file-upload.service';
 export declare class ServicesService {
     private readonly serviceModel;
     private readonly userService;
+    private readonly notificationsService;
     private readonly listingUtils;
     private readonly fileUploadService;
     private readonly requestModel;
-    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>);
+    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>);
     create(userId: string, dto: CreateServiceDto): Promise<Service>;
     update(serviceId: string, dto: UpdateServiceDto): Promise<{
         images: string[];

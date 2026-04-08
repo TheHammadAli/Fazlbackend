@@ -13,7 +13,6 @@ import {
   Patch,
   Req,
   UseInterceptors,
-  UploadedFile,
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
@@ -37,7 +36,7 @@ import { CreateRequestDto } from './dto/create-request-dto';
 import { UpdateRequestStatusDto } from './dto/update-request-dto';
 import { UpdateJobStatusDto } from './dto/update-job-dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import Video from 'twilio/lib/rest/Video';
+
 
 @ApiTags('Services')
 @ApiBearerAuth('jwt')

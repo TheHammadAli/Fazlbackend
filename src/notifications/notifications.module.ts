@@ -1,5 +1,5 @@
 // notifications.module.ts
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
@@ -11,7 +11,7 @@ import { NotificationsGateway } from './notification.gateway';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]), UsersModule, ConfigModule],
+  imports: [MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]),  forwardRef(() => UsersModule), ConfigModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway, FirebaseService],
   exports: [NotificationsService, NotificationsGateway],

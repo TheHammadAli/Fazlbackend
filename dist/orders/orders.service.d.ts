@@ -5,12 +5,14 @@ import { UpdateOrderDto } from './dto/update-order-dto';
 import { UsersService } from 'src/users/users.service';
 import { ProductsService } from 'src/products/products.service';
 import { ShopService } from 'src/shop/shop.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 export declare class OrdersService {
     private readonly orderModel;
     private readonly usersService;
     private readonly productsService;
     private readonly shopService;
-    constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService);
+    private readonly notificationsService;
+    constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService, notificationsService: NotificationsService);
     createOrder(dto: CreateOrderDto): Promise<Order>;
     getOrderById(orderId: string): Promise<Order>;
     getOrdersByOwner(ownerId: string, ownerModel: 'Shop' | 'User', page?: number, limit?: number): Promise<{

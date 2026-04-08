@@ -4,16 +4,16 @@ import { IsEnum, IsOptional, IsString, IsDateString } from 'class-validator';
 export class CreateRequestDto {
     @ApiProperty()
     @IsString()
-    serviceId: string;
+    serviceId!: string;
 
    
     @ApiProperty()
     @IsString()
-    customerId: string;
+    customerId!: string;
 
     @ApiProperty({ example: '2025-07-01T15:00:00Z' })
     @IsDateString()
-    requestedDateTime: string;
+    requestedDateTime!: string;
 
     @ApiPropertyOptional()
     @IsOptional()

@@ -32,10 +32,10 @@ let NotificationsService = class NotificationsService {
     setServer(server) {
         this.server = server;
     }
-    async create(userId, message, type = 'MESSAGE') {
+    async create(userId, message, type = "MESSAGE") {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user)
-            throw new common_1.BadRequestException('User does not exist');
+            throw new common_1.BadRequestException("User does not exist");
         const notif = new this.notificationModel({
             userId: new mongoose_2.Types.ObjectId(userId),
             message,
@@ -44,21 +44,21 @@ let NotificationsService = class NotificationsService {
         });
         return notif.save();
     }
-    async createAndNotify(userId, message, type = 'MESSAGE') {
+    async createAndNotify(userId, message, type = "MESSAGE") {
         const notif = await this.create(userId, message, type);
         if (this.server) {
-            this.server.to(userId.toString()).emit('notification', notif);
+            this.server.to(userId.toString()).emit("notification", notif);
         }
         const user = await this.usersService.findUserById(userId.toString());
         if (user?.fcmToken) {
-            await this.firebaseService.sendNotification(user.fcmToken, 'New Notification', message);
+            await this.firebaseService.sendNotification(user.fcmToken, "New Notification", message);
         }
         return notif;
     }
     async findByUser(userId) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user)
-            throw new common_1.BadRequestException('User does not exist');
+            throw new common_1.BadRequestException("User does not exist");
         return this.notificationModel
             .find({ userId: new mongoose_2.Types.ObjectId(userId) })
             .sort({ createdAt: -1 })
@@ -79,11 +79,13 @@ let NotificationsService = class NotificationsService {
     async getUnreadCount(userId) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user)
-            throw new common_1.BadRequestException('User does not exist');
-        return this.notificationModel.countDocuments({
+            throw new common_1.BadRequestException("User does not exist");
+        return this.notificationModel
+            .countDocuments({
             userId: new mongoose_2.Types.ObjectId(userId),
             read: false,
-        }).exec();
+        })
+            .exec();
     }
 };
 exports.NotificationsService = NotificationsService;

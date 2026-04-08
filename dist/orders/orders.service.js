@@ -20,16 +20,19 @@ const order_schema_1 = require("./schema/order.schema");
 const users_service_1 = require("../users/users.service");
 const products_service_1 = require("../products/products.service");
 const shop_service_1 = require("../shop/shop.service");
+const notifications_service_1 = require("../notifications/notifications.service");
 let OrdersService = class OrdersService {
     orderModel;
     usersService;
     productsService;
     shopService;
-    constructor(orderModel, usersService, productsService, shopService) {
+    notificationsService;
+    constructor(orderModel, usersService, productsService, shopService, notificationsService) {
         this.orderModel = orderModel;
         this.usersService = usersService;
         this.productsService = productsService;
         this.shopService = shopService;
+        this.notificationsService = notificationsService;
     }
     async createOrder(dto) {
         const buyer = await this.usersService.findUserById(dto.buyer);
@@ -65,6 +68,8 @@ let OrdersService = class OrdersService {
             owner: new mongoose_2.Types.ObjectId(dto.owner),
             product: new mongoose_2.Types.ObjectId(dto.product),
         });
+        this.notificationsService.createAndNotify(dto.buyer, `Your order for ${product.title} has been placed!`, 'ORDER');
+        this.notificationsService.createAndNotify(dto.owner, `You have a new order for ${product.title}!`, 'ORDER');
         return order.save();
     }
     async getOrderById(orderId) {
@@ -161,6 +166,7 @@ exports.OrdersService = OrdersService = __decorate([
     __metadata("design:paramtypes", [mongoose_2.Model,
         users_service_1.UsersService,
         products_service_1.ProductsService,
-        shop_service_1.ShopService])
+        shop_service_1.ShopService,
+        notifications_service_1.NotificationsService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

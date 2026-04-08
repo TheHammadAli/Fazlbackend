@@ -7,6 +7,7 @@ import { UpdateOrderDto } from './dto/update-order-dto';
 import { UsersService } from 'src/users/users.service';
 import { ProductsService } from 'src/products/products.service';
 import { ShopService } from 'src/shop/shop.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class OrdersService {
@@ -16,6 +17,7 @@ export class OrdersService {
         private readonly usersService: UsersService,
         private readonly productsService: ProductsService,
         private readonly shopService: ShopService,
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     // Create (Insert)
@@ -55,6 +57,9 @@ export class OrdersService {
             owner: new Types.ObjectId(dto.owner),
             product: new Types.ObjectId(dto.product),
         });
+
+        this.notificationsService.createAndNotify(dto.buyer, `Your order for ${product.title} has been placed!`, 'ORDER');
+        this.notificationsService.createAndNotify(dto.owner, `You have a new order for ${product.title}!`, 'ORDER');
         return order.save();
     }
 

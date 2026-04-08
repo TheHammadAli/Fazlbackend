@@ -20,16 +20,19 @@ const mongoose_2 = require("mongoose");
 const listing_util_service_1 = require("../shared/listing-util-service");
 const users_service_1 = require("../users/users.service");
 const service_request_schema_1 = require("./schema/service_request.schema");
+const notifications_service_1 = require("../notifications/notifications.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 let ServicesService = class ServicesService {
     serviceModel;
     userService;
+    notificationsService;
     listingUtils;
     fileUploadService;
     requestModel;
-    constructor(serviceModel, userService, listingUtils, fileUploadService, requestModel) {
+    constructor(serviceModel, userService, notificationsService, listingUtils, fileUploadService, requestModel) {
         this.serviceModel = serviceModel;
         this.userService = userService;
+        this.notificationsService = notificationsService;
         this.listingUtils = listingUtils;
         this.fileUploadService = fileUploadService;
         this.requestModel = requestModel;
@@ -224,6 +227,7 @@ let ServicesService = class ServicesService {
             jobStatus: 'not_started',
             message,
         });
+        this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || 'a user'}`);
         return request.save();
     }
     async updateRequestStatus(dto) {
@@ -334,9 +338,10 @@ exports.ServicesService = ServicesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(services_schema_1.Service.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
-    __param(4, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
+    __param(5, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         users_service_1.UsersService,
+        notifications_service_1.NotificationsService,
         listing_util_service_1.ListingUtilsService,
         file_upload_service_1.FileUploadService,
         mongoose_2.Model])

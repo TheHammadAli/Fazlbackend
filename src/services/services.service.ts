@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   forwardRef,
   Inject,
   Injectable,
@@ -21,6 +20,7 @@ import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-sear
 import { UpdateJobStatusDto } from './dto/update-job-dto';
 import { UpdateRequestStatusDto } from './dto/update-request-dto';
 import { CreateRequestDto } from './dto/create-request-dto';
+import { NotificationsService } from 'src/notifications/notifications.service';
 import { FileUploadService } from 'src/common/file-upload/file-upload.service';
 import e from 'express';
 
@@ -31,6 +31,7 @@ export class ServicesService {
     private readonly serviceModel: Model<ServiceDocument>,
     @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
+    private readonly notificationsService: NotificationsService,
     private readonly listingUtils: ListingUtilsService,
     private readonly fileUploadService: FileUploadService,
     @InjectModel(ServiceRequest.name) private readonly requestModel: Model<ServiceRequestDocument>,
@@ -309,6 +310,7 @@ export class ServicesService {
       jobStatus: 'not_started',
       message,
     });
+    this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || 'a user'}`);
 
     return request.save();
 

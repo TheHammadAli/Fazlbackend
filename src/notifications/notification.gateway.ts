@@ -6,7 +6,7 @@ import { NotificationsService } from './notifications.service';
 @WebSocketGateway({ cors: { origin: '*' } })
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer()
-    server: Server;
+    server!: Server;
 
     constructor(private readonly notificationsService: NotificationsService) { }
 
