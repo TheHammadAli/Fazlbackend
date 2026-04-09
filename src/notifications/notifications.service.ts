@@ -78,13 +78,28 @@ export class NotificationsService {
     return notif;
   }
 
-  async findByUser(userId: string) {
+  async findByUser(userId: string, page: number = 1, limit: number = 10) {
     const user = await this.usersService.findUserById(userId.toString());
     if (!user) throw new BadRequestException("User does not exist");
-    return this.notificationModel
+
+    const skip = (page - 1) * limit;
+    const total = await this.notificationModel
+      .countDocuments({ userId: new Types.ObjectId(userId) })
+      .exec();
+    const data = await this.notificationModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .exec();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async markAsRead(id: string) {

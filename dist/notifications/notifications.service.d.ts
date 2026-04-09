@@ -20,11 +20,17 @@ export declare class NotificationsService {
     }> & {
         __v: number;
     }>;
-    findByUser(userId: string): Promise<(import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
-        _id: unknown;
-    }> & {
-        __v: number;
-    })[]>;
+    findByUser(userId: string, page?: number, limit?: number): Promise<{
+        data: (import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        })[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
     markAsRead(id: string): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {

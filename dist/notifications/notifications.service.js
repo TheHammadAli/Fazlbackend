@@ -55,14 +55,27 @@ let NotificationsService = class NotificationsService {
         }
         return notif;
     }
-    async findByUser(userId) {
+    async findByUser(userId, page = 1, limit = 10) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user)
             throw new common_1.BadRequestException("User does not exist");
-        return this.notificationModel
+        const skip = (page - 1) * limit;
+        const total = await this.notificationModel
+            .countDocuments({ userId: new mongoose_2.Types.ObjectId(userId) })
+            .exec();
+        const data = await this.notificationModel
             .find({ userId: new mongoose_2.Types.ObjectId(userId) })
             .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
             .exec();
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
     async markAsRead(id) {
         const notif = await this.notificationModel.findByIdAndUpdate(id, { read: true }, { new: true });
