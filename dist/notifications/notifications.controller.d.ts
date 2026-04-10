@@ -9,15 +9,17 @@ export declare class NotificationsController {
         __v: number;
     }>;
     getUserNotifications(userId: string, query: GetNotificationsQueryDto): Promise<{
-        data: (import("mongoose").Document<unknown, {}, import("./schema/notifications.schema").Notification, {}> & import("./schema/notifications.schema").Notification & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        })[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
+        data: {
+            notifications: (import("mongoose").Document<unknown, {}, import("./schema/notifications.schema").Notification, {}> & import("./schema/notifications.schema").Notification & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }>;
     getUnreadNotificationCount(userId: string): Promise<{
         count: number;

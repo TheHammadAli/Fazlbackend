@@ -70,11 +70,13 @@ let NotificationsService = class NotificationsService {
             .limit(limit)
             .exec();
         return {
-            data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
+            data: {
+                notifications: data,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
         };
     }
     async markAsRead(id) {
