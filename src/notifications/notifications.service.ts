@@ -33,7 +33,7 @@ export class NotificationsService {
   async create(
     userId: string | Types.ObjectId,
     message: string,
-    type: "ORDER" | "MESSAGE" | "PROMOTION" = "MESSAGE",
+    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" = "MESSAGE",
   ) {
     const user = await this.usersService.findUserById(userId.toString());
     if (!user) throw new BadRequestException("User does not exist");
@@ -52,7 +52,7 @@ export class NotificationsService {
   async createAndNotify(
     userId: string | Types.ObjectId,
     message: string,
-    type: "ORDER" | "MESSAGE" | "PROMOTION" = "MESSAGE",
+    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" = "MESSAGE",
   ) {
     const notif = await this.create(userId, message, type);
     // await this.firebaseService.sendNotification(

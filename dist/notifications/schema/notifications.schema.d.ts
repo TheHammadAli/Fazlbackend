@@ -1,5 +1,5 @@
 import { Document, Types } from 'mongoose';
-export type NotificationType = 'ORDER' | 'MESSAGE' | 'PROMOTION';
+export type NotificationType = 'ORDER' | 'MESSAGE' | 'PROMOTION' | 'SERVICE_REQUEST';
 export declare class Notification extends Document {
     userId: Types.ObjectId;
     type: NotificationType;

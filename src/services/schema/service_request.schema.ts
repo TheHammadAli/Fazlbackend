@@ -18,16 +18,16 @@ export type JobStatus =
 @Schema({ timestamps: true })
 export class ServiceRequest {
     @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
-    service: Types.ObjectId;
+    service!: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-    customer: Types.ObjectId;
+    customer!: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-    provider: Types.ObjectId;
+    provider!: Types.ObjectId;
 
     @Prop({ required: true })
-    requestedDateTime: Date;
+    requestedDateTime!: Date;
 
     @Prop()
     proposedDateTime?: Date;
@@ -37,14 +37,14 @@ export class ServiceRequest {
         enum: ['pending', 'accepted', 'rejected', 'proposed', 'cancelled',],
         default: 'pending',
     })
-    status: RequestStatus;
+    status!: RequestStatus;
 
     @Prop({
         required: true,
         enum: ['not_started', 'in_progress', 'completed'],
         default: 'not_started'
     })
-    jobStatus: JobStatus;
+    jobStatus!: JobStatus;
 
     @Prop({ trim: true })
     message?: string;

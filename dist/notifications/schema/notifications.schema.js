@@ -25,7 +25,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Notification.prototype, "userId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['ORDER', 'MESSAGE', 'PROMOTION'] }),
+    (0, mongoose_1.Prop)({ required: true, enum: ['ORDER', 'MESSAGE', 'PROMOTION', 'SERVICE_REQUEST'] }),
     __metadata("design:type", String)
 ], Notification.prototype, "type", void 0);
 __decorate([

@@ -10,12 +10,12 @@ export declare class NotificationsService {
     private server;
     constructor(notificationModel: Model<Notification>, usersService: UsersService, firebaseService: FirebaseService);
     setServer(server: Server): void;
-    create(userId: string | Types.ObjectId, message: string, type?: "ORDER" | "MESSAGE" | "PROMOTION"): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
+    create(userId: string | Types.ObjectId, message: string, type?: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST"): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>;
-    createAndNotify(userId: string | Types.ObjectId, message: string, type?: "ORDER" | "MESSAGE" | "PROMOTION"): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
+    createAndNotify(userId: string | Types.ObjectId, message: string, type?: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST"): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {
         __v: number;
