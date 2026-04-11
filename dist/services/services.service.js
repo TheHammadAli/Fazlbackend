@@ -40,18 +40,14 @@ let ServicesService = class ServicesService {
     async create(userId, dto) {
         const user = await this.userService.findUserById(userId);
         if (!user) {
-            throw new common_1.NotFoundException("user not found");
+            throw new common_1.NotFoundException('user not found');
         }
-        const existingService = await this.serviceModel.findOne({
-            ownerId: user._id,
-        });
+        const existingService = await this.serviceModel.findOne({ ownerId: user._id });
         if (existingService) {
-            throw new common_1.BadRequestException("User already has a service");
+            throw new common_1.BadRequestException('User already has a service');
         }
-        if (!user.location ||
-            !user.location.coordinates ||
-            user.location.coordinates.length !== 2) {
-            throw new common_1.BadRequestException("User location is missing");
+        if (!user.location || !user.location.coordinates || user.location.coordinates.length !== 2) {
+            throw new common_1.BadRequestException('User location is missing');
         }
         let images = [];
         let imageFiles = [];
@@ -68,36 +64,36 @@ let ServicesService = class ServicesService {
             category: new mongoose_2.Types.ObjectId(dto.category),
             location: user.location,
             images: [],
-            video: "",
+            video: '',
         });
         if (imageFiles && imageFiles.length > 0) {
             images = await this.fileUploadService.uploadServiceFile(userId, created._id.toString(), imageFiles);
             created.images = images;
         }
         if (videoFiles && videoFiles.length > 0) {
-            const video = await this.fileUploadService.uploadServiceFile(userId, created._id.toString(), videoFiles, "video");
+            const video = await this.fileUploadService.uploadServiceFile(userId, created._id.toString(), videoFiles, 'video');
             created.video = video[0];
         }
         await created.save();
-        return created.populate("category");
+        return created.populate('category');
     }
     async update(serviceId, dto) {
         Object.keys(dto).forEach((key) => {
-            if (dto[key] === "" ||
+            if (dto[key] === '' ||
                 dto[key] === null ||
-                typeof dto[key] === "undefined") {
+                typeof dto[key] === 'undefined') {
                 delete dto[key];
             }
         });
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         }
         const imageFiles = dto.images;
         let images = existingService.images;
         if (imageFiles && imageFiles.length > 0) {
             if (existingService.images && existingService.images.length > 4) {
-                throw new common_1.BadRequestException("You can only upload up to 5 images");
+                throw new common_1.BadRequestException('You can only upload up to 5 images');
             }
             images = existingService.images || [];
             let newimages = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), serviceId, imageFiles);
@@ -107,7 +103,7 @@ let ServicesService = class ServicesService {
         let video = existingService.video;
         let videoFile = [];
         if (videoFiles && videoFiles.length > 0) {
-            videoFile = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), existingService._id.toString(), videoFiles, "video");
+            videoFile = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), existingService._id.toString(), videoFiles, 'video');
         }
         if (videoFile && videoFile.length > 0) {
             video = videoFile[0];
@@ -119,17 +115,17 @@ let ServicesService = class ServicesService {
             images: images,
             video: video,
         }, { new: true })
-            .populate("category");
+            .populate('category');
         if (!updated) {
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         }
-        console.log("Updated Service:", video);
+        console.log('Updated Service:', video);
         return { ...dto, images, video };
     }
     async delete(serviceId) {
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         }
         const media = [...existingService.images, existingService.video];
         if (media && media.length > 0) {
@@ -137,21 +133,21 @@ let ServicesService = class ServicesService {
         }
         const result = await this.serviceModel.findByIdAndDelete(serviceId);
         if (!result) {
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         }
     }
     async deleteServiceMedia(serviceId, media) {
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException('Product not found');
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException("No media files provided for deletion");
+            throw new common_1.BadRequestException('No media files provided for deletion');
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingService.images || [];
         let video = existingService.video;
-        images = images.filter((imgUrl) => !media.includes(imgUrl));
+        images = images.filter(imgUrl => !media.includes(imgUrl));
         if (media.includes(video)) {
             video = "";
         }
@@ -163,9 +159,9 @@ let ServicesService = class ServicesService {
     async getById(serviceId) {
         const service = await this.serviceModel
             .findById(serviceId)
-            .populate("category");
+            .populate('category');
         if (!service) {
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         }
         return service;
     }
@@ -174,7 +170,7 @@ let ServicesService = class ServicesService {
         const [data, total] = await Promise.all([
             this.serviceModel
                 .find({ ownerId: new mongoose_2.Types.ObjectId(userId) })
-                .populate("category")
+                .populate('category')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -194,7 +190,7 @@ let ServicesService = class ServicesService {
     async searchServices(query) {
         const filter = {};
         if (query.name) {
-            filter.title = { $regex: query.name, $options: "i" };
+            filter.title = { $regex: query.name, $options: 'i' };
         }
         if (query.category) {
             filter.category = new mongoose_2.Types.ObjectId(query.category);
@@ -203,12 +199,7 @@ let ServicesService = class ServicesService {
         const limit = query.limit && query.limit > 0 ? query.limit : 10;
         const skip = (page - 1) * limit;
         const [results, total] = await Promise.all([
-            this.serviceModel
-                .find(filter)
-                .skip(skip)
-                .limit(limit)
-                .populate("category")
-                .exec(),
+            this.serviceModel.find(filter).skip(skip).limit(limit).populate('category').exec(),
             this.serviceModel.countDocuments(filter),
         ]);
         return {
@@ -218,55 +209,49 @@ let ServicesService = class ServicesService {
     }
     async createServiceRequest(dto) {
         const { serviceId, customerId, requestedDateTime, message, } = dto;
-        const customer = customerId
-            ? await this.userService.findUserById(customerId)
-            : null;
+        const customer = customerId ? await this.userService.findUserById(customerId) : null;
         if (customerId && !customer)
-            throw new common_1.NotFoundException("Customer not found");
+            throw new common_1.NotFoundException('Customer not found');
         if (!serviceId || !requestedDateTime || !customerId) {
-            throw new common_1.BadRequestException("Missing required fields for request creation");
+            throw new common_1.BadRequestException('Missing required fields for request creation');
         }
         const service = await this.serviceModel.findById(serviceId);
         if (!service)
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         const request = new this.requestModel({
             service: new mongoose_2.Types.ObjectId(serviceId),
             customer: new mongoose_2.Types.ObjectId(customerId),
             provider: service.ownerId,
             requestedDateTime: new Date(requestedDateTime),
-            status: "pending",
-            jobStatus: "not_started",
+            status: 'pending',
+            jobStatus: 'not_started',
             message,
         });
-        this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || "a user"}`);
+        this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || 'a user'}`);
         return request.save();
     }
     async updateRequestStatus(dto) {
         const { requestId, action, proposedDateTime } = dto;
-        const request = await this.requestModel
-            .findById(requestId)
-            .populate("service")
-            .populate("customer")
-            .populate("provider");
+        const request = await this.requestModel.findById(requestId).populate('service').populate('customer').populate('provider');
         if (!request)
-            throw new common_1.NotFoundException("Request not found");
+            throw new common_1.NotFoundException('Request not found');
         switch (action) {
-            case "accept":
-                request.status = "accepted";
+            case 'accept':
+                request.status = 'accepted';
                 this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has been accepted by the provider.`);
                 break;
-            case "reject":
-                request.status = "rejected";
+            case 'reject':
+                request.status = 'rejected';
                 this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has been rejected by the provider.`);
                 break;
-            case "cancel":
-                request.status = "cancelled";
+            case 'cancel':
+                request.status = 'cancelled';
                 this.notificationsService.createAndNotify(request.provider.toString(), `Service request for "${request.service}" has been cancelled by the customer.`);
                 break;
-            case "propose":
+            case 'propose':
                 if (!proposedDateTime)
-                    throw new common_1.BadRequestException("Proposed date is required");
-                request.status = "proposed";
+                    throw new common_1.BadRequestException('Proposed date is required');
+                request.status = 'proposed';
                 request.proposedDateTime = new Date(proposedDateTime);
                 this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has a new proposed date: ${proposedDateTime}`);
                 break;
@@ -279,15 +264,15 @@ let ServicesService = class ServicesService {
         const { requestId, action } = dto;
         const request = await this.requestModel.findById(requestId);
         if (!request)
-            throw new common_1.NotFoundException("Request not found");
+            throw new common_1.NotFoundException('Request not found');
         switch (action) {
-            case "start_job":
-                request.jobStatus = "in_progress";
-                request.status = "accepted";
+            case 'start_job':
+                request.jobStatus = 'in_progress';
+                request.status = 'accepted';
                 break;
-            case "complete_job":
-                request.jobStatus = "completed";
-                request.status = "confirmed";
+            case 'complete_job':
+                request.jobStatus = 'completed';
+                request.status = 'confirmed';
                 break;
             default:
                 throw new common_1.BadRequestException(`Unsupported job action: ${action}`);
@@ -304,9 +289,9 @@ let ServicesService = class ServicesService {
                     { provider: new mongoose_2.Types.ObjectId(userId) },
                 ],
             })
-                .populate("service")
-                .populate("customer")
-                .populate("provider")
+                .populate('service')
+                .populate('customer')
+                .populate('provider')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -319,7 +304,7 @@ let ServicesService = class ServicesService {
             }),
         ]);
         if (!requests || requests.length === 0) {
-            throw new common_1.NotFoundException("No service requests found for this user");
+            throw new common_1.NotFoundException('No service requests found for this user');
         }
         return {
             meta: {
@@ -334,22 +319,22 @@ let ServicesService = class ServicesService {
     async deleteAllServiceMedia(serviceId, media) {
         const service = await this.serviceModel.findById(serviceId);
         if (!service) {
-            throw new common_1.NotFoundException("Service not found");
+            throw new common_1.NotFoundException('Service not found');
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException("No media files provided for deletion");
+            throw new common_1.BadRequestException('No media files provided for deletion');
         }
         await this.fileUploadService.deleteFiles(media);
         let images = service.images || [];
         let video = service.video;
-        images = images.filter((imgUrl) => !media.includes(imgUrl));
+        images = images.filter(imgUrl => !media.includes(imgUrl));
         if (media.includes(video)) {
             video = "";
         }
         service.images = images;
         service.video = video;
         await service.save();
-        return { message: "Selected service media deleted successfully" };
+        return { message: 'Selected service media deleted successfully' };
     }
 };
 exports.ServicesService = ServicesService;

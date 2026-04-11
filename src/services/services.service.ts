@@ -4,28 +4,25 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Service, ServiceDocument } from "./schema/services.schema";
-import { Model, Types } from "mongoose";
-import { CreateServiceDto } from "./dto/create-service.dto";
-import { UpdateServiceDto } from "./dto/update-service.dto";
-import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
-import { PaginationDto } from "src/common/dto/pagination.dto";
-import { ListingUtilsService } from "src/shared/listing-util-service";
-import { UsersService } from "src/users/users.service";
-import { HandleRequestDto } from "./dto/handle-request.do";
-import {
-  ServiceRequest,
-  ServiceRequestDocument,
-} from "./schema/service_request.schema";
-import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
-import { UpdateJobStatusDto } from "./dto/update-job-dto";
-import { UpdateRequestStatusDto } from "./dto/update-request-dto";
-import { CreateRequestDto } from "./dto/create-request-dto";
-import { NotificationsService } from "src/notifications/notifications.service";
-import { FileUploadService } from "src/common/file-upload/file-upload.service";
-import e from "express";
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Service, ServiceDocument } from './schema/services.schema';
+import { Model, Types } from 'mongoose';
+import { CreateServiceDto } from './dto/create-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
+import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { ListingUtilsService } from 'src/shared/listing-util-service';
+import { UsersService } from 'src/users/users.service';
+import { HandleRequestDto } from './dto/handle-request.do';
+import { ServiceRequest, ServiceRequestDocument } from './schema/service_request.schema';
+import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-search-for.dto';
+import { UpdateJobStatusDto } from './dto/update-job-dto';
+import { UpdateRequestStatusDto } from './dto/update-request-dto';
+import { CreateRequestDto } from './dto/create-request-dto';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { FileUploadService } from 'src/common/file-upload/file-upload.service';
+import e from 'express';
 
 @Injectable()
 export class ServicesService {
@@ -37,27 +34,20 @@ export class ServicesService {
     private readonly notificationsService: NotificationsService,
     private readonly listingUtils: ListingUtilsService,
     private readonly fileUploadService: FileUploadService,
-    @InjectModel(ServiceRequest.name)
-    private readonly requestModel: Model<ServiceRequestDocument>,
-  ) {}
+    @InjectModel(ServiceRequest.name) private readonly requestModel: Model<ServiceRequestDocument>,
+  ) { }
 
   async create(userId: string, dto: CreateServiceDto): Promise<Service> {
     const user = await this.userService.findUserById(userId);
     if (!user) {
-      throw new NotFoundException("user not found");
+      throw new NotFoundException('user not found');
     }
-    const existingService = await this.serviceModel.findOne({
-      ownerId: user._id,
-    });
+    const existingService = await this.serviceModel.findOne({ ownerId: user._id });
     if (existingService) {
-      throw new BadRequestException("User already has a service");
+      throw new BadRequestException('User already has a service');
     }
-    if (
-      !user.location ||
-      !user.location.coordinates ||
-      user.location.coordinates.length !== 2
-    ) {
-      throw new BadRequestException("User location is missing");
+    if (!user.location || !user.location.coordinates || user.location.coordinates.length !== 2) {
+      throw new BadRequestException('User location is missing');
     }
     let images: string[] = [];
     let imageFiles: Express.Multer.File[] = [];
@@ -74,49 +64,41 @@ export class ServicesService {
       category: new Types.ObjectId(dto.category),
       location: user.location,
       images: [],
-      video: "",
+      video: '',
     });
 
     if (imageFiles && imageFiles.length > 0) {
-      images = await this.fileUploadService.uploadServiceFile(
-        userId,
-        (created._id as Types.ObjectId).toString(),
-        imageFiles,
-      );
+      images = await this.fileUploadService.uploadServiceFile(userId, (created._id as Types.ObjectId).toString(), imageFiles);
       created.images = images;
     }
     if (videoFiles && videoFiles.length > 0) {
-      const video = await this.fileUploadService.uploadServiceFile(
-        userId,
-        (created._id as Types.ObjectId).toString(),
-        videoFiles,
-        "video",
-      );
+      const video = await this.fileUploadService.uploadServiceFile(userId, (created._id as Types.ObjectId).toString(), videoFiles, 'video');
       created.video = video[0]; // Assuming only one video file is uploaded
     }
     await created.save(); // Save the service again to update the images and video fields
-    return created.populate("category");
+    return created.populate('category');
   }
 
   async update(serviceId: string, dto: UpdateServiceDto) {
+
     Object.keys(dto).forEach((key) => {
       if (
-        dto[key] === "" || // empty string
+        dto[key] === '' ||   // empty string
         dto[key] === null || // null
-        typeof dto[key] === "undefined"
+        typeof dto[key] === 'undefined'
       ) {
         delete dto[key]; // remove it from updateData
       }
     });
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException('Service not found');
     }
     const imageFiles = dto.images as Express.Multer.File[];
     let images = existingService.images; // Preserve existing images if not updated
     if (imageFiles && imageFiles.length > 0) {
       if (existingService.images && existingService.images.length > 4) {
-        throw new BadRequestException("You can only upload up to 5 images");
+        throw new BadRequestException('You can only upload up to 5 images');
       }
       images = existingService.images || [];
       let newimages = await this.fileUploadService.uploadServiceFile(
@@ -130,11 +112,12 @@ export class ServicesService {
     let video = existingService.video; // Preserve existing video if not updated
     let videoFile: string[] = [];
     if (videoFiles && videoFiles.length > 0) {
+
       videoFile = await this.fileUploadService.uploadServiceFile(
         existingService.ownerId.toString(),
         (existingService._id as Types.ObjectId).toString(),
         videoFiles,
-        "video",
+        'video'
       );
     }
 
@@ -152,19 +135,19 @@ export class ServicesService {
         },
         { new: true },
       )
-      .populate("category");
+      .populate('category');
 
     if (!updated) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException('Service not found');
     }
-    console.log("Updated Service:", video);
+    console.log('Updated Service:', video);
     return { ...dto, images, video }; // Ensure the images and video are included in the returned object
   }
 
   async delete(serviceId: string): Promise<void> {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
-      throw new NotFoundException("Service not found"); // Ensure the service exists before attempting to delete
+      throw new NotFoundException('Service not found'); // Ensure the service exists before attempting to delete
     }
     const media = [...existingService.images, existingService.video];
     if (media && media.length > 0) {
@@ -172,17 +155,17 @@ export class ServicesService {
     }
     const result = await this.serviceModel.findByIdAndDelete(serviceId);
     if (!result) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException('Service not found');
     }
   }
 
   async deleteServiceMedia(serviceId: string, media: string[]) {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
-      throw new NotFoundException("Product not found");
+      throw new NotFoundException('Product not found');
     }
     if (!media || media.length === 0) {
-      throw new BadRequestException("No media files provided for deletion");
+      throw new BadRequestException('No media files provided for deletion');
     }
 
     // Remove media files from storage
@@ -193,7 +176,7 @@ export class ServicesService {
     let video = existingService.video;
 
     // Remove any images that match the URLs
-    images = images.filter((imgUrl) => !media.includes(imgUrl));
+    images = images.filter(imgUrl => !media.includes(imgUrl));
 
     // Remove video if its URL is in the media array
     if (media.includes(video)) {
@@ -208,13 +191,15 @@ export class ServicesService {
     return true;
   }
 
+
+
   async getById(serviceId: string): Promise<Service> {
     const service = await this.serviceModel
       .findById(serviceId)
-      .populate("category");
+      .populate('category');
 
     if (!service) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException('Service not found');
     }
 
     return service;
@@ -230,7 +215,7 @@ export class ServicesService {
     const [data, total] = await Promise.all([
       this.serviceModel
         .find({ ownerId: new Types.ObjectId(userId) })
-        .populate("category")
+        .populate('category')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -259,7 +244,7 @@ export class ServicesService {
   }
   async updateLocationByShopId(
     shopId: string,
-    location: { type: "Point"; coordinates: [number, number] },
+    location: { type: 'Point'; coordinates: [number, number] },
   ) {
     await this.serviceModel.updateMany({ shopId }, { $set: { location } });
   }
@@ -269,7 +254,7 @@ export class ServicesService {
     const filter: Record<string, any> = {};
 
     if (query.name) {
-      filter.title = { $regex: query.name, $options: "i" };
+      filter.title = { $regex: query.name, $options: 'i' };
     }
     if (query.category) {
       filter.category = new Types.ObjectId(query.category);
@@ -280,12 +265,7 @@ export class ServicesService {
     const skip = (page - 1) * limit;
 
     const [results, total] = await Promise.all([
-      this.serviceModel
-        .find(filter)
-        .skip(skip)
-        .limit(limit)
-        .populate("category")
-        .exec(),
+      this.serviceModel.find(filter).skip(skip).limit(limit).populate('category').exec(),
       this.serviceModel.countDocuments(filter),
     ]);
 
@@ -306,84 +286,62 @@ export class ServicesService {
     } = dto;
 
     // --- Validation: User Existence ---
-    const customer = customerId
-      ? await this.userService.findUserById(customerId)
-      : null;
+    const customer = customerId ? await this.userService.findUserById(customerId) : null;
 
-    if (customerId && !customer)
-      throw new NotFoundException("Customer not found");
+
+    if (customerId && !customer) throw new NotFoundException('Customer not found');
+
 
     // --- Creation Flow ---
 
     if (!serviceId || !requestedDateTime || !customerId) {
-      throw new BadRequestException(
-        "Missing required fields for request creation",
-      );
+      throw new BadRequestException('Missing required fields for request creation');
     }
 
     const service = await this.serviceModel.findById(serviceId);
-    if (!service) throw new NotFoundException("Service not found");
+    if (!service) throw new NotFoundException('Service not found');
 
     const request = new this.requestModel({
       service: new Types.ObjectId(serviceId),
       customer: new Types.ObjectId(customerId),
       provider: service.ownerId,
       requestedDateTime: new Date(requestedDateTime),
-      status: "pending",
-      jobStatus: "not_started",
+      status: 'pending',
+      jobStatus: 'not_started',
       message,
     });
-    this.notificationsService.createAndNotify(
-      service.ownerId.toString(),
-      `New service request for "${service.title}" from ${customer?.name || "a user"}`,
-    );
+    this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || 'a user'}`);
 
     return request.save();
+
   }
   async updateRequestStatus(dto: UpdateRequestStatusDto) {
     const { requestId, action, proposedDateTime } = dto;
 
-    const request = await this.requestModel
-      .findById(requestId)
-      .populate("service")
-      .populate("customer")
-      .populate("provider");
-    if (!request) throw new NotFoundException("Request not found");
+    const request = await this.requestModel.findById(requestId).populate('service').populate('customer').populate('provider');
+    if (!request) throw new NotFoundException('Request not found');
 
     switch (action) {
-      case "accept":
-        request.status = "accepted";
-        this.notificationsService.createAndNotify(
-          request.customer.toString(),
-          `Your service request for "${request.service}" has been accepted by the provider.`,
-        );
+      case 'accept':
+        request.status = 'accepted';
+        this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has been accepted by the provider.`);
         break;
 
-      case "reject":
-        request.status = "rejected";
-        this.notificationsService.createAndNotify(
-          request.customer.toString(),
-          `Your service request for "${request.service}" has been rejected by the provider.`,
-        );
+      case 'reject':
+        request.status = 'rejected';
+        this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has been rejected by the provider.`);
         break;
 
-      case "cancel":
-        request.status = "cancelled";
-        this.notificationsService.createAndNotify(
-          request.provider.toString(),
-          `Service request for "${request.service}" has been cancelled by the customer.`,
-        );
+      case 'cancel':
+        request.status = 'cancelled';
+        this.notificationsService.createAndNotify(request.provider.toString(), `Service request for "${request.service}" has been cancelled by the customer.`);
         break;
 
-      case "propose":
-        if (!proposedDateTime)
-          throw new BadRequestException("Proposed date is required");
-        request.status = "proposed";
+      case 'propose':
+        if (!proposedDateTime) throw new BadRequestException('Proposed date is required');
+        request.status = 'proposed';
         request.proposedDateTime = new Date(proposedDateTime);
-        this.notificationsService.createAndNotify(
-          request.customer.toString(),
-          `Your service request for "${request.service}" has a new proposed date: ${proposedDateTime}`,
-        );
+        this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has a new proposed date: ${proposedDateTime}`);
         break;
 
       default:
@@ -393,21 +351,22 @@ export class ServicesService {
     return request.save();
   }
 
+
   async updateJobStatus(dto: UpdateJobStatusDto) {
     const { requestId, action } = dto;
 
     const request = await this.requestModel.findById(requestId);
-    if (!request) throw new NotFoundException("Request not found");
+    if (!request) throw new NotFoundException('Request not found');
 
     switch (action) {
-      case "start_job":
-        request.jobStatus = "in_progress";
-        request.status = "accepted"; // keep it consistent
+      case 'start_job':
+        request.jobStatus = 'in_progress';
+        request.status = 'accepted'; // keep it consistent
         break;
 
-      case "complete_job":
-        request.jobStatus = "completed";
-        request.status = "confirmed"; // e.g. to mark client approval phase
+      case 'complete_job':
+        request.jobStatus = 'completed';
+        request.status = 'confirmed'; // e.g. to mark client approval phase
         break;
 
       default:
@@ -432,9 +391,9 @@ export class ServicesService {
             { provider: new Types.ObjectId(userId) },
           ],
         })
-        .populate("service")
-        .populate("customer")
-        .populate("provider")
+        .populate('service')
+        .populate('customer')
+        .populate('provider')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -448,7 +407,7 @@ export class ServicesService {
     ]);
 
     if (!requests || requests.length === 0) {
-      throw new NotFoundException("No service requests found for this user");
+      throw new NotFoundException('No service requests found for this user');
     }
     return {
       meta: {
@@ -461,13 +420,14 @@ export class ServicesService {
     };
   }
 
-  async deleteAllServiceMedia(serviceId: string, media: string[]) {
+  async deleteAllServiceMedia(
+    serviceId: string, media: string[]) {
     const service = await this.serviceModel.findById(serviceId);
     if (!service) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException('Service not found');
     }
     if (!media || media.length === 0) {
-      throw new BadRequestException("No media files provided for deletion");
+      throw new BadRequestException('No media files provided for deletion');
     }
 
     // Remove media files from storage
@@ -478,7 +438,7 @@ export class ServicesService {
     let video = service.video;
 
     // Remove any images that match the URLs
-    images = images.filter((imgUrl) => !media.includes(imgUrl));
+    images = images.filter(imgUrl => !media.includes(imgUrl));
 
     // Remove video if its URL is in the media array
     if (media.includes(video)) {
@@ -489,6 +449,6 @@ export class ServicesService {
     service.images = images;
     service.video = video;
     await service.save();
-    return { message: "Selected service media deleted successfully" };
+    return { message: 'Selected service media deleted successfully' };
   }
 }
