@@ -6,16 +6,16 @@ import { Document, Types } from 'mongoose';
 
 export class Conversation extends Document {
   @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
-  buyer: Types.ObjectId;
+  buyer!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
-  seller: Types.ObjectId;
+  seller!: Types.ObjectId;
 
   @Prop({ type: String, enum: ['open', 'closed'], default: 'open' })
-  status: string;
+  status!: string;
 
   @Prop({ type: Date })
-  lastMessageAt: Date;
+  lastMessageAt!: Date;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

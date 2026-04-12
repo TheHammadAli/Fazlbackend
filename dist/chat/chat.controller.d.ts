@@ -1,6 +1,6 @@
-import { ChatService } from './chat.service';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { CreateMessageDto } from './dto/create-message.dto';
+import { ChatService } from "./chat.service";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { CreateMessageDto } from "./dto/create-message.dto";
 export declare class ChatController {
     private readonly chatService;
     constructor(chatService: ChatService);
@@ -23,6 +23,7 @@ export declare class ChatController {
         userId: string;
     }): Promise<void>;
     getUnreadCount(userId: string): Promise<any[]>;
+    getConversationsByUserId(userId: string, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/conversation.schema").Conversation>>;
     broadcast(body: {
         buyerId: string;
         coordinates: [number, number];

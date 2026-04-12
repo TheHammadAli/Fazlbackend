@@ -21,6 +21,7 @@ const message_schema_1 = require("./schema/message.schema");
 const users_service_1 = require("../users/users.service");
 const app_error_1 = require("../common/exceptions/app-error");
 const shop_service_1 = require("../shop/shop.service");
+const mongoose_3 = require("mongoose");
 let ChatService = class ChatService {
     conversationModel;
     messageModel;
@@ -36,7 +37,12 @@ let ChatService = class ChatService {
         await this.userService.findUserById(buyerId);
         await this.userService.findUserById(sellerId);
         try {
-            const convo = await this.conversationModel.findOneAndUpdate({ buyer: buyerId, seller: sellerId }, { $setOnInsert: { buyer: buyerId, seller: sellerId } }, { upsert: true, new: true });
+            const convo = await this.conversationModel.findOneAndUpdate({ buyer: buyerId, seller: sellerId }, {
+                $setOnInsert: {
+                    buyer: new mongoose_3.Types.ObjectId(buyerId),
+                    seller: new mongoose_3.Types.ObjectId(sellerId),
+                },
+            }, { upsert: true, new: true });
             return convo;
         }
         catch (err) {
@@ -48,11 +54,11 @@ let ChatService = class ChatService {
         await this.userService.findUserById(receiverId);
         const conversation = await this.conversationModel.findById(conversationId);
         if (!conversation)
-            throw new common_1.NotFoundException('Conversation not found');
+            throw new common_1.NotFoundException("Conversation not found");
         const message = await this.messageModel.create({
-            conversationId,
-            sender: senderId,
-            receiver: receiverId,
+            conversationId: new mongoose_3.Types.ObjectId(conversationId),
+            sender: new mongoose_3.Types.ObjectId(senderId),
+            receiver: new mongoose_3.Types.ObjectId(receiverId),
             text,
         });
         await this.conversationModel.findByIdAndUpdate(conversationId, {
@@ -63,16 +69,18 @@ let ChatService = class ChatService {
     async getMessages(conversationId, paginationDto) {
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo)
-            throw new common_1.NotFoundException('Conversation not found');
+            throw new common_1.NotFoundException("Conversation not found");
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.messageModel
-                .find({ conversationId })
+                .find({ conversationId: new mongoose_3.Types.ObjectId(conversationId) })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.messageModel.countDocuments({ conversationId }),
+            this.messageModel.countDocuments({
+                conversationId: new mongoose_3.Types.ObjectId(conversationId),
+            }),
         ]);
         return {
             data,
@@ -88,7 +96,7 @@ let ChatService = class ChatService {
         await this.userService.findUserById(userId);
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo)
-            throw new common_1.NotFoundException('Conversation not found');
+            throw new common_1.NotFoundException("Conversation not found");
         await this.messageModel.updateMany({ conversationId, receiver: userId, read: false }, { $set: { read: true } });
     }
     async getUnreadConversations(userId) {
@@ -97,9 +105,9 @@ let ChatService = class ChatService {
             { $match: { receiver: userId, read: false } },
             {
                 $group: {
-                    _id: '$conversationId',
+                    _id: "$conversationId",
                     unreadCount: { $sum: 1 },
-                    lastMessageAt: { $max: '$createdAt' },
+                    lastMessageAt: { $max: "$createdAt" },
                 },
             },
             {
@@ -108,19 +116,51 @@ let ChatService = class ChatService {
         ]);
         return conversationsWithUnread;
     }
+    async getConversationsByUserId(userId, paginationDto) {
+        await this.userService.findUserById(userId);
+        const userObjectId = new mongoose_3.Types.ObjectId(userId);
+        const { page = 1, limit = 10 } = paginationDto;
+        const skip = (page - 1) * limit;
+        const [data, total] = await Promise.all([
+            this.conversationModel
+                .find({
+                $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+            })
+                .sort({ lastMessageAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate("buyer", "name email profilePicture")
+                .populate("seller", "name email profilePicture")
+                .exec(),
+            this.conversationModel
+                .countDocuments({
+                $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+            })
+                .exec(),
+        ]);
+        return {
+            data,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
     async broadcastMessageToNearbySellers(buyerId, location, radiusInKm, messageText) {
         await this.userService.findUserById(buyerId);
         const radiusInMeters = radiusInKm * 1000;
         const nearbyShops = await this.shopService.findShopsNearLocation(location, radiusInMeters);
         if (!nearbyShops.length) {
-            return { message: 'No nearby sellers found', count: 0 };
+            return { message: "No nearby sellers found", count: 0 };
         }
         const sellerIds = nearbyShops.map((shop) => shop.ownerId.toString());
         const convoPromises = sellerIds.map((sellerId) => this.getOrCreateConversation(buyerId, sellerId));
         const convoResults = await Promise.allSettled(convoPromises);
         const messagePromises = convoResults
             .map((result, idx) => {
-            if (result.status === 'fulfilled') {
+            if (result.status === "fulfilled") {
                 return this.sendMessage(result.value.id.toString(), buyerId, sellerIds[idx], messageText);
             }
             return null;
@@ -128,11 +168,11 @@ let ChatService = class ChatService {
             .filter(Boolean);
         const messageResults = await Promise.allSettled(messagePromises);
         return {
-            message: 'Broadcast complete',
+            message: "Broadcast complete",
             data: {
                 totalTargets: sellerIds.length,
-                successfulMessages: messageResults.filter((r) => r.status === 'fulfilled').length,
-                failedMessages: messageResults.filter((r) => r.status === 'rejected')
+                successfulMessages: messageResults.filter((r) => r.status === "fulfilled").length,
+                failedMessages: messageResults.filter((r) => r.status === "rejected")
                     .length,
                 detailedResults: messageResults,
             },

@@ -1,10 +1,10 @@
-import { Model } from 'mongoose';
-import { Conversation } from './schema/conversation.schema';
-import { Message } from './schema/message.schema';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
-import { UsersService } from 'src/users/users.service';
-import { ShopService } from 'src/shop/shop.service';
+import { Model } from "mongoose";
+import { Conversation } from "./schema/conversation.schema";
+import { Message } from "./schema/message.schema";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { UsersService } from "src/users/users.service";
+import { ShopService } from "src/shop/shop.service";
 export declare class ChatService {
     private readonly conversationModel;
     private readonly messageModel;
@@ -24,6 +24,7 @@ export declare class ChatService {
     getMessages(conversationId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Message>>;
     markAsRead(conversationId: string, userId: string): Promise<void>;
     getUnreadConversations(userId: string): Promise<any[]>;
+    getConversationsByUserId(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Conversation>>;
     broadcastMessageToNearbySellers(buyerId: string, location: [number, number], radiusInKm: number, messageText: string): Promise<{
         message: string;
         count: number;
