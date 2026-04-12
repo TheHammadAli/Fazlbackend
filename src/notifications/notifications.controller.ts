@@ -24,8 +24,6 @@ import { GetNotificationsQueryDto } from "./dto/get-notifications-query.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 
 @ApiTags("Notifications")
-@ApiBearerAuth('jwt')
-@UseGuards(JwtAuthGuard)
 @Controller("notifications")
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
