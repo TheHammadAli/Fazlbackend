@@ -1,14 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Conversation } from "./schema/conversation.schema";
 import { Message } from "./schema/message.schema";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
-import { UsersService } from "src/users/users.service"; // ✅ Inject service, not model
+import { UsersService } from "src/users/users.service";
 import { AppError } from "src/common/exceptions/app-error";
 import { ShopService } from "src/shop/shop.service";
-import { Types } from "mongoose";
 
 @Injectable()
 export class ChatService {
@@ -21,23 +20,47 @@ export class ChatService {
     private readonly shopService: ShopService,
   ) {}
 
+  // ✅ FIXED: normalized + safe upsert + race condition handling
   async getOrCreateConversation(buyerId: string, sellerId: string) {
     await this.userService.findUserById(buyerId);
     await this.userService.findUserById(sellerId);
 
+    // Normalize order (A-B == B-A)
+    const [user1, user2] =
+      buyerId < sellerId ? [buyerId, sellerId] : [sellerId, buyerId];
+
+    const buyerObjectId = new Types.ObjectId(user1);
+    const sellerObjectId = new Types.ObjectId(user2);
+
     try {
       const convo = await this.conversationModel.findOneAndUpdate(
-        { buyer: buyerId, seller: sellerId },
+        {
+          buyer: buyerObjectId,
+          seller: sellerObjectId,
+        },
         {
           $setOnInsert: {
-            buyer: new Types.ObjectId(buyerId),
-            seller: new Types.ObjectId(sellerId),
+            buyer: buyerObjectId,
+            seller: sellerObjectId,
+            status: "open",
           },
         },
-        { upsert: true, new: true }, // upsert = create if not found
+        {
+          upsert: true,
+          new: true,
+        },
       );
+
       return convo;
-    } catch (err) {
+    } catch (err: any) {
+      // Handle duplicate key race condition
+      if (err.code === 11000) {
+        return this.conversationModel.findOne({
+          buyer: buyerObjectId,
+          seller: sellerObjectId,
+        });
+      }
+
       throw new AppError(err);
     }
   }
@@ -107,7 +130,11 @@ export class ChatService {
     if (!convo) throw new NotFoundException("Conversation not found");
 
     await this.messageModel.updateMany(
-      { conversationId, receiver: userId, read: false },
+      {
+        conversationId: new Types.ObjectId(conversationId),
+        receiver: new Types.ObjectId(userId),
+        read: false,
+      },
       { $set: { read: true } },
     );
   }
@@ -115,8 +142,10 @@ export class ChatService {
   async getUnreadConversations(userId: string) {
     await this.userService.findUserById(userId);
 
+    const userObjectId = new Types.ObjectId(userId);
+
     const conversationsWithUnread = await this.messageModel.aggregate([
-      { $match: { receiver: userId, read: false } },
+      { $match: { receiver: userObjectId, read: false } },
       {
         $group: {
           _id: "$conversationId",
@@ -153,11 +182,9 @@ export class ChatService {
         .populate("buyer", "name email profilePicture")
         .populate("seller", "name email profilePicture")
         .exec(),
-      this.conversationModel
-        .countDocuments({
-          $or: [{ buyer: userObjectId }, { seller: userObjectId }],
-        })
-        .exec(),
+      this.conversationModel.countDocuments({
+        $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+      }),
     ]);
 
     return {
@@ -192,7 +219,7 @@ export class ChatService {
 
     const sellerIds = nearbyShops.map((shop) => shop.ownerId.toString());
 
-    // Step 1: Get/Create conversations
+    // Step 1: Get/Create conversations safely
     const convoPromises = sellerIds.map((sellerId) =>
       this.getOrCreateConversation(buyerId, sellerId),
     );
@@ -202,8 +229,9 @@ export class ChatService {
     const messagePromises = convoResults
       .map((result, idx) => {
         if (result.status === "fulfilled") {
+          const convo = result.value as Conversation;
           return this.sendMessage(
-            result.value.id.toString(),
+            (convo._id as Types.ObjectId).toString(),
             buyerId,
             sellerIds[idx],
             messageText,

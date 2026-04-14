@@ -21,7 +21,6 @@ const message_schema_1 = require("./schema/message.schema");
 const users_service_1 = require("../users/users.service");
 const app_error_1 = require("../common/exceptions/app-error");
 const shop_service_1 = require("../shop/shop.service");
-const mongoose_3 = require("mongoose");
 let ChatService = class ChatService {
     conversationModel;
     messageModel;
@@ -36,16 +35,32 @@ let ChatService = class ChatService {
     async getOrCreateConversation(buyerId, sellerId) {
         await this.userService.findUserById(buyerId);
         await this.userService.findUserById(sellerId);
+        const [user1, user2] = buyerId < sellerId ? [buyerId, sellerId] : [sellerId, buyerId];
+        const buyerObjectId = new mongoose_2.Types.ObjectId(user1);
+        const sellerObjectId = new mongoose_2.Types.ObjectId(user2);
         try {
-            const convo = await this.conversationModel.findOneAndUpdate({ buyer: buyerId, seller: sellerId }, {
+            const convo = await this.conversationModel.findOneAndUpdate({
+                buyer: buyerObjectId,
+                seller: sellerObjectId,
+            }, {
                 $setOnInsert: {
-                    buyer: new mongoose_3.Types.ObjectId(buyerId),
-                    seller: new mongoose_3.Types.ObjectId(sellerId),
+                    buyer: buyerObjectId,
+                    seller: sellerObjectId,
+                    status: "open",
                 },
-            }, { upsert: true, new: true });
+            }, {
+                upsert: true,
+                new: true,
+            });
             return convo;
         }
         catch (err) {
+            if (err.code === 11000) {
+                return this.conversationModel.findOne({
+                    buyer: buyerObjectId,
+                    seller: sellerObjectId,
+                });
+            }
             throw new app_error_1.AppError(err);
         }
     }
@@ -56,9 +71,9 @@ let ChatService = class ChatService {
         if (!conversation)
             throw new common_1.NotFoundException("Conversation not found");
         const message = await this.messageModel.create({
-            conversationId: new mongoose_3.Types.ObjectId(conversationId),
-            sender: new mongoose_3.Types.ObjectId(senderId),
-            receiver: new mongoose_3.Types.ObjectId(receiverId),
+            conversationId: new mongoose_2.Types.ObjectId(conversationId),
+            sender: new mongoose_2.Types.ObjectId(senderId),
+            receiver: new mongoose_2.Types.ObjectId(receiverId),
             text,
         });
         await this.conversationModel.findByIdAndUpdate(conversationId, {
@@ -74,12 +89,12 @@ let ChatService = class ChatService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.messageModel
-                .find({ conversationId: new mongoose_3.Types.ObjectId(conversationId) })
+                .find({ conversationId: new mongoose_2.Types.ObjectId(conversationId) })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
             this.messageModel.countDocuments({
-                conversationId: new mongoose_3.Types.ObjectId(conversationId),
+                conversationId: new mongoose_2.Types.ObjectId(conversationId),
             }),
         ]);
         return {
@@ -97,12 +112,17 @@ let ChatService = class ChatService {
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo)
             throw new common_1.NotFoundException("Conversation not found");
-        await this.messageModel.updateMany({ conversationId, receiver: userId, read: false }, { $set: { read: true } });
+        await this.messageModel.updateMany({
+            conversationId: new mongoose_2.Types.ObjectId(conversationId),
+            receiver: new mongoose_2.Types.ObjectId(userId),
+            read: false,
+        }, { $set: { read: true } });
     }
     async getUnreadConversations(userId) {
         await this.userService.findUserById(userId);
+        const userObjectId = new mongoose_2.Types.ObjectId(userId);
         const conversationsWithUnread = await this.messageModel.aggregate([
-            { $match: { receiver: userId, read: false } },
+            { $match: { receiver: userObjectId, read: false } },
             {
                 $group: {
                     _id: "$conversationId",
@@ -118,7 +138,7 @@ let ChatService = class ChatService {
     }
     async getConversationsByUserId(userId, paginationDto) {
         await this.userService.findUserById(userId);
-        const userObjectId = new mongoose_3.Types.ObjectId(userId);
+        const userObjectId = new mongoose_2.Types.ObjectId(userId);
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
@@ -132,11 +152,9 @@ let ChatService = class ChatService {
                 .populate("buyer", "name email profilePicture")
                 .populate("seller", "name email profilePicture")
                 .exec(),
-            this.conversationModel
-                .countDocuments({
+            this.conversationModel.countDocuments({
                 $or: [{ buyer: userObjectId }, { seller: userObjectId }],
-            })
-                .exec(),
+            }),
         ]);
         return {
             data,
@@ -161,7 +179,8 @@ let ChatService = class ChatService {
         const messagePromises = convoResults
             .map((result, idx) => {
             if (result.status === "fulfilled") {
-                return this.sendMessage(result.value.id.toString(), buyerId, sellerIds[idx], messageText);
+                const convo = result.value;
+                return this.sendMessage(convo._id.toString(), buyerId, sellerIds[idx], messageText);
             }
             return null;
         })

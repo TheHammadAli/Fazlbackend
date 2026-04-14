@@ -40,8 +40,8 @@ let ChatGateway = class ChatGateway {
     }
     async handleStartConversation(data, client) {
         const convo = await this.chatService.getOrCreateConversation(data.buyerId, data.sellerId);
-        client.join(convo.id.toString());
-        this.logger.log(`Client ${client.id} joined or created conversation ${convo._id}`);
+        client.join(convo?.id.toString());
+        this.logger.log(`Client ${client.id} joined or created conversation ${convo?._id}`);
         client.emit('conversationStarted', convo);
     }
     async handleMarkAsRead(data) {

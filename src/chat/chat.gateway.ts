@@ -74,9 +74,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.buyerId,
       data.sellerId,
     );
-    client.join(convo.id.toString());
+    client.join(convo?.id.toString());
     this.logger.log(
-      `Client ${client.id} joined or created conversation ${convo._id}`,
+      `Client ${client.id} joined or created conversation ${convo?._id}`,
     );
     client.emit('conversationStarted', convo);
   }

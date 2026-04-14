@@ -11,11 +11,11 @@ export declare class ChatService {
     private readonly userService;
     private readonly shopService;
     constructor(conversationModel: Model<Conversation>, messageModel: Model<Message>, userService: UsersService, shopService: ShopService);
-    getOrCreateConversation(buyerId: string, sellerId: string): Promise<import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
+    getOrCreateConversation(buyerId: string, sellerId: string): Promise<(import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
         _id: unknown;
     }> & {
         __v: number;
-    }>;
+    }) | null>;
     sendMessage(conversationId: string, senderId: string, receiverId: string, text: string): Promise<import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
         _id: unknown;
     }> & {

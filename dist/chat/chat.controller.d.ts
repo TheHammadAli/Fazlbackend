@@ -7,11 +7,11 @@ export declare class ChatController {
     getOrCreateConversation(body: {
         buyerId: string;
         sellerId: string;
-    }): Promise<import("mongoose").Document<unknown, {}, import("./schema/conversation.schema").Conversation, {}> & import("./schema/conversation.schema").Conversation & Required<{
+    }): Promise<(import("mongoose").Document<unknown, {}, import("./schema/conversation.schema").Conversation, {}> & import("./schema/conversation.schema").Conversation & Required<{
         _id: unknown;
     }> & {
         __v: number;
-    }>;
+    }) | null>;
     sendMessage(body: CreateMessageDto): Promise<import("mongoose").Document<unknown, {}, import("./schema/message.schema").Message, {}> & import("./schema/message.schema").Message & Required<{
         _id: unknown;
     }> & {
