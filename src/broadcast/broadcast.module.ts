@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { BroadcastController } from './broadcast.controller';
 import { BroadcastService } from './broadcast.service';
+import { BroadcastGateway } from './broadcast.gateway';
 import { ShopModule } from '../shop/shop.module';
 import { CategoryModule } from 'src/category/category.module';
 import { Broadcast, BroadcastSchema } from './schema/broadcast.schema';
@@ -32,7 +33,7 @@ import { BroadcastThread, BroadcastThreadSchema } from './schema/broadcast-threa
     UsersModule
   ],
   controllers: [BroadcastController],
-  providers: [BroadcastService],
+  providers: [BroadcastService, BroadcastGateway],
   exports: [BroadcastService],
 })
 export class BroadcastModule {}

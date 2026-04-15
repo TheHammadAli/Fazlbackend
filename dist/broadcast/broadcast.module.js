@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const broadcast_controller_1 = require("./broadcast.controller");
 const broadcast_service_1 = require("./broadcast.service");
+const broadcast_gateway_1 = require("./broadcast.gateway");
 const shop_module_1 = require("../shop/shop.module");
 const category_module_1 = require("../category/category.module");
 const broadcast_schema_1 = require("./schema/broadcast.schema");
@@ -39,7 +40,7 @@ exports.BroadcastModule = BroadcastModule = __decorate([
             users_module_1.UsersModule
         ],
         controllers: [broadcast_controller_1.BroadcastController],
-        providers: [broadcast_service_1.BroadcastService],
+        providers: [broadcast_service_1.BroadcastService, broadcast_gateway_1.BroadcastGateway],
         exports: [broadcast_service_1.BroadcastService],
     })
 ], BroadcastModule);
