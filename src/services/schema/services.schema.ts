@@ -8,32 +8,32 @@ import { Document, Types } from 'mongoose';
 })
 export class Service {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  ownerId: Types.ObjectId;
+  ownerId!: Types.ObjectId;
 
   @Prop({ required: true, trim: true })
-  title: string;
+  title!: string;
 
   @Prop({ trim: true })
   description?: string;
 
   @Prop({ required: true })
-  price: number;
+  price!: number;
 
   @Prop({
     required: true,
     enum: ['hourly', 'fixed'],
     default: 'fixed',
   })
-  paymentType: 'hourly' | 'fixed';
+  paymentType!: 'hourly' | 'fixed';
 
   @Prop({ type: Boolean, default: true })
-  requiresAppointment: boolean;
+  requiresAppointment!: boolean;
 
   @Prop({ type: [String], default: [] })
-  images: string[];
+  images!: string[];
 
   @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
-  category: Types.ObjectId;
+  category!: Types.ObjectId;
 
   @Prop({
     type: {
@@ -47,13 +47,13 @@ export class Service {
       required: true,
     },
   })
-  location: {
+  location!: {
     type: 'Point';
     coordinates: [number, number];
   };
 
   @Prop({ required: false, trim: true })
-  video: string;
+  video!: string;
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);

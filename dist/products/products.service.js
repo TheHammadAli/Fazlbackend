@@ -44,41 +44,41 @@ let ProductsService = class ProductsService {
                 ...dto,
                 category: new mongoose_2.Types.ObjectId(dto.category),
             };
-            if (type === 'shop') {
+            if (type === "shop") {
                 const shop = await this.shopService.getShopById(entityId);
                 if (!shop) {
-                    throw new common_1.NotFoundException('Shop not found');
+                    throw new common_1.NotFoundException("Shop not found");
                 }
                 if (!shop.location ||
                     !shop.location.coordinates ||
                     shop.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException('Shop location is missing');
+                    throw new common_1.BadRequestException("Shop location is missing");
                 }
                 productPayload.shopId = shop._id;
                 location = shop.location;
                 console.log("product payload", productPayload);
             }
-            else if (type === 'personal') {
+            else if (type === "personal") {
                 const user = await this.userService.findUserById(entityId);
                 if (!user) {
-                    throw new common_1.NotFoundException('User not found');
+                    throw new common_1.NotFoundException("User not found");
                 }
-                console.log('User:', user);
+                console.log("User:", user);
                 productPayload.ownerId = user._id;
                 if (!user.location ||
                     !user.location.coordinates ||
                     user.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException('User location is missing');
+                    throw new common_1.BadRequestException("User location is missing");
                 }
                 location = {
-                    type: 'Point',
+                    type: "Point",
                     coordinates: user.location.coordinates,
                 };
             }
             else {
                 throw new common_1.BadRequestException('Invalid type. Must be "shop" or "personal".');
             }
-            console.log('Product Payload:', productPayload);
+            console.log("Product Payload:", productPayload);
             const createdProduct = new this.productModel({
                 ...productPayload,
                 location,
@@ -88,13 +88,13 @@ let ProductsService = class ProductsService {
             });
             let imageUrls = [];
             if (dto?.images?.length) {
-                const uploadedFiles = await this.fileUploadService.uploadProductFiles(dto.images, type, entityId, createdProduct._id.toString(), 'images');
-                imageUrls = uploadedFiles.map(file => file.url);
+                const uploadedFiles = await this.fileUploadService.uploadProductFiles(dto.images, type, entityId, createdProduct._id.toString(), "images");
+                imageUrls = uploadedFiles.map((file) => file.url);
                 createdProduct.images = imageUrls;
             }
             console.log(dto?.video, "Video Length", dto?.video);
             if (dto?.video) {
-                const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, createdProduct._id.toString(), 'video');
+                const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, createdProduct._id.toString(), "video");
                 console.log("Uploaded Video:", uploadedVideo);
                 createdProduct.video = uploadedVideo[0].url;
             }
@@ -110,7 +110,7 @@ let ProductsService = class ProductsService {
         const [items, total] = await Promise.all([
             this.productModel
                 .find({ shopId: new mongoose_2.Types.ObjectId(shopId) })
-                .populate('category')
+                .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -128,7 +128,7 @@ let ProductsService = class ProductsService {
         const [items, total] = await Promise.all([
             this.productModel
                 .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId) })
-                .populate('category')
+                .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -140,37 +140,39 @@ let ProductsService = class ProductsService {
         };
     }
     async getById(id) {
-        const product = await this.productModel.findById(new mongoose_2.Types.ObjectId(id)).populate('category');
+        const product = await this.productModel
+            .findById(new mongoose_2.Types.ObjectId(id))
+            .populate("category");
         if (!product)
-            throw new common_1.NotFoundException('Product not found');
+            throw new common_1.NotFoundException("Product not found");
         return product;
     }
     async update(productId, updateDto) {
-        if ('shopId' in updateDto) {
-            throw new common_1.ForbiddenException('shopId cannot be updated');
+        if ("shopId" in updateDto) {
+            throw new common_1.ForbiddenException("shopId cannot be updated");
         }
         if (updateDto.category) {
             updateDto.category = new mongoose_2.Types.ObjectId(updateDto.category);
         }
         Object.keys(updateDto).forEach((key) => {
-            if (updateDto[key] === '' ||
+            if (updateDto[key] === "" ||
                 updateDto[key] === null ||
-                typeof updateDto[key] === 'undefined') {
+                typeof updateDto[key] === "undefined") {
                 delete updateDto[key];
             }
         });
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException('Product not found');
+            throw new common_1.NotFoundException("Product not found");
         }
         if (updateDto.images && updateDto.images.length > 0) {
-            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, 'shop', existingProduct.shopId.toString(), productId, 'images');
+            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId.toString(), productId, "images");
             console.log("Uploaded Images:", uploadedFiles);
-            let newImages = uploadedFiles.map(file => file.url);
+            let newImages = uploadedFiles.map((file) => file.url);
             updateDto.images = [...(existingProduct.images || []), ...newImages];
         }
         if (updateDto.video) {
-            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], 'shop', existingProduct.shopId.toString(), productId, 'video');
+            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], "shop", existingProduct.shopId.toString(), productId, "video");
             console.log("Uploaded Video:", uploadedVideo);
             updateDto.video = uploadedVideo[0].url;
         }
@@ -178,34 +180,36 @@ let ProductsService = class ProductsService {
             .findByIdAndUpdate(productId, updateDto, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException('Product not found');
+            throw new common_1.NotFoundException("Product not found");
         }
         return updated;
     }
     async delete(productId) {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException('Product not found');
+            throw new common_1.NotFoundException("Product not found");
         }
-        const type = existingProduct.shopId ? 'shop' : 'personal';
-        const entityId = existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId.toString();
+        const type = existingProduct.shopId ? "shop" : "personal";
+        const entityId = existingProduct.shopId
+            ? existingProduct.shopId.toString()
+            : existingProduct.ownerId.toString();
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
         const result = await this.productModel.findByIdAndDelete(productId);
         if (!result)
-            throw new common_1.NotFoundException('Product not found');
+            throw new common_1.NotFoundException("Product not found");
     }
     async deleteProductMedia(productId, media) {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException('Product not found');
+            throw new common_1.NotFoundException("Product not found");
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException('No media files provided for deletion');
+            throw new common_1.BadRequestException("No media files provided for deletion");
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingProduct.images || [];
         let video = existingProduct.video;
-        images = images.filter(imgUrl => !media.includes(imgUrl));
+        images = images.filter((imgUrl) => !media.includes(imgUrl));
         if (media.includes(video)) {
             video = "";
         }
@@ -223,7 +227,7 @@ let ProductsService = class ProductsService {
     async searchProducts(query) {
         const productSearchFilter = {};
         if (query.name) {
-            productSearchFilter.title = { $regex: query.name, $options: 'i' };
+            productSearchFilter.title = { $regex: query.name, $options: "i" };
         }
         if (query.category) {
             productSearchFilter.category = new mongoose_2.Types.ObjectId(query.category);
@@ -232,22 +236,28 @@ let ProductsService = class ProductsService {
         const limit = query.limit && query.limit > 0 ? query.limit : 10;
         const skip = (page - 1) * limit;
         const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
-        console.log('Active Promotion Product IDs:', allPromotedIds);
+        console.log("Active Promotion Product IDs:", allPromotedIds);
         const promotionFilter = {};
         if (query.category) {
             promotionFilter.category = new mongoose_2.Types.ObjectId(query.category);
         }
-        const promotedProducts = await this.productModel.find({
+        const promotedProducts = await this.productModel
+            .find({
             _id: { $in: allPromotedIds },
             ...promotionFilter,
-        }).exec();
+        })
+            .exec();
         const promotedProductIds = promotedProducts.map((p) => p._id.toString());
         const filteredProductSearchFilter = {
             ...productSearchFilter,
             _id: { $nin: promotedProductIds },
         };
         const [regularProducts, total] = await Promise.all([
-            this.productModel.find(filteredProductSearchFilter).skip(skip).limit(limit).exec(),
+            this.productModel
+                .find(filteredProductSearchFilter)
+                .skip(skip)
+                .limit(limit)
+                .exec(),
             this.productModel.countDocuments(filteredProductSearchFilter),
         ]);
         return {
@@ -261,6 +271,29 @@ let ProductsService = class ProductsService {
                 limit,
                 totalPages: Math.ceil(total / limit),
             },
+        };
+    }
+    async getProductsWithVideos(paginationDto) {
+        const { page = 1, limit = 10 } = paginationDto;
+        const skip = (page - 1) * limit;
+        const filter = {
+            video: { $exists: true, $nin: ["", null] },
+        };
+        const [items, total] = await Promise.all([
+            this.productModel
+                .find(filter)
+                .populate("category")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .exec(),
+            this.productModel
+                .countDocuments(filter)
+                .exec(),
+        ]);
+        return {
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            data: items,
         };
     }
 };

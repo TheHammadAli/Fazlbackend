@@ -4,20 +4,20 @@ import {
   InternalServerErrorException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model, Types } from 'mongoose';
-import { Product, ProductDocument } from './schema/product.schema';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
-import { ShopService } from 'src/shop/shop.service';
-import { ListingUtilsService } from 'src/shared/listing-util-service';
-import { UsersService } from 'src/users/users.service';
-import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-search-for.dto';
-import { FileUploadService } from 'src/common/file-upload/file-upload.service';
-import { PromotionService } from 'src/promotion/promotion.service';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { FilterQuery, Model, Types } from "mongoose";
+import { Product, ProductDocument } from "./schema/product.schema";
+import { CreateProductDto } from "./dto/create-product.dto";
+import { UpdateProductDto } from "./dto/update-product.dto";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { ShopService } from "src/shop/shop.service";
+import { ListingUtilsService } from "src/shared/listing-util-service";
+import { UsersService } from "src/users/users.service";
+import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { PromotionService } from "src/promotion/promotion.service";
 
 @Injectable()
 export class ProductsService {
@@ -28,28 +28,26 @@ export class ProductsService {
     private readonly listingUtils: ListingUtilsService,
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
-    private promotionService: PromotionService
-
-  ) { }
+    private promotionService: PromotionService,
+  ) {}
 
   async create(
     entityId: string,
-    type: 'shop' | 'personal',
+    type: "shop" | "personal",
     dto: CreateProductDto,
-    userId: string
+    userId: string,
   ): Promise<Product> {
     try {
-      let location: { type: 'Point'; coordinates: [number, number] };
+      let location: { type: "Point"; coordinates: [number, number] };
       const productPayload: Partial<Product> = {
         ...dto,
         category: new Types.ObjectId(dto.category),
-
       };
 
-      if (type === 'shop') {
+      if (type === "shop") {
         const shop = await this.shopService.getShopById(entityId);
         if (!shop) {
-          throw new NotFoundException('Shop not found');
+          throw new NotFoundException("Shop not found");
         }
 
         if (
@@ -57,36 +55,37 @@ export class ProductsService {
           !shop.location.coordinates ||
           shop.location.coordinates.length !== 2
         ) {
-          throw new BadRequestException('Shop location is missing');
+          throw new BadRequestException("Shop location is missing");
         }
-
 
         productPayload.shopId = shop._id as Types.ObjectId;
         location = shop.location;
-        console.log("product payload", productPayload)
-      } else if (type === 'personal') {
+        console.log("product payload", productPayload);
+      } else if (type === "personal") {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
-          throw new NotFoundException('User not found');
+          throw new NotFoundException("User not found");
         }
-        console.log('User:', user);
+        console.log("User:", user);
         productPayload.ownerId = user._id as Types.ObjectId;
         if (
           !user.location ||
           !user.location.coordinates ||
           user.location.coordinates.length !== 2
         ) {
-          throw new BadRequestException('User location is missing');
+          throw new BadRequestException("User location is missing");
         }
 
         location = {
-          type: 'Point',
+          type: "Point",
           coordinates: user.location.coordinates,
         };
       } else {
-        throw new BadRequestException('Invalid type. Must be "shop" or "personal".');
+        throw new BadRequestException(
+          'Invalid type. Must be "shop" or "personal".',
+        );
       }
-      console.log('Product Payload:', productPayload);
+      console.log("Product Payload:", productPayload);
       const createdProduct = new this.productModel({
         ...productPayload,
         location,
@@ -96,13 +95,25 @@ export class ProductsService {
       });
       let imageUrls: string[] = [];
       if (dto?.images?.length) {
-        const uploadedFiles = await this.fileUploadService.uploadProductFiles(dto.images, type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'images');
-        imageUrls = uploadedFiles.map(file => file.url);
+        const uploadedFiles = await this.fileUploadService.uploadProductFiles(
+          dto.images,
+          type,
+          entityId,
+          (createdProduct._id as Types.ObjectId).toString(),
+          "images",
+        );
+        imageUrls = uploadedFiles.map((file) => file.url);
         createdProduct.images = imageUrls;
       }
       console.log(dto?.video, "Video Length", dto?.video);
       if (dto?.video) {
-        const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, (createdProduct._id as Types.ObjectId).toString(), 'video');
+        const uploadedVideo = await this.fileUploadService.uploadProductFiles(
+          [dto.video],
+          type,
+          entityId,
+          (createdProduct._id as Types.ObjectId).toString(),
+          "video",
+        );
         console.log("Uploaded Video:", uploadedVideo);
         createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
       }
@@ -123,7 +134,7 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.productModel
         .find({ shopId: new Types.ObjectId(shopId) })
-        .populate('category')
+        .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -136,7 +147,6 @@ export class ProductsService {
     };
   }
 
-
   async getAllProductsByUser(
     ownerId: string,
     paginationDto: PaginationDto,
@@ -148,7 +158,7 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.productModel
         .find({ ownerId: new Types.ObjectId(ownerId) })
-        .populate('category')
+        .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -162,8 +172,10 @@ export class ProductsService {
   }
 
   async getById(id: string): Promise<Product> {
-    const product = await this.productModel.findById(new Types.ObjectId(id)).populate('category');
-    if (!product) throw new NotFoundException('Product not found');
+    const product = await this.productModel
+      .findById(new Types.ObjectId(id))
+      .populate("category");
+    if (!product) throw new NotFoundException("Product not found");
     return product;
   }
 
@@ -171,47 +183,46 @@ export class ProductsService {
     productId: string,
     updateDto: UpdateProductDto,
   ): Promise<Product> {
-    if ('shopId' in updateDto) {
-      throw new ForbiddenException('shopId cannot be updated');
+    if ("shopId" in updateDto) {
+      throw new ForbiddenException("shopId cannot be updated");
     }
     if (updateDto.category) {
       (updateDto as any).category = new Types.ObjectId(updateDto.category);
     }
     Object.keys(updateDto).forEach((key) => {
       if (
-        updateDto[key] === '' ||   // empty string
+        updateDto[key] === "" || // empty string
         updateDto[key] === null || // null
-        typeof updateDto[key] === 'undefined'
+        typeof updateDto[key] === "undefined"
       ) {
         delete updateDto[key]; // remove it from updateData
       }
     });
 
-
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
 
     if (updateDto.images && updateDto.images.length > 0) {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
         updateDto.images,
-        'shop',
+        "shop",
         existingProduct.shopId.toString(),
         productId,
-        'images',
+        "images",
       );
       console.log("Uploaded Images:", uploadedFiles);
-      let newImages = uploadedFiles.map(file => file.url);
+      let newImages = uploadedFiles.map((file) => file.url);
       updateDto.images = [...(existingProduct.images || []), ...newImages];
     }
     if (updateDto.video) {
       const uploadedVideo = await this.fileUploadService.uploadProductFiles(
         [updateDto.video],
-        'shop',
+        "shop",
         existingProduct.shopId.toString(),
         productId,
-        'video',
+        "video",
       );
 
       console.log("Uploaded Video:", uploadedVideo);
@@ -223,7 +234,7 @@ export class ProductsService {
       .exec();
 
     if (!updated) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
 
     return updated;
@@ -232,22 +243,28 @@ export class ProductsService {
   async delete(productId: string): Promise<void> {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
-    const type = existingProduct.shopId ? 'shop' : 'personal';
-    const entityId = existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString();
-    await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
+    const type = existingProduct.shopId ? "shop" : "personal";
+    const entityId = existingProduct.shopId
+      ? existingProduct.shopId.toString()
+      : existingProduct.ownerId!.toString();
+    await this.fileUploadService.deleteEntityProducts(
+      type,
+      entityId,
+      productId,
+    );
     const result = await this.productModel.findByIdAndDelete(productId);
-    if (!result) throw new NotFoundException('Product not found');
+    if (!result) throw new NotFoundException("Product not found");
   }
 
   async deleteProductMedia(productId: string, media: string[]) {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
     if (!media || media.length === 0) {
-      throw new BadRequestException('No media files provided for deletion');
+      throw new BadRequestException("No media files provided for deletion");
     }
 
     // Remove media files from storage
@@ -258,7 +275,7 @@ export class ProductsService {
     let video = existingProduct.video;
 
     // Remove any images that match the URLs
-    images = images.filter(imgUrl => !media.includes(imgUrl));
+    images = images.filter((imgUrl) => !media.includes(imgUrl));
 
     // Remove video if its URL is in the media array
     if (media.includes(video)) {
@@ -279,7 +296,6 @@ export class ProductsService {
     radius: number,
     pagination: PaginationDto,
   ) {
-
     return this.listingUtils.findNearbyWithCategory(
       this.productModel,
       category,
@@ -291,18 +307,17 @@ export class ProductsService {
 
   async updateLocationByShopId(
     shopId: string,
-    location: { type: 'Point'; coordinates: [number, number] },
+    location: { type: "Point"; coordinates: [number, number] },
   ) {
     await this.productModel.updateMany({ shopId }, { $set: { location } });
   }
-
 
   async searchProducts(query: SearchAllProductsServiceDto) {
     const productSearchFilter: FilterQuery<ProductDocument> = {};
 
     // Apply full search filter for regular items
     if (query.name) {
-      productSearchFilter.title = { $regex: query.name, $options: 'i' };
+      productSearchFilter.title = { $regex: query.name, $options: "i" };
     }
 
     if (query.category) {
@@ -315,8 +330,9 @@ export class ProductsService {
     const skip = (page - 1) * limit;
 
     // Query the database
-    const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
-    console.log('Active Promotion Product IDs:', allPromotedIds);
+    const allPromotedIds =
+      await this.promotionService.getActivePromotionProductIds();
+    console.log("Active Promotion Product IDs:", allPromotedIds);
     // Apply relaxed filter (e.g., only by category) for promotions
     const promotionFilter: FilterQuery<ProductDocument> = {};
     if (query.category) {
@@ -324,12 +340,16 @@ export class ProductsService {
     }
 
     // Fetch promoted products (that match category if provided)
-    const promotedProducts = await this.productModel.find({
-      _id: { $in: allPromotedIds },
-      ...promotionFilter,
-    }).exec();
+    const promotedProducts = await this.productModel
+      .find({
+        _id: { $in: allPromotedIds },
+        ...promotionFilter,
+      })
+      .exec();
 
-    const promotedProductIds = promotedProducts.map((p: ProductDocument) => (p._id as Types.ObjectId).toString());
+    const promotedProductIds = promotedProducts.map((p: ProductDocument) =>
+      (p._id as Types.ObjectId).toString(),
+    );
 
     // Regular products filter, excluding promoted ones
     const filteredProductSearchFilter: FilterQuery<ProductDocument> = {
@@ -338,7 +358,11 @@ export class ProductsService {
     };
 
     const [regularProducts, total] = await Promise.all([
-      this.productModel.find(filteredProductSearchFilter).skip(skip).limit(limit).exec(),
+      this.productModel
+        .find(filteredProductSearchFilter)
+        .skip(skip)
+        .limit(limit)
+        .exec(),
       this.productModel.countDocuments(filteredProductSearchFilter),
     ]);
 
@@ -353,6 +377,34 @@ export class ProductsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async getProductsWithVideos(
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<Product>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+     const filter = {
+    video: { $exists: true, $nin: ["", null] },
+  };
+
+    const [items, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate("category")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.productModel
+        .countDocuments(filter)
+        .exec(),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items,
     };
   }
 }

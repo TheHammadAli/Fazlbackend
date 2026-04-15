@@ -39,7 +39,7 @@ let ProductsController = class ProductsController {
         else {
             createProductDto.video = null;
         }
-        createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || '{}');
+        createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || "{}");
         const user = req.user;
         return this.productsService.create(entityId, type, createProductDto, user.sub);
     }
@@ -48,13 +48,16 @@ let ProductsController = class ProductsController {
     }
     async deleteProductMedia(productId, media) {
         if (!Array.isArray(media) || media.length === 0) {
-            throw new common_1.BadRequestException('No media files provided for deletion');
+            throw new common_1.BadRequestException("No media files provided for deletion");
         }
         await this.productsService.deleteProductMedia(productId, media);
-        return { message: 'Selected product media deleted successfully' };
+        return { message: "Selected product media deleted successfully" };
     }
     async getAllProductsByUser(userId, paginationDto) {
         return this.productsService.getAllProductsByUser(userId, paginationDto);
+    }
+    async getProductsWithVideos(paginationDto) {
+        return this.productsService.getProductsWithVideos(paginationDto);
     }
     async getById(id) {
         return this.productsService.getById(id);
@@ -66,37 +69,40 @@ let ProductsController = class ProductsController {
         if (files?.video && files.video.length > 0) {
             updateProductDto.video = files.video[0];
         }
-        updateProductDto.parameters = JSON.parse(updateProductDto.parameters?.toString() || '');
+        updateProductDto.parameters = JSON.parse(updateProductDto.parameters?.toString() || "");
         return this.productsService.update(id, updateProductDto);
     }
     async delete(id) {
         await this.productsService.delete(id);
-        return { message: 'Product deleted successfully' };
+        return { message: "Product deleted successfully" };
     }
 };
 exports.ProductsController = ProductsController;
 __decorate([
-    (0, common_1.Post)(':entityId/:type'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },])),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new product (shop or personal listing)' }),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.Post)(":entityId/:type"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: "images", maxCount: 5 },
+        { name: "video", maxCount: 1 },
+    ])),
+    (0, swagger_1.ApiOperation)({ summary: "Create a new product (shop or personal listing)" }),
+    (0, swagger_1.ApiConsumes)("multipart/form-data"),
     (0, swagger_1.ApiParam)({
-        name: 'entityId',
+        name: "entityId",
         required: true,
-        description: 'Shop ID or User ID depending on type',
+        description: "Shop ID or User ID depending on type",
     }),
     (0, swagger_1.ApiParam)({
-        name: 'type',
+        name: "type",
         required: true,
         description: `'shop' for business listings, 'personal' for user-created listings`,
-        enum: ['shop', 'personal'],
+        enum: ["shop", "personal"],
     }),
     (0, swagger_1.ApiBody)({
-        description: 'Product data with optional image upload',
+        description: "Product data with optional image upload",
         type: create_product_dto_1.CreateProductDto,
     }),
-    __param(0, (0, common_1.Param)('entityId')),
-    __param(1, (0, common_1.Param)('type')),
+    __param(0, (0, common_1.Param)("entityId")),
+    __param(1, (0, common_1.Param)("type")),
     __param(2, (0, common_1.Req)()),
     __param(3, (0, common_1.Body)()),
     __param(4, (0, common_1.UploadedFiles)()),
@@ -105,72 +111,103 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "createProduct", null);
 __decorate([
-    (0, common_1.Get)(':shopId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all products for a shop' }),
-    (0, swagger_1.ApiParam)({ name: 'shopId', required: true }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
-    __param(0, (0, common_1.Param)('shopId')),
+    (0, common_1.Get)(":shopId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all products for a shop" }),
+    (0, swagger_1.ApiParam)({ name: "shopId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false }),
+    __param(0, (0, common_1.Param)("shopId")),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getAllByShop", null);
 __decorate([
-    (0, common_1.Delete)(':id/media'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete selected media files for a product' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Product ID' }),
+    (0, common_1.Delete)(":id/media"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete selected media files for a product" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Product ID" }),
     (0, swagger_1.ApiBody)({
         schema: {
             properties: {
                 media: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'Array of media file URLs to delete',
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Array of media file URLs to delete",
                 },
             },
-            required: ['media'],
+            required: ["media"],
         },
     }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Selected product media deleted successfully' }),
-    (0, swagger_1.ApiResponse)({ status: 404, description: 'Product not found' }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'No media files provided for deletion' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Selected product media deleted successfully",
+    }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: "Product not found" }),
+    (0, swagger_1.ApiResponse)({
+        status: 400,
+        description: "No media files provided for deletion",
+    }),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)('media')),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)("media")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Array]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "deleteProductMedia", null);
 __decorate([
-    (0, common_1.Get)('user/:userId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all products for a User' }),
-    (0, swagger_1.ApiParam)({ name: 'userId', required: true }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)("user/:userId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all products for a User" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false }),
+    __param(0, (0, common_1.Param)("userId")),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getAllProductsByUser", null);
 __decorate([
-    (0, common_1.Get)('detail/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get product details by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', required: true }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)("with-videos/all"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all products with videos (paginated)" }),
+    (0, swagger_1.ApiQuery)({
+        name: "page",
+        required: false,
+        description: "Page number (default: 1)",
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "limit",
+        required: false,
+        description: "Items per page (default: 10)",
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of products with videos",
+    }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto]),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "getProductsWithVideos", null);
+__decorate([
+    (0, common_1.Get)("detail/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get product details by ID" }),
+    (0, swagger_1.ApiParam)({ name: "id", required: true }),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getById", null);
 __decorate([
-    (0, common_1.Put)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update product by ID' }),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, swagger_1.ApiParam)({ name: 'id', required: true }),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'images', maxCount: 5 }, { name: 'video', maxCount: 1 },])),
+    (0, common_1.Put)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Update product by ID" }),
+    (0, swagger_1.ApiConsumes)("multipart/form-data"),
+    (0, swagger_1.ApiParam)({ name: "id", required: true }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: "images", maxCount: 5 },
+        { name: "video", maxCount: 1 },
+    ])),
     (0, swagger_1.ApiBody)({ type: update_product_dto_1.UpdateProductDto }),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
@@ -178,19 +215,19 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "update", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete product by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', required: true }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Delete)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete product by ID" }),
+    (0, swagger_1.ApiParam)({ name: "id", required: true }),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "delete", null);
 exports.ProductsController = ProductsController = __decorate([
-    (0, swagger_1.ApiTags)('Products'),
-    (0, swagger_1.ApiBearerAuth)('jwt'),
+    (0, swagger_1.ApiTags)("Products"),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    (0, common_1.Controller)('products'),
+    (0, common_1.Controller)("products"),
     __metadata("design:paramtypes", [products_service_1.ProductsService])
 ], ProductsController);
 //# sourceMappingURL=products.controller.js.map

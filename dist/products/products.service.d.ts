@@ -1,15 +1,15 @@
-import { Model } from 'mongoose';
-import { Product, ProductDocument } from './schema/product.schema';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
-import { ShopService } from 'src/shop/shop.service';
-import { ListingUtilsService } from 'src/shared/listing-util-service';
-import { UsersService } from 'src/users/users.service';
-import { SearchAllProductsServiceDto } from 'src/search/dto/product-service-search-for.dto';
-import { FileUploadService } from 'src/common/file-upload/file-upload.service';
-import { PromotionService } from 'src/promotion/promotion.service';
+import { Model } from "mongoose";
+import { Product, ProductDocument } from "./schema/product.schema";
+import { CreateProductDto } from "./dto/create-product.dto";
+import { UpdateProductDto } from "./dto/update-product.dto";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { ShopService } from "src/shop/shop.service";
+import { ListingUtilsService } from "src/shared/listing-util-service";
+import { UsersService } from "src/users/users.service";
+import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { PromotionService } from "src/promotion/promotion.service";
 export declare class ProductsService {
     private readonly productModel;
     private readonly shopService;
@@ -18,7 +18,7 @@ export declare class ProductsService {
     private readonly fileUploadService;
     private promotionService;
     constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService);
-    create(entityId: string, type: 'shop' | 'personal', dto: CreateProductDto, userId: string): Promise<Product>;
+    create(entityId: string, type: "shop" | "personal", dto: CreateProductDto, userId: string): Promise<Product>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getById(id: string): Promise<Product>;
@@ -27,7 +27,7 @@ export declare class ProductsService {
     deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;
     updateLocationByShopId(shopId: string, location: {
-        type: 'Point';
+        type: "Point";
         coordinates: [number, number];
     }): Promise<void>;
     searchProducts(query: SearchAllProductsServiceDto): Promise<{
@@ -50,4 +50,5 @@ export declare class ProductsService {
             totalPages: number;
         };
     }>;
+    getProductsWithVideos(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
 }
