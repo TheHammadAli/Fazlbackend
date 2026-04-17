@@ -250,30 +250,43 @@ let ServicesService = class ServicesService {
             .populate("provider");
         if (!request)
             throw new common_1.NotFoundException("Request not found");
+        const serviceName = request.service?.name || "service";
         switch (action) {
             case "accept":
                 request.status = "accepted";
-                this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has been accepted by the provider.`);
+                await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has been accepted by the provider.`);
                 break;
             case "reject":
                 request.status = "rejected";
-                this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has been rejected by the provider.`);
+                await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has been rejected by the provider.`);
                 break;
             case "cancel":
                 request.status = "cancelled";
-                this.notificationsService.createAndNotify(request.provider.toString(), `Service request for "${request.service}" has been cancelled by the customer.`);
+                await this.notificationsService.createAndNotify(request.provider._id.toString(), `Service request for "${serviceName}" has been cancelled by the customer.`);
                 break;
             case "propose":
-                if (!proposedDateTime)
+                if (!proposedDateTime) {
                     throw new common_1.BadRequestException("Proposed date is required");
+                }
+                const parsedDate = new Date(proposedDateTime);
+                if (isNaN(parsedDate.getTime())) {
+                    throw new common_1.BadRequestException("Invalid proposed date");
+                }
                 request.status = "proposed";
-                request.proposedDateTime = new Date(proposedDateTime);
-                this.notificationsService.createAndNotify(request.customer.toString(), `Your service request for "${request.service}" has a new proposed date: ${proposedDateTime}`);
+                request.proposedDateTime = parsedDate;
+                await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has a new proposed date: ${parsedDate.toISOString()}`);
                 break;
             default:
                 throw new common_1.BadRequestException(`Unsupported action: ${action}`);
         }
-        return request.save();
+        await request.save();
+        return {
+            status: 201,
+            message: "Status updated successfully",
+            data: {
+                requestId,
+            },
+        };
     }
     async updateJobStatus(dto) {
         const { requestId, action } = dto;

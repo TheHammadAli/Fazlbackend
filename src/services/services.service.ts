@@ -347,41 +347,56 @@ export class ServicesService {
       .populate("service")
       .populate("customer")
       .populate("provider");
+
     if (!request) throw new NotFoundException("Request not found");
+
+    // ✅ Safely extract service name (avoid using full object)
+    const serviceName = (request.service as any)?.name || "service";
 
     switch (action) {
       case "accept":
         request.status = "accepted";
-        this.notificationsService.createAndNotify(
-          request.customer.toString(),
-          `Your service request for "${request.service}" has been accepted by the provider.`,
+
+        await this.notificationsService.createAndNotify(
+          request.customer._id.toString(),
+          `Your service request for "${serviceName}" has been accepted by the provider.`,
         );
         break;
 
       case "reject":
         request.status = "rejected";
-        this.notificationsService.createAndNotify(
-          request.customer.toString(),
-          `Your service request for "${request.service}" has been rejected by the provider.`,
+
+        await this.notificationsService.createAndNotify(
+          request.customer._id.toString(),
+          `Your service request for "${serviceName}" has been rejected by the provider.`,
         );
         break;
 
       case "cancel":
         request.status = "cancelled";
-        this.notificationsService.createAndNotify(
-          request.provider.toString(),
-          `Service request for "${request.service}" has been cancelled by the customer.`,
+
+        await this.notificationsService.createAndNotify(
+          request.provider._id.toString(),
+          `Service request for "${serviceName}" has been cancelled by the customer.`,
         );
         break;
 
       case "propose":
-        if (!proposedDateTime)
+        if (!proposedDateTime) {
           throw new BadRequestException("Proposed date is required");
+        }
+
+        const parsedDate = new Date(proposedDateTime);
+        if (isNaN(parsedDate.getTime())) {
+          throw new BadRequestException("Invalid proposed date");
+        }
+
         request.status = "proposed";
-        request.proposedDateTime = new Date(proposedDateTime);
-        this.notificationsService.createAndNotify(
-          request.customer.toString(),
-          `Your service request for "${request.service}" has a new proposed date: ${proposedDateTime}`,
+        request.proposedDateTime = parsedDate;
+
+        await this.notificationsService.createAndNotify(
+          request.customer._id.toString(),
+          `Your service request for "${serviceName}" has a new proposed date: ${parsedDate.toISOString()}`,
         );
         break;
 
@@ -389,7 +404,14 @@ export class ServicesService {
         throw new BadRequestException(`Unsupported action: ${action}`);
     }
 
-    return request.save();
+    await request.save();
+    return {
+      status: 201,
+      message: "Status updated successfully",
+      data: {
+        requestId,
+      },
+    };
   }
 
   async updateJobStatus(dto: UpdateJobStatusDto) {
@@ -494,7 +516,6 @@ export class ServicesService {
   async getServicesWithVideos(
     paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<Service>> {
-    
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
@@ -502,8 +523,6 @@ export class ServicesService {
     const filter = {
       video: { $exists: true, $nin: ["", null] },
     };
-
-
 
     const [items, total] = await Promise.all([
       this.serviceModel

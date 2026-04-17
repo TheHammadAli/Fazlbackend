@@ -59,10 +59,12 @@ export declare class ServicesService {
     } & {
         __v: number;
     }>;
-    updateRequestStatus(dto: UpdateRequestStatusDto): Promise<import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
-        _id: Types.ObjectId;
-    } & {
-        __v: number;
+    updateRequestStatus(dto: UpdateRequestStatusDto): Promise<{
+        status: number;
+        message: string;
+        data: {
+            requestId: string;
+        };
     }>;
     updateJobStatus(dto: UpdateJobStatusDto): Promise<import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
         _id: Types.ObjectId;

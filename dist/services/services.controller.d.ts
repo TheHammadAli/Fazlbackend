@@ -14,10 +14,12 @@ export declare class ServicesController {
     } & {
         __v: number;
     }>;
-    updateStatus(dto: UpdateRequestStatusDto): Promise<import("mongoose").Document<unknown, {}, import("./schema/service_request.schema").ServiceRequestDocument, {}> & import("./schema/service_request.schema").ServiceRequest & Document & {
-        _id: import("mongoose").Types.ObjectId;
-    } & {
-        __v: number;
+    updateStatus(dto: UpdateRequestStatusDto): Promise<{
+        status: number;
+        message: string;
+        data: {
+            requestId: string;
+        };
     }>;
     updateJobStatus(dto: UpdateJobStatusDto): Promise<import("mongoose").Document<unknown, {}, import("./schema/service_request.schema").ServiceRequestDocument, {}> & import("./schema/service_request.schema").ServiceRequest & Document & {
         _id: import("mongoose").Types.ObjectId;
