@@ -6,21 +6,31 @@ export declare class ReviewController {
     constructor(reviewService: ReviewService);
     createReview(dto: CreateReviewDto): Promise<import("./schema/review.schema").Review>;
     getReviewsByItem(query: QueryReviewDto): Promise<{
-        data: (import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        })[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
+        data: {
+            reviews: (import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }>;
-    getUserReviews(userId: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-        _id: unknown;
-    }> & {
-        __v: number;
-    })[]>;
+    getUserReviews(userId: string): Promise<{
+        data: {
+            reviews: (import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }>;
     flagReview(id: string): Promise<import("./schema/review.schema").Review>;
     getAverageRating(itemType: 'product' | 'service', itemId: string): Promise<any>;
 }

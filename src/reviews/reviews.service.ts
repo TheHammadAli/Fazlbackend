@@ -57,7 +57,7 @@ export class ReviewService {
       itemType,
     };
 
-    const [data, total] = await Promise.all([
+    const [reviews, total] = await Promise.all([
       this.reviewModel
         .find(filter)
         .populate("userId", "name email image")
@@ -69,23 +69,40 @@ export class ReviewService {
     ]);
 
     return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      data: {
+        reviews,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
   /**
    * All reviews created by a specific user
    */
-  async getUserReviews(userId: string) {
-    return this.reviewModel
-      .find({ userId: new Types.ObjectId(userId) })
-      .populate("userId", "name email image")
-      .sort({ createdAt: -1 })
-      .exec();
+  async getUserReviews(userId: string, page: number = 1, limit: number = 10) {
+    const [reviews, total] = await Promise.all([
+      this.reviewModel
+        .find({ userId: new Types.ObjectId(userId) })
+        .populate("userId", "name email image")
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.reviewModel.countDocuments({ userId: new Types.ObjectId(userId) }),
+    ]);
+
+    return {
+      data: {
+        reviews,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   /**

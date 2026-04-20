@@ -48,7 +48,7 @@ let ReviewService = class ReviewService {
             itemId: new mongoose_2.Types.ObjectId(itemId),
             itemType,
         };
-        const [data, total] = await Promise.all([
+        const [reviews, total] = await Promise.all([
             this.reviewModel
                 .find(filter)
                 .populate("userId", "name email image")
@@ -59,19 +59,35 @@ let ReviewService = class ReviewService {
             this.reviewModel.countDocuments(filter),
         ]);
         return {
-            data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
+            data: {
+                reviews,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
         };
     }
-    async getUserReviews(userId) {
-        return this.reviewModel
-            .find({ userId: new mongoose_2.Types.ObjectId(userId) })
-            .populate("userId", "name email image")
-            .sort({ createdAt: -1 })
-            .exec();
+    async getUserReviews(userId, page = 1, limit = 10) {
+        const [reviews, total] = await Promise.all([
+            this.reviewModel
+                .find({ userId: new mongoose_2.Types.ObjectId(userId) })
+                .populate("userId", "name email image")
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .exec(),
+            this.reviewModel.countDocuments({ userId: new mongoose_2.Types.ObjectId(userId) }),
+        ]);
+        return {
+            data: {
+                reviews,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     }
     async flagReview(id) {
         const review = await this.reviewModel.findById(id);
