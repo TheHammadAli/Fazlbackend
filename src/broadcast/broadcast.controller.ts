@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Req,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -12,12 +13,15 @@ import {
   ApiOperation,
   ApiParam,
   ApiBearerAuth,
+  ApiQuery,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
 
 import { BroadcastService } from './broadcast.service';
 import { CreateBroadcastDto } from './dto/create-broadcast.dto';
 import { SendBroadcastMessageDto } from './dto/send-broadcast.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 // ✅ import your guard
 import { JwtAuthGuard } from '../auth/guard/jwt-auth-guard';
@@ -85,21 +89,39 @@ export class BroadcastController {
   ) {
     return this.broadcastService.getThreadMessages( threadId);
   }
-  // 📤 Buyer broadcasts
-// 📤 Buyer broadcasts
-@Get('/my/broadcasts')
-@ApiOperation({ summary: 'Get broadcasts created by logged-in user (buyer)' })
+    // 📤 Buyer broadcasts
+  @Get('/my/broadcasts')
+  @ApiOperation({ summary: 'Get broadcasts created by logged-in user (buyer)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Paginated broadcasts created by buyer' })
+  async getMyBroadcasts(
+    @Req() req: Request,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    const user = req.user as { sub: string };
+    return this.broadcastService.getBroadcastsByBuyer(
+      user.sub,
+      paginationDto.page,
+      paginationDto.limit,
+    );
+  }
 
-async getMyBroadcasts(@Req() req: Request) {
-  const user = req.user as { sub: string };
-  return this.broadcastService.getBroadcastsByBuyer(user.sub);
+  // 📥 Seller broadcasts
+  @Get('/my/received')
+  @ApiOperation({ summary: 'Get broadcasts where logged-in user is a seller' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Paginated broadcasts where user is seller' })
+  async getReceivedBroadcasts(
+    @Req() req: Request,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    const user = req.user as { sub: string };
+    return this.broadcastService.getBroadcastsForSeller(
+      user.sub,
+      paginationDto.page,
+      paginationDto.limit,
+    );
+  }
 }
-
-// 📥 Seller broadcasts
-@Get('/my/received')
-@ApiOperation({ summary: 'Get broadcasts where logged-in user is a seller' })
-@ApiBearerAuth('jwt')
-async getReceivedBroadcasts(@Req() req: Request) {
-  const user = req.user as { sub: string };
-  return this.broadcastService.getBroadcastsForSeller(user.sub);
-}}

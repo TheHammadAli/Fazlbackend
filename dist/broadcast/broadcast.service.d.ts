@@ -1,11 +1,12 @@
-import { Model, Types } from 'mongoose';
-import { Broadcast } from './schema/broadcast.schema';
-import { BroadcastMessage } from './schema/broadcast-message.schema';
-import { BroadcastThread } from './schema/broadcast-thread.schema';
-import { CreateBroadcastDto } from './dto/create-broadcast.dto';
-import { ShopService } from '../shop/shop.service';
-import { UsersService } from 'src/users/users.service';
-import { CategoryService } from 'src/category/category.service';
+import { Model, Types } from "mongoose";
+import { Broadcast } from "./schema/broadcast.schema";
+import { BroadcastMessage } from "./schema/broadcast-message.schema";
+import { BroadcastThread } from "./schema/broadcast-thread.schema";
+import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { ShopService } from "../shop/shop.service";
+import { UsersService } from "src/users/users.service";
+import { CategoryService } from "src/category/category.service";
 export declare class BroadcastService {
     private readonly broadcastModel;
     private readonly messageModel;
@@ -40,14 +41,6 @@ export declare class BroadcastService {
     } & {
         __v: number;
     })[]>;
-    getBroadcastsByBuyer(userId: string): Promise<(import("mongoose").Document<unknown, {}, Broadcast, {}> & Broadcast & {
-        _id: Types.ObjectId;
-    } & {
-        __v: number;
-    })[]>;
-    getBroadcastsForSeller(userId: string): Promise<(import("mongoose").Document<unknown, {}, Broadcast, {}> & Broadcast & {
-        _id: Types.ObjectId;
-    } & {
-        __v: number;
-    })[]>;
+    getBroadcastsByBuyer(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Broadcast>>;
+    getBroadcastsForSeller(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Broadcast>>;
 }

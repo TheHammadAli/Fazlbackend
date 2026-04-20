@@ -42,7 +42,7 @@ let BroadcastService = class BroadcastService {
             buyer: new mongoose_2.Types.ObjectId(buyerId),
             message: dto.message,
             radius: dto.radius,
-            categoryId: new mongoose_2.Types.ObjectId(dto.categoryId),
+            category: new mongoose_2.Types.ObjectId(dto.categoryId),
             location,
         });
     }
@@ -65,12 +65,12 @@ let BroadcastService = class BroadcastService {
     async createBroadcastAndDispatch(dto, buyerId, location) {
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {
-            throw new common_1.BadRequestException('Category Invalid');
+            throw new common_1.BadRequestException("Category Invalid");
         }
         let sellerIds = await this.findNearbySellers(location, dto.radius);
-        sellerIds = sellerIds.filter(ids => ids.toString() !== buyerId.toString());
+        sellerIds = sellerIds.filter((ids) => ids.toString() !== buyerId.toString());
         if (!sellerIds.length) {
-            throw new common_1.BadRequestException('No sellers found in given radius');
+            throw new common_1.BadRequestException("No sellers found in given radius");
         }
         const broadcast = await this.createBroadcast(dto, buyerId, location);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
@@ -79,12 +79,12 @@ let BroadcastService = class BroadcastService {
             thread: thread._id,
             sender: new mongoose_2.Types.ObjectId(buyerId),
             receiver: thread.seller,
-            message: dto.message || '📢 New broadcast request',
-            type: 'SYSTEM',
+            message: dto.message || "📢 New broadcast request",
+            type: "SYSTEM",
         }));
         await this.messageModel.insertMany(initialMessages);
         return {
-            message: 'Broadcast created and dispatched successfully',
+            message: "Broadcast created and dispatched successfully",
             data: broadcast._id.toString(),
         };
     }
@@ -92,31 +92,31 @@ let BroadcastService = class BroadcastService {
         const broadcastObjectId = new mongoose_2.Types.ObjectId(broadcastId);
         const broadcast = await this.broadcastModel.findById(broadcastObjectId);
         if (!broadcast) {
-            throw new common_1.NotFoundException('Broadcast not found');
+            throw new common_1.NotFoundException("Broadcast not found");
         }
         const [sender, receiver] = await Promise.all([
             this.userService.findUserById(senderId),
             this.userService.findUserById(receiverId),
         ]);
         if (!sender || !receiver) {
-            throw new common_1.NotFoundException('User not found');
+            throw new common_1.NotFoundException("User not found");
         }
         const thread = await this.threadModel.findById(threadId);
         if (!thread) {
-            throw new common_1.NotFoundException('Thread not found');
+            throw new common_1.NotFoundException("Thread not found");
         }
         if (thread.broadcast.toString() !== broadcastId) {
-            throw new common_1.BadRequestException('Thread does not belong to broadcast');
+            throw new common_1.BadRequestException("Thread does not belong to broadcast");
         }
         const isParticipant = thread.buyer.toString() === senderId ||
             thread.seller.toString() === senderId;
         if (!isParticipant) {
-            throw new common_1.BadRequestException('Sender not part of thread');
+            throw new common_1.BadRequestException("Sender not part of thread");
         }
         const isValidReceiver = thread.buyer.toString() === receiverId ||
             thread.seller.toString() === receiverId;
         if (!isValidReceiver) {
-            throw new common_1.BadRequestException('Invalid receiver for thread');
+            throw new common_1.BadRequestException("Invalid receiver for thread");
         }
         return this.messageModel.create({
             broadcast: broadcastObjectId,
@@ -131,8 +131,8 @@ let BroadcastService = class BroadcastService {
             .find({
             broadcast: new mongoose_2.Types.ObjectId(broadcastId),
         })
-            .populate('buyer', 'name')
-            .populate('seller', 'name')
+            .populate("buyer", "name")
+            .populate("seller", "name")
             .sort({ createdAt: -1 });
     }
     async getThreadMessages(threadId) {
@@ -140,27 +140,61 @@ let BroadcastService = class BroadcastService {
             .find({
             thread: new mongoose_2.Types.ObjectId(threadId),
         })
-            .populate('sender', 'name')
-            .populate('receiver', 'name')
+            .populate("sender", "name")
+            .populate("receiver", "name")
             .sort({ createdAt: 1 });
     }
-    async getBroadcastsByBuyer(userId) {
-        return this.broadcastModel
-            .find({
-            buyer: new mongoose_2.Types.ObjectId(userId),
-        })
-            .sort({ createdAt: -1 });
+    async getBroadcastsByBuyer(userId, page = 1, limit = 10) {
+        const skip = (page - 1) * limit;
+        const filter = { buyer: new mongoose_2.Types.ObjectId(userId) };
+        const [data, total] = await Promise.all([
+            this.broadcastModel
+                .find(filter)
+                .populate("category", "name")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .exec(),
+            this.broadcastModel.countDocuments(filter),
+        ]);
+        return {
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+            data,
+        };
     }
-    async getBroadcastsForSeller(userId) {
-        const threads = await this.threadModel.find({
-            seller: new mongoose_2.Types.ObjectId(userId),
-        });
-        const broadcastIds = threads.map((t) => t.broadcast);
-        return this.broadcastModel
-            .find({
-            _id: { $in: broadcastIds },
-        })
-            .sort({ createdAt: -1 });
+    async getBroadcastsForSeller(userId, page = 1, limit = 10) {
+        const skip = (page - 1) * limit;
+        const userObjectId = new mongoose_2.Types.ObjectId(userId);
+        const [threads, total] = await Promise.all([
+            this.threadModel
+                .find({ seller: userObjectId })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .select("broadcast")
+                .exec(),
+            this.threadModel.countDocuments({ seller: userObjectId }),
+        ]);
+        const broadcastIds = threads.map((thread) => thread.broadcast);
+        const data = await this.broadcastModel
+            .find({ _id: { $in: broadcastIds } })
+            .populate("category", "name")
+            .sort({ createdAt: -1 })
+            .exec();
+        return {
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+            data,
+        };
     }
 };
 exports.BroadcastService = BroadcastService;

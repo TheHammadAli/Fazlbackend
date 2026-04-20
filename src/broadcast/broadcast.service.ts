@@ -2,18 +2,20 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 
-import { Broadcast } from './schema/broadcast.schema';
-import { BroadcastMessage } from './schema/broadcast-message.schema';
-import { BroadcastThread } from './schema/broadcast-thread.schema';
+import { Broadcast } from "./schema/broadcast.schema";
+import { BroadcastMessage } from "./schema/broadcast-message.schema";
+import { BroadcastThread } from "./schema/broadcast-thread.schema";
 
-import { CreateBroadcastDto } from './dto/create-broadcast.dto';
-import { ShopService } from '../shop/shop.service';
-import { UsersService } from 'src/users/users.service';
-import { CategoryService } from 'src/category/category.service';
+import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+
+import { ShopService } from "../shop/shop.service";
+import { UsersService } from "src/users/users.service";
+import { CategoryService } from "src/category/category.service";
 
 @Injectable()
 export class BroadcastService {
@@ -44,7 +46,7 @@ export class BroadcastService {
       buyer: new Types.ObjectId(buyerId),
       message: dto.message,
       radius: dto.radius,
-      categoryId: new Types.ObjectId(dto.categoryId),
+      category: new Types.ObjectId(dto.categoryId),
       location,
     });
   }
@@ -101,23 +103,19 @@ export class BroadcastService {
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
     if (!isCategoryValid) {
-      throw new BadRequestException('Category Invalid');
+      throw new BadRequestException("Category Invalid");
     }
 
-    
-
     let sellerIds = await this.findNearbySellers(location, dto.radius);
- sellerIds = sellerIds.filter(ids => ids.toString() !== buyerId.toString())
-    
+    sellerIds = sellerIds.filter(
+      (ids) => ids.toString() !== buyerId.toString(),
+    );
 
     if (!sellerIds.length) {
-     throw new BadRequestException('No sellers found in given radius');
+      throw new BadRequestException("No sellers found in given radius");
     }
 
     const broadcast = await this.createBroadcast(dto, buyerId, location);
-
-   
-    
 
     // 1. CREATE THREADS
     const threads = await this.createBroadcastThreads(
@@ -132,14 +130,14 @@ export class BroadcastService {
       thread: thread._id,
       sender: new Types.ObjectId(buyerId),
       receiver: thread.seller,
-      message: dto.message || '📢 New broadcast request',
-      type: 'SYSTEM',
+      message: dto.message || "📢 New broadcast request",
+      type: "SYSTEM",
     }));
 
     await this.messageModel.insertMany(initialMessages);
 
     return {
-      message: 'Broadcast created and dispatched successfully',
+      message: "Broadcast created and dispatched successfully",
       data: broadcast._id.toString(),
     };
   }
@@ -159,7 +157,7 @@ export class BroadcastService {
     // 1. Validate broadcast
     const broadcast = await this.broadcastModel.findById(broadcastObjectId);
     if (!broadcast) {
-      throw new NotFoundException('Broadcast not found');
+      throw new NotFoundException("Broadcast not found");
     }
 
     // 2. Validate users
@@ -169,19 +167,19 @@ export class BroadcastService {
     ]);
 
     if (!sender || !receiver) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     // 3. Validate thread (SOURCE OF TRUTH)
     const thread = await this.threadModel.findById(threadId);
 
     if (!thread) {
-      throw new NotFoundException('Thread not found');
+      throw new NotFoundException("Thread not found");
     }
 
     // 4. Ensure thread belongs to broadcast
     if (thread.broadcast.toString() !== broadcastId) {
-      throw new BadRequestException('Thread does not belong to broadcast');
+      throw new BadRequestException("Thread does not belong to broadcast");
     }
 
     // 5. Validate sender is participant
@@ -190,7 +188,7 @@ export class BroadcastService {
       thread.seller.toString() === senderId;
 
     if (!isParticipant) {
-      throw new BadRequestException('Sender not part of thread');
+      throw new BadRequestException("Sender not part of thread");
     }
 
     // 6. Validate receiver is participant
@@ -199,7 +197,7 @@ export class BroadcastService {
       thread.seller.toString() === receiverId;
 
     if (!isValidReceiver) {
-      throw new BadRequestException('Invalid receiver for thread');
+      throw new BadRequestException("Invalid receiver for thread");
     }
 
     // 7. Create message
@@ -220,8 +218,8 @@ export class BroadcastService {
       .find({
         broadcast: new Types.ObjectId(broadcastId),
       })
-      .populate('buyer', 'name')
-      .populate('seller', 'name')
+      .populate("buyer", "name")
+      .populate("seller", "name")
       .sort({ createdAt: -1 });
   }
 
@@ -233,38 +231,82 @@ export class BroadcastService {
       .find({
         thread: new Types.ObjectId(threadId),
       })
-      .populate('sender', 'name')
-      .populate('receiver', 'name')
+      .populate("sender", "name")
+      .populate("receiver", "name")
       .sort({ createdAt: 1 });
   }
 
   // -----------------------------
-// GET BROADCASTS CREATED BY BUYER
-// -----------------------------
-async getBroadcastsByBuyer(userId: string) {
-  return this.broadcastModel
-    .find({
-      buyer: new Types.ObjectId(userId),
-    })
-    .sort({ createdAt: -1 });
-}
+  // GET BROADCASTS CREATED BY BUYER
+  // -----------------------------
+  async getBroadcastsByBuyer(
+    userId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedResponseDto<Broadcast>> {
+    const skip = (page - 1) * limit;
+    const filter = { buyer: new Types.ObjectId(userId) };
 
-// -----------------------------
-// GET BROADCASTS WHERE USER IS SELLER
-// -----------------------------
-async getBroadcastsForSeller(userId: string) {
-  // 1. find threads where user is seller
-  const threads = await this.threadModel.find({
-    seller: new Types.ObjectId(userId),
-  });
+    const [data, total] = await Promise.all([
+      this.broadcastModel
+        .find(filter)
+        .populate("category", "name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.broadcastModel.countDocuments(filter),
+    ]);
 
-  const broadcastIds = threads.map((t) => t.broadcast);
+    return {
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      data,
+    };
+  }
 
-  // 2. fetch broadcasts
-  return this.broadcastModel
-    .find({
-      _id: { $in: broadcastIds },
-    })
-    .sort({ createdAt: -1 });
-}
+  // -----------------------------
+  // GET BROADCASTS WHERE USER IS SELLER
+  // -----------------------------
+  async getBroadcastsForSeller(
+    userId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedResponseDto<Broadcast>> {
+    const skip = (page - 1) * limit;
+    const userObjectId = new Types.ObjectId(userId);
+
+    const [threads, total] = await Promise.all([
+      this.threadModel
+        .find({ seller: userObjectId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select("broadcast")
+        .exec(),
+      this.threadModel.countDocuments({ seller: userObjectId }),
+    ]);
+
+    const broadcastIds = threads.map((thread) => thread.broadcast);
+
+    const data = await this.broadcastModel
+      .find({ _id: { $in: broadcastIds } })
+      .populate("category", "name")
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return {
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      data,
+    };
+  }
 }

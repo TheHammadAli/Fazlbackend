@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const broadcast_service_1 = require("./broadcast.service");
 const create_broadcast_dto_1 = require("./dto/create-broadcast.dto");
 const send_broadcast_dto_1 = require("./dto/send-broadcast.dto");
+const pagination_dto_1 = require("../common/dto/pagination.dto");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 let BroadcastController = class BroadcastController {
     broadcastService;
@@ -41,13 +42,13 @@ let BroadcastController = class BroadcastController {
     async getThreadMessages(broadcastId, threadId) {
         return this.broadcastService.getThreadMessages(threadId);
     }
-    async getMyBroadcasts(req) {
+    async getMyBroadcasts(req, paginationDto) {
         const user = req.user;
-        return this.broadcastService.getBroadcastsByBuyer(user.sub);
+        return this.broadcastService.getBroadcastsByBuyer(user.sub, paginationDto.page, paginationDto.limit);
     }
-    async getReceivedBroadcasts(req) {
+    async getReceivedBroadcasts(req, paginationDto) {
         const user = req.user;
-        return this.broadcastService.getBroadcastsForSeller(user.sub);
+        return this.broadcastService.getBroadcastsForSeller(user.sub, paginationDto.page, paginationDto.limit);
     }
 };
 exports.BroadcastController = BroadcastController;
@@ -91,18 +92,25 @@ __decorate([
 __decorate([
     (0, common_1.Get)('/my/broadcasts'),
     (0, swagger_1.ApiOperation)({ summary: 'Get broadcasts created by logged-in user (buyer)' }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Paginated broadcasts created by buyer' }),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getMyBroadcasts", null);
 __decorate([
     (0, common_1.Get)('/my/received'),
     (0, swagger_1.ApiOperation)({ summary: 'Get broadcasts where logged-in user is a seller' }),
-    (0, swagger_1.ApiBearerAuth)('jwt'),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Paginated broadcasts where user is seller' }),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getReceivedBroadcasts", null);
 exports.BroadcastController = BroadcastController = __decorate([
