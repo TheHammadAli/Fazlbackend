@@ -107,7 +107,7 @@ export class BroadcastController {
     );
   }
 
-  // 📥 Seller broadcasts
+  // Seller broadcasts
   @Get('/my/received')
   @ApiOperation({ summary: 'Get broadcasts where logged-in user is a seller' })
   @ApiQuery({ name: 'page', required: false, type: Number })
