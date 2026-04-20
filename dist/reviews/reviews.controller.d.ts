@@ -6,8 +6,8 @@ export declare class ReviewController {
     constructor(reviewService: ReviewService);
     createReview(dto: CreateReviewDto): Promise<import("./schema/review.schema").Review>;
     getReviewsByItem(query: QueryReviewDto): Promise<{
-        data: (import("mongoose").FlattenMaps<import("./schema/review.schema").ReviewDocument> & Required<{
-            _id: import("mongoose").FlattenMaps<unknown>;
+        data: (import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
         }> & {
             __v: number;
         })[];
@@ -16,8 +16,8 @@ export declare class ReviewController {
         limit: number;
         totalPages: number;
     }>;
-    getUserReviews(userId: string): Promise<(import("mongoose").FlattenMaps<import("./schema/review.schema").ReviewDocument> & Required<{
-        _id: import("mongoose").FlattenMaps<unknown>;
+    getUserReviews(userId: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+        _id: unknown;
     }> & {
         __v: number;
     })[]>;

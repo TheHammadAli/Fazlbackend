@@ -4,12 +4,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Review, ReviewDocument } from './schema/review.schema';
-import { CreateReviewDto } from './dto/create-review.dto';
-import { QueryReviewDto } from './dto/query-review.dto';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Review, ReviewDocument } from "./schema/review.schema";
+import { CreateReviewDto } from "./dto/create-review.dto";
+import { QueryReviewDto } from "./dto/query-review.dto";
 
 @Injectable()
 export class ReviewService {
@@ -32,7 +32,7 @@ export class ReviewService {
     });
 
     if (existing) {
-      throw new BadRequestException('You have already reviewed this item.');
+      throw new BadRequestException("You have already reviewed this item.");
     }
 
     const review = new this.reviewModel({
@@ -60,10 +60,11 @@ export class ReviewService {
     const [data, total] = await Promise.all([
       this.reviewModel
         .find(filter)
+        .populate("userId", "name email image")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .lean(),
+        .exec(),
       this.reviewModel.countDocuments(filter),
     ]);
 
@@ -82,8 +83,9 @@ export class ReviewService {
   async getUserReviews(userId: string) {
     return this.reviewModel
       .find({ userId: new Types.ObjectId(userId) })
+      .populate("userId", "name email image")
       .sort({ createdAt: -1 })
-      .lean();
+      .exec();
   }
 
   /**
@@ -92,7 +94,7 @@ export class ReviewService {
   async flagReview(id: string): Promise<Review> {
     const review = await this.reviewModel.findById(id);
     if (!review) {
-      throw new NotFoundException('Review not found');
+      throw new NotFoundException("Review not found");
     }
 
     review.isFlagged = true;
@@ -102,7 +104,7 @@ export class ReviewService {
   /**
    * Get average rating for a specific item
    */
-  async getAverageRating(itemId: string, itemType: 'product' | 'service') {
+  async getAverageRating(itemId: string, itemType: "product" | "service") {
     const result = await this.reviewModel.aggregate([
       {
         $match: {
@@ -113,7 +115,7 @@ export class ReviewService {
       {
         $group: {
           _id: null,
-          avgRating: { $avg: '$rating' },
+          avgRating: { $avg: "$rating" },
           count: { $sum: 1 },
         },
       },

@@ -351,12 +351,12 @@ export class ServicesService {
     if (!request) throw new NotFoundException("Request not found");
 
     // ✅ Safely extract service name (avoid using full object)
-    const serviceName = (request.service as any)?.name || "service";
+    const serviceName = (request.service as any)?.title || "service";
 
     switch (action) {
       case "accept":
         request.status = "accepted";
-
+        console.log("Look here", request.customer);
         await this.notificationsService.createAndNotify(
           request.customer._id.toString(),
           `Your service request for "${serviceName}" has been accepted by the provider.`,
@@ -419,7 +419,7 @@ export class ServicesService {
 
     const request = await this.requestModel.findById(requestId);
     if (!request) throw new NotFoundException("Request not found");
-
+    console.log("Action", action);
     switch (action) {
       case "start_job":
         request.jobStatus = "in_progress";
@@ -428,7 +428,7 @@ export class ServicesService {
 
       case "complete_job":
         request.jobStatus = "completed";
-        request.status = "confirmed"; // e.g. to mark client approval phase
+
         break;
 
       default:

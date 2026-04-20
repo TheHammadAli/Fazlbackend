@@ -250,10 +250,11 @@ let ServicesService = class ServicesService {
             .populate("provider");
         if (!request)
             throw new common_1.NotFoundException("Request not found");
-        const serviceName = request.service?.name || "service";
+        const serviceName = request.service?.title || "service";
         switch (action) {
             case "accept":
                 request.status = "accepted";
+                console.log("Look here", request.customer);
                 await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has been accepted by the provider.`);
                 break;
             case "reject":
@@ -293,6 +294,7 @@ let ServicesService = class ServicesService {
         const request = await this.requestModel.findById(requestId);
         if (!request)
             throw new common_1.NotFoundException("Request not found");
+        console.log("Action", action);
         switch (action) {
             case "start_job":
                 request.jobStatus = "in_progress";
@@ -300,7 +302,6 @@ let ServicesService = class ServicesService {
                 break;
             case "complete_job":
                 request.jobStatus = "completed";
-                request.status = "confirmed";
                 break;
             default:
                 throw new common_1.BadRequestException(`Unsupported job action: ${action}`);

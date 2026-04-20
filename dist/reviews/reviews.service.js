@@ -31,7 +31,7 @@ let ReviewService = class ReviewService {
             itemType: dto.itemType,
         });
         if (existing) {
-            throw new common_1.BadRequestException('You have already reviewed this item.');
+            throw new common_1.BadRequestException("You have already reviewed this item.");
         }
         const review = new this.reviewModel({
             userId,
@@ -51,10 +51,11 @@ let ReviewService = class ReviewService {
         const [data, total] = await Promise.all([
             this.reviewModel
                 .find(filter)
+                .populate("userId", "name email image")
                 .sort({ createdAt: -1 })
                 .skip((page - 1) * limit)
                 .limit(limit)
-                .lean(),
+                .exec(),
             this.reviewModel.countDocuments(filter),
         ]);
         return {
@@ -68,13 +69,14 @@ let ReviewService = class ReviewService {
     async getUserReviews(userId) {
         return this.reviewModel
             .find({ userId: new mongoose_2.Types.ObjectId(userId) })
+            .populate("userId", "name email image")
             .sort({ createdAt: -1 })
-            .lean();
+            .exec();
     }
     async flagReview(id) {
         const review = await this.reviewModel.findById(id);
         if (!review) {
-            throw new common_1.NotFoundException('Review not found');
+            throw new common_1.NotFoundException("Review not found");
         }
         review.isFlagged = true;
         return review.save();
@@ -90,7 +92,7 @@ let ReviewService = class ReviewService {
             {
                 $group: {
                     _id: null,
-                    avgRating: { $avg: '$rating' },
+                    avgRating: { $avg: "$rating" },
                     count: { $sum: 1 },
                 },
             },
