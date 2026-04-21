@@ -42,6 +42,16 @@ export class BroadcastService {
     buyerId: string,
     location: { type: string; coordinates: [number, number] },
   ) {
+    // Check if broadcast already exists for this buyer and category
+    const existingBroadcast = await this.broadcastModel.findOne({
+      buyer: new Types.ObjectId(buyerId),
+      category: new Types.ObjectId(dto.categoryId),
+    });
+
+    if (existingBroadcast) {
+      return existingBroadcast;
+    }
+
     return this.broadcastModel.create({
       buyer: new Types.ObjectId(buyerId),
       message: dto.message,
@@ -83,13 +93,24 @@ export class BroadcastService {
     sellerIds: string[],
     buyerId: string,
   ) {
-    const threads = sellerIds.map((sellerId) => ({
-      broadcast: new Types.ObjectId(broadcastId),
-      buyer: new Types.ObjectId(buyerId),
-      seller: new Types.ObjectId(sellerId),
-    }));
+    const threadPromises = sellerIds.map((sellerId) =>
+      this.threadModel.findOneAndUpdate(
+        {
+          broadcast: new Types.ObjectId(broadcastId),
+          seller: new Types.ObjectId(sellerId),
+        },
+        {
+          broadcast: new Types.ObjectId(broadcastId),
+          buyer: new Types.ObjectId(buyerId),
+          seller: new Types.ObjectId(sellerId),
+        },
+        { upsert: true, new: true },
+      ),
+    );
 
-    return this.threadModel.insertMany(threads);
+    const threads = await Promise.all(threadPromises);
+
+    return threads;
   }
 
   // -----------------------------

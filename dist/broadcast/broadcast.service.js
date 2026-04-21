@@ -38,6 +38,13 @@ let BroadcastService = class BroadcastService {
         this.userService = userService;
     }
     async createBroadcast(dto, buyerId, location) {
+        const existingBroadcast = await this.broadcastModel.findOne({
+            buyer: new mongoose_2.Types.ObjectId(buyerId),
+            category: new mongoose_2.Types.ObjectId(dto.categoryId),
+        });
+        if (existingBroadcast) {
+            return existingBroadcast;
+        }
         return this.broadcastModel.create({
             buyer: new mongoose_2.Types.ObjectId(buyerId),
             message: dto.message,
@@ -55,12 +62,16 @@ let BroadcastService = class BroadcastService {
         return this.categoryService.findById(categoryId);
     }
     async createBroadcastThreads(broadcastId, sellerIds, buyerId) {
-        const threads = sellerIds.map((sellerId) => ({
+        const threadPromises = sellerIds.map((sellerId) => this.threadModel.findOneAndUpdate({
+            broadcast: new mongoose_2.Types.ObjectId(broadcastId),
+            seller: new mongoose_2.Types.ObjectId(sellerId),
+        }, {
             broadcast: new mongoose_2.Types.ObjectId(broadcastId),
             buyer: new mongoose_2.Types.ObjectId(buyerId),
             seller: new mongoose_2.Types.ObjectId(sellerId),
-        }));
-        return this.threadModel.insertMany(threads);
+        }, { upsert: true, new: true }));
+        const threads = await Promise.all(threadPromises);
+        return threads;
     }
     async createBroadcastAndDispatch(dto, buyerId, location) {
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
