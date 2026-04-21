@@ -192,11 +192,23 @@ let BroadcastService = class BroadcastService {
             this.threadModel.countDocuments({ seller: userObjectId }),
         ]);
         const broadcastIds = threads.map((thread) => thread.broadcast);
+        const threadMap = new Map(threads.map((thread) => [
+            thread.broadcast.toString(),
+            thread._id.toString(),
+        ]));
         const data = await this.broadcastModel
             .find({ _id: { $in: broadcastIds } })
             .populate("category", "name")
-            .sort({ createdAt: -1 })
             .exec();
+        const broadcastIdOrder = threads.map((thread) => thread.broadcast.toString());
+        const dataMap = new Map(data.map((b) => [b._id.toString(), b]));
+        const orderedData = broadcastIdOrder
+            .map((id) => dataMap.get(id))
+            .filter((b) => b != null)
+            .map((broadcast) => ({
+            ...broadcast.toObject(),
+            threadId: threadMap.get(broadcast._id.toString()),
+        }));
         return {
             meta: {
                 total,
@@ -204,7 +216,7 @@ let BroadcastService = class BroadcastService {
                 limit,
                 totalPages: Math.ceil(total / limit),
             },
-            data,
+            data: orderedData,
         };
     }
 };

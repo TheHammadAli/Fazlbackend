@@ -297,7 +297,7 @@ export class BroadcastService {
     userId: string,
     page = 1,
     limit = 10,
-  ): Promise<PaginatedResponseDto<Broadcast>> {
+  ): Promise<PaginatedResponseDto<any>> {
     const skip = (page - 1) * limit;
     const userObjectId = new Types.ObjectId(userId);
 
@@ -313,12 +313,30 @@ export class BroadcastService {
     ]);
 
     const broadcastIds = threads.map((thread) => thread.broadcast);
+   const threadMap = new Map(
+  threads.map((thread: any) => [
+    thread.broadcast.toString(),
+    (thread._id as Types.ObjectId).toString(),
+  ]),
+);
 
     const data = await this.broadcastModel
       .find({ _id: { $in: broadcastIds } })
       .populate("category", "name")
-      .sort({ createdAt: -1 })
       .exec();
+
+    // Maintain order and add threadId
+    const broadcastIdOrder = threads.map((thread) => thread.broadcast.toString());
+   const dataMap = new Map(
+  data.map((b) => [b._id.toString(), b]),
+);
+   const orderedData = broadcastIdOrder
+  .map((id) => dataMap.get(id))
+ .filter((b): b is NonNullable<typeof b> => b != null)
+  .map((broadcast) => ({
+    ...broadcast.toObject(),
+    threadId: threadMap.get(broadcast._id.toString()),
+  }));
 
     return {
       meta: {
@@ -327,7 +345,7 @@ export class BroadcastService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data,
+      data: orderedData,
     };
   }
 }
