@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  HttpException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -60,7 +61,9 @@ export class UsersService {
       await savedUser.save(); // Save the user again to update the image field
       return savedUser.toJSON();
     } catch (err) {
-      throw new AppError(err);
+       throw err instanceof HttpException
+    ? err
+    : new AppError(err?.message || 'Internal server error');
     }
   }
 
@@ -109,7 +112,7 @@ export class UsersService {
   async updateUser(
     userId: string,
     updateData: Partial<UpdateUserDto>,
-    lang: string = "en",
+    
   ): Promise<User> {
     try {
       // Remove empty, null, or undefined fields
@@ -132,7 +135,7 @@ export class UsersService {
       const existingUser = await this.userModel.findById(userId).exec();
       if (!existingUser) {
         throw new NotFoundException(
-          this.i18n.translate("users.user_not_found", { lang }),
+          this.i18n.translate("users.user_not_found", { lang:this.lang }),
         );
       }
       console.log("Existing User:", existingUser);
@@ -167,7 +170,7 @@ export class UsersService {
 
       if (!updatedUser) {
         throw new NotFoundException(
-          this.i18n.translate("users.user_not_found", { lang }),
+          this.i18n.translate("users.user_not_found", { lang:this.lang }),
         );
       }
 

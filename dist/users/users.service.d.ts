@@ -27,7 +27,7 @@ export declare class UsersService {
     }) | null>;
     findByResetToken(resetPasswordToken: string): Promise<UserDocument | null>;
     validateUserForLogin(email: string, password: string): Promise<UserDocument | false>;
-    updateUser(userId: string, updateData: Partial<UpdateUserDto>, lang?: string): Promise<User>;
+    updateUser(userId: string, updateData: Partial<UpdateUserDto>): Promise<User>;
     findByIdWithToken(userId: string, lang?: string): Promise<UserDocument>;
     findUserById(userId: string, lang?: string): Promise<UserDocument>;
     getAllUsers(paginationDto: PaginationDto): Promise<PaginatedResponseDto<User>>;

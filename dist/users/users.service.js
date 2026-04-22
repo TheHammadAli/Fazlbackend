@@ -61,7 +61,9 @@ let UsersService = class UsersService {
             return savedUser.toJSON();
         }
         catch (err) {
-            throw new app_error_1.AppError(err);
+            throw err instanceof common_1.HttpException
+                ? err
+                : new app_error_1.AppError(err?.message || 'Internal server error');
         }
     }
     async hashPassword(password) {
@@ -92,7 +94,7 @@ let UsersService = class UsersService {
         }
         return user;
     }
-    async updateUser(userId, updateData, lang = "en") {
+    async updateUser(userId, updateData) {
         try {
             Object.keys(updateData).forEach((key) => {
                 if (updateData[key] === "" ||
@@ -107,7 +109,7 @@ let UsersService = class UsersService {
             }
             const existingUser = await this.userModel.findById(userId).exec();
             if (!existingUser) {
-                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
+                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
             }
             console.log("Existing User:", existingUser);
             let imageUrl = existingUser.image || "default-avatar.png";
@@ -127,7 +129,7 @@ let UsersService = class UsersService {
                 $set: updateData,
             });
             if (!updatedUser) {
-                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
+                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
             }
             return updatedUser;
         }
