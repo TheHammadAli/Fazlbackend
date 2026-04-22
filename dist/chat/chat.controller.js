@@ -41,9 +41,6 @@ let ChatController = class ChatController {
     async getConversationsByUserId(userId, paginationDto) {
         return this.chatService.getConversationsByUserId(userId, paginationDto);
     }
-    async broadcast(body) {
-        return this.chatService.broadcastMessageToNearbySellers(body.buyerId, body.coordinates, body.radius, body.text);
-    }
 };
 exports.ChatController = ChatController;
 __decorate([
@@ -170,34 +167,6 @@ __decorate([
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "getConversationsByUserId", null);
-__decorate([
-    (0, common_1.Post)("broadcast"),
-    (0, swagger_1.ApiOperation)({
-        summary: "Broadcast message to nearby sellers based on location",
-    }),
-    (0, swagger_1.ApiBody)({
-        schema: {
-            type: "object",
-            properties: {
-                buyerId: { type: "string", example: "6645f1d8a8c02c2b8f5a9df4" },
-                coordinates: {
-                    type: "array",
-                    items: { type: "number" },
-                    example: [73.0479, 33.6844],
-                },
-                radius: { type: "number", example: 10 },
-                text: {
-                    type: "string",
-                    example: "Are you selling any electronics nearby?",
-                },
-            },
-        },
-    }),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], ChatController.prototype, "broadcast", null);
 exports.ChatController = ChatController = __decorate([
     (0, swagger_1.ApiTags)("Chat"),
     (0, common_1.Controller)("chat"),

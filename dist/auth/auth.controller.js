@@ -24,6 +24,8 @@ const throttler_1 = require("@nestjs/throttler");
 const swagger_1 = require("@nestjs/swagger");
 const passport_1 = require("@nestjs/passport");
 const config_1 = require("@nestjs/config");
+const lang_decorator_1 = require("../common/decorators/lang.decorator");
+const api_lang_headers_decorator_1 = require("../common/decorators/api-lang-headers.decorator");
 let AuthController = class AuthController {
     authService;
     configService;
@@ -35,8 +37,8 @@ let AuthController = class AuthController {
         return user;
     }
     loginUser(loginDto, lang) {
-        const language = lang?.split(',')[0] || 'en';
-        return this.authService.loginUser(loginDto, language);
+        console.log('Login attempt for email:', lang);
+        return this.authService.loginUser(loginDto, lang);
     }
     refreshToken(token) {
         return this.authService.refreshTokens(token);
@@ -50,31 +52,24 @@ let AuthController = class AuthController {
         return { valid };
     }
     async sendEmailVerification(email, lang) {
-        const language = lang?.split(',')[0] || 'en';
-        const result = await this.authService.sendEmailVerificationLink(email, language);
-        return { message: 'Verification link sent', ...result };
+        const result = await this.authService.sendEmailVerificationLink(email, lang);
+        return { ...result };
     }
     async verifyEmail(token) {
-        const result = await this.authService.verifyEmailToken(token);
-        return result;
+        return this.authService.verifyEmailToken(token);
     }
     async sendForgotPassword(email, lang) {
-        const language = lang?.split(',')[0] || 'en';
-        const result = await this.authService.sendForgotPasswordEmail(email, language);
-        return result;
+        return this.authService.sendForgotPasswordEmail(email, lang);
     }
     async verifyResetToken(token) {
         const user = await this.authService.verifyResetPasswordToken(token);
         return { valid: !!user };
     }
     async resetPassword(body) {
-        const result = await this.authService.resetPassword(body.token, body.newPassword);
-        return result;
+        return this.authService.resetPassword(body.token, body.newPassword);
     }
-    googleAuth() {
-    }
+    googleAuth() { }
     async googleAuthRedirect(req, res) {
-        console.log('Google Auth Callback:', req.user);
         const payload = await this.authService.findOrCreateUserByEmail(req.user);
         return res.redirect(`${this.configService.get('FRONTEND_URL')}/google/auth/success?token=${payload.accessToken}`);
     }
@@ -96,17 +91,12 @@ __decorate([
 ], AuthController.prototype, "getCurrentUser", null);
 __decorate([
     (0, common_1.Post)('login'),
-    (0, swagger_1.ApiHeader)({
-        name: 'accept-language',
-        description: 'Language code (e.g. en, ur)',
-        required: false,
-    }),
     (0, swagger_1.ApiOperation)({ summary: 'Login and get access + refresh tokens' }),
     (0, swagger_1.ApiBody)({ type: login_dto_1.LoginDto }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'User successfully logged in' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
     __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Headers)('accept-language')),
+    __param(1, (0, lang_decorator_1.Lang)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [login_dto_1.LoginDto, String]),
     __metadata("design:returntype", void 0)
@@ -126,7 +116,12 @@ __decorate([
     (0, common_1.Post)('send-otp'),
     (0, throttler_1.Throttle)({ default: { limit: 4, ttl: 60000 } }),
     (0, swagger_1.ApiOperation)({ summary: 'Send OTP to phone number' }),
-    (0, swagger_1.ApiBody)({ schema: { properties: { phoneNumber: { type: 'string' } }, required: ['phoneNumber'] } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: { phoneNumber: { type: 'string' } },
+            required: ['phoneNumber'],
+        },
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP sent successfully' }),
     __param(0, (0, common_1.Body)('phoneNumber')),
     __metadata("design:type", Function),
@@ -136,8 +131,20 @@ __decorate([
 __decorate([
     (0, common_1.Post)('verify-otp'),
     (0, swagger_1.ApiOperation)({ summary: 'Verify OTP code' }),
-    (0, swagger_1.ApiBody)({ schema: { properties: { phoneNumber: { type: 'string' }, code: { type: 'string' } }, required: ['phoneNumber', 'code'] } }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP verification result', schema: { properties: { valid: { type: 'boolean' } } } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: {
+                phoneNumber: { type: 'string' },
+                code: { type: 'string' },
+            },
+            required: ['phoneNumber', 'code'],
+        },
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'OTP verification result',
+        schema: { properties: { valid: { type: 'boolean' } } },
+    }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -146,10 +153,15 @@ __decorate([
 __decorate([
     (0, common_1.Post)('send-email-verification'),
     (0, swagger_1.ApiOperation)({ summary: 'Send email verification link' }),
-    (0, swagger_1.ApiBody)({ schema: { properties: { email: { type: 'string' } }, required: ['email'] } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: { email: { type: 'string' } },
+            required: ['email'],
+        },
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Verification link sent' }),
     __param(0, (0, common_1.Body)('email')),
-    __param(1, (0, common_1.Headers)('accept-language')),
+    __param(1, (0, lang_decorator_1.Lang)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
@@ -167,10 +179,15 @@ __decorate([
 __decorate([
     (0, common_1.Post)('forgot-password'),
     (0, swagger_1.ApiOperation)({ summary: 'Send forgot password link to email' }),
-    (0, swagger_1.ApiBody)({ schema: { properties: { email: { type: 'string' } }, required: ['email'] } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: { email: { type: 'string' } },
+            required: ['email'],
+        },
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Reset password link sent' }),
     __param(0, (0, common_1.Body)('email')),
-    __param(1, (0, common_1.Headers)('accept-language')),
+    __param(1, (0, lang_decorator_1.Lang)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
@@ -180,7 +197,7 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Verify reset password token' }),
     (0, swagger_1.ApiQuery)({ name: 'token', type: 'string', required: true }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Token is valid' }),
-    __param(0, (0, common_1.Body)('token')),
+    __param(0, (0, common_1.Query)('token')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
@@ -188,7 +205,15 @@ __decorate([
 __decorate([
     (0, common_1.Put)('reset-password'),
     (0, swagger_1.ApiOperation)({ summary: 'Reset password using token' }),
-    (0, swagger_1.ApiBody)({ schema: { properties: { token: { type: 'string' }, newPassword: { type: 'string' } }, required: ['token', 'newPassword'] } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: {
+                token: { type: 'string' },
+                newPassword: { type: 'string' },
+            },
+            required: ['token', 'newPassword'],
+        },
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Password reset successful' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -215,7 +240,10 @@ __decorate([
     (0, common_1.Post)('google/verify/token'),
     (0, swagger_1.ApiOperation)({ summary: 'Login with Google ID token' }),
     (0, swagger_1.ApiBody)({ type: google_login_dto_1.GoogleLoginDto }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully authenticated with Google' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Successfully authenticated with Google',
+    }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid Google token' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -224,7 +252,9 @@ __decorate([
 ], AuthController.prototype, "googleLogin", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
+    (0, api_lang_headers_decorator_1.ApiLangHeader)(),
     (0, common_1.Controller)('auth'),
-    __metadata("design:paramtypes", [auth_service_1.AuthService, config_1.ConfigService])
+    __metadata("design:paramtypes", [auth_service_1.AuthService,
+        config_1.ConfigService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

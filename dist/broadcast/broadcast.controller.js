@@ -29,12 +29,14 @@ let BroadcastController = class BroadcastController {
         const user = req.user;
         const buyerId = user.sub;
         const location = user.location;
-        return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location);
+        const lang = (req.headers["accept-language"] || "en").split(",")[0];
+        return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location, lang);
     }
     async sendMessage(broadcastId, dto, req) {
         const user = req.user;
         const senderId = user.sub;
-        return this.broadcastService.sendBroadcastMessage(broadcastId, senderId, dto.receiverId, dto.threadId, dto.message);
+        const lang = (req.headers["accept-language"] || "en").split(",")[0];
+        return this.broadcastService.sendBroadcastMessage(broadcastId, senderId, dto.receiverId, dto.threadId, dto.message, lang);
     }
     async getThreads(broadcastId) {
         return this.broadcastService.getBroadcastThreads(broadcastId);
@@ -54,7 +56,7 @@ let BroadcastController = class BroadcastController {
 exports.BroadcastController = BroadcastController;
 __decorate([
     (0, common_1.Post)("/create"),
-    (0, swagger_1.ApiOperation)({ summary: 'Create broadcast and dispatch sellers' }),
+    (0, swagger_1.ApiOperation)({ summary: "Create broadcast and dispatch sellers" }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -62,10 +64,10 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "createBroadcast", null);
 __decorate([
-    (0, common_1.Post)('/message/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Send message in broadcast thread' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Broadcast ID' }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Post)("/message/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Send message in broadcast thread" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Broadcast ID" }),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -73,28 +75,31 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "sendMessage", null);
 __decorate([
-    (0, common_1.Get)('threads/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all threads for a broadcast' }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)("threads/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all threads for a broadcast" }),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getThreads", null);
 __decorate([
-    (0, common_1.Get)(':id/threads/:threadId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get messages for a thread' }),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Param)('threadId')),
+    (0, common_1.Get)(":id/threads/:threadId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get messages for a thread" }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Param)("threadId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getThreadMessages", null);
 __decorate([
-    (0, common_1.Get)('/my/broadcasts'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get broadcasts created by logged-in user (buyer)' }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Paginated broadcasts created by buyer' }),
+    (0, common_1.Get)("/my/broadcasts"),
+    (0, swagger_1.ApiOperation)({ summary: "Get broadcasts created by logged-in user (buyer)" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated broadcasts created by buyer",
+    }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
@@ -102,11 +107,14 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getMyBroadcasts", null);
 __decorate([
-    (0, common_1.Get)('/my/received'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get broadcasts where logged-in user is a seller' }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Paginated broadcasts where user is seller' }),
+    (0, common_1.Get)("/my/received"),
+    (0, swagger_1.ApiOperation)({ summary: "Get broadcasts where logged-in user is a seller" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated broadcasts where user is seller",
+    }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
@@ -114,10 +122,10 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getReceivedBroadcasts", null);
 exports.BroadcastController = BroadcastController = __decorate([
-    (0, swagger_1.ApiTags)('Broadcast'),
-    (0, swagger_1.ApiBearerAuth)('jwt'),
+    (0, swagger_1.ApiTags)("Broadcast"),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    (0, common_1.Controller)('broadcast'),
+    (0, common_1.Controller)("broadcast"),
     __metadata("design:paramtypes", [broadcast_service_1.BroadcastService])
 ], BroadcastController);
 //# sourceMappingURL=broadcast.controller.js.map

@@ -1,158 +1,265 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Order, OrderDocument } from './schema/order.schema';
-import { CreateOrderDto } from './dto/create-order-dto';
-import { UpdateOrderDto } from './dto/update-order-dto';
-import { UsersService } from 'src/users/users.service';
-import { ProductsService } from 'src/products/products.service';
-import { ShopService } from 'src/shop/shop.service';
-import { NotificationsService } from 'src/notifications/notifications.service';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
+import { Order, OrderDocument } from "./schema/order.schema";
+import { CreateOrderDto } from "./dto/create-order-dto";
+import { UpdateOrderDto } from "./dto/update-order-dto";
+import { UsersService } from "src/users/users.service";
+import { ProductsService } from "src/products/products.service";
+import { ShopService } from "src/shop/shop.service";
+import { NotificationsService } from "src/notifications/notifications.service";
+import { ClsService } from "nestjs-cls";
 
 @Injectable()
 export class OrdersService {
-    constructor(
-        @InjectModel(Order.name)
-        private readonly orderModel: Model<OrderDocument>,
-        private readonly usersService: UsersService,
-        private readonly productsService: ProductsService,
-        private readonly shopService: ShopService,
-        private readonly notificationsService: NotificationsService,
-    ) { }
+  constructor(
+    @InjectModel(Order.name)
+    private readonly orderModel: Model<OrderDocument>,
+    private readonly usersService: UsersService,
+    private readonly productsService: ProductsService,
+    private readonly shopService: ShopService,
+    private readonly notificationsService: NotificationsService,
+    private readonly i18n: I18nService,
+    private readonly cls: ClsService,
+  ) {}
 
-    // Create (Insert)
-    async createOrder(dto: CreateOrderDto): Promise<Order> {
-        // Check if buyer exists
-        const buyer = await this.usersService.findUserById(dto.buyer);
-        if (!buyer) throw new NotFoundException('Buyer not found');
-        console.log("DTO:", dto);
-        // Check if product exists
-        const product = await this.productsService.getById(dto.product);
-        if (!product) throw new NotFoundException('Product not found');
-        console.log("Product:", product);
-        // Check if owner exists (shop or user)
-        let ownerExists = false;
-        if (dto.ownerModel === 'Shop') {
-            ownerExists = !!(await this.shopService.getShopById(dto.owner));
-        } else if (dto.ownerModel === 'User') {
-            ownerExists = !!(await this.usersService.findUserById(dto.owner));
-        }
-        if (!ownerExists) throw new NotFoundException('Order owner not found');
+  /** Dynamic getter for the current request language */
+  private get lang(): string {
+    return this.cls.get("lang") || "en";
+  }
 
-        let isValidOwner = false;
-        if (dto.ownerModel === 'Shop') {
-            isValidOwner = dto.owner === product.shopId.toString();
-        }
-        if (dto.ownerModel === 'User') {
-            isValidOwner = dto.owner === product.ownerId?.toString();
-        }
+  // Create (Insert)
+  async createOrder(dto: CreateOrderDto): Promise<Order> {
+    // Check if buyer exists
+    const buyer = await this.usersService.findUserById(dto.buyer);
+    if (!buyer)
+      throw new NotFoundException(
+        this.i18n.translate("orders.buyer_not_found", { lang: this.lang }),
+      );
 
-        if (!isValidOwner) {
-            throw new BadRequestException('Order owner does not match product owner');
-        }
+    // Check if product exists
+    const product = await this.productsService.getById(dto.product, this.lang);
+    if (!product)
+      throw new NotFoundException(
+        this.i18n.translate("orders.product_not_found", { lang: this.lang }),
+      );
 
-        const order = new this.orderModel({
-            ...dto,
-            buyer: new Types.ObjectId(dto.buyer),
-            owner: new Types.ObjectId(dto.owner),
-            product: new Types.ObjectId(dto.product),
-        });
+    // Check if owner exists (shop or user)
+    let ownerExists = false;
+    if (dto.ownerModel === "Shop") {
+      ownerExists = !!(await this.shopService.getShopById(dto.owner, this.lang));
+    } else if (dto.ownerModel === "User") {
+      ownerExists = !!(await this.usersService.findUserById(dto.owner));
+    }
+    
+    if (!ownerExists)
+      throw new NotFoundException(
+        this.i18n.translate("orders.order_owner_not_found", { lang: this.lang }),
+      );
 
-        this.notificationsService.createAndNotify(dto.buyer, `Your order for ${product.title} has been placed!`, 'ORDER');
-        this.notificationsService.createAndNotify(dto.owner, `You have a new order for ${product.title}!`, 'ORDER');
-        return order.save();
+    let isValidOwner = false;
+    if (dto.ownerModel === "Shop") {
+      isValidOwner = dto.owner === product.shopId.toString();
+    } else if (dto.ownerModel === "User") {
+      isValidOwner = dto.owner === product.ownerId?.toString();
     }
 
-    // Read (Get specific order by ID)
-    async getOrderById(orderId: string): Promise<Order> {
-        if (!Types.ObjectId.isValid(orderId)) throw new BadRequestException('Invalid order ID');
-        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('owner').exec();
-        console.log({ "order": order });
-        if (!order) throw new NotFoundException('Order not found');
-        return order;
+    if (!isValidOwner) {
+      throw new BadRequestException(
+        this.i18n.translate("orders.order_mismatch", { lang: this.lang }),
+      );
     }
 
-    // Read (List orders, filter by owner discriminator) - Paginated and robust
-    async getOrdersByOwner(
-        ownerId: string,
-        ownerModel: 'Shop' | 'User',
-        page = 1,
-        limit = 10,
-    ): Promise<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }> {
-        if (!Types.ObjectId.isValid(ownerId)) throw new BadRequestException('Invalid owner ID');
-        if (page < 1 || limit < 1) throw new BadRequestException('Page and limit must be greater than 0');
-        // Check owner existence
-        if (ownerModel === 'Shop') {
-            const shop = await this.shopService.getShopById(ownerId);
-            if (!shop) throw new NotFoundException('Shop owner not found');
-        } else if (ownerModel === 'User') {
-            const user = await this.usersService.findUserById(ownerId);
-            if (!user) throw new NotFoundException('User owner not found');
-        } else {
-            throw new BadRequestException('Invalid ownerModel');
-        }
+    const order = new this.orderModel({
+      ...dto,
+      buyer: new Types.ObjectId(dto.buyer),
+      owner: new Types.ObjectId(dto.owner),
+      product: new Types.ObjectId(dto.product),
+    });
 
-        const skip = (page - 1) * limit;
-        const [data, total] = await Promise.all([
-            this.orderModel
-                .find({ owner: new Types.ObjectId(ownerId), ownerModel }).populate('product')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .exec(),
-            this.orderModel.countDocuments({ owner: new Types.ObjectId(ownerId), ownerModel }),
-        ]);
-        return {
-            data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        };
+    // Notify buyer and owner
+    this.notificationsService.createAndNotify(
+      dto.buyer,
+      "order_buyer", // The service logic we built earlier will prefix "notifications."
+      "ORDER",
+      { productTitle: product.title },
+    );
+    this.notificationsService.createAndNotify(
+      dto.owner,
+      "order_seller",
+      "ORDER",
+      { productTitle: product.title },
+    );
+    
+    return order.save();
+  }
+
+  // Read (Get specific order by ID)
+  async getOrderById(orderId: string): Promise<Order> {
+    if (!Types.ObjectId.isValid(orderId))
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_order_id", { lang: this.lang }),
+      );
+
+    const order = await this.orderModel
+      .findById(orderId)
+      .populate("buyer")
+      .populate("product")
+      .populate("owner")
+      .exec();
+
+    if (!order)
+      throw new NotFoundException(
+        this.i18n.translate("orders.order_not_found", { lang: this.lang }),
+      );
+    return order;
+  }
+
+  // Read (List orders, filter by owner)
+  async getOrdersByOwner(
+    ownerId: string,
+    ownerModel: "Shop" | "User",
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    data: Order[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    if (!Types.ObjectId.isValid(ownerId))
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_owner_id", { lang: this.lang })
+      );
+    
+    if (page < 1 || limit < 1)
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_page_limit", { lang: this.lang })
+      );
+
+    // Check owner existence
+    if (ownerModel === "Shop") {
+      const shop = await this.shopService.getShopById(ownerId);
+      if (!shop) throw new NotFoundException(
+        this.i18n.translate("orders.owner_not_found", { lang: this.lang })
+      );
+    } else if (ownerModel === "User") {
+      const user = await this.usersService.findUserById(ownerId);
+      if (!user) throw new NotFoundException(
+        this.i18n.translate("orders.owner_not_found", { lang: this.lang })
+      );
+    } else {
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_owner_model", { lang: this.lang })
+      );
     }
 
-    // Read (List orders by buyer) - Paginated and robust
-    async getOrdersByBuyer(
-        buyerId: string,
-        page = 1,
-        limit = 10,
-    ): Promise<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }> {
-        if (!Types.ObjectId.isValid(buyerId)) throw new BadRequestException('Invalid buyer ID');
-        if (page < 1 || limit < 1) throw new BadRequestException('Page and limit must be greater than 0');
-        const buyer = await this.usersService.findUserById(buyerId);
-        if (!buyer) throw new NotFoundException('Buyer not found');
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.orderModel
+        .find({ owner: new Types.ObjectId(ownerId), ownerModel })
+        .populate("product")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.orderModel.countDocuments({
+        owner: new Types.ObjectId(ownerId),
+        ownerModel,
+      }),
+    ]);
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
-        const skip = (page - 1) * limit;
-        const [data, total] = await Promise.all([
-            this.orderModel
-                .find({ buyer: new Types.ObjectId(buyerId) }).populate('product').populate('owner')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .exec(),
-            this.orderModel.countDocuments({ buyer: new Types.ObjectId(buyerId) }),
-        ]);
-        return {
-            data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        };
-    }
+  // Read (List orders by buyer)
+  async getOrdersByBuyer(
+    buyerId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    data: Order[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    if (!Types.ObjectId.isValid(buyerId))
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_buyer_id", { lang: this.lang })
+      );
 
-    // Update
-    async updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order> {
-        if (!Types.ObjectId.isValid(orderId)) throw new BadRequestException('Invalid order ID');
-        const updated = await this.orderModel.findByIdAndUpdate(orderId, dto, { new: true });
-        if (!updated) throw new NotFoundException('Order not found');
-        return updated;
-    }
+    if (page < 1 || limit < 1)
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_page_limit", { lang: this.lang })
+      );
 
-    // Delete
-    async deleteOrder(orderId: string): Promise<void> {
-        if (!Types.ObjectId.isValid(orderId)) throw new BadRequestException('Invalid order ID');
-        const result = await this.orderModel.findByIdAndDelete(orderId);
-        if (!result) throw new NotFoundException('Order not found');
-    }
+    const buyer = await this.usersService.findUserById(buyerId);
+    if (!buyer) throw new NotFoundException(
+      this.i18n.translate("orders.buyer_not_found", { lang: this.lang })
+    );
+
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.orderModel
+        .find({ buyer: new Types.ObjectId(buyerId) })
+        .populate("product")
+        .populate("owner")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.orderModel.countDocuments({ buyer: new Types.ObjectId(buyerId) }),
+    ]);
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Update
+  async updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order> {
+    if (!Types.ObjectId.isValid(orderId))
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_order_id", { lang: this.lang })
+      );
+
+    const updated = await this.orderModel.findByIdAndUpdate(orderId, dto, {
+      new: true,
+    });
+    
+    if (!updated) throw new NotFoundException(
+      this.i18n.translate("orders.order_not_found", { lang: this.lang })
+    );
+    return updated;
+  }
+
+  // Delete
+  async deleteOrder(orderId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(orderId))
+      throw new BadRequestException(
+        this.i18n.translate("orders.invalid_order_id", { lang: this.lang })
+      );
+
+    const result = await this.orderModel.findByIdAndDelete(orderId);
+    if (!result) throw new NotFoundException(
+      this.i18n.translate("orders.order_not_found", { lang: this.lang })
+    );
+
+    
+  }
 }

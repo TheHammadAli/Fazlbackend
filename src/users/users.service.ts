@@ -3,28 +3,41 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { CreateUpdateUserDto } from './dto/create-update-User.dto';
-import { AppError } from 'src/common/exceptions/app-error';
-import { User, UserDocument } from './schema/users.schema';
-import * as bcrypt from 'bcryptjs';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { FileUploadService } from 'src/common/file-upload/file-upload.service';
-import { UpdateUserDto } from './dto/update-user.dto';
+} from "@nestjs/common";
+import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
+import { AppError } from "src/common/exceptions/app-error";
+import { User, UserDocument } from "./schema/users.schema";
+import * as bcrypt from "bcryptjs";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { I18nService } from "nestjs-i18n";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import {ClsService} from "nestjs-cls";
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>, private readonly fileUploadService: FileUploadService,) { }
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly fileUploadService: FileUploadService,
+    private readonly i18n: I18nService,
+    private readonly cls: ClsService, //
+  ) {}
+
+  private get lang(): string {
+  return this.cls?.get('lang') ?? 'en';
+}
   async createUser(createUserDto: CreateUpdateUserDto) {
     try {
       const existingUser = await this.userModel.findOne({
         email: createUserDto.email,
       });
       if (existingUser) {
-        throw new ConflictException('Email is already registered');
+        throw new ConflictException(
+          this.i18n.translate("users.email_already_registered", { lang: this.lang }),
+        );
       }
       const hashedPassword = await this.hashPassword(createUserDto.password);
       let imageUrl = "default-avatar.png"; // Default image URL
@@ -35,12 +48,13 @@ export class UsersService {
         password: hashedPassword,
       });
 
-
-
       const savedUser = await newUser.save();
       console.log("User image", createUserDto.image);
       if (createUserDto.image) {
-        imageUrl = await this.fileUploadService.uploadUserImage(newUser._id as unknown as string, createUserDto.image); // Function to handle image upload
+        imageUrl = await this.fileUploadService.uploadUserImage(
+          newUser._id as unknown as string,
+          createUserDto.image,
+        ); // Function to handle image upload
         savedUser.image = imageUrl; // Ensure the image is stored as a filename
       }
       await savedUser.save(); // Save the user again to update the image field
@@ -53,9 +67,7 @@ export class UsersService {
   async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt();
     return await bcrypt.hash(password, salt);
-
   }
-
 
   async findUserByEmail(email: string) {
     return await this.userModel.findOne({ email }).exec();
@@ -63,42 +75,49 @@ export class UsersService {
 
   async findByResetToken(
     resetPasswordToken: string,
+   
   ): Promise<UserDocument | null> {
     const results = await this.userModel
       .findOne({ resetPasswordToken })
-      .select('+resetPasswordExpires')
+      .select("+resetPasswordExpires")
       .exec();
     if (!results) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(
+        this.i18n.translate("users.user_not_found", { lang: this.lang }),
+      );
     }
-    return results
+    return results;
   }
 
   async validateUserForLogin(
     email: string,
     password: string,
   ): Promise<UserDocument | false> {
-    const user = await this.userModel.findOne({ email }).select('+password');
+    const user = await this.userModel.findOne({ email }).select("+password");
     if (!user) {
-      return false
+      return false;
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return false
+      return false;
     }
 
     return user;
   }
 
-  async updateUser(userId: string, updateData: Partial<UpdateUserDto>): Promise<User> {
+  async updateUser(
+    userId: string,
+    updateData: Partial<UpdateUserDto>,
+    lang: string = "en",
+  ): Promise<User> {
     try {
       // Remove empty, null, or undefined fields
       Object.keys(updateData).forEach((key) => {
         if (
-          updateData[key] === '' ||
+          updateData[key] === "" ||
           updateData[key] === null ||
-          typeof updateData[key] === 'undefined'
+          typeof updateData[key] === "undefined"
         ) {
           delete updateData[key];
         }
@@ -112,7 +131,9 @@ export class UsersService {
 
       const existingUser = await this.userModel.findById(userId).exec();
       if (!existingUser) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException(
+          this.i18n.translate("users.user_not_found", { lang }),
+        );
       }
       console.log("Existing User:", existingUser);
 
@@ -127,7 +148,10 @@ export class UsersService {
         "originalname" in updateData.image
       ) {
         // It's a file object (from Multer)
-        imageUrl = await this.fileUploadService.uploadUserImage(userId, updateData.image);
+        imageUrl = await this.fileUploadService.uploadUserImage(
+          userId,
+          updateData.image,
+        );
       }
 
       // Preserve location if not updated
@@ -137,14 +161,14 @@ export class UsersService {
 
       updateData.image = imageUrl;
 
-      const updatedUser = await this.userModel.findByIdAndUpdate(
-        userId,
-        { $set: updateData },
-
-      );
+      const updatedUser = await this.userModel.findByIdAndUpdate(userId, {
+        $set: updateData,
+      });
 
       if (!updatedUser) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException(
+          this.i18n.translate("users.user_not_found", { lang }),
+        );
       }
 
       return updatedUser;
@@ -153,25 +177,34 @@ export class UsersService {
     }
   }
 
-
-  async findByIdWithToken(userId: string): Promise<UserDocument> {
+  async findByIdWithToken(
+    userId: string,
+    lang: string = "en",
+  ): Promise<UserDocument> {
     const user = await this.userModel
       .findById(userId)
-      .select('+refreshToken')
+      .select("+refreshToken")
       .exec();
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException(
+        this.i18n.translate("users.user_not_found", { lang }),
+      );
     }
 
     return user;
   }
 
-  async findUserById(userId: string): Promise<UserDocument> {
+  async findUserById(
+    userId: string,
+    lang: string = "en",
+  ): Promise<UserDocument> {
     const user = await this.userModel.findById(userId).exec();
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException(
+        this.i18n.translate("users.user_not_found", { lang }),
+      );
     }
 
     return user;
@@ -189,7 +222,6 @@ export class UsersService {
     ]);
 
     return {
-
       data: users,
       meta: {
         total,

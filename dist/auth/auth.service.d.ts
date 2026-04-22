@@ -1,28 +1,32 @@
-import { UsersService } from 'src/users/users.service';
-import { LoginDto } from './dto/login-dto';
-import { JwtService } from '@nestjs/jwt';
-import { RefreshTokenDto } from './dto/refreshToken-dto';
-import { Model } from 'mongoose';
-import { OtpDocument } from './schema/otp.schema';
-import { ConfigService } from '@nestjs/config';
-import { I18nService } from 'nestjs-i18n';
-import { UserDocument } from 'src/users/schema/users.schema';
+import { UsersService } from "src/users/users.service";
+import { LoginDto } from "./dto/login-dto";
+import { JwtService } from "@nestjs/jwt";
+import { RefreshTokenDto } from "./dto/refreshToken-dto";
+import { Model } from "mongoose";
+import { OtpDocument } from "./schema/otp.schema";
+import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
+import { UserDocument } from "src/users/schema/users.schema";
+import { ClsService } from "nestjs-cls";
 export declare class AuthService {
     private otpModel;
     private readonly userService;
     private readonly jwtService;
     private readonly configService;
     private readonly i18n;
+    private readonly cls;
     private twilioClient;
     private googleClient;
     private audience;
-    constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService);
+    private lang;
+    constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService);
     loginUser(loginDto: LoginDto, lang?: string): Promise<{
         refreshToken: string;
         accessToken: string;
         user: UserDocument;
     }>;
     refreshTokens(refreshToken: RefreshTokenDto): Promise<{
+        message: string;
         accessToken: string;
         user: UserDocument;
         refreshToken: string;
@@ -33,6 +37,7 @@ export declare class AuthService {
     sendOtp(phoneNumber: string): Promise<void>;
     sendEmailVerificationLink(email: string, lang?: string): Promise<{
         data: string;
+        message: string;
     }>;
     verifyEmailToken(token: string): Promise<{
         email: string | undefined;

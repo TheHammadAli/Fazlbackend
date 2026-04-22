@@ -1,29 +1,36 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { ProductsModule } from './products/products.module';
-import { SearchModule } from './search/search.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ShopModule } from './shop/shop.module';
-import { CategoryModule } from './category/category.module';
-import { ServicesModule } from './services/services.module';
-import { ChatModule } from './chat/chat.module';
-import { PaymentModule } from './payment/payment.module';
-import { ReviewsModule } from './reviews/reviews.module';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { AcceptLanguageResolver, I18nModule, QueryResolver } from 'nestjs-i18n';
-import { OrdersModule } from './orders/orders.module';
-import { SubscriptionModule } from './subscription/subscription.module';
-import { PromotionModule } from './promotion/promotion.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { BroadcastModule } from './broadcast/broadcast.module';
-import * as path from 'path';
+import { Module } from "@nestjs/common";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { AuthModule } from "./auth/auth.module";
+import { UsersModule } from "./users/users.module";
+import { ProductsModule } from "./products/products.module";
+import { SearchModule } from "./search/search.module";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { MongooseModule } from "@nestjs/mongoose";
+import { ShopModule } from "./shop/shop.module";
+import { CategoryModule } from "./category/category.module";
+import { ServicesModule } from "./services/services.module";
+import { ChatModule } from "./chat/chat.module";
+import { PaymentModule } from "./payment/payment.module";
+import { ReviewsModule } from "./reviews/reviews.module";
+import { ThrottlerModule } from "@nestjs/throttler";
+import { AcceptLanguageResolver, I18nModule, QueryResolver } from "nestjs-i18n";
+import { OrdersModule } from "./orders/orders.module";
+import { SubscriptionModule } from "./subscription/subscription.module";
+import { PromotionModule } from "./promotion/promotion.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { BroadcastModule } from "./broadcast/broadcast.module";
+import { ClsConfigModule } from "./core/cls/cls.module";
 
-const isProduction = process.env.NODE_ENV === 'production';
-console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction);
+import * as path from "path";
+import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
+
+const isProduction = process.env.NODE_ENV === "production";
+console.log(
+  path.join(process.cwd(), "src/i18n/"),
+  "isProduction:",
+  isProduction,
+);
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -36,25 +43,26 @@ console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction
       ],
     }),
     I18nModule.forRoot({
-      fallbackLanguage: 'en',
+      fallbackLanguage: "en",
       loaderOptions: {
-        path: path.join(process.cwd(), 'src/i18n/'),
+        path: path.join(process.cwd(), "src/i18n/"),
         watch: !isProduction,
       },
       resolvers: [
-        { use: QueryResolver, options: ['lang', 'locale', 'l'] }, // supports ?lang=ur
+        { use: QueryResolver, options: ["lang", "locale", "l"] }, // supports ?lang=ur
         AcceptLanguageResolver, // supports Accept-Language header
       ],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI'),
+        uri: configService.get<string>("MONGODB_URI"),
       }),
       inject: [ConfigService],
     }),
     AuthModule,
     UsersModule,
+    ClsConfigModule,
     ProductsModule,
     ServicesModule,
     SearchModule,
@@ -67,9 +75,9 @@ console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction
     SubscriptionModule,
     PromotionModule,
     NotificationsModule,
-    BroadcastModule
+    BroadcastModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,LanguageInterceptor],
 })
-export class AppModule { }
+export class AppModule {}

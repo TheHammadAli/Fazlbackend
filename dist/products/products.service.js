@@ -16,6 +16,7 @@ exports.ProductsService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const product_schema_1 = require("./schema/product.schema");
 const shop_service_1 = require("../shop/shop.service");
 const listing_util_service_1 = require("../shared/listing-util-service");
@@ -29,15 +30,17 @@ let ProductsService = class ProductsService {
     userService;
     fileUploadService;
     promotionService;
-    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService) {
+    i18n;
+    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n) {
         this.productModel = productModel;
         this.shopService = shopService;
         this.listingUtils = listingUtils;
         this.userService = userService;
         this.fileUploadService = fileUploadService;
         this.promotionService = promotionService;
+        this.i18n = i18n;
     }
-    async create(entityId, type, dto, userId) {
+    async create(entityId, type, dto, userId, lang = "en") {
         try {
             let location;
             const productPayload = {
@@ -47,12 +50,12 @@ let ProductsService = class ProductsService {
             if (type === "shop") {
                 const shop = await this.shopService.getShopById(entityId);
                 if (!shop) {
-                    throw new common_1.NotFoundException("Shop not found");
+                    throw new common_1.NotFoundException(this.i18n.translate("products.shop_not_found", { lang }));
                 }
                 if (!shop.location ||
                     !shop.location.coordinates ||
                     shop.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException("Shop location is missing");
+                    throw new common_1.BadRequestException(this.i18n.translate("products.shop_location_missing", { lang }));
                 }
                 productPayload.shopId = shop._id;
                 location = shop.location;
@@ -61,14 +64,14 @@ let ProductsService = class ProductsService {
             else if (type === "personal") {
                 const user = await this.userService.findUserById(entityId);
                 if (!user) {
-                    throw new common_1.NotFoundException("User not found");
+                    throw new common_1.NotFoundException(this.i18n.translate("products.user_not_found", { lang }));
                 }
                 console.log("User:", user);
                 productPayload.ownerId = user._id;
                 if (!user.location ||
                     !user.location.coordinates ||
                     user.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException("User location is missing");
+                    throw new common_1.BadRequestException(this.i18n.translate("products.user_location_missing", { lang }));
                 }
                 location = {
                     type: "Point",
@@ -139,17 +142,17 @@ let ProductsService = class ProductsService {
             data: items,
         };
     }
-    async getById(id) {
+    async getById(id, lang = "en") {
         const product = await this.productModel
             .findById(new mongoose_2.Types.ObjectId(id))
             .populate("category");
         if (!product)
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.product_not_found", { lang }));
         return product;
     }
-    async update(productId, updateDto) {
+    async update(productId, updateDto, lang = "en") {
         if ("shopId" in updateDto) {
-            throw new common_1.ForbiddenException("shopId cannot be updated");
+            throw new common_1.ForbiddenException(this.i18n.translate("products.shop_cant_update", { lang }));
         }
         if (updateDto.category) {
             updateDto.category = new mongoose_2.Types.ObjectId(updateDto.category);
@@ -163,7 +166,7 @@ let ProductsService = class ProductsService {
         });
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.product_not_found", { lang }));
         }
         if (updateDto.images && updateDto.images.length > 0) {
             const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId.toString(), productId, "images");
@@ -180,14 +183,14 @@ let ProductsService = class ProductsService {
             .findByIdAndUpdate(productId, updateDto, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.product_not_found", { lang }));
         }
         return updated;
     }
-    async delete(productId) {
+    async delete(productId, lang = "en") {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.product_not_found", { lang }));
         }
         const type = existingProduct.shopId ? "shop" : "personal";
         const entityId = existingProduct.shopId
@@ -196,15 +199,15 @@ let ProductsService = class ProductsService {
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
         const result = await this.productModel.findByIdAndDelete(productId);
         if (!result)
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.product_not_found", { lang }));
     }
-    async deleteProductMedia(productId, media) {
+    async deleteProductMedia(productId, media, lang = "en") {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException("Product not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.product_not_found", { lang }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException("No media files provided for deletion");
+            throw new common_1.BadRequestException(this.i18n.translate("products.no_media_provided", { lang }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingProduct.images || [];
@@ -287,9 +290,7 @@ let ProductsService = class ProductsService {
                 .skip(skip)
                 .limit(limit)
                 .exec(),
-            this.productModel
-                .countDocuments(filter)
-                .exec(),
+            this.productModel.countDocuments(filter).exec(),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -306,6 +307,7 @@ exports.ProductsService = ProductsService = __decorate([
         listing_util_service_1.ListingUtilsService,
         users_service_1.UsersService,
         file_upload_service_1.FileUploadService,
-        promotion_service_1.PromotionService])
+        promotion_service_1.PromotionService,
+        nestjs_i18n_1.I18nService])
 ], ProductsService);
 //# sourceMappingURL=products.service.js.map

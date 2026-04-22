@@ -16,6 +16,7 @@ export declare class AuthController {
         user: import("../users/schema/users.schema").UserDocument;
     }>;
     refreshToken(token: RefreshTokenDto): Promise<{
+        message: string;
         accessToken: string;
         user: import("../users/schema/users.schema").UserDocument;
         refreshToken: string;

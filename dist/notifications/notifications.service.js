@@ -16,18 +16,27 @@ exports.NotificationsService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const notifications_schema_1 = require("./schema/notifications.schema");
 const users_service_1 = require("../users/users.service");
 const firebase_service_1 = require("./firebase.service");
+const nestjs_cls_1 = require("nestjs-cls");
 let NotificationsService = class NotificationsService {
     notificationModel;
     usersService;
     firebaseService;
+    i18n;
+    cls;
     server;
-    constructor(notificationModel, usersService, firebaseService) {
+    constructor(notificationModel, usersService, firebaseService, i18n, cls) {
         this.notificationModel = notificationModel;
         this.usersService = usersService;
         this.firebaseService = firebaseService;
+        this.i18n = i18n;
+        this.cls = cls;
+    }
+    get lang() {
+        return this.cls.get("lang") || "en";
     }
     setServer(server) {
         this.server = server;
@@ -35,7 +44,7 @@ let NotificationsService = class NotificationsService {
     async create(userId, message, type = "MESSAGE") {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user)
-            throw new common_1.BadRequestException("User does not exist");
+            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
         const notif = new this.notificationModel({
             userId: new mongoose_2.Types.ObjectId(userId),
             message,
@@ -44,21 +53,29 @@ let NotificationsService = class NotificationsService {
         });
         return notif.save();
     }
-    async createAndNotify(userId, message, type = "MESSAGE") {
-        const notif = await this.create(userId, message, type);
+    async createAndNotify(userId, messageKey, type = "MESSAGE", params = {}) {
+        const user = await this.usersService.findUserById(userId.toString());
+        if (!user)
+            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+        const fullKey = messageKey.includes('.') ? messageKey : `notifications.${messageKey}`;
+        const translatedMessage = this.i18n.translate(fullKey, {
+            lang: this.lang,
+            args: params,
+        });
+        const notif = await this.create(userId, translatedMessage, type);
         if (this.server) {
             this.server.to(userId.toString()).emit("notification", notif);
         }
-        const user = await this.usersService.findUserById(userId.toString());
         if (user?.fcmToken) {
-            await this.firebaseService.sendNotification(user.fcmToken, "New Notification", message);
+            await this.firebaseService.sendNotification(user.fcmToken, "New Notification", translatedMessage);
         }
         return notif;
     }
     async findByUser(userId, page = 1, limit = 10) {
         const user = await this.usersService.findUserById(userId.toString());
-        if (!user)
-            throw new common_1.BadRequestException("User does not exist");
+        if (!user) {
+            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+        }
         const skip = (page - 1) * limit;
         const total = await this.notificationModel
             .countDocuments({ userId: new mongoose_2.Types.ObjectId(userId) })
@@ -81,20 +98,23 @@ let NotificationsService = class NotificationsService {
     }
     async markAsRead(id) {
         const notif = await this.notificationModel.findByIdAndUpdate(id, { read: true }, { new: true });
-        if (!notif)
-            throw new common_1.NotFoundException(`Notification ${id} not found`);
+        if (!notif) {
+            throw new common_1.NotFoundException(this.i18n.translate("notifications.notification_not_found", { lang: this.lang }));
+        }
         return notif;
     }
     async delete(id) {
         const result = await this.notificationModel.findByIdAndDelete(id).exec();
-        if (!result)
-            throw new common_1.NotFoundException(`Notification ${id} not found`);
+        if (!result) {
+            throw new common_1.NotFoundException(this.i18n.translate("notifications.notification_not_found", { lang: this.lang }));
+        }
         return { deleted: true };
     }
     async getUnreadCount(userId) {
         const user = await this.usersService.findUserById(userId.toString());
-        if (!user)
-            throw new common_1.BadRequestException("User does not exist");
+        if (!user) {
+            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+        }
         return this.notificationModel
             .countDocuments({
             userId: new mongoose_2.Types.ObjectId(userId),
@@ -110,6 +130,8 @@ exports.NotificationsService = NotificationsService = __decorate([
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         users_service_1.UsersService,
-        firebase_service_1.FirebaseService])
+        firebase_service_1.FirebaseService,
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], NotificationsService);
 //# sourceMappingURL=notifications.service.js.map

@@ -143,42 +143,5 @@ export class ChatController {
     return this.chatService.getConversationsByUserId(userId, paginationDto);
   }
 
-  @Post("broadcast")
-  @ApiOperation({
-    summary: "Broadcast message to nearby sellers based on location",
-  })
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: {
-        buyerId: { type: "string", example: "6645f1d8a8c02c2b8f5a9df4" },
-        coordinates: {
-          type: "array",
-          items: { type: "number" },
-          example: [73.0479, 33.6844],
-        },
-        radius: { type: "number", example: 10 },
-        text: {
-          type: "string",
-          example: "Are you selling any electronics nearby?",
-        },
-      },
-    },
-  })
-  async broadcast(
-    @Body()
-    body: {
-      buyerId: string;
-      coordinates: [number, number];
-      radius: number;
-      text: string;
-    },
-  ) {
-    return this.chatService.broadcastMessageToNearbySellers(
-      body.buyerId,
-      body.coordinates,
-      body.radius,
-      body.text,
-    );
-  }
+
 }

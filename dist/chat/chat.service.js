@@ -16,21 +16,30 @@ exports.ChatService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const conversation_schema_1 = require("./schema/conversation.schema");
 const message_schema_1 = require("./schema/message.schema");
 const users_service_1 = require("../users/users.service");
 const app_error_1 = require("../common/exceptions/app-error");
 const shop_service_1 = require("../shop/shop.service");
+const nestjs_cls_1 = require("nestjs-cls");
 let ChatService = class ChatService {
     conversationModel;
     messageModel;
     userService;
     shopService;
-    constructor(conversationModel, messageModel, userService, shopService) {
+    i18n;
+    cls;
+    constructor(conversationModel, messageModel, userService, shopService, i18n, cls) {
         this.conversationModel = conversationModel;
         this.messageModel = messageModel;
         this.userService = userService;
         this.shopService = shopService;
+        this.i18n = i18n;
+        this.cls = cls;
+    }
+    get lang() {
+        return this.cls.get("lang") || "en";
     }
     async getOrCreateConversation(buyerId, sellerId) {
         await this.userService.findUserById(buyerId);
@@ -68,8 +77,9 @@ let ChatService = class ChatService {
         await this.userService.findUserById(senderId);
         await this.userService.findUserById(receiverId);
         const conversation = await this.conversationModel.findById(conversationId);
-        if (!conversation)
-            throw new common_1.NotFoundException("Conversation not found");
+        if (!conversation) {
+            throw new common_1.NotFoundException(this.i18n.translate("chat.conversation_not_found", { lang: this.lang }));
+        }
         const message = await this.messageModel.create({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),
             sender: new mongoose_2.Types.ObjectId(senderId),
@@ -83,8 +93,9 @@ let ChatService = class ChatService {
     }
     async getMessages(conversationId, paginationDto) {
         const convo = await this.conversationModel.findById(conversationId);
-        if (!convo)
-            throw new common_1.NotFoundException("Conversation not found");
+        if (!convo) {
+            throw new common_1.NotFoundException(this.i18n.translate("chat.conversation_not_found", { lang: this.lang }));
+        }
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
@@ -110,8 +121,9 @@ let ChatService = class ChatService {
     async markAsRead(conversationId, userId) {
         await this.userService.findUserById(userId);
         const convo = await this.conversationModel.findById(conversationId);
-        if (!convo)
-            throw new common_1.NotFoundException("Conversation not found");
+        if (!convo) {
+            throw new common_1.NotFoundException(this.i18n.translate("chat.conversation_not_found", { lang: this.lang }));
+        }
         await this.messageModel.updateMany({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),
             receiver: new mongoose_2.Types.ObjectId(userId),
@@ -166,37 +178,6 @@ let ChatService = class ChatService {
             },
         };
     }
-    async broadcastMessageToNearbySellers(buyerId, location, radiusInKm, messageText) {
-        await this.userService.findUserById(buyerId);
-        const radiusInMeters = radiusInKm * 1000;
-        const nearbyShops = await this.shopService.findShopsNearLocation(location, radiusInMeters);
-        if (!nearbyShops.length) {
-            return { message: "No nearby sellers found", count: 0 };
-        }
-        const sellerIds = nearbyShops.map((shop) => shop.ownerId.toString());
-        const convoPromises = sellerIds.map((sellerId) => this.getOrCreateConversation(buyerId, sellerId));
-        const convoResults = await Promise.allSettled(convoPromises);
-        const messagePromises = convoResults
-            .map((result, idx) => {
-            if (result.status === "fulfilled") {
-                const convo = result.value;
-                return this.sendMessage(convo._id.toString(), buyerId, sellerIds[idx], messageText);
-            }
-            return null;
-        })
-            .filter(Boolean);
-        const messageResults = await Promise.allSettled(messagePromises);
-        return {
-            message: "Broadcast complete",
-            data: {
-                totalTargets: sellerIds.length,
-                successfulMessages: messageResults.filter((r) => r.status === "fulfilled").length,
-                failedMessages: messageResults.filter((r) => r.status === "rejected")
-                    .length,
-                detailedResults: messageResults,
-            },
-        };
-    }
 };
 exports.ChatService = ChatService;
 exports.ChatService = ChatService = __decorate([
@@ -206,6 +187,8 @@ exports.ChatService = ChatService = __decorate([
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         users_service_1.UsersService,
-        shop_service_1.ShopService])
+        shop_service_1.ShopService,
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map

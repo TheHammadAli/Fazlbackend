@@ -8,6 +8,7 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import { Service, ServiceDocument } from "./schema/services.schema";
 import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { CreateServiceDto } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
@@ -25,6 +26,7 @@ import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { CreateRequestDto } from "./dto/create-request-dto";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { ClsService } from "nestjs-cls";
 
 @Injectable()
 export class ServicesService {
@@ -38,31 +40,59 @@ export class ServicesService {
     private readonly fileUploadService: FileUploadService,
     @InjectModel(ServiceRequest.name)
     private readonly requestModel: Model<ServiceRequestDocument>,
+    private readonly i18n: I18nService,
+    private readonly cls: ClsService,
   ) {}
 
-  async create(userId: string, dto: CreateServiceDto): Promise<Service> {
+  private get lang(): string {
+    return this.cls?.get("lang") ?? "en";
+  }
+
+  async create(
+    userId: string,
+    dto: CreateServiceDto,
+    lang: string = "en",
+  ): Promise<Service> {
     const user = await this.userService.findUserById(userId);
     if (!user) {
-      throw new NotFoundException("user not found");
+      throw new NotFoundException(
+        this.i18n.translate("services.user_not_found", { lang: this.lang }),
+      );
     }
     const existingService = await this.serviceModel.findOne({
       ownerId: user._id,
     });
     if (existingService) {
-      throw new BadRequestException("User already has a service");
+      throw new BadRequestException(
+        this.i18n.translate("services.user_duplicate_service", {
+          lang: this.lang,
+        }),
+      );
     }
     if (
       !user.location ||
       !user.location.coordinates ||
       user.location.coordinates.length !== 2
     ) {
-      throw new BadRequestException("User location is missing");
+      throw new BadRequestException(
+        this.i18n.translate("services.user_location_missing", {
+          lang: this.lang,
+        }),
+      );
     }
     let images: string[] = [];
     let imageFiles: Express.Multer.File[] = [];
     let videoFiles: Express.Multer.File[] = [];
     if (dto.images) {
       imageFiles = dto.images as Express.Multer.File[];
+    }
+
+    if (imageFiles.length > 5) {
+      throw new BadRequestException(
+        this.i18n.translate("services.media_limit_exceeded", {
+          lang: this.lang,
+        }),
+      );
     }
     if (dto.video) {
       videoFiles = dto.video as Express.Multer.File[];
@@ -154,7 +184,9 @@ export class ServicesService {
       .populate("category");
 
     if (!updated) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
     }
     console.log("Updated Service:", video);
     return { ...dto, images, video }; // Ensure the images and video are included in the returned object
@@ -163,7 +195,10 @@ export class ServicesService {
   async delete(serviceId: string): Promise<void> {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
-      throw new NotFoundException("Service not found"); // Ensure the service exists before attempting to delete
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
+      // Ensure the service exists before attempting to delete
     }
     const media = [...existingService.images, existingService.video];
     if (media && media.length > 0) {
@@ -171,17 +206,23 @@ export class ServicesService {
     }
     const result = await this.serviceModel.findByIdAndDelete(serviceId);
     if (!result) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
     }
   }
 
   async deleteServiceMedia(serviceId: string, media: string[]) {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
-      throw new NotFoundException("Product not found");
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
     }
     if (!media || media.length === 0) {
-      throw new BadRequestException("No media files provided for deletion");
+      throw new BadRequestException(
+        this.i18n.translate("services.no_media_provided", { lang: this.lang }),
+      );
     }
 
     // Remove media files from storage
@@ -213,7 +254,9 @@ export class ServicesService {
       .populate("category");
 
     if (!service) {
-      throw new NotFoundException("Service not found");
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
     }
 
     return service;
@@ -310,7 +353,9 @@ export class ServicesService {
       : null;
 
     if (customerId && !customer)
-      throw new NotFoundException("Customer not found");
+      throw new NotFoundException(
+        this.i18n.translate("services.customer_not_found", { lang: this.lang }),
+      );
 
     // --- Creation Flow ---
 
@@ -321,7 +366,10 @@ export class ServicesService {
     }
 
     const service = await this.serviceModel.findById(serviceId);
-    if (!service) throw new NotFoundException("Service not found");
+    if (!service)
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
 
     const request = new this.requestModel({
       service: new Types.ObjectId(serviceId),
@@ -348,7 +396,10 @@ export class ServicesService {
       .populate("customer")
       .populate("provider");
 
-    if (!request) throw new NotFoundException("Request not found");
+    if (!request)
+      throw new NotFoundException(
+        this.i18n.translate("services.request_not_found", { lang: this.lang }),
+      );
 
     // ✅ Safely extract service name (avoid using full object)
     const serviceName = (request.service as any)?.title || "service";
@@ -383,12 +434,17 @@ export class ServicesService {
 
       case "propose":
         if (!proposedDateTime) {
-          throw new BadRequestException("Proposed date is required");
+          throw new BadRequestException(
+  this.i18n.translate("services.proposed_date_required", { lang: this.lang }),
+);
         }
 
         const parsedDate = new Date(proposedDateTime);
         if (isNaN(parsedDate.getTime())) {
-          throw new BadRequestException("Invalid proposed date");
+        throw new BadRequestException(
+  this.i18n.translate("services.invalid_proposed_date", { lang: this.lang }),
+);
+
         }
 
         request.status = "proposed";
@@ -401,13 +457,15 @@ export class ServicesService {
         break;
 
       default:
-        throw new BadRequestException(`Unsupported action: ${action}`);
+       throw new BadRequestException(
+  this.i18n.translate("services.unsupported_action", { lang: this.lang }),
+);
     }
 
     await request.save();
     return {
       status: 201,
-      message: "Status updated successfully",
+      message: this.i18n.translate("services.request_status_updated", { lang: this.lang }),
       data: {
         requestId,
       },
@@ -432,7 +490,10 @@ export class ServicesService {
         break;
 
       default:
-        throw new BadRequestException(`Unsupported job action: ${action}`);
+        
+throw new BadRequestException(
+  this.i18n.translate("services.unsupported_job_action", { lang: this.lang }),
+);
     }
 
     return request.save();
@@ -469,7 +530,9 @@ export class ServicesService {
     ]);
 
     if (!requests || requests.length === 0) {
-      throw new NotFoundException("No service requests found for this user");
+     throw new NotFoundException(
+  this.i18n.translate("services.no_requests_found", { lang: this.lang }),
+);
     }
     return {
       meta: {
@@ -485,10 +548,14 @@ export class ServicesService {
   async deleteAllServiceMedia(serviceId: string, media: string[]) {
     const service = await this.serviceModel.findById(serviceId);
     if (!service) {
-      throw new NotFoundException("Service not found");
+     throw new NotFoundException(
+  this.i18n.translate("services.service_not_found", { lang: this.lang }),
+);
     }
     if (!media || media.length === 0) {
-      throw new BadRequestException("No media files provided for deletion");
+     throw new BadRequestException(
+  this.i18n.translate("services.no_media_provided", { lang: this.lang }),
+);
     }
 
     // Remove media files from storage
@@ -510,7 +577,10 @@ export class ServicesService {
     service.images = images;
     service.video = video;
     await service.save();
-    return { message: "Selected service media deleted successfully" };
+   return {
+  message: this.i18n.translate("services.media_deleted_success", {
+    lang: this.lang,
+  })}
   }
 
   async getServicesWithVideos(

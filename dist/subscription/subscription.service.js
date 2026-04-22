@@ -16,11 +16,14 @@ exports.SubscriptionService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const subscription_schema_1 = require("./schema/subscription-schema");
 let SubscriptionService = class SubscriptionService {
     subscriptionModel;
-    constructor(subscriptionModel) {
+    i18n;
+    constructor(subscriptionModel, i18n) {
         this.subscriptionModel = subscriptionModel;
+        this.i18n = i18n;
     }
     async create(dto) {
         return this.subscriptionModel.create(dto);
@@ -30,32 +33,35 @@ let SubscriptionService = class SubscriptionService {
     }
     async findById(id) {
         if (!mongoose_2.Types.ObjectId.isValid(id))
-            throw new common_1.BadRequestException('Invalid subscription ID');
+            throw new common_1.BadRequestException("Invalid subscription ID");
         const sub = await this.subscriptionModel.findById(id);
         if (!sub)
-            throw new common_1.NotFoundException('Subscription not found');
+            throw new common_1.NotFoundException("Subscription not found");
         return sub;
     }
     async update(id, dto) {
         if (!mongoose_2.Types.ObjectId.isValid(id))
-            throw new common_1.BadRequestException('Invalid subscription ID');
-        const updated = await this.subscriptionModel.findByIdAndUpdate(id, dto, { new: true });
+            throw new common_1.BadRequestException("Invalid subscription ID");
+        const updated = await this.subscriptionModel.findByIdAndUpdate(id, dto, {
+            new: true,
+        });
         if (!updated)
-            throw new common_1.NotFoundException('Subscription not found');
+            throw new common_1.NotFoundException("Subscription not found");
         return updated;
     }
     async delete(id) {
         if (!mongoose_2.Types.ObjectId.isValid(id))
-            throw new common_1.BadRequestException('Invalid subscription ID');
+            throw new common_1.BadRequestException("Invalid subscription ID");
         const result = await this.subscriptionModel.findByIdAndDelete(id);
         if (!result)
-            throw new common_1.NotFoundException('Subscription not found');
+            throw new common_1.NotFoundException("Subscription not found");
     }
 };
 exports.SubscriptionService = SubscriptionService;
 exports.SubscriptionService = SubscriptionService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(subscription_schema_1.Subscription.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        nestjs_i18n_1.I18nService])
 ], SubscriptionService);
 //# sourceMappingURL=subscription.service.js.map

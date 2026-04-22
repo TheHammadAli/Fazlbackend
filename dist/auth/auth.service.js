@@ -23,41 +23,46 @@ const config_1 = require("@nestjs/config");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const crypto = require("crypto");
 const google_auth_library_1 = require("google-auth-library");
+const nestjs_cls_1 = require("nestjs-cls");
 let AuthService = class AuthService {
     otpModel;
     userService;
     jwtService;
     configService;
     i18n;
+    cls;
     twilioClient;
     googleClient;
     audience;
-    constructor(otpModel, userService, jwtService, configService, i18n) {
+    lang = "en";
+    constructor(otpModel, userService, jwtService, configService, i18n, cls) {
         this.otpModel = otpModel;
         this.userService = userService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.i18n = i18n;
+        this.cls = cls;
         this.googleClient = new google_auth_library_1.OAuth2Client();
+        this.lang = this.cls.get("lang") || "en";
     }
-    async loginUser(loginDto, lang = 'en') {
+    async loginUser(loginDto, lang = "en") {
         console.log("Check for language", lang);
         const user = await this.userService.validateUserForLogin(loginDto.email, loginDto.password);
         if (!user) {
-            throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.invalid_credentials', { lang }));
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.invalid_credentials", { lang }));
         }
         const payload = {
             sub: user.id,
             email: user.email,
             roles: user.roles,
             location: user.location,
-            image: user.image
+            image: user.image,
         };
         const accessToken = this.jwtService.sign(payload, {
-            expiresIn: '1h',
+            expiresIn: "1h",
         });
         const refreshToken = this.jwtService.sign(payload, {
-            expiresIn: '3d',
+            expiresIn: "3d",
         });
         await this.userService.updateUser(user.id, { refreshToken });
         return {
@@ -70,34 +75,35 @@ let AuthService = class AuthService {
         try {
             const payload = this.jwtService.verify(refreshToken.token);
             const user = await this.userService.findByIdWithToken(payload.sub);
-            console.log('User', user);
+            console.log("User", user);
             if (!user || user.refreshToken !== refreshToken.token) {
-                throw new common_1.UnauthorizedException('Refresh token is invalid or expired');
+                throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.refresh_token_invalid", { lang: this.lang }));
             }
             const newPayload = {
                 sub: user._id,
                 email: user.email,
                 roles: user.roles,
                 location: user.location,
-                image: user.image
+                image: user.image,
             };
             const newAccessToken = this.jwtService.sign(newPayload, {
-                expiresIn: '1h',
+                expiresIn: "1h",
             });
             const newRefreshToken = this.jwtService.sign(newPayload, {
-                expiresIn: '3d',
+                expiresIn: "3d",
             });
             await this.userService.updateUser(user.id, {
                 refreshToken: newRefreshToken,
             });
             return {
+                message: this.i18n.translate("auth.auth.refresh_token_success", { lang: this.lang }),
                 accessToken: newAccessToken,
                 user,
                 refreshToken: refreshToken.token,
             };
         }
         catch (err) {
-            throw new common_1.UnauthorizedException('Invalid refresh token');
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.refresh_token_invalid", { lang: this.lang }));
         }
     }
     async logout(refreshToken) {
@@ -107,10 +113,10 @@ let AuthService = class AuthService {
             if (!user)
                 throw new common_1.UnauthorizedException();
             await this.userService.updateUser(user.id, { refreshToken: null });
-            return { message: 'Logged out successfully' };
+            return { message: this.i18n.translate("auth.auth.logout_success", { lang: this.lang }) };
         }
         catch {
-            throw new common_1.UnauthorizedException('Invalid refresh token');
+            throw new common_1.UnauthorizedException("Invalid refresh token");
         }
     }
     async sendOtp(phoneNumber) {
@@ -119,45 +125,56 @@ let AuthService = class AuthService {
             phoneNumber,
             code: otpCode,
             createdAt: new Date(),
-            type: 'phone',
+            type: "phone",
             expiresAt: new Date(Date.now() + 5 * 60 * 1000),
         }, { upsert: true, new: true });
     }
-    async sendEmailVerificationLink(email, lang = 'en') {
-        const token = crypto.randomBytes(32).toString('hex');
+    async sendEmailVerificationLink(email, lang = "en") {
+        const token = crypto.randomBytes(32).toString("hex");
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        await this.otpModel.findOneAndUpdate({ email, type: 'email_verification' }, {
+        await this.otpModel.findOneAndUpdate({ email, type: "email_verification" }, {
             email,
             code: token,
-            type: 'email_verification',
+            type: "email_verification",
             createdAt: new Date(),
             expiresAt: expires,
         }, { upsert: true, new: true });
         return {
             data: token,
+            message: this.i18n.translate("auth.auth.verification_email_sent", { lang: this.lang }),
         };
     }
     async verifyEmailToken(token) {
-        console.log('Verifying email token:', token);
-        const record = await this.otpModel.findOne({ code: token, type: 'email_verification' });
-        console.log('Record', record);
+        console.log("Verifying email token:", token);
+        const record = await this.otpModel.findOne({
+            code: token,
+            type: "email_verification",
+        });
+        console.log("Record", record);
         if (!record) {
-            throw new common_1.UnauthorizedException('Invalid or expired verification token');
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.google_verification_failed", { lang: this.lang }));
         }
         const isExpired = (record.expiresAt && record.expiresAt < new Date()) ||
-            (record.createdAt && (new Date().getTime() - new Date(record.createdAt).getTime() > 24 * 60 * 60 * 1000));
+            (record.createdAt &&
+                new Date().getTime() - new Date(record.createdAt).getTime() >
+                    24 * 60 * 60 * 1000);
         if (isExpired) {
-            await this.otpModel.deleteOne({ code: token, type: 'email_verification' });
-            throw new common_1.UnauthorizedException('Verification token has expired');
+            await this.otpModel.deleteOne({
+                code: token,
+                type: "email_verification",
+            });
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.verification_token_expired", { lang: this.lang }));
         }
-        await this.otpModel.deleteOne({ code: token, type: 'email_verification' });
-        return { email: record.email, message: 'Email verified successfully' };
+        await this.otpModel.deleteOne({ code: token, type: "email_verification" });
+        return { email: record.email, message: this.i18n.translate("auth.auth.email_verified", { lang: this.lang }) };
     }
     async verifyOtp(phoneNumber, code) {
+        const lang = this.cls.get("lang") || "en";
         const record = await this.otpModel.findOne({ phoneNumber });
         if (!record)
             return false;
-        const isExpired = new Date().getTime() - new Date(record.createdAt).getTime() > 5 * 60 * 1000;
+        const isExpired = new Date().getTime() - new Date(record.createdAt).getTime() >
+            5 * 60 * 1000;
         if (isExpired) {
             await this.otpModel.deleteOne({ phoneNumber });
             return false;
@@ -168,11 +185,11 @@ let AuthService = class AuthService {
         }
         return isValid;
     }
-    async sendForgotPasswordEmail(email, lang = 'en') {
+    async sendForgotPasswordEmail(email, lang = "en") {
         const user = await this.userService.findUserByEmail(email);
         console.log("User found for forgot password:", user);
         if (!user) {
-            throw new common_1.UnauthorizedException(this.i18n.translate('auth.auth.email_not_found', { lang }));
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.email_not_found", { lang }));
         }
         const token = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 60 * 60 * 1000);
@@ -180,15 +197,18 @@ let AuthService = class AuthService {
             resetPasswordToken: token,
             resetPasswordExpires: expires,
         });
-        return { message: this.i18n.translate('auth.auth.reset_link_sent', { lang }), data: token };
+        return {
+            message: this.i18n.translate("auth.auth.reset_link_sent", { lang }),
+            data: token,
+        };
     }
     async verifyResetPasswordToken(token) {
         const user = await this.userService.findByResetToken(token);
         if (!user) {
-            throw new common_1.UnauthorizedException('Invalid or expired reset token');
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.invalid_reset_token", { lang: this.lang }));
         }
         if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
-            throw new common_1.UnauthorizedException('Reset token has expired');
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.reset_token_expired", { lang: this.lang }));
         }
         return user;
     }
@@ -199,68 +219,84 @@ let AuthService = class AuthService {
             resetPasswordToken: null,
             resetPasswordExpires: null,
         });
-        return { message: 'Password reset successful' };
+        return { message: this.i18n.translate("auth.auth.password_reset_success", { lang: this.lang }) };
     }
     async findOrCreateUserByEmail(payload) {
-        console.log('Finding or creating user with payload:', payload);
+        console.log("Finding or creating user with payload:", payload);
         let user = await this.userService.findUserByEmail(payload.email);
         let returnPayload = {};
         if (!user) {
             const newUser = (await this.userService.createUser({
                 email: payload.email,
-                provider: 'google',
-                password: '',
-                name: payload.firstName && payload.lastName ? `${payload.firstName} ${payload.lastName}` : payload.name ? payload.name : "",
-                address: '',
-                roles: ['buyer'],
-                language: 'en',
+                provider: "google",
+                password: "",
+                name: payload.firstName && payload.lastName
+                    ? `${payload.firstName} ${payload.lastName}`
+                    : payload.name
+                        ? payload.name
+                        : "",
+                address: "",
+                roles: ["buyer"],
+                language: "en",
                 isVerified: false,
                 location: {
-                    type: 'Point',
+                    type: "Point",
                     coordinates: [0, 0],
                 },
                 image: null,
             }));
-            returnPayload = { sub: newUser._id, email: newUser.email, roles: newUser.roles, location: newUser.location, image: newUser.image };
+            returnPayload = {
+                sub: newUser._id,
+                email: newUser.email,
+                roles: newUser.roles,
+                location: newUser.location,
+                image: newUser.image,
+            };
         }
         else {
             returnPayload = { ...user.toObject(), sub: user._id };
         }
         const accessToken = this.jwtService.sign(returnPayload, {
-            expiresIn: '1h',
+            expiresIn: "1h",
         });
         return {
             accessToken,
-            ...returnPayload
+            ...returnPayload,
         };
     }
     createJwtToken(payload) {
         return this.jwtService.sign(payload, {
-            expiresIn: '10h',
+            expiresIn: "10h",
         });
     }
     async verifyGoogleToken(idToken) {
-        console.log('Verifying Google ID token:', idToken, this.configService.get('GOOGLE_CLIENT_ID'));
+        console.log("Verifying Google ID token:", idToken, this.configService.get("GOOGLE_CLIENT_ID"));
         try {
             const ticket = await this.googleClient.verifyIdToken({
                 idToken,
                 audience: [
-                    this.configService.get('GOOGLE_CLIENT_ID'),
-                    this.configService.get('GOOGLE_CLIENT_ID_ANDROID'),
-                    this.configService.get('GOOGLE_CLIENT_ID_IOS'),
+                    this.configService.get("GOOGLE_CLIENT_ID"),
+                    this.configService.get("GOOGLE_CLIENT_ID_ANDROID"),
+                    this.configService.get("GOOGLE_CLIENT_ID_IOS"),
                 ].filter((value) => Boolean(value)),
             });
             let payload = ticket.getPayload();
             if (!payload) {
-                throw new common_1.UnauthorizedException('Invalid Google token');
+                throw new common_1.UnauthorizedException("Invalid Google token");
             }
-            console.log('Google token payload:', payload);
-            const user = await this.findOrCreateUserByEmail({ sub: payload['sub'], email: payload['email'], firstName: payload['given_name'], lastName: payload['family_name'], name: payload['name'] });
+            console.log("Google token payload:", payload);
+            const user = await this.findOrCreateUserByEmail({
+                sub: payload["sub"],
+                email: payload["email"],
+                firstName: payload["given_name"],
+                lastName: payload["family_name"],
+                name: payload["name"],
+            });
             return { user, accessToken: user.accessToken };
         }
         catch (err) {
-            console.error('Error verifying Google ID token:', err);
-            throw new common_1.UnauthorizedException('Google token verification failed');
+            console.error("Error verifying Google ID token:", err);
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.google_verification_failed", { lang: this.lang }));
         }
     }
 };
@@ -272,6 +308,7 @@ exports.AuthService = AuthService = __decorate([
         users_service_1.UsersService,
         jwt_1.JwtService,
         config_1.ConfigService,
-        nestjs_i18n_1.I18nService])
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

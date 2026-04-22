@@ -1,4 +1,5 @@
 import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { Broadcast } from "./schema/broadcast.schema";
 import { BroadcastMessage } from "./schema/broadcast-message.schema";
 import { BroadcastThread } from "./schema/broadcast-thread.schema";
@@ -14,7 +15,8 @@ export declare class BroadcastService {
     private readonly shopService;
     private readonly categoryService;
     private readonly userService;
-    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService);
+    private readonly i18n;
+    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, i18n: I18nService);
     private createBroadcast;
     private findNearbySellers;
     private findCategorybyId;
@@ -22,11 +24,11 @@ export declare class BroadcastService {
     createBroadcastAndDispatch(dto: CreateBroadcastDto, buyerId: string, location: {
         type: string;
         coordinates: [number, number];
-    }): Promise<{
+    }, lang?: string): Promise<{
         message: string;
         data: string;
     }>;
-    sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string): Promise<import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
+    sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string, lang?: string): Promise<import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
         _id: Types.ObjectId;
     } & {
         __v: number;

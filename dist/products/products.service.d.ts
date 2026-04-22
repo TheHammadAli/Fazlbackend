@@ -1,4 +1,5 @@
 import { Model } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { Product, ProductDocument } from "./schema/product.schema";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -17,14 +18,15 @@ export declare class ProductsService {
     private readonly userService;
     private readonly fileUploadService;
     private promotionService;
-    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService);
-    create(entityId: string, type: "shop" | "personal", dto: CreateProductDto, userId: string): Promise<Product>;
+    private readonly i18n;
+    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService, i18n: I18nService);
+    create(entityId: string, type: "shop" | "personal", dto: CreateProductDto, userId: string, lang?: string): Promise<Product>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
-    getById(id: string): Promise<Product>;
-    update(productId: string, updateDto: UpdateProductDto): Promise<Product>;
-    delete(productId: string): Promise<void>;
-    deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
+    getById(id: string, lang?: string): Promise<Product>;
+    update(productId: string, updateDto: UpdateProductDto, lang?: string): Promise<Product>;
+    delete(productId: string, lang?: string): Promise<void>;
+    deleteProductMedia(productId: string, media: string[], lang?: string): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;
     updateLocationByShopId(shopId: string, location: {
         type: "Point";

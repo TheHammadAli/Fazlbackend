@@ -29,9 +29,11 @@ const subscription_module_1 = require("./subscription/subscription.module");
 const promotion_module_1 = require("./promotion/promotion.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const broadcast_module_1 = require("./broadcast/broadcast.module");
+const cls_module_1 = require("./core/cls/cls.module");
 const path = require("path");
-const isProduction = process.env.NODE_ENV === 'production';
-console.log(path.join(process.cwd(), 'src/i18n/'), 'isProduction:', isProduction);
+const language_interceptor_1 = require("./common/interceptors/language.interceptor");
+const isProduction = process.env.NODE_ENV === "production";
+console.log(path.join(process.cwd(), "src/i18n/"), "isProduction:", isProduction);
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -48,25 +50,26 @@ exports.AppModule = AppModule = __decorate([
                 ],
             }),
             nestjs_i18n_1.I18nModule.forRoot({
-                fallbackLanguage: 'en',
+                fallbackLanguage: "en",
                 loaderOptions: {
-                    path: path.join(process.cwd(), 'src/i18n/'),
+                    path: path.join(process.cwd(), "src/i18n/"),
                     watch: !isProduction,
                 },
                 resolvers: [
-                    { use: nestjs_i18n_1.QueryResolver, options: ['lang', 'locale', 'l'] },
+                    { use: nestjs_i18n_1.QueryResolver, options: ["lang", "locale", "l"] },
                     nestjs_i18n_1.AcceptLanguageResolver,
                 ],
             }),
             mongoose_1.MongooseModule.forRootAsync({
                 imports: [config_1.ConfigModule],
                 useFactory: async (configService) => ({
-                    uri: configService.get('MONGODB_URI'),
+                    uri: configService.get("MONGODB_URI"),
                 }),
                 inject: [config_1.ConfigService],
             }),
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
+            cls_module_1.ClsConfigModule,
             products_module_1.ProductsModule,
             services_module_1.ServicesModule,
             search_module_1.SearchModule,
@@ -79,10 +82,10 @@ exports.AppModule = AppModule = __decorate([
             subscription_module_1.SubscriptionModule,
             promotion_module_1.PromotionModule,
             notifications_module_1.NotificationsModule,
-            broadcast_module_1.BroadcastModule
+            broadcast_module_1.BroadcastModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService],
+        providers: [app_service_1.AppService, language_interceptor_1.LanguageInterceptor],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

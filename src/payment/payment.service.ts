@@ -1,17 +1,18 @@
 // src/payments/payment.service.ts
 
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Payment, PaymentDocument } from './schema/payment.schema';
-import { CreatePaymentDto } from './dto/create-payment.dto';
-import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
+import { Payment, PaymentDocument } from "./schema/payment.schema";
+import { CreatePaymentDto } from "./dto/create-payment.dto";
+import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 
 // Import dependent services instead of models
-import { UsersService } from '../users/users.service';
-import { ProductsService } from '../products/products.service';
-import { ServicesService } from '../services/services.service';
-import { create } from 'domain';
+import { UsersService } from "../users/users.service";
+import { ProductsService } from "../products/products.service";
+import { ServicesService } from "../services/services.service";
+import { create } from "domain";
 
 @Injectable()
 export class PaymentService {
@@ -20,25 +21,43 @@ export class PaymentService {
     private readonly userService: UsersService,
     private readonly productService: ProductsService,
     private readonly serviceService: ServicesService,
+    private readonly i18n: I18nService,
   ) {}
 
-  async initiatePayment(createDto: CreatePaymentDto): Promise<Payment> {
+  async initiatePayment(
+    createDto: CreatePaymentDto,
+    lang: string = "en",
+  ): Promise<Payment> {
     // ✅ Validate user
     const user = await this.userService.findUserById(createDto.userId);
-    if (!user) throw new NotFoundException('User not found');
+    if (!user)
+      throw new NotFoundException(
+        this.i18n.translate("payment.user_not_found", { lang }),
+      );
 
     // ✅ Validate item based on type
     switch (createDto.itemType) {
-      case 'product':
-        const product = await this.productService.getById(createDto.itemId);
-        if (!product) throw new NotFoundException('Product not found');
+      case "product":
+        const product = await this.productService.getById(
+          createDto.itemId,
+          lang,
+        );
+        if (!product)
+          throw new NotFoundException(
+            this.i18n.translate("payment.product_not_found", { lang }),
+          );
         break;
-      case 'service':
+      case "service":
         const service = await this.serviceService.getById(createDto.itemId);
-        if (!service) throw new NotFoundException('Service not found');
+        if (!service)
+          throw new NotFoundException(
+            this.i18n.translate("payment.service_not_found", { lang }),
+          );
         break;
       default:
-        throw new NotFoundException('Invalid itemType');
+        throw new NotFoundException(
+          this.i18n.translate("payment.invalid_item_type", { lang }),
+        );
     }
 
     // ✅ Create payment
@@ -47,8 +66,8 @@ export class PaymentService {
       itemId: new Types.ObjectId(createDto.itemId),
       itemType: createDto.itemType,
       amount: createDto.amount,
-      provider: 'easypaisa',
-      status: 'pending',
+      provider: "easypaisa",
+      status: "pending",
     });
 
     await payment.save();
@@ -67,10 +86,10 @@ export class PaymentService {
       transactionId: dto.transactionId,
     });
 
-    if (!payment) throw new NotFoundException('Transaction not found');
+    if (!payment) throw new NotFoundException("Transaction not found");
 
     payment.status = dto.status;
-    if (dto.status === 'success') {
+    if (dto.status === "success") {
       payment.paidAt = new Date();
     }
 
@@ -79,13 +98,13 @@ export class PaymentService {
 
   async findByTransactionId(txnId: string): Promise<Payment> {
     const payment = await this.paymentModel.findOne({ transactionId: txnId });
-    if (!payment) throw new NotFoundException('Payment not found');
+    if (!payment) throw new NotFoundException("Payment not found");
     return payment;
   }
 
   async markRefunded(id: string): Promise<Payment> {
     const payment = await this.paymentModel.findById(id);
-    if (!payment) throw new NotFoundException('Payment not found');
+    if (!payment) throw new NotFoundException("Payment not found");
 
     payment.isRefunded = true;
     payment.refundDate = new Date();
@@ -97,7 +116,7 @@ export class PaymentService {
     paymentUrl: string;
   }> {
     return {
-      transactionId: 'EZP-' + Date.now(),
+      transactionId: "EZP-" + Date.now(),
       paymentUrl: `https://easypaisa.mock/redirect/${payment._id}`,
     };
   }

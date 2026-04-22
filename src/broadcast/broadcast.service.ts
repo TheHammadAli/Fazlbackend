@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 
 import { Broadcast } from "./schema/broadcast.schema";
 import { BroadcastMessage } from "./schema/broadcast-message.schema";
@@ -32,6 +33,7 @@ export class BroadcastService {
     private readonly shopService: ShopService,
     private readonly categoryService: CategoryService,
     private readonly userService: UsersService,
+    private readonly i18n: I18nService,
   ) {}
 
   // -----------------------------
@@ -120,11 +122,14 @@ export class BroadcastService {
     dto: CreateBroadcastDto,
     buyerId: string,
     location: { type: string; coordinates: [number, number] },
+    lang: string = "en",
   ) {
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
     if (!isCategoryValid) {
-      throw new BadRequestException("Category Invalid");
+      throw new BadRequestException(
+        this.i18n.translate("broadcast.category_invalid", { lang }),
+      );
     }
 
     let sellerIds = await this.findNearbySellers(location, dto.radius);
@@ -133,7 +138,9 @@ export class BroadcastService {
     );
 
     if (!sellerIds.length) {
-      throw new BadRequestException("No sellers found in given radius");
+      throw new BadRequestException(
+        this.i18n.translate("broadcast.no_sellers_found", { lang }),
+      );
     }
 
     const broadcast = await this.createBroadcast(dto, buyerId, location);
@@ -158,7 +165,7 @@ export class BroadcastService {
     await this.messageModel.insertMany(initialMessages);
 
     return {
-      message: "Broadcast created and dispatched successfully",
+      message: this.i18n.translate("broadcast.created_success", { lang }),
       data: broadcast._id.toString(),
     };
   }
@@ -172,13 +179,16 @@ export class BroadcastService {
     receiverId: string,
     threadId: string,
     message: string,
+    lang: string = "en",
   ) {
     const broadcastObjectId = new Types.ObjectId(broadcastId);
 
     // 1. Validate broadcast
     const broadcast = await this.broadcastModel.findById(broadcastObjectId);
     if (!broadcast) {
-      throw new NotFoundException("Broadcast not found");
+      throw new NotFoundException(
+        this.i18n.translate("broadcast.broadcast_not_found", { lang }),
+      );
     }
 
     // 2. Validate users
@@ -188,19 +198,25 @@ export class BroadcastService {
     ]);
 
     if (!sender || !receiver) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        this.i18n.translate("products.user_not_found", { lang }),
+      );
     }
 
     // 3. Validate thread (SOURCE OF TRUTH)
     const thread = await this.threadModel.findById(threadId);
 
     if (!thread) {
-      throw new NotFoundException("Thread not found");
+      throw new NotFoundException(
+        this.i18n.translate("broadcast.thread_not_found", { lang }),
+      );
     }
 
     // 4. Ensure thread belongs to broadcast
     if (thread.broadcast.toString() !== broadcastId) {
-      throw new BadRequestException("Thread does not belong to broadcast");
+      throw new BadRequestException(
+        this.i18n.translate("broadcast.thread_invalid", { lang }),
+      );
     }
 
     // 5. Validate sender is participant
@@ -209,7 +225,9 @@ export class BroadcastService {
       thread.seller.toString() === senderId;
 
     if (!isParticipant) {
-      throw new BadRequestException("Sender not part of thread");
+      throw new BadRequestException(
+        this.i18n.translate("broadcast.sender_not_in_thread", { lang }),
+      );
     }
 
     // 6. Validate receiver is participant
@@ -218,7 +236,9 @@ export class BroadcastService {
       thread.seller.toString() === receiverId;
 
     if (!isValidReceiver) {
-      throw new BadRequestException("Invalid receiver for thread");
+      throw new BadRequestException(
+        this.i18n.translate("broadcast.receiver_invalid", { lang }),
+      );
     }
 
     // 7. Create message
@@ -313,12 +333,12 @@ export class BroadcastService {
     ]);
 
     const broadcastIds = threads.map((thread) => thread.broadcast);
-   const threadMap = new Map(
-  threads.map((thread: any) => [
-    thread.broadcast.toString(),
-    (thread._id as Types.ObjectId).toString(),
-  ]),
-);
+    const threadMap = new Map(
+      threads.map((thread: any) => [
+        thread.broadcast.toString(),
+        (thread._id as Types.ObjectId).toString(),
+      ]),
+    );
 
     const data = await this.broadcastModel
       .find({ _id: { $in: broadcastIds } })
@@ -326,17 +346,17 @@ export class BroadcastService {
       .exec();
 
     // Maintain order and add threadId
-    const broadcastIdOrder = threads.map((thread) => thread.broadcast.toString());
-   const dataMap = new Map(
-  data.map((b) => [b._id.toString(), b]),
-);
-   const orderedData = broadcastIdOrder
-  .map((id) => dataMap.get(id))
- .filter((b): b is NonNullable<typeof b> => b != null)
-  .map((broadcast) => ({
-    ...broadcast.toObject(),
-    threadId: threadMap.get(broadcast._id.toString()),
-  }));
+    const broadcastIdOrder = threads.map((thread) =>
+      thread.broadcast.toString(),
+    );
+    const dataMap = new Map(data.map((b) => [b._id.toString(), b]));
+    const orderedData = broadcastIdOrder
+      .map((id) => dataMap.get(id))
+      .filter((b): b is NonNullable<typeof b> => b != null)
+      .map((broadcast) => ({
+        ...broadcast.toObject(),
+        threadId: threadMap.get(broadcast._id.toString()),
+      }));
 
     return {
       meta: {

@@ -3,15 +3,17 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Shop, ShopDocument } from './schema/shop.schema';
-import { CreateUpdateShopDto } from './dto/create-update-shop.dto';
-import { ProductsService } from 'src/products/products.service';
-import { ServicesService } from 'src/services/services.service';
-import { UsersService } from 'src/users/users.service';
-import { FileUploadService } from 'src/common/file-upload/file-upload.service';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
+import { Shop, ShopDocument } from "./schema/shop.schema";
+import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
+import { ProductsService } from "src/products/products.service";
+import { ServicesService } from "src/services/services.service";
+import { UsersService } from "src/users/users.service";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { ClsService } from "nestjs-cls";
 
 @Injectable()
 export class ShopService {
@@ -23,16 +25,24 @@ export class ShopService {
     private readonly fileUploadService: FileUploadService,
     @Inject(forwardRef(() => ServicesService))
     private readonly servicesService: ServicesService,
-  ) { }
-
+    private readonly i18n: I18nService,
+    private readonly cls: ClsService,
+  ) {}
+private get lang(): string {
+  return this.cls?.get('lang') ?? 'en';
+}
   async createShop(
     ownerId: Types.ObjectId,
     dto: CreateUpdateShopDto,
+    lang: string = "en",
   ) {
-
-    const existingUser = await this.usersService.findUserById(ownerId.toString());
+    const existingUser = await this.usersService.findUserById(
+      ownerId.toString(),
+    );
     if (!existingUser) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(
+        this.i18n.translate("shop.user_not_found", { lang }),
+      );
     }
     let image: Express.Multer.File = {} as Express.Multer.File;
     if (dto.image) {
@@ -46,42 +56,62 @@ export class ShopService {
 
     const results = await shop.save();
     if (dto.image) {
-      const imageUrl = await this.fileUploadService.uploadShopImage(results._id as unknown as string, image);
+      const imageUrl = await this.fileUploadService.uploadShopImage(
+        results._id as unknown as string,
+        image,
+      );
       results.image = imageUrl; // Ensure the image is stored as a filename
     }
     await results.save(); // Save the shop again to update the image field
     return results.toJSON();
   }
 
-  async updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<Shop> {
+  async updateShop(
+    shopId: string,
+    dto: CreateUpdateShopDto,
+    
+  ): Promise<Shop> {
     const { ...safeDto } = dto as any;
     const existingShop = await this.shopModel.findById(shopId);
     if (!existingShop) {
-      throw new NotFoundException('Shop not found');
+      throw new NotFoundException(
+        this.i18n.translate("shop.shop_not_found", { lang:this.lang }),
+      );
     }
 
     if (dto.image) {
-      const imageUrl = await this.fileUploadService.uploadShopImage(shopId, dto.image)
+      const imageUrl = await this.fileUploadService.uploadShopImage(
+        shopId,
+        dto.image,
+      );
       safeDto.image = imageUrl; // Ensure the image is stored as a filename}
     }
-    const updated = await this.shopModel.findByIdAndUpdate(
-      shopId,
-      { ...safeDto },
-    );
+    const updated = await this.shopModel.findByIdAndUpdate(shopId, {
+      ...safeDto,
+    });
 
     if (dto.location) {
       this.productsService.updateLocationByShopId(shopId, dto.location);
     }
     if (!updated) {
-      throw new NotFoundException('Shop not found');
+      throw new NotFoundException(
+        this.i18n.translate("shop.shop_not_found", { lang:this.lang }),
+      );
     }
     return safeDto;
   }
 
-  async getShopById(shopId: string): Promise<ShopDocument> {
-    const shop = await this.shopModel.findById(shopId).populate('ownerId', 'name email');
+  async getShopById(
+    shopId: string,
+    lang: string = "en",
+  ): Promise<ShopDocument> {
+    const shop = await this.shopModel
+      .findById(shopId)
+      .populate("ownerId", "name email");
     if (!shop) {
-      throw new NotFoundException('Shop not found');
+      throw new NotFoundException(
+        this.i18n.translate("shop.shop_not_found", { lang }),
+      );
     }
     return shop;
   }
@@ -96,7 +126,7 @@ export class ShopService {
       location: {
         $near: {
           $geometry: {
-            type: 'Point',
+            type: "Point",
             coordinates: location,
           },
           $maxDistance: radiusInMeters,

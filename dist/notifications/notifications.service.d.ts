@@ -1,21 +1,26 @@
 import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { Notification } from "./schema/notifications.schema";
 import { UsersService } from "src/users/users.service";
 import { Server } from "socket.io";
 import { FirebaseService } from "./firebase.service";
+import { ClsService } from "nestjs-cls";
 export declare class NotificationsService {
     private notificationModel;
     private readonly usersService;
     private readonly firebaseService;
+    private readonly i18n;
+    private readonly cls;
     private server;
-    constructor(notificationModel: Model<Notification>, usersService: UsersService, firebaseService: FirebaseService);
+    constructor(notificationModel: Model<Notification>, usersService: UsersService, firebaseService: FirebaseService, i18n: I18nService, cls: ClsService);
+    private get lang();
     setServer(server: Server): void;
     create(userId: string | Types.ObjectId, message: string, type?: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST"): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>;
-    createAndNotify(userId: string | Types.ObjectId, message: string, type?: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST"): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
+    createAndNotify(userId: string | Types.ObjectId, messageKey: string, type?: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST", params?: Record<string, any>): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {
         __v: number;

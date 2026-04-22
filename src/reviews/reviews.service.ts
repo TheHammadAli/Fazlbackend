@@ -7,21 +7,30 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { Review, ReviewDocument } from "./schema/review.schema";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { QueryReviewDto } from "./dto/query-review.dto";
-
+import { ClsService } from "nestjs-cls";
 @Injectable()
 export class ReviewService {
   constructor(
     @InjectModel(Review.name)
     private readonly reviewModel: Model<ReviewDocument>,
+    private readonly i18n: I18nService,
+    private readonly cls: ClsService,
   ) {}
 
+  private get lang(): string {
+    return this.cls.get("lang") || "en";
+  }
   /**
    * Create a new review. Ensures only one review per user per item.
    */
-  async createReview(dto: CreateReviewDto): Promise<Review> {
+  async createReview(
+    dto: CreateReviewDto,
+    lang: string = "en",
+  ): Promise<Review> {
     const userId = new Types.ObjectId(dto.userId);
     const itemId = new Types.ObjectId(dto.itemId);
 
@@ -32,7 +41,9 @@ export class ReviewService {
     });
 
     if (existing) {
-      throw new BadRequestException("You have already reviewed this item.");
+      throw new BadRequestException(
+        this.i18n.translate("reviews.duplicate_review", { lang }),
+      );
     }
 
     const review = new this.reviewModel({

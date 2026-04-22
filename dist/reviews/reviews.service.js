@@ -16,13 +16,22 @@ exports.ReviewService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const review_schema_1 = require("./schema/review.schema");
+const nestjs_cls_1 = require("nestjs-cls");
 let ReviewService = class ReviewService {
     reviewModel;
-    constructor(reviewModel) {
+    i18n;
+    cls;
+    constructor(reviewModel, i18n, cls) {
         this.reviewModel = reviewModel;
+        this.i18n = i18n;
+        this.cls = cls;
     }
-    async createReview(dto) {
+    get lang() {
+        return this.cls.get("lang") || "en";
+    }
+    async createReview(dto, lang = "en") {
         const userId = new mongoose_2.Types.ObjectId(dto.userId);
         const itemId = new mongoose_2.Types.ObjectId(dto.itemId);
         const existing = await this.reviewModel.findOne({
@@ -31,7 +40,7 @@ let ReviewService = class ReviewService {
             itemType: dto.itemType,
         });
         if (existing) {
-            throw new common_1.BadRequestException("You have already reviewed this item.");
+            throw new common_1.BadRequestException(this.i18n.translate("reviews.duplicate_review", { lang }));
         }
         const review = new this.reviewModel({
             userId,
@@ -120,6 +129,8 @@ exports.ReviewService = ReviewService;
 exports.ReviewService = ReviewService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(review_schema_1.Review.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], ReviewService);
 //# sourceMappingURL=reviews.service.js.map

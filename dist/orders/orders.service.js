@@ -16,51 +16,58 @@ exports.OrdersService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const order_schema_1 = require("./schema/order.schema");
 const users_service_1 = require("../users/users.service");
 const products_service_1 = require("../products/products.service");
 const shop_service_1 = require("../shop/shop.service");
 const notifications_service_1 = require("../notifications/notifications.service");
+const nestjs_cls_1 = require("nestjs-cls");
 let OrdersService = class OrdersService {
     orderModel;
     usersService;
     productsService;
     shopService;
     notificationsService;
-    constructor(orderModel, usersService, productsService, shopService, notificationsService) {
+    i18n;
+    cls;
+    constructor(orderModel, usersService, productsService, shopService, notificationsService, i18n, cls) {
         this.orderModel = orderModel;
         this.usersService = usersService;
         this.productsService = productsService;
         this.shopService = shopService;
         this.notificationsService = notificationsService;
+        this.i18n = i18n;
+        this.cls = cls;
+    }
+    get lang() {
+        return this.cls.get("lang") || "en";
     }
     async createOrder(dto) {
         const buyer = await this.usersService.findUserById(dto.buyer);
         if (!buyer)
-            throw new common_1.NotFoundException('Buyer not found');
-        console.log("DTO:", dto);
-        const product = await this.productsService.getById(dto.product);
+            throw new common_1.NotFoundException(this.i18n.translate("orders.buyer_not_found", { lang: this.lang }));
+        const product = await this.productsService.getById(dto.product, this.lang);
         if (!product)
-            throw new common_1.NotFoundException('Product not found');
-        console.log("Product:", product);
+            throw new common_1.NotFoundException(this.i18n.translate("orders.product_not_found", { lang: this.lang }));
         let ownerExists = false;
-        if (dto.ownerModel === 'Shop') {
-            ownerExists = !!(await this.shopService.getShopById(dto.owner));
+        if (dto.ownerModel === "Shop") {
+            ownerExists = !!(await this.shopService.getShopById(dto.owner, this.lang));
         }
-        else if (dto.ownerModel === 'User') {
+        else if (dto.ownerModel === "User") {
             ownerExists = !!(await this.usersService.findUserById(dto.owner));
         }
         if (!ownerExists)
-            throw new common_1.NotFoundException('Order owner not found');
+            throw new common_1.NotFoundException(this.i18n.translate("orders.order_owner_not_found", { lang: this.lang }));
         let isValidOwner = false;
-        if (dto.ownerModel === 'Shop') {
+        if (dto.ownerModel === "Shop") {
             isValidOwner = dto.owner === product.shopId.toString();
         }
-        if (dto.ownerModel === 'User') {
+        else if (dto.ownerModel === "User") {
             isValidOwner = dto.owner === product.ownerId?.toString();
         }
         if (!isValidOwner) {
-            throw new common_1.BadRequestException('Order owner does not match product owner');
+            throw new common_1.BadRequestException(this.i18n.translate("orders.order_mismatch", { lang: this.lang }));
         }
         const order = new this.orderModel({
             ...dto,
@@ -68,46 +75,54 @@ let OrdersService = class OrdersService {
             owner: new mongoose_2.Types.ObjectId(dto.owner),
             product: new mongoose_2.Types.ObjectId(dto.product),
         });
-        this.notificationsService.createAndNotify(dto.buyer, `Your order for ${product.title} has been placed!`, 'ORDER');
-        this.notificationsService.createAndNotify(dto.owner, `You have a new order for ${product.title}!`, 'ORDER');
+        this.notificationsService.createAndNotify(dto.buyer, "order_buyer", "ORDER", { productTitle: product.title });
+        this.notificationsService.createAndNotify(dto.owner, "order_seller", "ORDER", { productTitle: product.title });
         return order.save();
     }
     async getOrderById(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
-            throw new common_1.BadRequestException('Invalid order ID');
-        const order = await this.orderModel.findById(orderId).populate('buyer').populate('product').populate('owner').exec();
-        console.log({ "order": order });
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_order_id", { lang: this.lang }));
+        const order = await this.orderModel
+            .findById(orderId)
+            .populate("buyer")
+            .populate("product")
+            .populate("owner")
+            .exec();
         if (!order)
-            throw new common_1.NotFoundException('Order not found');
+            throw new common_1.NotFoundException(this.i18n.translate("orders.order_not_found", { lang: this.lang }));
         return order;
     }
     async getOrdersByOwner(ownerId, ownerModel, page = 1, limit = 10) {
         if (!mongoose_2.Types.ObjectId.isValid(ownerId))
-            throw new common_1.BadRequestException('Invalid owner ID');
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_owner_id", { lang: this.lang }));
         if (page < 1 || limit < 1)
-            throw new common_1.BadRequestException('Page and limit must be greater than 0');
-        if (ownerModel === 'Shop') {
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_page_limit", { lang: this.lang }));
+        if (ownerModel === "Shop") {
             const shop = await this.shopService.getShopById(ownerId);
             if (!shop)
-                throw new common_1.NotFoundException('Shop owner not found');
+                throw new common_1.NotFoundException(this.i18n.translate("orders.owner_not_found", { lang: this.lang }));
         }
-        else if (ownerModel === 'User') {
+        else if (ownerModel === "User") {
             const user = await this.usersService.findUserById(ownerId);
             if (!user)
-                throw new common_1.NotFoundException('User owner not found');
+                throw new common_1.NotFoundException(this.i18n.translate("orders.owner_not_found", { lang: this.lang }));
         }
         else {
-            throw new common_1.BadRequestException('Invalid ownerModel');
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_owner_model", { lang: this.lang }));
         }
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ owner: new mongoose_2.Types.ObjectId(ownerId), ownerModel }).populate('product')
+                .find({ owner: new mongoose_2.Types.ObjectId(ownerId), ownerModel })
+                .populate("product")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
                 .exec(),
-            this.orderModel.countDocuments({ owner: new mongoose_2.Types.ObjectId(ownerId), ownerModel }),
+            this.orderModel.countDocuments({
+                owner: new mongoose_2.Types.ObjectId(ownerId),
+                ownerModel,
+            }),
         ]);
         return {
             data,
@@ -119,16 +134,18 @@ let OrdersService = class OrdersService {
     }
     async getOrdersByBuyer(buyerId, page = 1, limit = 10) {
         if (!mongoose_2.Types.ObjectId.isValid(buyerId))
-            throw new common_1.BadRequestException('Invalid buyer ID');
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_buyer_id", { lang: this.lang }));
         if (page < 1 || limit < 1)
-            throw new common_1.BadRequestException('Page and limit must be greater than 0');
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_page_limit", { lang: this.lang }));
         const buyer = await this.usersService.findUserById(buyerId);
         if (!buyer)
-            throw new common_1.NotFoundException('Buyer not found');
+            throw new common_1.NotFoundException(this.i18n.translate("orders.buyer_not_found", { lang: this.lang }));
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ buyer: new mongoose_2.Types.ObjectId(buyerId) }).populate('product').populate('owner')
+                .find({ buyer: new mongoose_2.Types.ObjectId(buyerId) })
+                .populate("product")
+                .populate("owner")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -145,18 +162,20 @@ let OrdersService = class OrdersService {
     }
     async updateOrder(orderId, dto) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
-            throw new common_1.BadRequestException('Invalid order ID');
-        const updated = await this.orderModel.findByIdAndUpdate(orderId, dto, { new: true });
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_order_id", { lang: this.lang }));
+        const updated = await this.orderModel.findByIdAndUpdate(orderId, dto, {
+            new: true,
+        });
         if (!updated)
-            throw new common_1.NotFoundException('Order not found');
+            throw new common_1.NotFoundException(this.i18n.translate("orders.order_not_found", { lang: this.lang }));
         return updated;
     }
     async deleteOrder(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
-            throw new common_1.BadRequestException('Invalid order ID');
+            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_order_id", { lang: this.lang }));
         const result = await this.orderModel.findByIdAndDelete(orderId);
         if (!result)
-            throw new common_1.NotFoundException('Order not found');
+            throw new common_1.NotFoundException(this.i18n.translate("orders.order_not_found", { lang: this.lang }));
     }
 };
 exports.OrdersService = OrdersService;
@@ -167,6 +186,8 @@ exports.OrdersService = OrdersService = __decorate([
         users_service_1.UsersService,
         products_service_1.ProductsService,
         shop_service_1.ShopService,
-        notifications_service_1.NotificationsService])
+        notifications_service_1.NotificationsService,
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

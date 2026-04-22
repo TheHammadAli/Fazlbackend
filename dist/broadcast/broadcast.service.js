@@ -16,6 +16,7 @@ exports.BroadcastService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const broadcast_schema_1 = require("./schema/broadcast.schema");
 const broadcast_message_schema_1 = require("./schema/broadcast-message.schema");
 const broadcast_thread_schema_1 = require("./schema/broadcast-thread.schema");
@@ -29,13 +30,15 @@ let BroadcastService = class BroadcastService {
     shopService;
     categoryService;
     userService;
-    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService) {
+    i18n;
+    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, i18n) {
         this.broadcastModel = broadcastModel;
         this.messageModel = messageModel;
         this.threadModel = threadModel;
         this.shopService = shopService;
         this.categoryService = categoryService;
         this.userService = userService;
+        this.i18n = i18n;
     }
     async createBroadcast(dto, buyerId, location) {
         const existingBroadcast = await this.broadcastModel.findOne({
@@ -73,15 +76,15 @@ let BroadcastService = class BroadcastService {
         const threads = await Promise.all(threadPromises);
         return threads;
     }
-    async createBroadcastAndDispatch(dto, buyerId, location) {
+    async createBroadcastAndDispatch(dto, buyerId, location, lang = "en") {
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {
-            throw new common_1.BadRequestException("Category Invalid");
+            throw new common_1.BadRequestException(this.i18n.translate("broadcast.category_invalid", { lang }));
         }
         let sellerIds = await this.findNearbySellers(location, dto.radius);
         sellerIds = sellerIds.filter((ids) => ids.toString() !== buyerId.toString());
         if (!sellerIds.length) {
-            throw new common_1.BadRequestException("No sellers found in given radius");
+            throw new common_1.BadRequestException(this.i18n.translate("broadcast.no_sellers_found", { lang }));
         }
         const broadcast = await this.createBroadcast(dto, buyerId, location);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
@@ -95,39 +98,39 @@ let BroadcastService = class BroadcastService {
         }));
         await this.messageModel.insertMany(initialMessages);
         return {
-            message: "Broadcast created and dispatched successfully",
+            message: this.i18n.translate("broadcast.created_success", { lang }),
             data: broadcast._id.toString(),
         };
     }
-    async sendBroadcastMessage(broadcastId, senderId, receiverId, threadId, message) {
+    async sendBroadcastMessage(broadcastId, senderId, receiverId, threadId, message, lang = "en") {
         const broadcastObjectId = new mongoose_2.Types.ObjectId(broadcastId);
         const broadcast = await this.broadcastModel.findById(broadcastObjectId);
         if (!broadcast) {
-            throw new common_1.NotFoundException("Broadcast not found");
+            throw new common_1.NotFoundException(this.i18n.translate("broadcast.broadcast_not_found", { lang }));
         }
         const [sender, receiver] = await Promise.all([
             this.userService.findUserById(senderId),
             this.userService.findUserById(receiverId),
         ]);
         if (!sender || !receiver) {
-            throw new common_1.NotFoundException("User not found");
+            throw new common_1.NotFoundException(this.i18n.translate("products.user_not_found", { lang }));
         }
         const thread = await this.threadModel.findById(threadId);
         if (!thread) {
-            throw new common_1.NotFoundException("Thread not found");
+            throw new common_1.NotFoundException(this.i18n.translate("broadcast.thread_not_found", { lang }));
         }
         if (thread.broadcast.toString() !== broadcastId) {
-            throw new common_1.BadRequestException("Thread does not belong to broadcast");
+            throw new common_1.BadRequestException(this.i18n.translate("broadcast.thread_invalid", { lang }));
         }
         const isParticipant = thread.buyer.toString() === senderId ||
             thread.seller.toString() === senderId;
         if (!isParticipant) {
-            throw new common_1.BadRequestException("Sender not part of thread");
+            throw new common_1.BadRequestException(this.i18n.translate("broadcast.sender_not_in_thread", { lang }));
         }
         const isValidReceiver = thread.buyer.toString() === receiverId ||
             thread.seller.toString() === receiverId;
         if (!isValidReceiver) {
-            throw new common_1.BadRequestException("Invalid receiver for thread");
+            throw new common_1.BadRequestException(this.i18n.translate("broadcast.receiver_invalid", { lang }));
         }
         return this.messageModel.create({
             broadcast: broadcastObjectId,
@@ -231,6 +234,7 @@ exports.BroadcastService = BroadcastService = __decorate([
         mongoose_2.Model,
         shop_service_1.ShopService,
         category_service_1.CategoryService,
-        users_service_1.UsersService])
+        users_service_1.UsersService,
+        nestjs_i18n_1.I18nService])
 ], BroadcastService);
 //# sourceMappingURL=broadcast.service.js.map

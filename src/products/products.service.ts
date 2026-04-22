@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { Product, ProductDocument } from "./schema/product.schema";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -29,6 +30,7 @@ export class ProductsService {
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
     private promotionService: PromotionService,
+    private readonly i18n: I18nService,
   ) {}
 
   async create(
@@ -36,6 +38,7 @@ export class ProductsService {
     type: "shop" | "personal",
     dto: CreateProductDto,
     userId: string,
+    lang: string = "en",
   ): Promise<Product> {
     try {
       let location: { type: "Point"; coordinates: [number, number] };
@@ -47,7 +50,9 @@ export class ProductsService {
       if (type === "shop") {
         const shop = await this.shopService.getShopById(entityId);
         if (!shop) {
-          throw new NotFoundException("Shop not found");
+          throw new NotFoundException(
+            this.i18n.translate("products.shop_not_found", { lang }),
+          );
         }
 
         if (
@@ -55,7 +60,9 @@ export class ProductsService {
           !shop.location.coordinates ||
           shop.location.coordinates.length !== 2
         ) {
-          throw new BadRequestException("Shop location is missing");
+          throw new BadRequestException(
+            this.i18n.translate("products.shop_location_missing", { lang }),
+          );
         }
 
         productPayload.shopId = shop._id as Types.ObjectId;
@@ -64,7 +71,9 @@ export class ProductsService {
       } else if (type === "personal") {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
-          throw new NotFoundException("User not found");
+          throw new NotFoundException(
+            this.i18n.translate("products.user_not_found", { lang }),
+          );
         }
         console.log("User:", user);
         productPayload.ownerId = user._id as Types.ObjectId;
@@ -73,7 +82,9 @@ export class ProductsService {
           !user.location.coordinates ||
           user.location.coordinates.length !== 2
         ) {
-          throw new BadRequestException("User location is missing");
+          throw new BadRequestException(
+            this.i18n.translate("products.user_location_missing", { lang }),
+          );
         }
 
         location = {
@@ -171,20 +182,26 @@ export class ProductsService {
     };
   }
 
-  async getById(id: string): Promise<Product> {
+  async getById(id: string, lang: string = "en"): Promise<Product> {
     const product = await this.productModel
       .findById(new Types.ObjectId(id))
       .populate("category");
-    if (!product) throw new NotFoundException("Product not found");
+    if (!product)
+      throw new NotFoundException(
+        this.i18n.translate("products.product_not_found", { lang }),
+      );
     return product;
   }
 
   async update(
     productId: string,
     updateDto: UpdateProductDto,
+    lang: string = "en",
   ): Promise<Product> {
     if ("shopId" in updateDto) {
-      throw new ForbiddenException("shopId cannot be updated");
+      throw new ForbiddenException(
+        this.i18n.translate("products.shop_cant_update", { lang }),
+      );
     }
     if (updateDto.category) {
       (updateDto as any).category = new Types.ObjectId(updateDto.category);
@@ -201,7 +218,9 @@ export class ProductsService {
 
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
-      throw new NotFoundException("Product not found");
+      throw new NotFoundException(
+        this.i18n.translate("products.product_not_found", { lang }),
+      );
     }
 
     if (updateDto.images && updateDto.images.length > 0) {
@@ -234,16 +253,20 @@ export class ProductsService {
       .exec();
 
     if (!updated) {
-      throw new NotFoundException("Product not found");
+      throw new NotFoundException(
+        this.i18n.translate("products.product_not_found", { lang }),
+      );
     }
 
     return updated;
   }
 
-  async delete(productId: string): Promise<void> {
+  async delete(productId: string, lang: string = "en"): Promise<void> {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
-      throw new NotFoundException("Product not found");
+      throw new NotFoundException(
+        this.i18n.translate("products.product_not_found", { lang }),
+      );
     }
     const type = existingProduct.shopId ? "shop" : "personal";
     const entityId = existingProduct.shopId
@@ -255,16 +278,27 @@ export class ProductsService {
       productId,
     );
     const result = await this.productModel.findByIdAndDelete(productId);
-    if (!result) throw new NotFoundException("Product not found");
+    if (!result)
+      throw new NotFoundException(
+        this.i18n.translate("products.product_not_found", { lang }),
+      );
   }
 
-  async deleteProductMedia(productId: string, media: string[]) {
+  async deleteProductMedia(
+    productId: string,
+    media: string[],
+    lang: string = "en",
+  ) {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
-      throw new NotFoundException("Product not found");
+      throw new NotFoundException(
+        this.i18n.translate("products.product_not_found", { lang }),
+      );
     }
     if (!media || media.length === 0) {
-      throw new BadRequestException("No media files provided for deletion");
+      throw new BadRequestException(
+        this.i18n.translate("products.no_media_provided", { lang }),
+      );
     }
 
     // Remove media files from storage
@@ -385,9 +419,9 @@ export class ProductsService {
   ): Promise<PaginatedResponseDto<Product>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
-     const filter = {
-    video: { $exists: true, $nin: ["", null] },
-  };
+    const filter = {
+      video: { $exists: true, $nin: ["", null] },
+    };
 
     const [items, total] = await Promise.all([
       this.productModel
@@ -397,9 +431,7 @@ export class ProductsService {
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.productModel
-        .countDocuments(filter)
-        .exec(),
+      this.productModel.countDocuments(filter).exec(),
     ]);
 
     return {

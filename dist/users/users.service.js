@@ -19,13 +19,22 @@ const users_schema_1 = require("./schema/users.schema");
 const bcrypt = require("bcryptjs");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
+const nestjs_cls_1 = require("nestjs-cls");
 let UsersService = class UsersService {
     userModel;
     fileUploadService;
-    constructor(userModel, fileUploadService) {
+    i18n;
+    cls;
+    constructor(userModel, fileUploadService, i18n, cls) {
         this.userModel = userModel;
         this.fileUploadService = fileUploadService;
+        this.i18n = i18n;
+        this.cls = cls;
+    }
+    get lang() {
+        return this.cls?.get('lang') ?? 'en';
     }
     async createUser(createUserDto) {
         try {
@@ -33,7 +42,7 @@ let UsersService = class UsersService {
                 email: createUserDto.email,
             });
             if (existingUser) {
-                throw new common_1.ConflictException('Email is already registered');
+                throw new common_1.ConflictException(this.i18n.translate("users.email_already_registered", { lang: this.lang }));
             }
             const hashedPassword = await this.hashPassword(createUserDto.password);
             let imageUrl = "default-avatar.png";
@@ -65,15 +74,15 @@ let UsersService = class UsersService {
     async findByResetToken(resetPasswordToken) {
         const results = await this.userModel
             .findOne({ resetPasswordToken })
-            .select('+resetPasswordExpires')
+            .select("+resetPasswordExpires")
             .exec();
         if (!results) {
-            throw new common_1.NotFoundException('User not found');
+            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
         }
         return results;
     }
     async validateUserForLogin(email, password) {
-        const user = await this.userModel.findOne({ email }).select('+password');
+        const user = await this.userModel.findOne({ email }).select("+password");
         if (!user) {
             return false;
         }
@@ -83,12 +92,12 @@ let UsersService = class UsersService {
         }
         return user;
     }
-    async updateUser(userId, updateData) {
+    async updateUser(userId, updateData, lang = "en") {
         try {
             Object.keys(updateData).forEach((key) => {
-                if (updateData[key] === '' ||
+                if (updateData[key] === "" ||
                     updateData[key] === null ||
-                    typeof updateData[key] === 'undefined') {
+                    typeof updateData[key] === "undefined") {
                     delete updateData[key];
                 }
             });
@@ -98,7 +107,7 @@ let UsersService = class UsersService {
             }
             const existingUser = await this.userModel.findById(userId).exec();
             if (!existingUser) {
-                throw new common_1.NotFoundException('User not found');
+                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
             }
             console.log("Existing User:", existingUser);
             let imageUrl = existingUser.image || "default-avatar.png";
@@ -114,9 +123,11 @@ let UsersService = class UsersService {
                 updateData.location = existingUser.location;
             }
             updateData.image = imageUrl;
-            const updatedUser = await this.userModel.findByIdAndUpdate(userId, { $set: updateData });
+            const updatedUser = await this.userModel.findByIdAndUpdate(userId, {
+                $set: updateData,
+            });
             if (!updatedUser) {
-                throw new common_1.NotFoundException('User not found');
+                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
             }
             return updatedUser;
         }
@@ -124,20 +135,20 @@ let UsersService = class UsersService {
             throw new app_error_1.AppError(err);
         }
     }
-    async findByIdWithToken(userId) {
+    async findByIdWithToken(userId, lang = "en") {
         const user = await this.userModel
             .findById(userId)
-            .select('+refreshToken')
+            .select("+refreshToken")
             .exec();
         if (!user) {
-            throw new common_1.NotFoundException(`User with ID ${userId} not found`);
+            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
         }
         return user;
     }
-    async findUserById(userId) {
+    async findUserById(userId, lang = "en") {
         const user = await this.userModel.findById(userId).exec();
         if (!user) {
-            throw new common_1.NotFoundException(`User with ID ${userId} not found`);
+            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
         }
         return user;
     }
@@ -166,6 +177,9 @@ exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(users_schema_1.User.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model, file_upload_service_1.FileUploadService])
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        file_upload_service_1.FileUploadService,
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

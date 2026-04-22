@@ -1,8 +1,8 @@
-import { Request } from 'express';
-import { BroadcastService } from './broadcast.service';
-import { CreateBroadcastDto } from './dto/create-broadcast.dto';
-import { SendBroadcastMessageDto } from './dto/send-broadcast.dto';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { Request } from "express";
+import { BroadcastService } from "./broadcast.service";
+import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
+import { SendBroadcastMessageDto } from "./dto/send-broadcast.dto";
+import { PaginationDto } from "src/common/dto/pagination.dto";
 export declare class BroadcastController {
     private readonly broadcastService;
     constructor(broadcastService: BroadcastService);

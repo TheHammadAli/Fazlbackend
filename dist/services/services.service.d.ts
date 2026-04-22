@@ -1,5 +1,6 @@
 import { Service, ServiceDocument } from "./schema/services.schema";
 import { Model, Types } from "mongoose";
+import { I18nService } from "nestjs-i18n";
 import { CreateServiceDto } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
@@ -13,6 +14,7 @@ import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { CreateRequestDto } from "./dto/create-request-dto";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { ClsService } from "nestjs-cls";
 export declare class ServicesService {
     private readonly serviceModel;
     private readonly userService;
@@ -20,8 +22,11 @@ export declare class ServicesService {
     private readonly listingUtils;
     private readonly fileUploadService;
     private readonly requestModel;
-    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>);
-    create(userId: string, dto: CreateServiceDto): Promise<Service>;
+    private readonly i18n;
+    private readonly cls;
+    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService);
+    private get lang();
+    create(userId: string, dto: CreateServiceDto, lang?: string): Promise<Service>;
     update(serviceId: string, dto: UpdateServiceDto): Promise<{
         images: string[];
         video: string;

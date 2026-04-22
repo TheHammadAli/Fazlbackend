@@ -1,21 +1,26 @@
-import { Model } from 'mongoose';
-import { Order, OrderDocument } from './schema/order.schema';
-import { CreateOrderDto } from './dto/create-order-dto';
-import { UpdateOrderDto } from './dto/update-order-dto';
-import { UsersService } from 'src/users/users.service';
-import { ProductsService } from 'src/products/products.service';
-import { ShopService } from 'src/shop/shop.service';
-import { NotificationsService } from 'src/notifications/notifications.service';
+import { Model } from "mongoose";
+import { I18nService } from "nestjs-i18n";
+import { Order, OrderDocument } from "./schema/order.schema";
+import { CreateOrderDto } from "./dto/create-order-dto";
+import { UpdateOrderDto } from "./dto/update-order-dto";
+import { UsersService } from "src/users/users.service";
+import { ProductsService } from "src/products/products.service";
+import { ShopService } from "src/shop/shop.service";
+import { NotificationsService } from "src/notifications/notifications.service";
+import { ClsService } from "nestjs-cls";
 export declare class OrdersService {
     private readonly orderModel;
     private readonly usersService;
     private readonly productsService;
     private readonly shopService;
     private readonly notificationsService;
-    constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService, notificationsService: NotificationsService);
+    private readonly i18n;
+    private readonly cls;
+    constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService, notificationsService: NotificationsService, i18n: I18nService, cls: ClsService);
+    private get lang();
     createOrder(dto: CreateOrderDto): Promise<Order>;
     getOrderById(orderId: string): Promise<Order>;
-    getOrdersByOwner(ownerId: string, ownerModel: 'Shop' | 'User', page?: number, limit?: number): Promise<{
+    getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", page?: number, limit?: number): Promise<{
         data: Order[];
         total: number;
         page: number;

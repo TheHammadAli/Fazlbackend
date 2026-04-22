@@ -16,28 +16,37 @@ exports.ShopService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const nestjs_i18n_1 = require("nestjs-i18n");
 const shop_schema_1 = require("./schema/shop.schema");
 const products_service_1 = require("../products/products.service");
 const services_service_1 = require("../services/services.service");
 const users_service_1 = require("../users/users.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
+const nestjs_cls_1 = require("nestjs-cls");
 let ShopService = class ShopService {
     shopModel;
     productsService;
     usersService;
     fileUploadService;
     servicesService;
-    constructor(shopModel, productsService, usersService, fileUploadService, servicesService) {
+    i18n;
+    cls;
+    constructor(shopModel, productsService, usersService, fileUploadService, servicesService, i18n, cls) {
         this.shopModel = shopModel;
         this.productsService = productsService;
         this.usersService = usersService;
         this.fileUploadService = fileUploadService;
         this.servicesService = servicesService;
+        this.i18n = i18n;
+        this.cls = cls;
     }
-    async createShop(ownerId, dto) {
+    get lang() {
+        return this.cls?.get('lang') ?? 'en';
+    }
+    async createShop(ownerId, dto, lang = "en") {
         const existingUser = await this.usersService.findUserById(ownerId.toString());
         if (!existingUser) {
-            throw new common_1.NotFoundException('User not found');
+            throw new common_1.NotFoundException(this.i18n.translate("shop.user_not_found", { lang }));
         }
         let image = {};
         if (dto.image) {
@@ -60,25 +69,29 @@ let ShopService = class ShopService {
         const { ...safeDto } = dto;
         const existingShop = await this.shopModel.findById(shopId);
         if (!existingShop) {
-            throw new common_1.NotFoundException('Shop not found');
+            throw new common_1.NotFoundException(this.i18n.translate("shop.shop_not_found", { lang: this.lang }));
         }
         if (dto.image) {
             const imageUrl = await this.fileUploadService.uploadShopImage(shopId, dto.image);
             safeDto.image = imageUrl;
         }
-        const updated = await this.shopModel.findByIdAndUpdate(shopId, { ...safeDto });
+        const updated = await this.shopModel.findByIdAndUpdate(shopId, {
+            ...safeDto,
+        });
         if (dto.location) {
             this.productsService.updateLocationByShopId(shopId, dto.location);
         }
         if (!updated) {
-            throw new common_1.NotFoundException('Shop not found');
+            throw new common_1.NotFoundException(this.i18n.translate("shop.shop_not_found", { lang: this.lang }));
         }
         return safeDto;
     }
-    async getShopById(shopId) {
-        const shop = await this.shopModel.findById(shopId).populate('ownerId', 'name email');
+    async getShopById(shopId, lang = "en") {
+        const shop = await this.shopModel
+            .findById(shopId)
+            .populate("ownerId", "name email");
         if (!shop) {
-            throw new common_1.NotFoundException('Shop not found');
+            throw new common_1.NotFoundException(this.i18n.translate("shop.shop_not_found", { lang }));
         }
         return shop;
     }
@@ -90,7 +103,7 @@ let ShopService = class ShopService {
             location: {
                 $near: {
                     $geometry: {
-                        type: 'Point',
+                        type: "Point",
                         coordinates: location,
                     },
                     $maxDistance: radiusInMeters,
@@ -109,6 +122,8 @@ exports.ShopService = ShopService = __decorate([
         products_service_1.ProductsService,
         users_service_1.UsersService,
         file_upload_service_1.FileUploadService,
-        services_service_1.ServicesService])
+        services_service_1.ServicesService,
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], ShopService);
 //# sourceMappingURL=shop.service.js.map
