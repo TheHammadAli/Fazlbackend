@@ -18,6 +18,7 @@ const broadcast_schema_1 = require("./schema/broadcast.schema");
 const broadcast_message_schema_1 = require("./schema/broadcast-message.schema");
 const users_module_1 = require("../users/users.module");
 const broadcast_thread_schema_1 = require("./schema/broadcast-thread.schema");
+const services_module_1 = require("../services/services.module");
 let BroadcastModule = class BroadcastModule {
 };
 exports.BroadcastModule = BroadcastModule;
@@ -37,7 +38,8 @@ exports.BroadcastModule = BroadcastModule = __decorate([
             ]),
             shop_module_1.ShopModule,
             category_module_1.CategoryModule,
-            users_module_1.UsersModule
+            users_module_1.UsersModule,
+            services_module_1.ServicesModule,
         ],
         controllers: [broadcast_controller_1.BroadcastController],
         providers: [broadcast_service_1.BroadcastService, broadcast_gateway_1.BroadcastGateway],

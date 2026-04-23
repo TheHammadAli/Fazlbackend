@@ -18,12 +18,13 @@ let Broadcast = class Broadcast {
     category;
     radius;
     location;
+    type;
     expiresAt;
     lastResponseAt;
 };
 exports.Broadcast = Broadcast;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Broadcast.prototype, "buyer", void 0);
 __decorate([
@@ -31,7 +32,7 @@ __decorate([
     __metadata("design:type", String)
 ], Broadcast.prototype, "message", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Category' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Category" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Broadcast.prototype, "category", void 0);
 __decorate([
@@ -42,8 +43,8 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: {
             type: String,
-            enum: ['Point'],
-            default: 'Point',
+            enum: ["Point"],
+            default: "Point",
         },
         coordinates: {
             type: [Number],
@@ -52,6 +53,10 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], Broadcast.prototype, "location", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, enum: ["product", "service"], required: true }),
+    __metadata("design:type", String)
+], Broadcast.prototype, "type", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: Date }),
     __metadata("design:type", Date)
@@ -64,6 +69,6 @@ exports.Broadcast = Broadcast = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Broadcast);
 exports.BroadcastSchema = mongoose_1.SchemaFactory.createForClass(Broadcast);
-exports.BroadcastSchema.index({ location: '2dsphere' });
+exports.BroadcastSchema.index({ location: "2dsphere" });
 exports.BroadcastSchema.index({ buyer: 1, createdAt: -1 });
 //# sourceMappingURL=broadcast.schema.js.map

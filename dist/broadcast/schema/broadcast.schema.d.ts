@@ -1,4 +1,4 @@
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types } from "mongoose";
 export type BroadcastDocument = HydratedDocument<Broadcast>;
 export declare class Broadcast {
     buyer: Types.ObjectId;
@@ -6,9 +6,10 @@ export declare class Broadcast {
     category: Types.ObjectId;
     radius: number;
     location: {
-        type: 'Point';
+        type: "Point";
         coordinates: [number, number];
     };
+    type: "product" | "service";
     expiresAt: Date;
     lastResponseAt: Date;
 }

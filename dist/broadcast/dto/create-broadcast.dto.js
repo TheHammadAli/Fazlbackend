@@ -16,10 +16,11 @@ class CreateBroadcastDto {
     message;
     radius;
     categoryId;
+    type;
 }
 exports.CreateBroadcastDto = CreateBroadcastDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Need 50kg rice urgently' }),
+    (0, swagger_1.ApiProperty)({ example: "Need 50kg rice urgently" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
@@ -30,9 +31,15 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateBroadcastDto.prototype, "radius", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '66a1b2c3d4e5f67890123456' }),
+    (0, swagger_1.ApiProperty)({ example: "66a1b2c3d4e5f67890123456" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateBroadcastDto.prototype, "categoryId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "product", enum: ["product", "service"] }),
+    (0, class_validator_1.IsEnum)(["product", "service"]),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateBroadcastDto.prototype, "type", void 0);
 //# sourceMappingURL=create-broadcast.dto.js.map

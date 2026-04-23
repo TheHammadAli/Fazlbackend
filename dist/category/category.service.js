@@ -37,7 +37,7 @@ let CategoryService = class CategoryService {
     async findById(id, lang = "en") {
         const category = await this.categoryModel.findById(id);
         if (!category)
-            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang }));
         return category;
     }
     async update(id, dto, lang = "en") {

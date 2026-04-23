@@ -46,6 +46,9 @@ let ServicesService = class ServicesService {
     get lang() {
         return this.cls?.get("lang") ?? "en";
     }
+    getServiceModel() {
+        return this.serviceModel;
+    }
     async create(userId, dto, lang = "en") {
         const user = await this.userService.findUserById(userId);
         if (!user) {
@@ -285,23 +288,31 @@ let ServicesService = class ServicesService {
                 break;
             case "propose":
                 if (!proposedDateTime) {
-                    throw new common_1.BadRequestException(this.i18n.translate("services.proposed_date_required", { lang: this.lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("services.proposed_date_required", {
+                        lang: this.lang,
+                    }));
                 }
                 const parsedDate = new Date(proposedDateTime);
                 if (isNaN(parsedDate.getTime())) {
-                    throw new common_1.BadRequestException(this.i18n.translate("services.invalid_proposed_date", { lang: this.lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("services.invalid_proposed_date", {
+                        lang: this.lang,
+                    }));
                 }
                 request.status = "proposed";
                 request.proposedDateTime = parsedDate;
                 await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has a new proposed date: ${parsedDate.toISOString()}`);
                 break;
             default:
-                throw new common_1.BadRequestException(this.i18n.translate("services.unsupported_action", { lang: this.lang }));
+                throw new common_1.BadRequestException(this.i18n.translate("services.unsupported_action", {
+                    lang: this.lang,
+                }));
         }
         await request.save();
         return {
             status: 201,
-            message: this.i18n.translate("services.request_status_updated", { lang: this.lang }),
+            message: this.i18n.translate("services.request_status_updated", {
+                lang: this.lang,
+            }),
             data: {
                 requestId,
             },
@@ -322,7 +333,9 @@ let ServicesService = class ServicesService {
                 request.jobStatus = "completed";
                 break;
             default:
-                throw new common_1.BadRequestException(this.i18n.translate("services.unsupported_job_action", { lang: this.lang }));
+                throw new common_1.BadRequestException(this.i18n.translate("services.unsupported_job_action", {
+                    lang: this.lang,
+                }));
         }
         return request.save();
     }
@@ -384,7 +397,7 @@ let ServicesService = class ServicesService {
         return {
             message: this.i18n.translate("services.media_deleted_success", {
                 lang: this.lang,
-            })
+            }),
         };
     }
     async getServicesWithVideos(paginationDto) {

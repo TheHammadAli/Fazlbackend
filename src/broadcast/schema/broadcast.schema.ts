@@ -1,17 +1,17 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { HydratedDocument, Types } from "mongoose";
 
 export type BroadcastDocument = HydratedDocument<Broadcast>;
 
 @Schema({ timestamps: true })
 export class Broadcast {
-  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
+  @Prop({ type: Types.ObjectId, required: true, ref: "User" })
   buyer: Types.ObjectId;
 
   @Prop({ type: String, required: true })
   message: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Category' })
+  @Prop({ type: Types.ObjectId, ref: "Category" })
   category: Types.ObjectId;
 
   @Prop({ type: Number, required: true })
@@ -20,8 +20,8 @@ export class Broadcast {
   @Prop({
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point',
+      enum: ["Point"],
+      default: "Point",
     },
     coordinates: {
       type: [Number],
@@ -29,11 +29,13 @@ export class Broadcast {
     },
   })
   location: {
-    type: 'Point';
+    type: "Point";
     coordinates: [number, number];
   };
 
-  
+  @Prop({ type: String, enum: ["product", "service"], required: true })
+  type: "product" | "service";
+
   @Prop({ type: Date })
   expiresAt: Date;
 
@@ -43,5 +45,5 @@ export class Broadcast {
 
 export const BroadcastSchema = SchemaFactory.createForClass(Broadcast);
 
-BroadcastSchema.index({ location: '2dsphere' });
+BroadcastSchema.index({ location: "2dsphere" });
 BroadcastSchema.index({ buyer: 1, createdAt: -1 });

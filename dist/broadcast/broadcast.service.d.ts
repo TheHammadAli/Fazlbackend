@@ -8,6 +8,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
+import { ServicesService } from "src/services/services.service";
 export declare class BroadcastService {
     private readonly broadcastModel;
     private readonly messageModel;
@@ -15,10 +16,12 @@ export declare class BroadcastService {
     private readonly shopService;
     private readonly categoryService;
     private readonly userService;
+    private readonly servicesService;
     private readonly i18n;
-    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, i18n: I18nService);
+    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, servicesService: ServicesService, i18n: I18nService);
     private createBroadcast;
     private findNearbySellers;
+    private findNearbyServiceProviders;
     private findCategorybyId;
     private createBroadcastThreads;
     createBroadcastAndDispatch(dto: CreateBroadcastDto, buyerId: string, location: {

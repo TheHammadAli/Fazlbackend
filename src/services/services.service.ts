@@ -48,6 +48,11 @@ export class ServicesService {
     return this.cls?.get("lang") ?? "en";
   }
 
+  // Expose service model for use in other services (e.g., broadcast)
+  getServiceModel(): Model<ServiceDocument> {
+    return this.serviceModel;
+  }
+
   async create(
     userId: string,
     dto: CreateServiceDto,
@@ -435,16 +440,19 @@ export class ServicesService {
       case "propose":
         if (!proposedDateTime) {
           throw new BadRequestException(
-  this.i18n.translate("services.proposed_date_required", { lang: this.lang }),
-);
+            this.i18n.translate("services.proposed_date_required", {
+              lang: this.lang,
+            }),
+          );
         }
 
         const parsedDate = new Date(proposedDateTime);
         if (isNaN(parsedDate.getTime())) {
-        throw new BadRequestException(
-  this.i18n.translate("services.invalid_proposed_date", { lang: this.lang }),
-);
-
+          throw new BadRequestException(
+            this.i18n.translate("services.invalid_proposed_date", {
+              lang: this.lang,
+            }),
+          );
         }
 
         request.status = "proposed";
@@ -457,15 +465,19 @@ export class ServicesService {
         break;
 
       default:
-       throw new BadRequestException(
-  this.i18n.translate("services.unsupported_action", { lang: this.lang }),
-);
+        throw new BadRequestException(
+          this.i18n.translate("services.unsupported_action", {
+            lang: this.lang,
+          }),
+        );
     }
 
     await request.save();
     return {
       status: 201,
-      message: this.i18n.translate("services.request_status_updated", { lang: this.lang }),
+      message: this.i18n.translate("services.request_status_updated", {
+        lang: this.lang,
+      }),
       data: {
         requestId,
       },
@@ -490,10 +502,11 @@ export class ServicesService {
         break;
 
       default:
-        
-throw new BadRequestException(
-  this.i18n.translate("services.unsupported_job_action", { lang: this.lang }),
-);
+        throw new BadRequestException(
+          this.i18n.translate("services.unsupported_job_action", {
+            lang: this.lang,
+          }),
+        );
     }
 
     return request.save();
@@ -530,9 +543,9 @@ throw new BadRequestException(
     ]);
 
     if (!requests || requests.length === 0) {
-     throw new NotFoundException(
-  this.i18n.translate("services.no_requests_found", { lang: this.lang }),
-);
+      throw new NotFoundException(
+        this.i18n.translate("services.no_requests_found", { lang: this.lang }),
+      );
     }
     return {
       meta: {
@@ -548,14 +561,14 @@ throw new BadRequestException(
   async deleteAllServiceMedia(serviceId: string, media: string[]) {
     const service = await this.serviceModel.findById(serviceId);
     if (!service) {
-     throw new NotFoundException(
-  this.i18n.translate("services.service_not_found", { lang: this.lang }),
-);
+      throw new NotFoundException(
+        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+      );
     }
     if (!media || media.length === 0) {
-     throw new BadRequestException(
-  this.i18n.translate("services.no_media_provided", { lang: this.lang }),
-);
+      throw new BadRequestException(
+        this.i18n.translate("services.no_media_provided", { lang: this.lang }),
+      );
     }
 
     // Remove media files from storage
@@ -577,10 +590,11 @@ throw new BadRequestException(
     service.images = images;
     service.video = video;
     await service.save();
-   return {
-  message: this.i18n.translate("services.media_deleted_success", {
-    lang: this.lang,
-  })}
+    return {
+      message: this.i18n.translate("services.media_deleted_success", {
+        lang: this.lang,
+      }),
+    };
   }
 
   async getServicesWithVideos(

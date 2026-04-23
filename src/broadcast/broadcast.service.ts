@@ -17,6 +17,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
+import { ServicesService } from "src/services/services.service";
 
 @Injectable()
 export class BroadcastService {
@@ -33,6 +34,7 @@ export class BroadcastService {
     private readonly shopService: ShopService,
     private readonly categoryService: CategoryService,
     private readonly userService: UsersService,
+    private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -45,20 +47,14 @@ export class BroadcastService {
     location: { type: string; coordinates: [number, number] },
   ) {
     // Check if broadcast already exists for this buyer and category
-    const existingBroadcast = await this.broadcastModel.findOne({
-      buyer: new Types.ObjectId(buyerId),
-      category: new Types.ObjectId(dto.categoryId),
-    });
-
-    if (existingBroadcast) {
-      return existingBroadcast;
-    }
+   
 
     return this.broadcastModel.create({
       buyer: new Types.ObjectId(buyerId),
       message: dto.message,
       radius: dto.radius,
       category: new Types.ObjectId(dto.categoryId),
+      type: dto.type,
       location,
     });
   }
@@ -78,6 +74,39 @@ export class BroadcastService {
     );
 
     return shops.map((s) => s.ownerId.toString());
+  }
+
+  // -----------------------------
+  // FIND NEARBY SERVICE PROVIDERS
+  // -----------------------------
+  private async findNearbyServiceProviders(
+    location: { type: string; coordinates: [number, number] },
+    radiusKm: number,
+    categoryId: string,
+  ): Promise<string[]> {
+    const radiusMeters = radiusKm * 1000;
+
+    const services = await this.servicesService
+      .getServiceModel()
+      .find({
+        location: {
+          $near: {
+            $geometry: {
+              type: "Point",
+              coordinates: location.coordinates,
+            },
+            $maxDistance: radiusMeters,
+          },
+        },
+        category: new Types.ObjectId(categoryId),
+      })
+      .lean()
+      .exec();
+
+    console.log("Services found:", services);
+    // Extract unique owner IDs from services
+    const ownerIds = [...new Set(services.map((s) => s.ownerId.toString()))];
+    return ownerIds;
   }
 
   // -----------------------------
@@ -128,22 +157,35 @@ export class BroadcastService {
 
     if (!isCategoryValid) {
       throw new BadRequestException(
-        this.i18n.translate("broadcast.category_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.category_invalid", { lang }),
       );
     }
 
-    let sellerIds = await this.findNearbySellers(location, dto.radius);
+    let sellerIds: string[] = [];
+
+    // Determine recipient IDs based on broadcast type
+    if (dto.type === "product") {
+      sellerIds = await this.findNearbySellers(location, dto.radius);
+    } else if (dto.type === "service") {
+      sellerIds = await this.findNearbyServiceProviders(
+        location,
+        dto.radius,
+        dto.categoryId,
+      );
+    }
+
     sellerIds = sellerIds.filter(
       (ids) => ids.toString() !== buyerId.toString(),
     );
 
     if (!sellerIds.length) {
       throw new BadRequestException(
-        this.i18n.translate("broadcast.no_sellers_found", { lang }),
+        this.i18n.translate("auth.broadcast.no_sellers_found", { lang }),
       );
     }
 
     const broadcast = await this.createBroadcast(dto, buyerId, location);
+    console.log("Broadcast created:", broadcast);
 
     // 1. CREATE THREADS
     const threads = await this.createBroadcastThreads(
@@ -165,7 +207,7 @@ export class BroadcastService {
     await this.messageModel.insertMany(initialMessages);
 
     return {
-      message: this.i18n.translate("broadcast.created_success", { lang }),
+      message: this.i18n.translate("auth.broadcast.created_success", { lang }),
       data: broadcast._id.toString(),
     };
   }
@@ -187,7 +229,7 @@ export class BroadcastService {
     const broadcast = await this.broadcastModel.findById(broadcastObjectId);
     if (!broadcast) {
       throw new NotFoundException(
-        this.i18n.translate("broadcast.broadcast_not_found", { lang }),
+        this.i18n.translate("auth.broadcast.broadcast_not_found", { lang }),
       );
     }
 
@@ -208,14 +250,14 @@ export class BroadcastService {
 
     if (!thread) {
       throw new NotFoundException(
-        this.i18n.translate("broadcast.thread_not_found", { lang }),
+        this.i18n.translate("auth.broadcast.thread_not_found", { lang }),
       );
     }
 
     // 4. Ensure thread belongs to broadcast
     if (thread.broadcast.toString() !== broadcastId) {
       throw new BadRequestException(
-        this.i18n.translate("broadcast.thread_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.thread_invalid", { lang }),
       );
     }
 
@@ -226,7 +268,7 @@ export class BroadcastService {
 
     if (!isParticipant) {
       throw new BadRequestException(
-        this.i18n.translate("broadcast.sender_not_in_thread", { lang }),
+        this.i18n.translate("auth.broadcast.sender_not_in_thread", { lang }),
       );
     }
 
@@ -237,7 +279,7 @@ export class BroadcastService {
 
     if (!isValidReceiver) {
       throw new BadRequestException(
-        this.i18n.translate("broadcast.receiver_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.receiver_invalid", { lang }),
       );
     }
 

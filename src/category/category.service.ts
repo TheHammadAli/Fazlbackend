@@ -12,7 +12,6 @@ import {
 import { CreateCategoryRequestDto } from "./dto/category-request.dto";
 import { ReviewCategoryRequestDto } from "./dto/review-category.dto";
 
-
 @Injectable()
 export class CategoryService {
   constructor(
@@ -35,7 +34,7 @@ export class CategoryService {
     const category = await this.categoryModel.findById(id);
     if (!category)
       throw new NotFoundException(
-        this.i18n.translate("category.category_not_found", { lang }),
+        this.i18n.translate("auth.category.category_not_found", { lang }),
       );
     return category;
   }

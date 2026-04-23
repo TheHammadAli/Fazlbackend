@@ -26,6 +26,7 @@ export declare class ServicesService {
     private readonly cls;
     constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService);
     private get lang();
+    getServiceModel(): Model<ServiceDocument>;
     create(userId: string, dto: CreateServiceDto, lang?: string): Promise<Service>;
     update(serviceId: string, dto: UpdateServiceDto): Promise<{
         images: string[];
