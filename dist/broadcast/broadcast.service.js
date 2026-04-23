@@ -100,6 +100,9 @@ let BroadcastService = class BroadcastService {
         if (!isCategoryValid) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.category_invalid", { lang }));
         }
+        if (dto.type !== "product" && dto.type !== "service") {
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.type_invalid", { lang }));
+        }
         let sellerIds = [];
         if (dto.type === "product") {
             sellerIds = await this.findNearbySellers(location, dto.radius);

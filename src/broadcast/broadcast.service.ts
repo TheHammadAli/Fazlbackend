@@ -161,6 +161,12 @@ export class BroadcastService {
       );
     }
 
+    if(dto.type!== "product" && dto.type !== "service") {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.type_invalid", { lang }),
+      );
+    }
+
     let sellerIds: string[] = [];
 
     // Determine recipient IDs based on broadcast type
