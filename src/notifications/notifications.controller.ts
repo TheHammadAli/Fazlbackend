@@ -30,34 +30,6 @@ import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @Post()
-  @ApiOperation({ summary: "Create a new notification" })
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: {
-        userId: { type: "string", example: "64fc91d9f7b9c1d4f9a8a123" },
-        message: { type: "string", example: "Your order has been placed!" },
-        type: {
-          type: "string",
-          example: "ORDER",
-          enum: ["ORDER", "MESSAGE", "PROMOTION"],
-        },
-      },
-      required: ["userId", "message"],
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: "Notification created successfully",
-  })
-  async createNotification(
-    @Body("userId") userId: string,
-    @Body("message") message: string,
-    @Body("type") type: "ORDER" | "MESSAGE" | "PROMOTION",
-  ) {
-    return this.notificationsService.create(userId, message, type);
-  }
 
   @Get(":userId")
   @ApiOperation({ summary: "Get paginated notifications for a user" })
@@ -143,11 +115,19 @@ export class NotificationsController {
     status: 201,
     description: "Notification created and sent successfully",
   })
-  async testNotification(@Body() body: { userId: string; message: string }) {
+ async testNotification(@Body() body: { userId: string; message: string }) {
     return this.notificationsService.createAndNotify(
-      body.userId,
-      body.message,
-      "MESSAGE",
+      body.userId,      // Recipient
+      body.message,     // Translation Key (e.g., "new_message_received")
+      "MESSAGE",        // Notification Type
+      {                 // Generic Payload (Mandatory)
+        senderId: "system_admin",
+        sentAt: new Date().toISOString(),
+        action: "open_chat",
+      },
+      {                 // i18n Params (Optional)
+        userName: "John Doe" 
+      }
     );
   }
 }

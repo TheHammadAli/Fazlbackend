@@ -36,7 +36,7 @@ export class BroadcastService {
     private readonly userService: UsersService,
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
-  ) {}
+  ) { }
 
   // -----------------------------
   // CREATE BROADCAST
@@ -47,7 +47,7 @@ export class BroadcastService {
     location: { type: string; coordinates: [number, number] },
   ) {
     // Check if broadcast already exists for this buyer and category
-   
+
 
     return this.broadcastModel.create({
       buyer: new Types.ObjectId(buyerId),
@@ -161,7 +161,7 @@ export class BroadcastService {
       );
     }
 
-    if(dto.type!== "product" && dto.type !== "service") {
+    if (dto.type !== "product" && dto.type !== "service") {
       throw new BadRequestException(
         this.i18n.translate("auth.broadcast.type_invalid", { lang }),
       );
@@ -180,9 +180,8 @@ export class BroadcastService {
       );
     }
 
-    sellerIds = sellerIds.filter(
-      (ids) => ids.toString() !== buyerId.toString(),
-    );
+    sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
+    sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
 
     if (!sellerIds.length) {
       throw new BadRequestException(
@@ -200,8 +199,12 @@ export class BroadcastService {
       buyerId,
     );
 
-    // 2. CREATE INITIAL MESSAGES (IMPORTANT FIX)
-    const initialMessages = threads.map((thread: any) => ({
+    const uniqueThreads = Array.from(
+      new Map(threads.map((thread: any) => [thread._id.toString(), thread])).values(),
+    );
+
+    // 2. CREATE INITIAL MESSAGES
+    const initialMessages = uniqueThreads.map((thread: any) => ({
       broadcast: broadcast._id,
       thread: thread._id,
       sender: new Types.ObjectId(buyerId),
@@ -304,12 +307,108 @@ export class BroadcastService {
   // -----------------------------
   async getBroadcastThreads(broadcastId: string) {
     return this.threadModel
-      .find({
-        broadcast: new Types.ObjectId(broadcastId),
-      })
-      .populate("buyer", "name")
-      .populate("seller", "name")
-      .sort({ createdAt: -1 });
+      .aggregate([
+        {
+          $match: {
+            broadcast: new Types.ObjectId(broadcastId),
+          },
+        },
+        // Lookup buyer details
+        {
+          $lookup: {
+            from: "users",
+            localField: "buyer",
+            foreignField: "_id",
+            as: "buyer",
+          },
+        },
+        {
+          $unwind: {
+            path: "$buyer",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Lookup seller details
+        {
+          $lookup: {
+            from: "users",
+            localField: "seller",
+            foreignField: "_id",
+            as: "seller",
+          },
+        },
+        {
+          $unwind: {
+            path: "$seller",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Lookup latest message in this thread
+        {
+          $lookup: {
+            from: "broadcastmessages",
+            let: { threadId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$thread", "$$threadId"] },
+                },
+              },
+              {
+                $sort: { createdAt: -1 },
+              },
+              {
+                $limit: 1,
+              },
+              {
+                $lookup: {
+                  from: "users",
+                  localField: "sender",
+                  foreignField: "_id",
+                  as: "sender",
+                },
+              },
+              {
+                $unwind: {
+                  path: "$sender",
+                  preserveNullAndEmptyArrays: true,
+                },
+              },
+              {
+                $project: {
+                  message: 1,
+                  createdAt: 1,
+                  sender: { _id: 1, name: 1 },
+                },
+              },
+            ],
+            as: "latestMessage",
+          },
+        },
+        {
+          $unwind: {
+            path: "$latestMessage",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Project desired fields
+        {
+          $project: {
+            _id: 1,
+            broadcast: 1,
+            buyer: { _id: 1, name: 1 },
+            seller: { _id: 1, name: 1 },
+            lastMessageAt: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            latestMessage: 1,
+          },
+        },
+        {
+          $sort: { "latestMessage.createdAt": -1, createdAt: -1 },
+        },
+      ])
+      .exec();
   }
 
   // -----------------------------

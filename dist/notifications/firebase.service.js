@@ -32,7 +32,7 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
                 ?.replace(/\\n/g, "\n");
             const clientEmail = this.configService.get("FIREBASE_CLIENT_EMAIL");
             if (!projectId || !privateKey || !clientEmail) {
-                throw new Error("Missing Firebase environment variables (projectId/privateKey/clientEmail)");
+                throw new Error("Missing Firebase environment variables");
             }
             admin.initializeApp({
                 credential: admin.credential.cert({
@@ -48,15 +48,24 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
             this.logger.error("Firebase initialization failed", err);
         }
     }
-    async sendNotification(token, title, body) {
+    async sendNotification(token, title, body, payload = {}) {
         try {
             if (!admin.apps.length) {
                 this.logger.warn("Firebase not initialized. Skipping notification.");
                 return null;
             }
+            const sanitizedData = {};
+            Object.entries(payload).forEach(([key, value]) => {
+                sanitizedData[key] = typeof value === 'object'
+                    ? JSON.stringify(value)
+                    : String(value);
+            });
             return await admin.messaging().send({
                 token,
                 notification: { title, body },
+                data: sanitizedData,
+                android: { priority: 'high' },
+                apns: { payload: { aps: { contentAvailable: true } } },
             });
         }
         catch (err) {

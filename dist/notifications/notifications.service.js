@@ -41,33 +41,41 @@ let NotificationsService = class NotificationsService {
     setServer(server) {
         this.server = server;
     }
-    async create(userId, message, type = "MESSAGE") {
+    async create(userId, message, type = "MESSAGE", payload) {
         const user = await this.usersService.findUserById(userId.toString());
-        if (!user)
+        if (!user) {
             throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+        }
         const notif = new this.notificationModel({
             userId: new mongoose_2.Types.ObjectId(userId),
             message,
             type,
+            payload,
             read: false,
         });
         return notif.save();
     }
-    async createAndNotify(userId, messageKey, type = "MESSAGE", params = {}) {
+    async createAndNotify(userId, messageKey, type, payload, i18nArgs = {}) {
         const user = await this.usersService.findUserById(userId.toString());
-        if (!user)
+        if (!user) {
             throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+        }
         const fullKey = messageKey.includes('.') ? messageKey : `notifications.${messageKey}`;
         const translatedMessage = this.i18n.translate(fullKey, {
             lang: this.lang,
-            args: params,
+            args: i18nArgs,
         });
-        const notif = await this.create(userId, translatedMessage, type);
+        const notif = await this.create(userId, translatedMessage, type, payload);
         if (this.server) {
             this.server.to(userId.toString()).emit("notification", notif);
         }
         if (user?.fcmToken) {
-            await this.firebaseService.sendNotification(user.fcmToken, "New Notification", translatedMessage);
+            const notificationId = notif._id?.toString() || String(notif.id);
+            await this.firebaseService.sendNotification(user.fcmToken, this.i18n.translate("notifications.new_title", { lang: this.lang }), translatedMessage, {
+                type,
+                ...payload,
+                notificationId,
+            });
         }
         return notif;
     }

@@ -26,40 +26,38 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
 
   /** Dynamic getter for the current request language */
   private get lang(): string {
     return this.cls.get("lang") || "en";
   }
 
-  // Create (Insert)
+  // CREATE: Logic updated to include mandatory payloads and post-save notifications
   async createOrder(dto: CreateOrderDto): Promise<Order> {
-    // Check if buyer exists
+    // 1. Validation Logic
     const buyer = await this.usersService.findUserById(dto.buyer);
     if (!buyer)
       throw new NotFoundException(
-        this.i18n.translate("orders.buyer_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.orders.buyer_not_found", { lang: this.lang }),
       );
 
-    // Check if product exists
     const product = await this.productsService.getById(dto.product, this.lang);
     if (!product)
       throw new NotFoundException(
-        this.i18n.translate("orders.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.orders.product_not_found", { lang: this.lang }),
       );
 
-    // Check if owner exists (shop or user)
     let ownerExists = false;
     if (dto.ownerModel === "Shop") {
       ownerExists = !!(await this.shopService.getShopById(dto.owner, this.lang));
     } else if (dto.ownerModel === "User") {
       ownerExists = !!(await this.usersService.findUserById(dto.owner));
     }
-    
+
     if (!ownerExists)
       throw new NotFoundException(
-        this.i18n.translate("orders.order_owner_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.orders.order_owner_not_found", { lang: this.lang }),
       );
 
     let isValidOwner = false;
@@ -71,10 +69,11 @@ export class OrdersService {
 
     if (!isValidOwner) {
       throw new BadRequestException(
-        this.i18n.translate("orders.order_mismatch", { lang: this.lang }),
+        this.i18n.translate("auth.orders.order_mismatch", { lang: this.lang }),
       );
     }
 
+    // 2. Prepare and Save
     const order = new this.orderModel({
       ...dto,
       buyer: new Types.ObjectId(dto.buyer),
@@ -82,28 +81,41 @@ export class OrdersService {
       product: new Types.ObjectId(dto.product),
     });
 
-    // Notify buyer and owner
+    const savedOrder = await order.save();
+
+    // 3. Post-Save Notifications with Generic Payload
+    const notificationPayload = {
+      orderId: (savedOrder as any)._id.toString(),
+      productId: dto.product,
+      ownerModel: dto.ownerModel
+    };
+
+    // Notify buyer (using translation placeholders)
     this.notificationsService.createAndNotify(
       dto.buyer,
-      "order_buyer", // The service logic we built earlier will prefix "notifications."
+      "order_created_buyer",
       "ORDER",
+      notificationPayload,
       { productTitle: product.title },
     );
+
+    // Notify owner/seller
     this.notificationsService.createAndNotify(
       dto.owner,
-      "order_seller",
+      "order_created_seller",
       "ORDER",
+      notificationPayload,
       { productTitle: product.title },
     );
-    
-    return order.save();
+
+    return savedOrder;
   }
 
-  // Read (Get specific order by ID)
+  // READ: Get by ID
   async getOrderById(orderId: string): Promise<Order> {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
-        this.i18n.translate("orders.invalid_order_id", { lang: this.lang }),
+        this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang }),
       );
 
     const order = await this.orderModel
@@ -115,12 +127,12 @@ export class OrdersService {
 
     if (!order)
       throw new NotFoundException(
-        this.i18n.translate("orders.order_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }),
       );
     return order;
   }
 
-  // Read (List orders, filter by owner)
+  // READ: List by Owner
   async getOrdersByOwner(
     ownerId: string,
     ownerModel: "Shop" | "User",
@@ -135,30 +147,13 @@ export class OrdersService {
   }> {
     if (!Types.ObjectId.isValid(ownerId))
       throw new BadRequestException(
-        this.i18n.translate("orders.invalid_owner_id", { lang: this.lang })
-      );
-    
-    if (page < 1 || limit < 1)
-      throw new BadRequestException(
-        this.i18n.translate("orders.invalid_page_limit", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_owner_id", { lang: this.lang })
       );
 
-    // Check owner existence
-    if (ownerModel === "Shop") {
-      const shop = await this.shopService.getShopById(ownerId);
-      if (!shop) throw new NotFoundException(
-        this.i18n.translate("orders.owner_not_found", { lang: this.lang })
-      );
-    } else if (ownerModel === "User") {
-      const user = await this.usersService.findUserById(ownerId);
-      if (!user) throw new NotFoundException(
-        this.i18n.translate("orders.owner_not_found", { lang: this.lang })
-      );
-    } else {
+    if (page < 1 || limit < 1)
       throw new BadRequestException(
-        this.i18n.translate("orders.invalid_owner_model", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_page_limit", { lang: this.lang })
       );
-    }
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -183,7 +178,7 @@ export class OrdersService {
     };
   }
 
-  // Read (List orders by buyer)
+  // READ: List by Buyer
   async getOrdersByBuyer(
     buyerId: string,
     page = 1,
@@ -197,18 +192,8 @@ export class OrdersService {
   }> {
     if (!Types.ObjectId.isValid(buyerId))
       throw new BadRequestException(
-        this.i18n.translate("orders.invalid_buyer_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_buyer_id", { lang: this.lang })
       );
-
-    if (page < 1 || limit < 1)
-      throw new BadRequestException(
-        this.i18n.translate("orders.invalid_page_limit", { lang: this.lang })
-      );
-
-    const buyer = await this.usersService.findUserById(buyerId);
-    if (!buyer) throw new NotFoundException(
-      this.i18n.translate("orders.buyer_not_found", { lang: this.lang })
-    );
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -231,35 +216,63 @@ export class OrdersService {
     };
   }
 
-  // Update
+  // UPDATE: Logic updated to notify on status changes
   async updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order> {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
-        this.i18n.translate("orders.invalid_order_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang })
       );
 
-    const updated = await this.orderModel.findByIdAndUpdate(orderId, dto, {
-      new: true,
-    });
-    
-    if (!updated) throw new NotFoundException(
-      this.i18n.translate("orders.order_not_found", { lang: this.lang })
-    );
+    const updated = await this.orderModel
+      .findByIdAndUpdate(orderId, dto, { new: true })
+      .populate('product');
+
+    if (!updated)
+      throw new NotFoundException(
+        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang })
+      );
+
+    // If the order status was updated, notify the buyer with the new status
+    if (dto.status) {
+      // 1. Safely extract the ID as a string
+      const orderId = updated._id instanceof Types.ObjectId
+        ? updated._id.toHexString()
+        : String(updated._id);
+
+      // 2. Safely extract the product title
+      // Since you populated 'product', we cast to any to access the title property
+      const productTitle = (updated.product as any)?.title || 'Product';
+
+      // 3. Dispatch
+      this.notificationsService.createAndNotify(
+        updated.buyer.toString(),
+        "order_status_updated",
+        "ORDER",
+        {
+          orderId: orderId, // This is our mandatory generic payload
+          status: dto.status
+        },
+        {
+          productTitle: productTitle,
+          status: dto.status
+        }
+      );
+    }
+
     return updated;
   }
 
-  // Delete
+  // DELETE
   async deleteOrder(orderId: string): Promise<void> {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
-        this.i18n.translate("orders.invalid_order_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang })
       );
 
     const result = await this.orderModel.findByIdAndDelete(orderId);
-    if (!result) throw new NotFoundException(
-      this.i18n.translate("orders.order_not_found", { lang: this.lang })
-    );
-
-    
+    if (!result)
+      throw new NotFoundException(
+        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang })
+      );
   }
 }

@@ -46,10 +46,10 @@ let OrdersService = class OrdersService {
     async createOrder(dto) {
         const buyer = await this.usersService.findUserById(dto.buyer);
         if (!buyer)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.buyer_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.orders.buyer_not_found", { lang: this.lang }));
         const product = await this.productsService.getById(dto.product, this.lang);
         if (!product)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.orders.product_not_found", { lang: this.lang }));
         let ownerExists = false;
         if (dto.ownerModel === "Shop") {
             ownerExists = !!(await this.shopService.getShopById(dto.owner, this.lang));
@@ -58,7 +58,7 @@ let OrdersService = class OrdersService {
             ownerExists = !!(await this.usersService.findUserById(dto.owner));
         }
         if (!ownerExists)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.order_owner_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_owner_not_found", { lang: this.lang }));
         let isValidOwner = false;
         if (dto.ownerModel === "Shop") {
             isValidOwner = dto.owner === product.shopId.toString();
@@ -67,7 +67,7 @@ let OrdersService = class OrdersService {
             isValidOwner = dto.owner === product.ownerId?.toString();
         }
         if (!isValidOwner) {
-            throw new common_1.BadRequestException(this.i18n.translate("orders.order_mismatch", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.order_mismatch", { lang: this.lang }));
         }
         const order = new this.orderModel({
             ...dto,
@@ -75,13 +75,19 @@ let OrdersService = class OrdersService {
             owner: new mongoose_2.Types.ObjectId(dto.owner),
             product: new mongoose_2.Types.ObjectId(dto.product),
         });
-        this.notificationsService.createAndNotify(dto.buyer, "order_buyer", "ORDER", { productTitle: product.title });
-        this.notificationsService.createAndNotify(dto.owner, "order_seller", "ORDER", { productTitle: product.title });
-        return order.save();
+        const savedOrder = await order.save();
+        const notificationPayload = {
+            orderId: savedOrder._id.toString(),
+            productId: dto.product,
+            ownerModel: dto.ownerModel
+        };
+        this.notificationsService.createAndNotify(dto.buyer, "order_created_buyer", "ORDER", notificationPayload, { productTitle: product.title });
+        this.notificationsService.createAndNotify(dto.owner, "order_created_seller", "ORDER", notificationPayload, { productTitle: product.title });
+        return savedOrder;
     }
     async getOrderById(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_order_id", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang }));
         const order = await this.orderModel
             .findById(orderId)
             .populate("buyer")
@@ -89,27 +95,14 @@ let OrdersService = class OrdersService {
             .populate("owner")
             .exec();
         if (!order)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.order_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }));
         return order;
     }
     async getOrdersByOwner(ownerId, ownerModel, page = 1, limit = 10) {
         if (!mongoose_2.Types.ObjectId.isValid(ownerId))
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_owner_id", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_owner_id", { lang: this.lang }));
         if (page < 1 || limit < 1)
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_page_limit", { lang: this.lang }));
-        if (ownerModel === "Shop") {
-            const shop = await this.shopService.getShopById(ownerId);
-            if (!shop)
-                throw new common_1.NotFoundException(this.i18n.translate("orders.owner_not_found", { lang: this.lang }));
-        }
-        else if (ownerModel === "User") {
-            const user = await this.usersService.findUserById(ownerId);
-            if (!user)
-                throw new common_1.NotFoundException(this.i18n.translate("orders.owner_not_found", { lang: this.lang }));
-        }
-        else {
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_owner_model", { lang: this.lang }));
-        }
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_page_limit", { lang: this.lang }));
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
@@ -134,12 +127,7 @@ let OrdersService = class OrdersService {
     }
     async getOrdersByBuyer(buyerId, page = 1, limit = 10) {
         if (!mongoose_2.Types.ObjectId.isValid(buyerId))
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_buyer_id", { lang: this.lang }));
-        if (page < 1 || limit < 1)
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_page_limit", { lang: this.lang }));
-        const buyer = await this.usersService.findUserById(buyerId);
-        if (!buyer)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.buyer_not_found", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_buyer_id", { lang: this.lang }));
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
@@ -162,20 +150,33 @@ let OrdersService = class OrdersService {
     }
     async updateOrder(orderId, dto) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_order_id", { lang: this.lang }));
-        const updated = await this.orderModel.findByIdAndUpdate(orderId, dto, {
-            new: true,
-        });
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang }));
+        const updated = await this.orderModel
+            .findByIdAndUpdate(orderId, dto, { new: true })
+            .populate('product');
         if (!updated)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.order_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }));
+        if (dto.status) {
+            const orderId = updated._id instanceof mongoose_2.Types.ObjectId
+                ? updated._id.toHexString()
+                : String(updated._id);
+            const productTitle = updated.product?.title || 'Product';
+            this.notificationsService.createAndNotify(updated.buyer.toString(), "order_status_updated", "ORDER", {
+                orderId: orderId,
+                status: dto.status
+            }, {
+                productTitle: productTitle,
+                status: dto.status
+            });
+        }
         return updated;
     }
     async deleteOrder(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))
-            throw new common_1.BadRequestException(this.i18n.translate("orders.invalid_order_id", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang }));
         const result = await this.orderModel.findByIdAndDelete(orderId);
         if (!result)
-            throw new common_1.NotFoundException(this.i18n.translate("orders.order_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }));
     }
 };
 exports.OrdersService = OrdersService;

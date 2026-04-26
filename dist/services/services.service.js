@@ -247,7 +247,7 @@ let ServicesService = class ServicesService {
         if (!serviceId || !requestedDateTime || !customerId) {
             throw new common_1.BadRequestException("Missing required fields for request creation");
         }
-        const service = await this.serviceModel.findById(serviceId);
+        const service = await this.serviceModel.findById(serviceId).populate("ownerId");
         if (!service)
             throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
         const request = new this.requestModel({
@@ -259,8 +259,9 @@ let ServicesService = class ServicesService {
             jobStatus: "not_started",
             message,
         });
-        this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || "a user"}`);
-        return request.save();
+        const results = await request.save();
+        this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || "a user"}`, "SERVICE_REQUEST", { serviceId, customerId, requestedDateTime, service });
+        return results;
     }
     async updateRequestStatus(dto) {
         const { requestId, action, proposedDateTime } = dto;
@@ -272,45 +273,41 @@ let ServicesService = class ServicesService {
         if (!request)
             throw new common_1.NotFoundException(this.i18n.translate("services.request_not_found", { lang: this.lang }));
         const serviceName = request.service?.title || "service";
+        let notificationKey = null;
+        let recipientId = request.customer._id.toString();
+        let notificationPayload = { requestId: request._id, action, request };
         switch (action) {
             case "accept":
                 request.status = "accepted";
-                console.log("Look here", request.customer);
-                await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has been accepted by the provider.`);
+                notificationKey = "request_accepted";
                 break;
             case "reject":
                 request.status = "rejected";
-                await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has been rejected by the provider.`);
+                notificationKey = "request_rejected";
                 break;
             case "cancel":
                 request.status = "cancelled";
-                await this.notificationsService.createAndNotify(request.provider._id.toString(), `Service request for "${serviceName}" has been cancelled by the customer.`);
+                recipientId = request.provider._id.toString();
+                notificationKey = "request_cancelled";
                 break;
             case "propose":
-                if (!proposedDateTime) {
-                    throw new common_1.BadRequestException(this.i18n.translate("services.proposed_date_required", {
-                        lang: this.lang,
-                    }));
-                }
-                const parsedDate = new Date(proposedDateTime);
-                if (isNaN(parsedDate.getTime())) {
-                    throw new common_1.BadRequestException(this.i18n.translate("services.invalid_proposed_date", {
-                        lang: this.lang,
-                    }));
-                }
+                if (!proposedDateTime)
+                    throw new common_1.BadRequestException();
                 request.status = "proposed";
-                request.proposedDateTime = parsedDate;
-                await this.notificationsService.createAndNotify(request.customer._id.toString(), `Your service request for "${serviceName}" has a new proposed date: ${parsedDate.toISOString()}`);
+                request.proposedDateTime = new Date(proposedDateTime);
+                notificationKey = "request_proposed";
+                Object.assign(notificationPayload, { proposedDate: proposedDateTime });
                 break;
             default:
-                throw new common_1.BadRequestException(this.i18n.translate("services.unsupported_action", {
-                    lang: this.lang,
-                }));
+                throw new common_1.BadRequestException(this.i18n.translate("auth.services.unsupported_action"));
         }
         await request.save();
+        if (notificationKey) {
+            await this.notificationsService.createAndNotify(recipientId, notificationKey, "SERVICE_REQUEST", notificationPayload, { serviceName, proposedDate: proposedDateTime });
+        }
         return {
             status: 201,
-            message: this.i18n.translate("services.request_status_updated", {
+            message: this.i18n.translate("auth.services.request_status_updated", {
                 lang: this.lang,
             }),
             data: {
@@ -333,7 +330,7 @@ let ServicesService = class ServicesService {
                 request.jobStatus = "completed";
                 break;
             default:
-                throw new common_1.BadRequestException(this.i18n.translate("services.unsupported_job_action", {
+                throw new common_1.BadRequestException(this.i18n.translate("auth.services.unsupported_job_action", {
                     lang: this.lang,
                 }));
         }
@@ -364,7 +361,7 @@ let ServicesService = class ServicesService {
             }),
         ]);
         if (!requests || requests.length === 0) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.no_requests_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.no_requests_found", { lang: this.lang }));
         }
         return {
             meta: {
@@ -379,10 +376,10 @@ let ServicesService = class ServicesService {
     async deleteAllServiceMedia(serviceId, media) {
         const service = await this.serviceModel.findById(serviceId);
         if (!service) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException(this.i18n.translate("services.no_media_provided", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = service.images || [];
@@ -395,7 +392,7 @@ let ServicesService = class ServicesService {
         service.video = video;
         await service.save();
         return {
-            message: this.i18n.translate("services.media_deleted_success", {
+            message: this.i18n.translate("auth.services.media_deleted_success", {
                 lang: this.lang,
             }),
         };

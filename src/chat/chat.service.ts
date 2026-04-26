@@ -22,7 +22,7 @@ export class ChatService {
     private readonly shopService: ShopService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService
-  ) {}
+  ) { }
 
   /** Dynamic getter to retrieve the current request language safely */
   private get lang(): string {
@@ -190,17 +190,115 @@ export class ChatService {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
-      this.conversationModel
-        .find({
-          $or: [{ buyer: userObjectId }, { seller: userObjectId }],
-        })
-        .sort({ lastMessageAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("buyer", "name email profilePicture")
-        .populate("seller", "name email profilePicture")
-        .exec(),
+    const [data, totalResult] = await Promise.all([
+      this.conversationModel.aggregate([
+        {
+          $match: {
+            $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+          },
+        },
+        // Lookup buyer details
+        {
+          $lookup: {
+            from: "users",
+            localField: "buyer",
+            foreignField: "_id",
+            as: "buyer",
+          },
+        },
+        {
+          $unwind: {
+            path: "$buyer",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Lookup seller details
+        {
+          $lookup: {
+            from: "users",
+            localField: "seller",
+            foreignField: "_id",
+            as: "seller",
+          },
+        },
+        {
+          $unwind: {
+            path: "$seller",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Lookup latest message in this conversation
+        {
+          $lookup: {
+            from: "messages",
+            let: { conversationId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$conversationId", "$$conversationId"] },
+                },
+              },
+              {
+                $sort: { createdAt: -1 },
+              },
+              {
+                $limit: 1,
+              },
+              {
+                $lookup: {
+                  from: "users",
+                  localField: "sender",
+                  foreignField: "_id",
+                  as: "sender",
+                },
+              },
+              {
+                $unwind: {
+                  path: "$sender",
+                  preserveNullAndEmptyArrays: true,
+                },
+              },
+              {
+                $project: {
+                  text: 1,
+                  read: 1,
+                  createdAt: 1,
+                  sender: { _id: 1, name: 1 },
+                },
+              },
+            ],
+            as: "latestMessage",
+          },
+        },
+        {
+          $unwind: {
+            path: "$latestMessage",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // Project desired fields
+        {
+          $project: {
+            _id: 1,
+            buyer: { _id: 1, name: 1, email: 1, profilePicture: 1 },
+            seller: { _id: 1, name: 1, email: 1, profilePicture: 1 },
+            status: 1,
+            lastMessageAt: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            latestMessage: 1,
+          },
+        },
+        {
+          $sort: { "latestMessage.createdAt": -1, lastMessageAt: -1 },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: Number(limit),
+        },
+      ]),
       this.conversationModel.countDocuments({
         $or: [{ buyer: userObjectId }, { seller: userObjectId }],
       }),
@@ -209,10 +307,10 @@ export class ChatService {
     return {
       data,
       meta: {
-        total,
+        total: totalResult,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(totalResult / limit),
       },
     };
   }

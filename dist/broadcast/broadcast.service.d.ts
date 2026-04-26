@@ -36,11 +36,7 @@ export declare class BroadcastService {
     } & {
         __v: number;
     }>;
-    getBroadcastThreads(broadcastId: string): Promise<(import("mongoose").Document<unknown, {}, BroadcastThread, {}> & BroadcastThread & Required<{
-        _id: unknown;
-    }> & {
-        __v: number;
-    })[]>;
+    getBroadcastThreads(broadcastId: string): Promise<any[]>;
     getThreadMessages(threadId: string): Promise<(import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
         _id: Types.ObjectId;
     } & {

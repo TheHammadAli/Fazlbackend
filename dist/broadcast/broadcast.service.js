@@ -110,14 +110,16 @@ let BroadcastService = class BroadcastService {
         else if (dto.type === "service") {
             sellerIds = await this.findNearbyServiceProviders(location, dto.radius, dto.categoryId);
         }
-        sellerIds = sellerIds.filter((ids) => ids.toString() !== buyerId.toString());
+        sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
+        sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
         if (!sellerIds.length) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.no_sellers_found", { lang }));
         }
         const broadcast = await this.createBroadcast(dto, buyerId, location);
         console.log("Broadcast created:", broadcast);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
-        const initialMessages = threads.map((thread) => ({
+        const uniqueThreads = Array.from(new Map(threads.map((thread) => [thread._id.toString(), thread])).values());
+        const initialMessages = uniqueThreads.map((thread) => ({
             broadcast: broadcast._id,
             thread: thread._id,
             sender: new mongoose_2.Types.ObjectId(buyerId),
@@ -171,12 +173,104 @@ let BroadcastService = class BroadcastService {
     }
     async getBroadcastThreads(broadcastId) {
         return this.threadModel
-            .find({
-            broadcast: new mongoose_2.Types.ObjectId(broadcastId),
-        })
-            .populate("buyer", "name")
-            .populate("seller", "name")
-            .sort({ createdAt: -1 });
+            .aggregate([
+            {
+                $match: {
+                    broadcast: new mongoose_2.Types.ObjectId(broadcastId),
+                },
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "buyer",
+                    foreignField: "_id",
+                    as: "buyer",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$buyer",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "seller",
+                    foreignField: "_id",
+                    as: "seller",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$seller",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { threadId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$thread", "$$threadId"] },
+                            },
+                        },
+                        {
+                            $sort: { createdAt: -1 },
+                        },
+                        {
+                            $limit: 1,
+                        },
+                        {
+                            $lookup: {
+                                from: "users",
+                                localField: "sender",
+                                foreignField: "_id",
+                                as: "sender",
+                            },
+                        },
+                        {
+                            $unwind: {
+                                path: "$sender",
+                                preserveNullAndEmptyArrays: true,
+                            },
+                        },
+                        {
+                            $project: {
+                                message: 1,
+                                createdAt: 1,
+                                sender: { _id: 1, name: 1 },
+                            },
+                        },
+                    ],
+                    as: "latestMessage",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$latestMessage",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $project: {
+                    _id: 1,
+                    broadcast: 1,
+                    buyer: { _id: 1, name: 1 },
+                    seller: { _id: 1, name: 1 },
+                    lastMessageAt: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    latestMessage: 1,
+                },
+            },
+            {
+                $sort: { "latestMessage.createdAt": -1, createdAt: -1 },
+            },
+        ])
+            .exec();
     }
     async getThreadMessages(threadId) {
         return this.messageModel

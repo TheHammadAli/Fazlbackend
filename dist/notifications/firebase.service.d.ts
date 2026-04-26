@@ -5,5 +5,5 @@ export declare class FirebaseService {
     private initialized;
     constructor(configService: ConfigService);
     private initFirebase;
-    sendNotification(token: string, title: string, body: string): Promise<string | null>;
+    sendNotification(token: string, title: string, body: string, payload?: Record<string, any>): Promise<string | null>;
 }

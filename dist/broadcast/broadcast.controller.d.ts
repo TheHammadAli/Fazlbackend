@@ -15,11 +15,7 @@ export declare class BroadcastController {
     } & {
         __v: number;
     }>;
-    getThreads(broadcastId: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast-thread.schema").BroadcastThread, {}> & import("./schema/broadcast-thread.schema").BroadcastThread & Required<{
-        _id: unknown;
-    }> & {
-        __v: number;
-    })[]>;
+    getThreads(broadcastId: string): Promise<any[]>;
     getThreadMessages(broadcastId: string, threadId: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast-message.schema").BroadcastMessage, {}> & import("./schema/broadcast-message.schema").BroadcastMessage & {
         _id: import("mongoose").Types.ObjectId;
     } & {

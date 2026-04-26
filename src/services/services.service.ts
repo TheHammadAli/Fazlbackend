@@ -42,7 +42,7 @@ export class ServicesService {
     private readonly requestModel: Model<ServiceRequestDocument>,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
@@ -346,9 +346,7 @@ export class ServicesService {
     const {
       serviceId,
       customerId,
-
       requestedDateTime,
-
       message,
     } = dto;
 
@@ -370,7 +368,7 @@ export class ServicesService {
       );
     }
 
-    const service = await this.serviceModel.findById(serviceId);
+    const service = await this.serviceModel.findById(serviceId).populate("ownerId");
     if (!service)
       throw new NotFoundException(
         this.i18n.translate("services.service_not_found", { lang: this.lang }),
@@ -385,12 +383,16 @@ export class ServicesService {
       jobStatus: "not_started",
       message,
     });
+
+    const results = await request.save();
     this.notificationsService.createAndNotify(
       service.ownerId.toString(),
       `New service request for "${service.title}" from ${customer?.name || "a user"}`,
+      "SERVICE_REQUEST",
+      { serviceId, customerId, requestedDateTime, service }
     );
 
-    return request.save();
+    return results;
   }
   async updateRequestStatus(dto: UpdateRequestStatusDto) {
     const { requestId, action, proposedDateTime } = dto;
@@ -409,73 +411,62 @@ export class ServicesService {
     // ✅ Safely extract service name (avoid using full object)
     const serviceName = (request.service as any)?.title || "service";
 
+    // 1. Prepare variables at the top
+    let notificationKey: string | null = null;
+    let recipientId: string = request.customer._id.toString();
+    let notificationPayload = { requestId: request._id, action, request };
+
+    // 2. The Switch logic (ONLY updates status and picks the message key)
     switch (action) {
       case "accept":
         request.status = "accepted";
-        console.log("Look here", request.customer);
-        await this.notificationsService.createAndNotify(
-          request.customer._id.toString(),
-          `Your service request for "${serviceName}" has been accepted by the provider.`,
-        );
+        notificationKey = "request_accepted";
         break;
 
       case "reject":
         request.status = "rejected";
-
-        await this.notificationsService.createAndNotify(
-          request.customer._id.toString(),
-          `Your service request for "${serviceName}" has been rejected by the provider.`,
-        );
+        notificationKey = "request_rejected";
         break;
 
       case "cancel":
         request.status = "cancelled";
-
-        await this.notificationsService.createAndNotify(
-          request.provider._id.toString(),
-          `Service request for "${serviceName}" has been cancelled by the customer.`,
-        );
+        recipientId = request.provider._id.toString(); // Switch recipient
+        notificationKey = "request_cancelled";
         break;
 
       case "propose":
-        if (!proposedDateTime) {
-          throw new BadRequestException(
-            this.i18n.translate("services.proposed_date_required", {
-              lang: this.lang,
-            }),
-          );
-        }
-
-        const parsedDate = new Date(proposedDateTime);
-        if (isNaN(parsedDate.getTime())) {
-          throw new BadRequestException(
-            this.i18n.translate("services.invalid_proposed_date", {
-              lang: this.lang,
-            }),
-          );
-        }
+        if (!proposedDateTime) throw new BadRequestException(/* ... */);
 
         request.status = "proposed";
-        request.proposedDateTime = parsedDate;
-
-        await this.notificationsService.createAndNotify(
-          request.customer._id.toString(),
-          `Your service request for "${serviceName}" has a new proposed date: ${parsedDate.toISOString()}`,
-        );
+        request.proposedDateTime = new Date(proposedDateTime);
+        notificationKey = "request_proposed";
+        // Add extra data specifically for this case
+        Object.assign(notificationPayload, { proposedDate: proposedDateTime });
         break;
 
       default:
-        throw new BadRequestException(
-          this.i18n.translate("services.unsupported_action", {
-            lang: this.lang,
-          }),
-        );
+        throw new BadRequestException(this.i18n.translate("auth.services.unsupported_action"));
     }
 
+    // 3. Perform the DB Operation (The Source of Truth)
     await request.save();
+
+    // 4. Dispatch Notification (Only if save succeeded and we have a key)
+    if (notificationKey) {
+      // We don't 'await' this if we don't want to make the user wait for FCM/Sockets,
+      // OR we await it to ensure the user knows it was sent.
+      await this.notificationsService.createAndNotify(
+        recipientId,
+        notificationKey, // Use the translation key decided in the switch
+        "SERVICE_REQUEST",
+        notificationPayload, // Mandatory Payload
+        { serviceName, proposedDate: proposedDateTime } // i18n Args
+      );
+    }
+
     return {
       status: 201,
-      message: this.i18n.translate("services.request_status_updated", {
+      message: this.i18n.translate("auth.services.request_status_updated", {
         lang: this.lang,
       }),
       data: {
@@ -503,7 +494,7 @@ export class ServicesService {
 
       default:
         throw new BadRequestException(
-          this.i18n.translate("services.unsupported_job_action", {
+          this.i18n.translate("auth.services.unsupported_job_action", {
             lang: this.lang,
           }),
         );
@@ -544,7 +535,7 @@ export class ServicesService {
 
     if (!requests || requests.length === 0) {
       throw new NotFoundException(
-        this.i18n.translate("services.no_requests_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.no_requests_found", { lang: this.lang }),
       );
     }
     return {
@@ -562,12 +553,12 @@ export class ServicesService {
     const service = await this.serviceModel.findById(serviceId);
     if (!service) {
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("services.no_media_provided", { lang: this.lang }),
+        this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }),
       );
     }
 
@@ -591,7 +582,7 @@ export class ServicesService {
     service.video = video;
     await service.save();
     return {
-      message: this.i18n.translate("services.media_deleted_success", {
+      message: this.i18n.translate("auth.services.media_deleted_success", {
         lang: this.lang,
       }),
     };

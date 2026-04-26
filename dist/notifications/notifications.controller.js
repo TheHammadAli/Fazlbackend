@@ -23,9 +23,6 @@ let NotificationsController = class NotificationsController {
     constructor(notificationsService) {
         this.notificationsService = notificationsService;
     }
-    async createNotification(userId, message, type) {
-        return this.notificationsService.create(userId, message, type);
-    }
     async getUserNotifications(userId, query) {
         const { page = 1, limit = 10 } = query;
         return this.notificationsService.findByUser(userId, page, limit);
@@ -41,39 +38,16 @@ let NotificationsController = class NotificationsController {
         return this.notificationsService.delete(id);
     }
     async testNotification(body) {
-        return this.notificationsService.createAndNotify(body.userId, body.message, "MESSAGE");
+        return this.notificationsService.createAndNotify(body.userId, body.message, "MESSAGE", {
+            senderId: "system_admin",
+            sentAt: new Date().toISOString(),
+            action: "open_chat",
+        }, {
+            userName: "John Doe"
+        });
     }
 };
 exports.NotificationsController = NotificationsController;
-__decorate([
-    (0, common_1.Post)(),
-    (0, swagger_1.ApiOperation)({ summary: "Create a new notification" }),
-    (0, swagger_1.ApiBody)({
-        schema: {
-            type: "object",
-            properties: {
-                userId: { type: "string", example: "64fc91d9f7b9c1d4f9a8a123" },
-                message: { type: "string", example: "Your order has been placed!" },
-                type: {
-                    type: "string",
-                    example: "ORDER",
-                    enum: ["ORDER", "MESSAGE", "PROMOTION"],
-                },
-            },
-            required: ["userId", "message"],
-        },
-    }),
-    (0, swagger_1.ApiResponse)({
-        status: 201,
-        description: "Notification created successfully",
-    }),
-    __param(0, (0, common_1.Body)("userId")),
-    __param(1, (0, common_1.Body)("message")),
-    __param(2, (0, common_1.Body)("type")),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
-    __metadata("design:returntype", Promise)
-], NotificationsController.prototype, "createNotification", null);
 __decorate([
     (0, common_1.Get)(":userId"),
     (0, swagger_1.ApiOperation)({ summary: "Get paginated notifications for a user" }),
