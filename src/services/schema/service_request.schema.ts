@@ -48,6 +48,9 @@ export class ServiceRequest {
 
     @Prop({ trim: true })
     message?: string;
+
+    @Prop()
+    completedAt?: Date; // New field to store completion timestamp
 }
 
 export const ServiceRequestSchema = SchemaFactory.createForClass(ServiceRequest);

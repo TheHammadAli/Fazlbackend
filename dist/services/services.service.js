@@ -328,6 +328,7 @@ let ServicesService = class ServicesService {
                 break;
             case "complete_job":
                 request.jobStatus = "completed";
+                request.completedAt = new Date();
                 break;
             default:
                 throw new common_1.BadRequestException(this.i18n.translate("auth.services.unsupported_job_action", {

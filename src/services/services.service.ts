@@ -489,6 +489,7 @@ export class ServicesService {
 
       case "complete_job":
         request.jobStatus = "completed";
+        request.completedAt = new Date();
 
         break;
 
