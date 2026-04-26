@@ -16,7 +16,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import {ClsService} from "nestjs-cls";
+import { ClsService } from "nestjs-cls";
 
 @Injectable()
 export class UsersService {
@@ -25,11 +25,11 @@ export class UsersService {
     private readonly fileUploadService: FileUploadService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService, //
-  ) {}
+  ) { }
 
   private get lang(): string {
-  return this.cls?.get('lang') ?? 'en';
-}
+    return this.cls?.get('lang') ?? 'en';
+  }
   async createUser(createUserDto: CreateUpdateUserDto) {
     try {
       const existingUser = await this.userModel.findOne({
@@ -61,9 +61,9 @@ export class UsersService {
       await savedUser.save(); // Save the user again to update the image field
       return savedUser.toJSON();
     } catch (err) {
-       throw err instanceof HttpException
-    ? err
-    : new AppError(err?.message || 'Internal server error');
+      throw err instanceof HttpException
+        ? err
+        : new AppError(err?.message || 'Internal server error');
     }
   }
 
@@ -78,7 +78,7 @@ export class UsersService {
 
   async findByResetToken(
     resetPasswordToken: string,
-   
+
   ): Promise<UserDocument | null> {
     const results = await this.userModel
       .findOne({ resetPasswordToken })
@@ -112,7 +112,7 @@ export class UsersService {
   async updateUser(
     userId: string,
     updateData: Partial<UpdateUserDto>,
-    
+
   ): Promise<User> {
     try {
       // Remove empty, null, or undefined fields
@@ -135,7 +135,7 @@ export class UsersService {
       const existingUser = await this.userModel.findById(userId).exec();
       if (!existingUser) {
         throw new NotFoundException(
-          this.i18n.translate("users.user_not_found", { lang:this.lang }),
+          this.i18n.translate("users.user_not_found", { lang: this.lang }),
         );
       }
       console.log("Existing User:", existingUser);
@@ -170,7 +170,7 @@ export class UsersService {
 
       if (!updatedUser) {
         throw new NotFoundException(
-          this.i18n.translate("users.user_not_found", { lang:this.lang }),
+          this.i18n.translate("users.user_not_found", { lang: this.lang }),
         );
       }
 
@@ -202,11 +202,12 @@ export class UsersService {
     userId: string,
     lang: string = "en",
   ): Promise<UserDocument> {
+
     const user = await this.userModel.findById(userId).exec();
 
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("users.user_not_found", { lang }),
+        this.i18n.translate("auth.users.user_not_found", { lang }),
       );
     }
 

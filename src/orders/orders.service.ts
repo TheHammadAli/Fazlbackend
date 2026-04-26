@@ -49,10 +49,14 @@ export class OrdersService {
       );
 
     let ownerExists = false;
+    let owner: any = null;
+
     if (dto.ownerModel === "Shop") {
-      ownerExists = !!(await this.shopService.getShopById(dto.owner, this.lang));
+      owner = await this.shopService.getShopById(dto.owner, this.lang);
+      ownerExists = !!owner;
     } else if (dto.ownerModel === "User") {
-      ownerExists = !!(await this.usersService.findUserById(dto.owner));
+      owner = await this.usersService.findUserById(dto.owner);
+      ownerExists = !!owner;
     }
 
     if (!ownerExists)
@@ -63,6 +67,7 @@ export class OrdersService {
     let isValidOwner = false;
     if (dto.ownerModel === "Shop") {
       isValidOwner = dto.owner === product.shopId.toString();
+
     } else if (dto.ownerModel === "User") {
       isValidOwner = dto.owner === product.ownerId?.toString();
     }
@@ -90,6 +95,8 @@ export class OrdersService {
       ownerModel: dto.ownerModel
     };
 
+    console.log("Product.Ownerid", product.ownerId)
+
     // Notify buyer (using translation placeholders)
     this.notificationsService.createAndNotify(
       dto.buyer,
@@ -98,10 +105,10 @@ export class OrdersService {
       notificationPayload,
       { productTitle: product.title },
     );
-
+    console.log("Owner for notification:", owner); // Debug log
     // Notify owner/seller
     this.notificationsService.createAndNotify(
-      dto.owner,
+      dto.ownerModel === 'Shop' ? owner.ownerId._id?.toString() : owner._id?.toString() || dto.owner,
       "order_created_seller",
       "ORDER",
       notificationPayload,

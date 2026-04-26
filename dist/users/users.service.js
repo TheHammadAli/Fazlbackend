@@ -150,7 +150,7 @@ let UsersService = class UsersService {
     async findUserById(userId, lang = "en") {
         const user = await this.userModel.findById(userId).exec();
         if (!user) {
-            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang }));
         }
         return user;
     }

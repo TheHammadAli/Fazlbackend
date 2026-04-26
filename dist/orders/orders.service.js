@@ -51,11 +51,14 @@ let OrdersService = class OrdersService {
         if (!product)
             throw new common_1.NotFoundException(this.i18n.translate("auth.orders.product_not_found", { lang: this.lang }));
         let ownerExists = false;
+        let owner = null;
         if (dto.ownerModel === "Shop") {
-            ownerExists = !!(await this.shopService.getShopById(dto.owner, this.lang));
+            owner = await this.shopService.getShopById(dto.owner, this.lang);
+            ownerExists = !!owner;
         }
         else if (dto.ownerModel === "User") {
-            ownerExists = !!(await this.usersService.findUserById(dto.owner));
+            owner = await this.usersService.findUserById(dto.owner);
+            ownerExists = !!owner;
         }
         if (!ownerExists)
             throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_owner_not_found", { lang: this.lang }));
@@ -81,8 +84,10 @@ let OrdersService = class OrdersService {
             productId: dto.product,
             ownerModel: dto.ownerModel
         };
+        console.log("Product.Ownerid", product.ownerId);
         this.notificationsService.createAndNotify(dto.buyer, "order_created_buyer", "ORDER", notificationPayload, { productTitle: product.title });
-        this.notificationsService.createAndNotify(dto.owner, "order_created_seller", "ORDER", notificationPayload, { productTitle: product.title });
+        console.log("Owner for notification:", owner);
+        this.notificationsService.createAndNotify(dto.ownerModel === 'Shop' ? owner.ownerId._id?.toString() : owner._id?.toString() || dto.owner, "order_created_seller", "ORDER", notificationPayload, { productTitle: product.title });
         return savedOrder;
     }
     async getOrderById(orderId) {

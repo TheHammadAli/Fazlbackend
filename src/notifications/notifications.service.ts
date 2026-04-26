@@ -81,8 +81,11 @@ export class NotificationsService {
     payload: T,
     i18nArgs: Record<string, any> = {},
   ) {
+
+    console.log("Creating notification for user:", userId, "with payload:", payload); // Debug log
     // 1. Fetch user once (Optimization)
     const user = await this.usersService.findUserById(userId.toString());
+    console.log("User for notification:", userId, user); // Debug log
     if (!user) {
       throw new BadRequestException(
         this.i18n.translate("notifications.user_not_found", { lang: this.lang }),

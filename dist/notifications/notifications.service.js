@@ -56,7 +56,9 @@ let NotificationsService = class NotificationsService {
         return notif.save();
     }
     async createAndNotify(userId, messageKey, type, payload, i18nArgs = {}) {
+        console.log("Creating notification for user:", userId, "with payload:", payload);
         const user = await this.usersService.findUserById(userId.toString());
+        console.log("User for notification:", userId, user);
         if (!user) {
             throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
         }
