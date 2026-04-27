@@ -22,6 +22,7 @@ let ServiceRequest = class ServiceRequest {
     jobStatus;
     message;
     completedAt;
+    startedAt;
 };
 exports.ServiceRequest = ServiceRequest;
 __decorate([
@@ -68,6 +69,10 @@ __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", Date)
 ], ServiceRequest.prototype, "completedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Date)
+], ServiceRequest.prototype, "startedAt", void 0);
 exports.ServiceRequest = ServiceRequest = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], ServiceRequest);

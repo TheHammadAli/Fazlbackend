@@ -485,9 +485,11 @@ export class ServicesService {
       case "start_job":
         request.jobStatus = "in_progress";
         request.status = "accepted"; // keep it consistent
+        request.startedAt = new Date();
         break;
 
       case "complete_job":
+        request.status = "accepted"; // keep it consistent
         request.jobStatus = "completed";
         request.completedAt = new Date();
 

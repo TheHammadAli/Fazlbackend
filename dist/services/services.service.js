@@ -325,8 +325,10 @@ let ServicesService = class ServicesService {
             case "start_job":
                 request.jobStatus = "in_progress";
                 request.status = "accepted";
+                request.startedAt = new Date();
                 break;
             case "complete_job":
+                request.status = "accepted";
                 request.jobStatus = "completed";
                 request.completedAt = new Date();
                 break;

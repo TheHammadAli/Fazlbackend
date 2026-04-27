@@ -11,6 +11,7 @@ export declare class ServiceRequest {
     jobStatus: JobStatus;
     message?: string;
     completedAt?: Date;
+    startedAt?: Date;
 }
 export declare const ServiceRequestSchema: import("mongoose").Schema<ServiceRequest, import("mongoose").Model<ServiceRequest, any, any, any, import("mongoose").Document<unknown, any, ServiceRequest, any> & ServiceRequest & {
     _id: Types.ObjectId;
