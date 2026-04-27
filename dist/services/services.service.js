@@ -323,6 +323,15 @@ let ServicesService = class ServicesService {
         console.log("Action", action);
         switch (action) {
             case "start_job":
+                const existingInProgress = await this.requestModel.findOne({
+                    _id: { $ne: new mongoose_2.Types.ObjectId(request._id) },
+                    provider: new mongoose_2.Types.ObjectId(request.provider),
+                    jobStatus: "in_progress",
+                });
+                console.log("Existing in-progress job for provider:", existingInProgress, "Provider ID:", request.provider, "Request ID:", request._id);
+                if (existingInProgress) {
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.services.provider_has_in_progress_job", { lang: this.lang }));
+                }
                 request.jobStatus = "in_progress";
                 request.status = "accepted";
                 request.startedAt = new Date();

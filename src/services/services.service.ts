@@ -483,8 +483,22 @@ export class ServicesService {
     console.log("Action", action);
     switch (action) {
       case "start_job":
+        // Check if provider already has another in_progress job
+        const existingInProgress = await this.requestModel.findOne({
+          _id: { $ne: new Types.ObjectId(request._id) },
+          provider: new Types.ObjectId(request.provider),
+          jobStatus: "in_progress",
+        });
+
+        console.log("Existing in-progress job for provider:", existingInProgress, "Provider ID:", request.provider, "Request ID:", request._id);
+        if (existingInProgress) {
+          throw new BadRequestException(
+            this.i18n.translate("auth.services.provider_has_in_progress_job", { lang: this.lang }),
+          );
+        }
+
         request.jobStatus = "in_progress";
-        request.status = "accepted"; // keep it consistent
+        request.status = "accepted";
         request.startedAt = new Date();
         break;
 
