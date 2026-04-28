@@ -1,9 +1,19 @@
+// src/common/decorators/current-user.decorator.ts
+
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export const CurrentUser = createParamDecorator(
-  (data: unknown, context: ExecutionContext) => {
-    const request = context.switchToHttp().getRequest();
-    console.log('Current User Decorator:', request.user);
-    return request.user; // Contains decoded JWT payload from JwtStrategy
+  (data: 'sub' | undefined, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+
+    const user = request.user as { sub: string };
+
+    // If specific field requested → return it
+    if (data) {
+      return user?.[data];
+    }
+
+    // Otherwise return full user object
+    return user;
   },
-);
+); 

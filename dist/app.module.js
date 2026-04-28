@@ -20,7 +20,6 @@ const shop_module_1 = require("./shop/shop.module");
 const category_module_1 = require("./category/category.module");
 const services_module_1 = require("./services/services.module");
 const chat_module_1 = require("./chat/chat.module");
-const payment_module_1 = require("./payment/payment.module");
 const reviews_module_1 = require("./reviews/reviews.module");
 const throttler_1 = require("@nestjs/throttler");
 const nestjs_i18n_1 = require("nestjs-i18n");
@@ -76,7 +75,6 @@ exports.AppModule = AppModule = __decorate([
             shop_module_1.ShopModule,
             category_module_1.CategoryModule,
             chat_module_1.ChatModule,
-            payment_module_1.PaymentModule,
             reviews_module_1.ReviewsModule,
             orders_module_1.OrdersModule,
             subscription_module_1.SubscriptionModule,

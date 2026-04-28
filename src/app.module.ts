@@ -11,7 +11,6 @@ import { ShopModule } from "./shop/shop.module";
 import { CategoryModule } from "./category/category.module";
 import { ServicesModule } from "./services/services.module";
 import { ChatModule } from "./chat/chat.module";
-import { PaymentModule } from "./payment/payment.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { AcceptLanguageResolver, I18nModule, QueryResolver } from "nestjs-i18n";
@@ -69,7 +68,6 @@ console.log(
     ShopModule,
     CategoryModule,
     ChatModule,
-    PaymentModule,
     ReviewsModule,
     OrdersModule,
     SubscriptionModule,
@@ -78,6 +76,6 @@ console.log(
     BroadcastModule,
   ],
   controllers: [AppController],
-  providers: [AppService,LanguageInterceptor],
+  providers: [AppService, LanguageInterceptor],
 })
-export class AppModule {}
+export class AppModule { }
