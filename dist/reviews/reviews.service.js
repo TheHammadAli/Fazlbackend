@@ -40,7 +40,7 @@ let ReviewService = class ReviewService {
             itemType: dto.itemType,
         });
         if (existing) {
-            throw new common_1.BadRequestException(this.i18n.translate("reviews.duplicate_review", { lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.reviews.duplicate_review", { lang }));
         }
         const review = new this.reviewModel({
             userId,

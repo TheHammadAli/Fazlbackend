@@ -52,20 +52,20 @@ let ServicesService = class ServicesService {
     async create(userId, dto, lang = "en") {
         const user = await this.userService.findUserById(userId);
         if (!user) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.user_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.user_not_found", { lang: this.lang }));
         }
         const existingService = await this.serviceModel.findOne({
             ownerId: user._id,
         });
         if (existingService) {
-            throw new common_1.BadRequestException(this.i18n.translate("services.user_duplicate_service", {
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.user_duplicate_service", {
                 lang: this.lang,
             }));
         }
         if (!user.location ||
             !user.location.coordinates ||
             user.location.coordinates.length !== 2) {
-            throw new common_1.BadRequestException(this.i18n.translate("services.user_location_missing", {
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.user_location_missing", {
                 lang: this.lang,
             }));
         }
@@ -76,7 +76,7 @@ let ServicesService = class ServicesService {
             imageFiles = dto.images;
         }
         if (imageFiles.length > 5) {
-            throw new common_1.BadRequestException(this.i18n.translate("services.media_limit_exceeded", {
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.media_limit_exceeded", {
                 lang: this.lang,
             }));
         }
@@ -142,7 +142,7 @@ let ServicesService = class ServicesService {
         }, { new: true })
             .populate("category");
         if (!updated) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         }
         console.log("Updated Service:", video);
         return { ...dto, images, video };
@@ -150,7 +150,7 @@ let ServicesService = class ServicesService {
     async delete(serviceId) {
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         }
         const media = [...existingService.images, existingService.video];
         if (media && media.length > 0) {
@@ -158,16 +158,16 @@ let ServicesService = class ServicesService {
         }
         const result = await this.serviceModel.findByIdAndDelete(serviceId);
         if (!result) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         }
     }
     async deleteServiceMedia(serviceId, media) {
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException(this.i18n.translate("services.no_media_provided", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingService.images || [];
@@ -186,7 +186,7 @@ let ServicesService = class ServicesService {
             .findById(serviceId)
             .populate("category");
         if (!service) {
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         }
         return service;
     }
@@ -243,13 +243,13 @@ let ServicesService = class ServicesService {
             ? await this.userService.findUserById(customerId)
             : null;
         if (customerId && !customer)
-            throw new common_1.NotFoundException(this.i18n.translate("services.customer_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.customer_not_found", { lang: this.lang }));
         if (!serviceId || !requestedDateTime || !customerId) {
             throw new common_1.BadRequestException("Missing required fields for request creation");
         }
         const service = await this.serviceModel.findById(serviceId).populate("ownerId");
         if (!service)
-            throw new common_1.NotFoundException(this.i18n.translate("services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
         const request = new this.requestModel({
             service: new mongoose_2.Types.ObjectId(serviceId),
             customer: new mongoose_2.Types.ObjectId(customerId),
@@ -271,7 +271,7 @@ let ServicesService = class ServicesService {
             .populate("customer")
             .populate("provider");
         if (!request)
-            throw new common_1.NotFoundException(this.i18n.translate("services.request_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.request_not_found", { lang: this.lang }));
         const serviceName = request.service?.title || "service";
         let notificationKey = null;
         let recipientId = request.customer._id.toString();

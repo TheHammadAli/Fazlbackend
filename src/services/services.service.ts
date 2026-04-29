@@ -61,7 +61,7 @@ export class ServicesService {
     const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("services.user_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.user_not_found", { lang: this.lang }),
       );
     }
     const existingService = await this.serviceModel.findOne({
@@ -69,7 +69,7 @@ export class ServicesService {
     });
     if (existingService) {
       throw new BadRequestException(
-        this.i18n.translate("services.user_duplicate_service", {
+        this.i18n.translate("auth.services.user_duplicate_service", {
           lang: this.lang,
         }),
       );
@@ -80,7 +80,7 @@ export class ServicesService {
       user.location.coordinates.length !== 2
     ) {
       throw new BadRequestException(
-        this.i18n.translate("services.user_location_missing", {
+        this.i18n.translate("auth.services.user_location_missing", {
           lang: this.lang,
         }),
       );
@@ -94,7 +94,7 @@ export class ServicesService {
 
     if (imageFiles.length > 5) {
       throw new BadRequestException(
-        this.i18n.translate("services.media_limit_exceeded", {
+        this.i18n.translate("auth.services.media_limit_exceeded", {
           lang: this.lang,
         }),
       );
@@ -190,7 +190,7 @@ export class ServicesService {
 
     if (!updated) {
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
     console.log("Updated Service:", video);
@@ -201,7 +201,7 @@ export class ServicesService {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
       // Ensure the service exists before attempting to delete
     }
@@ -212,7 +212,7 @@ export class ServicesService {
     const result = await this.serviceModel.findByIdAndDelete(serviceId);
     if (!result) {
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
   }
@@ -221,12 +221,12 @@ export class ServicesService {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("services.no_media_provided", { lang: this.lang }),
+        this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }),
       );
     }
 
@@ -260,7 +260,7 @@ export class ServicesService {
 
     if (!service) {
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
 
@@ -357,7 +357,7 @@ export class ServicesService {
 
     if (customerId && !customer)
       throw new NotFoundException(
-        this.i18n.translate("services.customer_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.customer_not_found", { lang: this.lang }),
       );
 
     // --- Creation Flow ---
@@ -371,7 +371,7 @@ export class ServicesService {
     const service = await this.serviceModel.findById(serviceId).populate("ownerId");
     if (!service)
       throw new NotFoundException(
-        this.i18n.translate("services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
 
     const request = new this.requestModel({
@@ -405,7 +405,7 @@ export class ServicesService {
 
     if (!request)
       throw new NotFoundException(
-        this.i18n.translate("services.request_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.request_not_found", { lang: this.lang }),
       );
 
     // ✅ Safely extract service name (avoid using full object)

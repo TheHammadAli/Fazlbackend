@@ -82,7 +82,7 @@ export class ChatService {
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) {
       throw new NotFoundException(
-        this.i18n.translate("chat.conversation_not_found", { lang: this.lang })
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
       );
     }
 
@@ -107,7 +107,7 @@ export class ChatService {
     const convo = await this.conversationModel.findById(conversationId);
     if (!convo) {
       throw new NotFoundException(
-        this.i18n.translate("chat.conversation_not_found", { lang: this.lang })
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
       );
     }
 
@@ -145,7 +145,7 @@ export class ChatService {
     const convo = await this.conversationModel.findById(conversationId);
     if (!convo) {
       throw new NotFoundException(
-        this.i18n.translate("chat.conversation_not_found", { lang: this.lang })
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
       );
     }
 

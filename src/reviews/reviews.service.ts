@@ -42,7 +42,7 @@ export class ReviewService {
 
     if (existing) {
       throw new BadRequestException(
-        this.i18n.translate("reviews.duplicate_review", { lang }),
+        this.i18n.translate("auth.reviews.duplicate_review", { lang }),
       );
     }
 

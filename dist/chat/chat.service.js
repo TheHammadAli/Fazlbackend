@@ -78,7 +78,7 @@ let ChatService = class ChatService {
         await this.userService.findUserById(receiverId);
         const conversation = await this.conversationModel.findById(conversationId);
         if (!conversation) {
-            throw new common_1.NotFoundException(this.i18n.translate("chat.conversation_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
         }
         const message = await this.messageModel.create({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),
@@ -94,7 +94,7 @@ let ChatService = class ChatService {
     async getMessages(conversationId, paginationDto) {
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo) {
-            throw new common_1.NotFoundException(this.i18n.translate("chat.conversation_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
         }
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
@@ -122,7 +122,7 @@ let ChatService = class ChatService {
         await this.userService.findUserById(userId);
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo) {
-            throw new common_1.NotFoundException(this.i18n.translate("chat.conversation_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
         }
         await this.messageModel.updateMany({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),

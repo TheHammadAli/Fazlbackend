@@ -43,10 +43,10 @@ let ShopService = class ShopService {
     get lang() {
         return this.cls?.get('lang') ?? 'en';
     }
-    async createShop(ownerId, dto, lang = "en") {
+    async createShop(ownerId, dto) {
         const existingUser = await this.usersService.findUserById(ownerId.toString());
         if (!existingUser) {
-            throw new common_1.NotFoundException(this.i18n.translate("shop.user_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }));
         }
         let image = {};
         if (dto.image) {
@@ -69,7 +69,7 @@ let ShopService = class ShopService {
         const { ...safeDto } = dto;
         const existingShop = await this.shopModel.findById(shopId);
         if (!existingShop) {
-            throw new common_1.NotFoundException(this.i18n.translate("shop.shop_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
         if (dto.image) {
             const imageUrl = await this.fileUploadService.uploadShopImage(shopId, dto.image);
@@ -82,16 +82,16 @@ let ShopService = class ShopService {
             this.productsService.updateLocationByShopId(shopId, dto.location);
         }
         if (!updated) {
-            throw new common_1.NotFoundException(this.i18n.translate("shop.shop_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
         return safeDto;
     }
-    async getShopById(shopId, lang = "en") {
+    async getShopById(shopId) {
         const shop = await this.shopModel
             .findById(shopId)
             .populate("ownerId", "name email");
         if (!shop) {
-            throw new common_1.NotFoundException(this.i18n.translate("shop.shop_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
         return shop;
     }

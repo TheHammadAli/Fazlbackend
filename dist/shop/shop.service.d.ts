@@ -17,13 +17,13 @@ export declare class ShopService {
     private readonly cls;
     constructor(shopModel: Model<ShopDocument>, productsService: ProductsService, usersService: UsersService, fileUploadService: FileUploadService, servicesService: ServicesService, i18n: I18nService, cls: ClsService);
     private get lang();
-    createShop(ownerId: Types.ObjectId, dto: CreateUpdateShopDto, lang?: string): Promise<import("mongoose").FlattenMaps<Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+    createShop(ownerId: Types.ObjectId, dto: CreateUpdateShopDto): Promise<import("mongoose").FlattenMaps<Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>>;
     updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<Shop>;
-    getShopById(shopId: string, lang?: string): Promise<ShopDocument>;
+    getShopById(shopId: string): Promise<ShopDocument>;
     getAllShopsByUser(userId: string): Promise<Shop[]>;
     findShopsNearLocation(location: [number, number], radiusInMeters: number): Promise<Shop[]>;
 }

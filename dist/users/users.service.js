@@ -42,7 +42,7 @@ let UsersService = class UsersService {
                 email: createUserDto.email,
             });
             if (existingUser) {
-                throw new common_1.ConflictException(this.i18n.translate("users.email_already_registered", { lang: this.lang }));
+                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_already_registered", { lang: this.lang }));
             }
             const hashedPassword = await this.hashPassword(createUserDto.password);
             let imageUrl = "default-avatar.png";
@@ -79,7 +79,7 @@ let UsersService = class UsersService {
             .select("+resetPasswordExpires")
             .exec();
         if (!results) {
-            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
         }
         return results;
     }
@@ -109,7 +109,7 @@ let UsersService = class UsersService {
             }
             const existingUser = await this.userModel.findById(userId).exec();
             if (!existingUser) {
-                throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
+                throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
             }
             console.log("Existing User:", existingUser);
             let imageUrl = existingUser.image || "default-avatar.png";
@@ -143,7 +143,7 @@ let UsersService = class UsersService {
             .select("+refreshToken")
             .exec();
         if (!user) {
-            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
         }
         return user;
     }

@@ -47,7 +47,7 @@ let LikeService = class LikeService {
             itemType: dto.itemType,
         });
         if (existingLike) {
-            throw new common_1.ConflictException(this.i18n.translate('like.already_liked', { lang: this.lang }));
+            throw new common_1.ConflictException(this.i18n.translate('auth.like.already_liked', { lang: this.lang }));
         }
         const like = new this.likeModel({
             userId: userObjectId,
@@ -64,10 +64,10 @@ let LikeService = class LikeService {
             itemType: dto.itemType,
         });
         if (!result) {
-            throw new common_1.NotFoundException(this.i18n.translate('like.not_found', { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate('auth.like.not_found', { lang: this.lang }));
         }
         return {
-            message: this.i18n.translate('like.removed', { lang: this.lang }),
+            message: this.i18n.translate('auth.like.removed', { lang: this.lang }),
         };
     }
     async getLikesByUser(userId, itemType) {
@@ -120,7 +120,7 @@ let LikeService = class LikeService {
         if (itemType === 'product') {
             const product = await this.productsService.getById(itemId, this.lang);
             if (!product) {
-                throw new common_1.NotFoundException(this.i18n.translate('like.product_not_found', {
+                throw new common_1.NotFoundException(this.i18n.translate('auth.like.product_not_found', {
                     lang: this.lang,
                 }));
             }
@@ -128,7 +128,7 @@ let LikeService = class LikeService {
         if (itemType === 'service') {
             const service = await this.servicesService.getById(itemId);
             if (!service) {
-                throw new common_1.NotFoundException(this.i18n.translate('like.service_not_found', {
+                throw new common_1.NotFoundException(this.i18n.translate('auth.like.service_not_found', {
                     lang: this.lang,
                 }));
             }

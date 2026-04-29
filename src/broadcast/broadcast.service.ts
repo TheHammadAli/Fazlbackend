@@ -250,7 +250,7 @@ export class BroadcastService {
 
     if (!sender || !receiver) {
       throw new NotFoundException(
-        this.i18n.translate("products.user_not_found", { lang }),
+        this.i18n.translate("auth.products.user_not_found", { lang }),
       );
     }
 

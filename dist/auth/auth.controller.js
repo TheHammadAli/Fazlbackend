@@ -36,9 +36,8 @@ let AuthController = class AuthController {
     getCurrentUser(user) {
         return user;
     }
-    loginUser(loginDto, lang) {
-        console.log('Login attempt for email:', lang);
-        return this.authService.loginUser(loginDto, lang);
+    loginUser(loginDto) {
+        return this.authService.loginUser(loginDto);
     }
     refreshToken(token) {
         return this.authService.refreshTokens(token);
@@ -96,9 +95,8 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 201, description: 'User successfully logged in' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
     __param(0, (0, common_1.Body)()),
-    __param(1, (0, lang_decorator_1.Lang)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto, String]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "loginUser", null);
 __decorate([

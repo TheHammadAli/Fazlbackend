@@ -27,21 +27,21 @@ export class ShopService {
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
-private get lang(): string {
-  return this.cls?.get('lang') ?? 'en';
-}
+  ) { }
+  private get lang(): string {
+    return this.cls?.get('lang') ?? 'en';
+  }
   async createShop(
     ownerId: Types.ObjectId,
     dto: CreateUpdateShopDto,
-    lang: string = "en",
+    
   ) {
     const existingUser = await this.usersService.findUserById(
       ownerId.toString(),
     );
     if (!existingUser) {
       throw new NotFoundException(
-        this.i18n.translate("shop.user_not_found", { lang }),
+        this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }),
       );
     }
     let image: Express.Multer.File = {} as Express.Multer.File;
@@ -69,13 +69,13 @@ private get lang(): string {
   async updateShop(
     shopId: string,
     dto: CreateUpdateShopDto,
-    
+
   ): Promise<Shop> {
     const { ...safeDto } = dto as any;
     const existingShop = await this.shopModel.findById(shopId);
     if (!existingShop) {
       throw new NotFoundException(
-        this.i18n.translate("shop.shop_not_found", { lang:this.lang }),
+        this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
 
@@ -95,7 +95,7 @@ private get lang(): string {
     }
     if (!updated) {
       throw new NotFoundException(
-        this.i18n.translate("shop.shop_not_found", { lang:this.lang }),
+        this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
     return safeDto;
@@ -103,14 +103,14 @@ private get lang(): string {
 
   async getShopById(
     shopId: string,
-    lang: string = "en",
+   
   ): Promise<ShopDocument> {
     const shop = await this.shopModel
       .findById(shopId)
       .populate("ownerId", "name email");
     if (!shop) {
       throw new NotFoundException(
-        this.i18n.translate("shop.shop_not_found", { lang }),
+        this.i18n.translate("auth.shop.shop_not_found", { lang:this.lang }),
       );
     }
     return shop;

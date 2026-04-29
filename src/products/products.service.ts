@@ -31,7 +31,7 @@ export class ProductsService {
     private readonly fileUploadService: FileUploadService,
     private promotionService: PromotionService,
     private readonly i18n: I18nService,
-  ) {}
+  ) { }
 
   async create(
     entityId: string,
@@ -51,7 +51,7 @@ export class ProductsService {
         const shop = await this.shopService.getShopById(entityId);
         if (!shop) {
           throw new NotFoundException(
-            this.i18n.translate("products.shop_not_found", { lang }),
+            this.i18n.translate("auth.products.shop_not_found", { lang }),
           );
         }
 
@@ -61,7 +61,7 @@ export class ProductsService {
           shop.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("products.shop_location_missing", { lang }),
+            this.i18n.translate("auth.products.shop_location_missing", { lang }),
           );
         }
 
@@ -72,7 +72,7 @@ export class ProductsService {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
           throw new NotFoundException(
-            this.i18n.translate("products.user_not_found", { lang }),
+            this.i18n.translate("auth.products.user_not_found", { lang }),
           );
         }
         console.log("User:", user);
@@ -83,7 +83,7 @@ export class ProductsService {
           user.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("products.user_location_missing", { lang }),
+            this.i18n.translate("auth.products.user_location_missing", { lang }),
           );
         }
 
@@ -188,7 +188,7 @@ export class ProductsService {
       .populate("category");
     if (!product)
       throw new NotFoundException(
-        this.i18n.translate("products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang }),
       );
     return product;
   }
@@ -200,7 +200,7 @@ export class ProductsService {
   ): Promise<Product> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
-        this.i18n.translate("products.shop_cant_update", { lang }),
+        this.i18n.translate("auth.products.shop_cant_update", { lang }),
       );
     }
     if (updateDto.category) {
@@ -219,7 +219,7 @@ export class ProductsService {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang }),
       );
     }
 
@@ -254,7 +254,7 @@ export class ProductsService {
 
     if (!updated) {
       throw new NotFoundException(
-        this.i18n.translate("products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang }),
       );
     }
 
@@ -265,7 +265,7 @@ export class ProductsService {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang }),
       );
     }
     const type = existingProduct.shopId ? "shop" : "personal";
@@ -280,7 +280,7 @@ export class ProductsService {
     const result = await this.productModel.findByIdAndDelete(productId);
     if (!result)
       throw new NotFoundException(
-        this.i18n.translate("products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang }),
       );
   }
 
@@ -292,12 +292,12 @@ export class ProductsService {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("products.no_media_provided", { lang }),
+        this.i18n.translate("auth.products.no_media_provided", { lang }),
       );
     }
 

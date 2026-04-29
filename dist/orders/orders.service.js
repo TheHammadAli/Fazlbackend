@@ -53,7 +53,7 @@ let OrdersService = class OrdersService {
         let ownerExists = false;
         let owner = null;
         if (dto.ownerModel === "Shop") {
-            owner = await this.shopService.getShopById(dto.owner, this.lang);
+            owner = await this.shopService.getShopById(dto.owner);
             ownerExists = !!owner;
         }
         else if (dto.ownerModel === "User") {

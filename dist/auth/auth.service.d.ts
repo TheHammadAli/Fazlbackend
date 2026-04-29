@@ -18,9 +18,9 @@ export declare class AuthService {
     private twilioClient;
     private googleClient;
     private audience;
-    private lang;
     constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService);
-    loginUser(loginDto: LoginDto, lang?: string): Promise<{
+    private getLang;
+    loginUser(loginDto: LoginDto): Promise<{
         refreshToken: string;
         accessToken: string;
         user: UserDocument;

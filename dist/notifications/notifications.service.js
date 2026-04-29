@@ -44,7 +44,9 @@ let NotificationsService = class NotificationsService {
     async create(userId, message, type = "MESSAGE", payload) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user) {
-            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.notifications.user_not_found", {
+                lang: this.lang,
+            }));
         }
         const notif = new this.notificationModel({
             userId: new mongoose_2.Types.ObjectId(userId),
@@ -60,9 +62,13 @@ let NotificationsService = class NotificationsService {
         const user = await this.usersService.findUserById(userId.toString());
         console.log("User for notification:", userId, user);
         if (!user) {
-            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.notifications.user_not_found", {
+                lang: this.lang,
+            }));
         }
-        const fullKey = messageKey.includes('.') ? messageKey : `notifications.${messageKey}`;
+        const fullKey = messageKey.includes(".")
+            ? `auth.${messageKey}`
+            : `auth.notifications.${messageKey}`;
         const translatedMessage = this.i18n.translate(fullKey, {
             lang: this.lang,
             args: i18nArgs,
@@ -73,7 +79,9 @@ let NotificationsService = class NotificationsService {
         }
         if (user?.fcmToken) {
             const notificationId = notif._id?.toString() || String(notif.id);
-            await this.firebaseService.sendNotification(user.fcmToken, this.i18n.translate("notifications.new_title", { lang: this.lang }), translatedMessage, {
+            await this.firebaseService.sendNotification(user.fcmToken, this.i18n.translate("auth.notifications.new_title", {
+                lang: this.lang,
+            }), translatedMessage, {
                 type,
                 ...payload,
                 notificationId,
@@ -84,7 +92,9 @@ let NotificationsService = class NotificationsService {
     async findByUser(userId, page = 1, limit = 10) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user) {
-            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.notifications.user_not_found", {
+                lang: this.lang,
+            }));
         }
         const skip = (page - 1) * limit;
         const total = await this.notificationModel
@@ -109,21 +119,27 @@ let NotificationsService = class NotificationsService {
     async markAsRead(id) {
         const notif = await this.notificationModel.findByIdAndUpdate(id, { read: true }, { new: true });
         if (!notif) {
-            throw new common_1.NotFoundException(this.i18n.translate("notifications.notification_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.notifications.notification_not_found", {
+                lang: this.lang,
+            }));
         }
         return notif;
     }
     async delete(id) {
         const result = await this.notificationModel.findByIdAndDelete(id).exec();
         if (!result) {
-            throw new common_1.NotFoundException(this.i18n.translate("notifications.notification_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.notifications.notification_not_found", {
+                lang: this.lang,
+            }));
         }
         return { deleted: true };
     }
     async getUnreadCount(userId) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user) {
-            throw new common_1.BadRequestException(this.i18n.translate("notifications.user_not_found", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.notifications.user_not_found", {
+                lang: this.lang,
+            }));
         }
         return this.notificationModel
             .countDocuments({

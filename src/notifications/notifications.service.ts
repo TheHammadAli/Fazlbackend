@@ -37,43 +37,32 @@ export class NotificationsService {
     this.server = server;
   }
 
-  /**
-   * Internal create method now requires a payload
-   */
-
-  /**
-     * Internal create method to persist notification with generic payload
-     */
   async create<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     message: string,
     type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" = "MESSAGE",
-    payload: T, // Now correctly typed and used
+    payload: T,
   ) {
-    // 1. Validate user existence
     const user = await this.usersService.findUserById(userId.toString());
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate("notifications.user_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.notifications.user_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
-    // 2. Create the instance with the payload
     const notif = new this.notificationModel({
       userId: new Types.ObjectId(userId),
       message,
       type,
-      payload, // Ensure your Mongoose Schema has this field defined!
+      payload,
       read: false,
     });
 
-    // 3. Save and return
     return notif.save();
   }
 
-  /**
-   * Unified send: DB + Socket + FCM with mandatory Payload
-   */
   async createAndNotify<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     messageKey: string,
@@ -81,46 +70,48 @@ export class NotificationsService {
     payload: T,
     i18nArgs: Record<string, any> = {},
   ) {
+    console.log("Creating notification for user:", userId, "with payload:", payload);
 
-    console.log("Creating notification for user:", userId, "with payload:", payload); // Debug log
-    // 1. Fetch user once (Optimization)
     const user = await this.usersService.findUserById(userId.toString());
-    console.log("User for notification:", userId, user); // Debug log
+    console.log("User for notification:", userId, user);
+
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate("notifications.user_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.notifications.user_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
-    // 2. Translate message
-    const fullKey = messageKey.includes('.') ? messageKey : `notifications.${messageKey}`;
+    const fullKey = messageKey.includes(".")
+      ? `auth.${messageKey}`
+      : `auth.notifications.${messageKey}`;
+
     const translatedMessage = this.i18n.translate(fullKey, {
       lang: this.lang,
       args: i18nArgs,
     }) as string;
 
-    // 3. Persist to Database (Pass payload here)
-    // We cast the result to 'any' or your Notification interface to access _id safely
     const notif = await this.create<T>(userId, translatedMessage, type, payload);
 
-    // 4. WebSocket Emit
     if (this.server) {
       this.server.to(userId.toString()).emit("notification", notif);
     }
 
-    // 5. Mobile FCM
     if (user?.fcmToken) {
-      // Fix: Cast _id to string or access it via the document helper
-      const notificationId = (notif as any)._id?.toString() || String(notif.id);
+      const notificationId =
+        (notif as any)._id?.toString() || String((notif as any).id);
 
       await this.firebaseService.sendNotification(
         user.fcmToken,
-        this.i18n.translate("notifications.new_title", { lang: this.lang }), // Translated title
+        this.i18n.translate("auth.notifications.new_title", {
+          lang: this.lang,
+        }),
         translatedMessage,
         {
           type,
           ...payload,
-          notificationId, // Now safely a string
+          notificationId,
         }
       );
     }
@@ -129,142 +120,88 @@ export class NotificationsService {
   }
 
   async findByUser(userId: string, page: number = 1, limit: number = 10) {
-
     const user = await this.usersService.findUserById(userId.toString());
 
     if (!user) {
-
       throw new BadRequestException(
-
-        this.i18n.translate("notifications.user_not_found", { lang: this.lang })
-
+        this.i18n.translate("auth.notifications.user_not_found", {
+          lang: this.lang,
+        }),
       );
-
     }
-
-
 
     const skip = (page - 1) * limit;
 
     const total = await this.notificationModel
-
       .countDocuments({ userId: new Types.ObjectId(userId) })
-
       .exec();
 
     const data = await this.notificationModel
-
       .find({ userId: new Types.ObjectId(userId) })
-
       .sort({ createdAt: -1 })
-
       .skip(skip)
-
       .limit(limit)
-
       .exec();
 
-
-
     return {
-
       data: {
-
         notifications: data,
-
         total,
-
         page,
-
         limit,
-
         totalPages: Math.ceil(total / limit),
-
       },
-
     };
-
   }
 
-
-
   async markAsRead(id: string) {
-
     const notif = await this.notificationModel.findByIdAndUpdate(
-
       id,
-
       { read: true },
-
       { new: true },
-
     );
 
     if (!notif) {
-
       throw new NotFoundException(
-
-        this.i18n.translate("notifications.notification_not_found", { lang: this.lang })
-
+        this.i18n.translate("auth.notifications.notification_not_found", {
+          lang: this.lang,
+        }),
       );
-
     }
 
     return notif;
-
   }
 
-
-
   async delete(id: string) {
-
     const result = await this.notificationModel.findByIdAndDelete(id).exec();
 
     if (!result) {
-
       throw new NotFoundException(
-
-        this.i18n.translate("notifications.notification_not_found", { lang: this.lang })
-
+        this.i18n.translate("auth.notifications.notification_not_found", {
+          lang: this.lang,
+        }),
       );
-
     }
 
     return { deleted: true };
-
   }
 
-
-
   async getUnreadCount(userId: string) {
-
     const user = await this.usersService.findUserById(userId.toString());
 
     if (!user) {
-
       throw new BadRequestException(
-
-        this.i18n.translate("notifications.user_not_found", { lang: this.lang })
-
+        this.i18n.translate("auth.notifications.user_not_found", {
+          lang: this.lang,
+        }),
       );
-
     }
 
-
-
     return this.notificationModel
-
       .countDocuments({
-
         userId: new Types.ObjectId(userId),
-
         read: false,
-
       })
-
       .exec();
-
   }
-
-
 }

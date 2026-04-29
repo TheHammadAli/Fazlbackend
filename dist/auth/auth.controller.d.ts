@@ -10,7 +10,7 @@ export declare class AuthController {
     private readonly configService;
     constructor(authService: AuthService, configService: ConfigService);
     getCurrentUser(user: JwtPayload): JwtPayload;
-    loginUser(loginDto: LoginDto, lang: string): Promise<{
+    loginUser(loginDto: LoginDto): Promise<{
         refreshToken: string;
         accessToken: string;
         user: import("../users/schema/users.schema").UserDocument;

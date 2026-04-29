@@ -55,7 +55,7 @@ export class LikeService {
 
     if (existingLike) {
       throw new ConflictException(
-        this.i18n.translate('like.already_liked', { lang: this.lang }),
+        this.i18n.translate('auth.like.already_liked', { lang: this.lang }),
       );
     }
 
@@ -84,12 +84,12 @@ export class LikeService {
 
     if (!result) {
       throw new NotFoundException(
-        this.i18n.translate('like.not_found', { lang: this.lang }),
+        this.i18n.translate('auth.like.not_found', { lang: this.lang }),
       );
     }
 
     return {
-      message: this.i18n.translate('like.removed', { lang: this.lang }),
+      message: this.i18n.translate('auth.like.removed', { lang: this.lang }),
     };
   }
 
@@ -189,7 +189,7 @@ export class LikeService {
 
       if (!product) {
         throw new NotFoundException(
-          this.i18n.translate('like.product_not_found', {
+          this.i18n.translate('auth.like.product_not_found', {
             lang: this.lang,
           }),
         );
@@ -201,7 +201,7 @@ export class LikeService {
 
       if (!service) {
         throw new NotFoundException(
-          this.i18n.translate('like.service_not_found', {
+          this.i18n.translate('auth.like.service_not_found', {
             lang: this.lang,
           }),
         );

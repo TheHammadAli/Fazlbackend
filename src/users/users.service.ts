@@ -37,7 +37,7 @@ export class UsersService {
       });
       if (existingUser) {
         throw new ConflictException(
-          this.i18n.translate("users.email_already_registered", { lang: this.lang }),
+          this.i18n.translate("auth.users.email_already_registered", { lang: this.lang }),
         );
       }
       const hashedPassword = await this.hashPassword(createUserDto.password);
@@ -86,7 +86,7 @@ export class UsersService {
       .exec();
     if (!results) {
       throw new NotFoundException(
-        this.i18n.translate("users.user_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
       );
     }
     return results;
@@ -135,7 +135,7 @@ export class UsersService {
       const existingUser = await this.userModel.findById(userId).exec();
       if (!existingUser) {
         throw new NotFoundException(
-          this.i18n.translate("users.user_not_found", { lang: this.lang }),
+          this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
       console.log("Existing User:", existingUser);
@@ -191,7 +191,7 @@ export class UsersService {
 
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("users.user_not_found", { lang }),
+        this.i18n.translate("users.user_not_found", { lang:this.lang }),
       );
     }
 

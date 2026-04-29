@@ -42,7 +42,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard)
@@ -60,10 +60,10 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   loginUser(
     @Body() loginDto: LoginDto,
-    @Lang() lang: string,
+
   ) {
-    console.log('Login attempt for email:', lang);
-    return this.authService.loginUser(loginDto, lang);
+
+    return this.authService.loginUser(loginDto);
   }
 
   @Post('refreshToken')
@@ -198,7 +198,7 @@ export class AuthController {
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleAuth() {}
+  googleAuth() { }
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))

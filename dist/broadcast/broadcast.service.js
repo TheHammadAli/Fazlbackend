@@ -144,7 +144,7 @@ let BroadcastService = class BroadcastService {
             this.userService.findUserById(receiverId),
         ]);
         if (!sender || !receiver) {
-            throw new common_1.NotFoundException(this.i18n.translate("products.user_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", { lang }));
         }
         const thread = await this.threadModel.findById(threadId);
         if (!thread) {
