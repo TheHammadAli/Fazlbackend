@@ -7,6 +7,8 @@ import {
   Req,
   Query,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -15,6 +17,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
   ApiResponse,
+  ApiConsumes,
 } from "@nestjs/swagger";
 import { Request } from "express";
 
@@ -25,18 +28,26 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 
 // ✅ import your guard
 import { JwtAuthGuard } from "../auth/guard/jwt-auth-guard";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
 
 @ApiTags("Broadcast")
 @ApiBearerAuth("jwt")
 @UseGuards(JwtAuthGuard) // 🔥 protects ALL routes in controller
 @Controller("broadcast")
 export class BroadcastController {
-  constructor(private readonly broadcastService: BroadcastService) {}
+  constructor(private readonly broadcastService: BroadcastService, private readonly fileUploadService: FileUploadService) { }
 
   // 🚀 Create broadcast
   @Post("/create")
   @ApiOperation({ summary: "Create broadcast and dispatch sellers" })
-  async createBroadcast(@Body() dto: CreateBroadcastDto, @Req() req: Request) {
+  @ApiConsumes('application/json', 'multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async createBroadcast(
+    @Body() dto: CreateBroadcastDto,
+    @Req() req: Request,
+    @UploadedFile() file?: Express.Multer.File, // Grab the file
+  ) {
     const user = req.user as {
       sub: string;
       location: { type: string; coordinates: [number, number] };
@@ -46,11 +57,19 @@ export class BroadcastController {
     const location = user.location;
     const lang = (req.headers["accept-language"] || "en").split(",")[0];
 
+    let imageUrl: string | undefined;
+
+    // Upload to S3 if a file exists
+    if (file) {
+      imageUrl = await this.fileUploadService.uploadBroadcastImage(buyerId, file);
+    }
+
+    // Pass imageUrl to your service
     return this.broadcastService.createBroadcastAndDispatch(
       dto,
       buyerId,
       location,
-      lang,
+      imageUrl, // Ensure your service method is updated to accept this
     );
   }
 
@@ -58,14 +77,27 @@ export class BroadcastController {
   @Post("/message/:id")
   @ApiOperation({ summary: "Send message in broadcast thread" })
   @ApiParam({ name: "id", description: "Broadcast ID" })
+  @ApiConsumes('application/json', 'multipart/form-data') // Allow file upload in Swagger
+  @UseInterceptors(FileInterceptor('file'))
   async sendMessage(
     @Param("id") broadcastId: string,
     @Body() dto: SendBroadcastMessageDto,
     @Req() req: Request,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     const user = req.user as { sub: string };
     const senderId = user.sub;
     const lang = (req.headers["accept-language"] || "en").split(",")[0];
+
+    let imageUrl: string | undefined;
+
+    if (file) {
+      // We use the threadId from the DTO to organize the file path
+      imageUrl = await this.fileUploadService.uploadBroadcastThreadImage(
+        dto.threadId,
+        file,
+      );
+    }
 
     return this.broadcastService.sendBroadcastMessage(
       broadcastId,
@@ -73,7 +105,7 @@ export class BroadcastController {
       dto.receiverId,
       dto.threadId,
       dto.message,
-      lang,
+      imageUrl, // Pass the new URL to your service
     );
   }
 

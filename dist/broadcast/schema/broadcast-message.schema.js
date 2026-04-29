@@ -18,6 +18,7 @@ let BroadcastMessage = class BroadcastMessage {
     receiver;
     thread;
     message;
+    imageUrl;
 };
 exports.BroadcastMessage = BroadcastMessage;
 __decorate([
@@ -40,6 +41,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, required: true }),
     __metadata("design:type", String)
 ], BroadcastMessage.prototype, "message", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String }),
+    __metadata("design:type", String)
+], BroadcastMessage.prototype, "imageUrl", void 0);
 exports.BroadcastMessage = BroadcastMessage = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], BroadcastMessage);

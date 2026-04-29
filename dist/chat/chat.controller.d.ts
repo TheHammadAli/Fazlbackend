@@ -1,9 +1,11 @@
 import { ChatService } from "./chat.service";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { CreateMessageDto } from "./dto/create-message.dto";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
 export declare class ChatController {
     private readonly chatService;
-    constructor(chatService: ChatService);
+    private readonly fileUploadService;
+    constructor(chatService: ChatService, fileUploadService: FileUploadService);
     getOrCreateConversation(body: {
         buyerId: string;
         sellerId: string;
@@ -12,7 +14,7 @@ export declare class ChatController {
     }> & {
         __v: number;
     }) | null>;
-    sendMessage(body: CreateMessageDto): Promise<import("mongoose").Document<unknown, {}, import("./schema/message.schema").Message, {}> & import("./schema/message.schema").Message & Required<{
+    sendMessage(body: CreateMessageDto, file?: Express.Multer.File): Promise<import("mongoose").Document<unknown, {}, import("./schema/message.schema").Message, {}> & import("./schema/message.schema").Message & Required<{
         _id: unknown;
     }> & {
         __v: number;

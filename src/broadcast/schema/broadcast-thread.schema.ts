@@ -14,6 +14,7 @@ export class BroadcastThread extends Document {
 
   @Prop({ type: Date })
   lastMessageAt: Date;
+  
 }
 
 export const BroadcastThreadSchema =

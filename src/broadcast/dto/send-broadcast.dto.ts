@@ -24,4 +24,8 @@ export class SendBroadcastMessageDto {
   @IsString()
   @IsNotEmpty()
   message: string;
+
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  file?: any;
+
 }

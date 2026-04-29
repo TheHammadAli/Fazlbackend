@@ -3,4 +3,5 @@ export declare class CreateBroadcastDto {
     radius: number;
     categoryId: string;
     type: "product" | "service";
+    file?: any;
 }

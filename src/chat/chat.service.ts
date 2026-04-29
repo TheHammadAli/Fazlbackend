@@ -30,8 +30,14 @@ export class ChatService {
   }
 
   async getOrCreateConversation(buyerId: string, sellerId: string) {
-    await this.userService.findUserById(buyerId);
-    await this.userService.findUserById(sellerId);
+    const buyer = await this.userService.findUserById(buyerId);
+    const seller = await this.userService.findUserById(sellerId);
+
+    if (!buyer || !seller) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }),
+      );
+    }
 
     const [user1, user2] =
       buyerId < sellerId ? [buyerId, sellerId] : [sellerId, buyerId];
@@ -75,9 +81,9 @@ export class ChatService {
     senderId: string,
     receiverId: string,
     text: string,
+    imageUrl?: string, // Optional parameter for S3 image URL
   ) {
-    await this.userService.findUserById(senderId);
-    await this.userService.findUserById(receiverId);
+
 
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) {
@@ -85,12 +91,22 @@ export class ChatService {
         this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
       );
     }
-
+    if (senderId !== conversation.buyer.toString() && senderId !== conversation.seller.toString()) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang })
+      );
+    }
+    if (receiverId !== conversation.buyer.toString() && receiverId !== conversation.seller.toString()) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang })
+      );
+    }
     const message = await this.messageModel.create({
       conversationId: new Types.ObjectId(conversationId),
       sender: new Types.ObjectId(senderId),
       receiver: new Types.ObjectId(receiverId),
       text,
+      imageUrl, // Save the S3 URL here
     });
 
     await this.conversationModel.findByIdAndUpdate(conversationId, {

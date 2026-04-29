@@ -16,6 +16,9 @@ export class Message extends Document {
   @Prop({ type: String, required: true })
   text: string;
 
+  // message.schema.ts
+@Prop({ type: String })
+  imageUrl?: string; // Optional field for S3 link
   @Prop({ default: false })
   read: boolean;
 }

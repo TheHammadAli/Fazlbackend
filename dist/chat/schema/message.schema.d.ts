@@ -4,6 +4,7 @@ export declare class Message extends Document {
     sender: Types.ObjectId;
     receiver: Types.ObjectId;
     text: string;
+    imageUrl?: string;
     read: boolean;
 }
 export declare const MessageSchema: import("mongoose").Schema<Message, import("mongoose").Model<Message, any, any, any, Document<unknown, any, Message, any> & Message & Required<{

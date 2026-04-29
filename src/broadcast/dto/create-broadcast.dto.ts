@@ -26,4 +26,7 @@ export class CreateBroadcastDto {
   @IsEnum(["product", "service"])
   @IsNotEmpty()
   type: "product" | "service";
+
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  file?: any;
 }

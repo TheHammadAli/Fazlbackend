@@ -19,6 +19,8 @@ const broadcast_message_schema_1 = require("./schema/broadcast-message.schema");
 const users_module_1 = require("../users/users.module");
 const broadcast_thread_schema_1 = require("./schema/broadcast-thread.schema");
 const services_module_1 = require("../services/services.module");
+const file_upload_service_1 = require("../common/file-upload/file-upload.service");
+const config_1 = require("@nestjs/config");
 let BroadcastModule = class BroadcastModule {
 };
 exports.BroadcastModule = BroadcastModule;
@@ -42,7 +44,7 @@ exports.BroadcastModule = BroadcastModule = __decorate([
             services_module_1.ServicesModule,
         ],
         controllers: [broadcast_controller_1.BroadcastController],
-        providers: [broadcast_service_1.BroadcastService, broadcast_gateway_1.BroadcastGateway],
+        providers: [broadcast_service_1.BroadcastService, broadcast_gateway_1.BroadcastGateway, file_upload_service_1.FileUploadService, config_1.ConfigService],
         exports: [broadcast_service_1.BroadcastService],
     })
 ], BroadcastModule);

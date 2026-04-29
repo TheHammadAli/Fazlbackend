@@ -9,6 +9,7 @@ import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
 import { ServicesService } from "src/services/services.service";
+import { ClsService } from "nestjs-cls";
 export declare class BroadcastService {
     private readonly broadcastModel;
     private readonly messageModel;
@@ -18,7 +19,9 @@ export declare class BroadcastService {
     private readonly userService;
     private readonly servicesService;
     private readonly i18n;
-    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, servicesService: ServicesService, i18n: I18nService);
+    private readonly cls;
+    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, servicesService: ServicesService, i18n: I18nService, cls: ClsService);
+    private get lang();
     private createBroadcast;
     private findNearbySellers;
     private findNearbyServiceProviders;
@@ -27,11 +30,11 @@ export declare class BroadcastService {
     createBroadcastAndDispatch(dto: CreateBroadcastDto, buyerId: string, location: {
         type: string;
         coordinates: [number, number];
-    }, lang?: string): Promise<{
+    }, imageUrl?: string): Promise<{
         message: string;
         data: string;
     }>;
-    sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string, lang?: string): Promise<import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
+    sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string, imageUrl?: string): Promise<import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
         _id: Types.ObjectId;
     } & {
         __v: number;

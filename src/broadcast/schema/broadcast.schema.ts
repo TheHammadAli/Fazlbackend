@@ -41,6 +41,8 @@ export class Broadcast {
 
   @Prop({ type: Date })
   lastResponseAt: Date;
+
+ 
 }
 
 export const BroadcastSchema = SchemaFactory.createForClass(Broadcast);

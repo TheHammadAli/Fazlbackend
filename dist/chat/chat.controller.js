@@ -18,16 +18,25 @@ const chat_service_1 = require("./chat.service");
 const pagination_dto_1 = require("../common/dto/pagination.dto");
 const swagger_1 = require("@nestjs/swagger");
 const create_message_dto_1 = require("./dto/create-message.dto");
+const platform_express_1 = require("@nestjs/platform-express");
+const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 let ChatController = class ChatController {
     chatService;
-    constructor(chatService) {
+    fileUploadService;
+    constructor(chatService, fileUploadService) {
         this.chatService = chatService;
+        this.fileUploadService = fileUploadService;
     }
     async getOrCreateConversation(body) {
         return this.chatService.getOrCreateConversation(body.buyerId, body.sellerId);
     }
-    async sendMessage(body) {
-        return this.chatService.sendMessage(body.conversationId, body.senderId, body.receiverId, body.text);
+    async sendMessage(body, file) {
+        console.log("File received in controller:", file);
+        let imageUrl;
+        if (file && file.size > 0) {
+            imageUrl = await this.fileUploadService.uploadChatMessage(body.conversationId, file);
+        }
+        return this.chatService.sendMessage(body.conversationId, body.senderId, body.receiverId, body.text, imageUrl);
     }
     async getMessages(conversationId, paginationDto) {
         return this.chatService.getMessages(conversationId, paginationDto);
@@ -65,10 +74,28 @@ __decorate([
 __decorate([
     (0, common_1.Post)("message"),
     (0, swagger_1.ApiOperation)({ summary: "Send a message in a conversation" }),
-    (0, swagger_1.ApiBody)({ type: create_message_dto_1.CreateMessageDto }),
+    (0, swagger_1.ApiConsumes)('application/json', 'multipart/form-data'),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                conversationId: { type: 'string' },
+                senderId: { type: 'string' },
+                receiverId: { type: 'string' },
+                text: { type: 'string' },
+                file: {
+                    type: 'string',
+                    format: 'binary',
+                    nullable: true,
+                },
+            },
+        },
+    }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_message_dto_1.CreateMessageDto]),
+    __metadata("design:paramtypes", [create_message_dto_1.CreateMessageDto, Object]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "sendMessage", null);
 __decorate([
@@ -170,6 +197,7 @@ __decorate([
 exports.ChatController = ChatController = __decorate([
     (0, swagger_1.ApiTags)("Chat"),
     (0, common_1.Controller)("chat"),
-    __metadata("design:paramtypes", [chat_service_1.ChatService])
+    __metadata("design:paramtypes", [chat_service_1.ChatService,
+        file_upload_service_1.FileUploadService])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map

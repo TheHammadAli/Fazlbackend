@@ -173,6 +173,63 @@ let FileUploadService = class FileUploadService {
             throw new common_1.InternalServerErrorException('File deletion failed');
         }
     }
+    async uploadChatMessage(conversationId, file) {
+        const fileExt = (0, path_1.extname)(file.originalname);
+        const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
+        const key = `chats/${conversationId}/${uniqueName}`;
+        try {
+            const command = new client_s3_1.PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            });
+            await this.s3.send(command);
+            return `https://${this.bucketName}.s3.${this.configService.get('AWS_REGION')}.amazonaws.com/${key}`;
+        }
+        catch (err) {
+            console.error('S3 upload error:', err);
+            throw new common_1.InternalServerErrorException('Chat image upload failed');
+        }
+    }
+    async uploadBroadcastImage(buyerId, file) {
+        const fileExt = (0, path_1.extname)(file.originalname);
+        const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
+        const key = `broadcasts/${buyerId}/${uniqueName}`;
+        try {
+            const command = new client_s3_1.PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            });
+            await this.s3.send(command);
+            return `https://${this.bucketName}.s3.${this.configService.get('AWS_REGION')}.amazonaws.com/${key}`;
+        }
+        catch (err) {
+            console.error('S3 upload error:', err);
+            throw new common_1.InternalServerErrorException('Broadcast image upload failed');
+        }
+    }
+    async uploadBroadcastThreadImage(threadId, file) {
+        const fileExt = (0, path_1.extname)(file.originalname);
+        const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
+        const key = `broadcasts/threads/${threadId}/${uniqueName}`;
+        try {
+            const command = new client_s3_1.PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            });
+            await this.s3.send(command);
+            return `https://${this.bucketName}.s3.${this.configService.get('AWS_REGION')}.amazonaws.com/${key}`;
+        }
+        catch (err) {
+            console.error('S3 upload error:', err);
+            throw new common_1.InternalServerErrorException('Thread image upload failed');
+        }
+    }
 };
 exports.FileUploadService = FileUploadService;
 exports.FileUploadService = FileUploadService = __decorate([

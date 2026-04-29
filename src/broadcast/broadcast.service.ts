@@ -18,6 +18,7 @@ import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
 import { ServicesService } from "src/services/services.service";
+import { ClsService } from "nestjs-cls";
 
 @Injectable()
 export class BroadcastService {
@@ -36,7 +37,12 @@ export class BroadcastService {
     private readonly userService: UsersService,
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
+    private readonly cls: ClsService,
   ) { }
+
+  private get lang(): string {
+    return this.cls.get("lang") || "en";
+  }
 
   // -----------------------------
   // CREATE BROADCAST
@@ -48,6 +54,12 @@ export class BroadcastService {
   ) {
     // Check if broadcast already exists for this buyer and category
 
+    const results = await this.userService.findUserById(buyerId);
+    if (!results) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.broadcast.user_not_found", { lang: this.lang }),
+      );
+    }
 
     return this.broadcastModel.create({
       buyer: new Types.ObjectId(buyerId),
@@ -151,19 +163,19 @@ export class BroadcastService {
     dto: CreateBroadcastDto,
     buyerId: string,
     location: { type: string; coordinates: [number, number] },
-    lang: string = "en",
+    imageUrl?: string,
   ) {
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
     if (!isCategoryValid) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.category_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.category_invalid", { lang:this.lang }),
       );
     }
 
     if (dto.type !== "product" && dto.type !== "service") {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.type_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.type_invalid", { lang:this.lang }),
       );
     }
 
@@ -185,7 +197,7 @@ export class BroadcastService {
 
     if (!sellerIds.length) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.no_sellers_found", { lang }),
+        this.i18n.translate("auth.broadcast.no_sellers_found", { lang:this.lang }),
       );
     }
 
@@ -211,12 +223,13 @@ export class BroadcastService {
       receiver: thread.seller,
       message: dto.message || "📢 New broadcast request",
       type: "SYSTEM",
+      imageUrl, // Include image URL if provided
     }));
 
     await this.messageModel.insertMany(initialMessages);
 
     return {
-      message: this.i18n.translate("auth.broadcast.created_success", { lang }),
+      message: this.i18n.translate("auth.broadcast.created_success", { lang:this.lang }),
       data: broadcast._id.toString(),
     };
   }
@@ -230,7 +243,8 @@ export class BroadcastService {
     receiverId: string,
     threadId: string,
     message: string,
-    lang: string = "en",
+    imageUrl?:string
+    
   ) {
     const broadcastObjectId = new Types.ObjectId(broadcastId);
 
@@ -238,7 +252,7 @@ export class BroadcastService {
     const broadcast = await this.broadcastModel.findById(broadcastObjectId);
     if (!broadcast) {
       throw new NotFoundException(
-        this.i18n.translate("auth.broadcast.broadcast_not_found", { lang }),
+        this.i18n.translate("auth.broadcast.broadcast_not_found", { lang:this.lang }),
       );
     }
 
@@ -250,7 +264,7 @@ export class BroadcastService {
 
     if (!sender || !receiver) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.user_not_found", { lang }),
+        this.i18n.translate("auth.products.user_not_found", { lang:this.lang }),
       );
     }
 
@@ -259,14 +273,14 @@ export class BroadcastService {
 
     if (!thread) {
       throw new NotFoundException(
-        this.i18n.translate("auth.broadcast.thread_not_found", { lang }),
+        this.i18n.translate("auth.broadcast.thread_not_found", { lang:this.lang }),
       );
     }
 
     // 4. Ensure thread belongs to broadcast
     if (thread.broadcast.toString() !== broadcastId) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.thread_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.thread_invalid", { lang:this.lang }),
       );
     }
 
@@ -277,7 +291,7 @@ export class BroadcastService {
 
     if (!isParticipant) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.sender_not_in_thread", { lang }),
+        this.i18n.translate("auth.broadcast.sender_not_in_thread", { lang:this.lang }),
       );
     }
 
@@ -288,7 +302,7 @@ export class BroadcastService {
 
     if (!isValidReceiver) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.receiver_invalid", { lang }),
+        this.i18n.translate("auth.broadcast.receiver_invalid", { lang:this.lang }),
       );
     }
 
@@ -299,6 +313,7 @@ export class BroadcastService {
       sender: new Types.ObjectId(senderId),
       receiver: new Types.ObjectId(receiverId),
       message,
+      imageUrl, // Save the S3 URL here
     });
   }
 

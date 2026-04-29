@@ -21,7 +21,7 @@ export declare class ChatService {
     }> & {
         __v: number;
     }) | null>;
-    sendMessage(conversationId: string, senderId: string, receiverId: string, text: string): Promise<import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
+    sendMessage(conversationId: string, senderId: string, receiverId: string, text: string, imageUrl?: string): Promise<import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
         _id: unknown;
     }> & {
         __v: number;

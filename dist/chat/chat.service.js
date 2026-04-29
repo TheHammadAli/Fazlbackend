@@ -42,8 +42,11 @@ let ChatService = class ChatService {
         return this.cls.get("lang") || "en";
     }
     async getOrCreateConversation(buyerId, sellerId) {
-        await this.userService.findUserById(buyerId);
-        await this.userService.findUserById(sellerId);
+        const buyer = await this.userService.findUserById(buyerId);
+        const seller = await this.userService.findUserById(sellerId);
+        if (!buyer || !seller) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }));
+        }
         const [user1, user2] = buyerId < sellerId ? [buyerId, sellerId] : [sellerId, buyerId];
         const buyerObjectId = new mongoose_2.Types.ObjectId(user1);
         const sellerObjectId = new mongoose_2.Types.ObjectId(user2);
@@ -73,18 +76,23 @@ let ChatService = class ChatService {
             throw new app_error_1.AppError(err);
         }
     }
-    async sendMessage(conversationId, senderId, receiverId, text) {
-        await this.userService.findUserById(senderId);
-        await this.userService.findUserById(receiverId);
+    async sendMessage(conversationId, senderId, receiverId, text, imageUrl) {
         const conversation = await this.conversationModel.findById(conversationId);
         if (!conversation) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
+        }
+        if (senderId !== conversation.buyer.toString() && senderId !== conversation.seller.toString()) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }));
+        }
+        if (receiverId !== conversation.buyer.toString() && receiverId !== conversation.seller.toString()) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }));
         }
         const message = await this.messageModel.create({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),
             sender: new mongoose_2.Types.ObjectId(senderId),
             receiver: new mongoose_2.Types.ObjectId(receiverId),
             text,
+            imageUrl,
         });
         await this.conversationModel.findByIdAndUpdate(conversationId, {
             lastMessageAt: new Date(),

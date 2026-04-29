@@ -18,6 +18,8 @@ import {
   BroadcastThreadSchema,
 } from "./schema/broadcast-thread.schema";
 import { ServicesModule } from "src/services/services.module";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { ConfigService } from "@nestjs/config";
 
 @Module({
   imports: [
@@ -38,7 +40,7 @@ import { ServicesModule } from "src/services/services.module";
     ServicesModule,
   ],
   controllers: [BroadcastController],
-  providers: [BroadcastService, BroadcastGateway],
+  providers: [BroadcastService, BroadcastGateway,FileUploadService,ConfigService],
   exports: [BroadcastService],
 })
 export class BroadcastModule {}

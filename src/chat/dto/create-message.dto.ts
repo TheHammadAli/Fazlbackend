@@ -12,4 +12,6 @@ export class CreateMessageDto {
 
   @ApiProperty({ example: 'Hello! Is this still available?' })
   text: string;
+
+  
 }

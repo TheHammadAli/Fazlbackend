@@ -17,6 +17,7 @@ let Message = class Message extends mongoose_2.Document {
     sender;
     receiver;
     text;
+    imageUrl;
     read;
 };
 exports.Message = Message;
@@ -36,6 +37,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, required: true }),
     __metadata("design:type", String)
 ], Message.prototype, "text", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String }),
+    __metadata("design:type", String)
+], Message.prototype, "imageUrl", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)

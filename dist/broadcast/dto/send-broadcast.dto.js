@@ -16,6 +16,7 @@ class SendBroadcastMessageDto {
     receiverId;
     threadId;
     message;
+    file;
 }
 exports.SendBroadcastMessageDto = SendBroadcastMessageDto;
 __decorate([
@@ -44,4 +45,8 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], SendBroadcastMessageDto.prototype, "message", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ type: 'string', format: 'binary', required: false }),
+    __metadata("design:type", Object)
+], SendBroadcastMessageDto.prototype, "file", void 0);
 //# sourceMappingURL=send-broadcast.dto.js.map

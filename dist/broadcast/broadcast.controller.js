@@ -20,23 +20,35 @@ const create_broadcast_dto_1 = require("./dto/create-broadcast.dto");
 const send_broadcast_dto_1 = require("./dto/send-broadcast.dto");
 const pagination_dto_1 = require("../common/dto/pagination.dto");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const platform_express_1 = require("@nestjs/platform-express");
+const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 let BroadcastController = class BroadcastController {
     broadcastService;
-    constructor(broadcastService) {
+    fileUploadService;
+    constructor(broadcastService, fileUploadService) {
         this.broadcastService = broadcastService;
+        this.fileUploadService = fileUploadService;
     }
-    async createBroadcast(dto, req) {
+    async createBroadcast(dto, req, file) {
         const user = req.user;
         const buyerId = user.sub;
         const location = user.location;
         const lang = (req.headers["accept-language"] || "en").split(",")[0];
-        return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location, lang);
+        let imageUrl;
+        if (file) {
+            imageUrl = await this.fileUploadService.uploadBroadcastImage(buyerId, file);
+        }
+        return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location, imageUrl);
     }
-    async sendMessage(broadcastId, dto, req) {
+    async sendMessage(broadcastId, dto, req, file) {
         const user = req.user;
         const senderId = user.sub;
         const lang = (req.headers["accept-language"] || "en").split(",")[0];
-        return this.broadcastService.sendBroadcastMessage(broadcastId, senderId, dto.receiverId, dto.threadId, dto.message, lang);
+        let imageUrl;
+        if (file) {
+            imageUrl = await this.fileUploadService.uploadBroadcastThreadImage(dto.threadId, file);
+        }
+        return this.broadcastService.sendBroadcastMessage(broadcastId, senderId, dto.receiverId, dto.threadId, dto.message, imageUrl);
     }
     async getThreads(broadcastId) {
         return this.broadcastService.getBroadcastThreads(broadcastId);
@@ -57,21 +69,27 @@ exports.BroadcastController = BroadcastController;
 __decorate([
     (0, common_1.Post)("/create"),
     (0, swagger_1.ApiOperation)({ summary: "Create broadcast and dispatch sellers" }),
+    (0, swagger_1.ApiConsumes)('application/json', 'multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_broadcast_dto_1.CreateBroadcastDto, Object]),
+    __metadata("design:paramtypes", [create_broadcast_dto_1.CreateBroadcastDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "createBroadcast", null);
 __decorate([
     (0, common_1.Post)("/message/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Send message in broadcast thread" }),
     (0, swagger_1.ApiParam)({ name: "id", description: "Broadcast ID" }),
+    (0, swagger_1.ApiConsumes)('application/json', 'multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, send_broadcast_dto_1.SendBroadcastMessageDto, Object]),
+    __metadata("design:paramtypes", [String, send_broadcast_dto_1.SendBroadcastMessageDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "sendMessage", null);
 __decorate([
@@ -126,6 +144,6 @@ exports.BroadcastController = BroadcastController = __decorate([
     (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)("broadcast"),
-    __metadata("design:paramtypes", [broadcast_service_1.BroadcastService])
+    __metadata("design:paramtypes", [broadcast_service_1.BroadcastService, file_upload_service_1.FileUploadService])
 ], BroadcastController);
 //# sourceMappingURL=broadcast.controller.js.map
