@@ -51,7 +51,7 @@ export declare class ServicesController {
     getServicesWithVideos(paginationDto: {
         page?: number;
         limit?: number;
-    }): Promise<PaginatedResponseDto<any>>;
+    }, userId: string): Promise<PaginatedResponseDto<any>>;
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;

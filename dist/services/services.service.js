@@ -24,6 +24,7 @@ const service_request_schema_1 = require("./schema/service_request.schema");
 const notifications_service_1 = require("../notifications/notifications.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const nestjs_cls_1 = require("nestjs-cls");
+const like_service_1 = require("../like/like.service");
 let ServicesService = class ServicesService {
     serviceModel;
     userService;
@@ -33,7 +34,8 @@ let ServicesService = class ServicesService {
     requestModel;
     i18n;
     cls;
-    constructor(serviceModel, userService, notificationsService, listingUtils, fileUploadService, requestModel, i18n, cls) {
+    likeService;
+    constructor(serviceModel, userService, notificationsService, listingUtils, fileUploadService, requestModel, i18n, cls, likeService) {
         this.serviceModel = serviceModel;
         this.userService = userService;
         this.notificationsService = notificationsService;
@@ -42,6 +44,7 @@ let ServicesService = class ServicesService {
         this.requestModel = requestModel;
         this.i18n = i18n;
         this.cls = cls;
+        this.likeService = likeService;
     }
     get lang() {
         return this.cls?.get("lang") ?? "en";
@@ -421,7 +424,7 @@ let ServicesService = class ServicesService {
             }),
         };
     }
-    async getServicesWithVideos(paginationDto) {
+    async getServicesWithVideos(paginationDto, userId) {
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const filter = {
@@ -438,10 +441,18 @@ let ServicesService = class ServicesService {
                 .exec(),
             this.serviceModel.countDocuments(filter).exec(),
         ]);
-        console.log("It reached here", items, total);
+        const productIds = items.map((item) => new mongoose_2.Types.ObjectId(item._id));
+        const likes = await this.likeService.getLikesByUser(userId, 'service', productIds);
+        console.log("Services with Likes:", likes);
+        const likedServiceIds = new Set(likes.map((like) => like.itemId.toString()));
+        console.log("Liked Service IDs:", likedServiceIds);
+        const data = items.map((item) => ({
+            ...item,
+            isLiked: likedServiceIds.has(item._id.toString()),
+        }));
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-            data: items,
+            data: data,
         };
     }
 };
@@ -451,6 +462,7 @@ exports.ServicesService = ServicesService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(services_schema_1.Service.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
     __param(5, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
+    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         users_service_1.UsersService,
         notifications_service_1.NotificationsService,
@@ -458,6 +470,7 @@ exports.ServicesService = ServicesService = __decorate([
         file_upload_service_1.FileUploadService,
         mongoose_2.Model,
         nestjs_i18n_1.I18nService,
-        nestjs_cls_1.ClsService])
+        nestjs_cls_1.ClsService,
+        like_service_1.LikeService])
 ], ServicesService);
 //# sourceMappingURL=services.service.js.map

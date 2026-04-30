@@ -55,7 +55,11 @@ let LikeService = class LikeService {
             itemType: dto.itemType,
             ownerModel: dto.ownerModel,
         });
-        return like.save();
+        const results = await like.save();
+        return {
+            message: this.i18n.translate('auth.like.created_success', { lang: this.lang }),
+            data: results
+        };
     }
     async removeLike(userId, dto) {
         const result = await this.likeModel.findOneAndDelete({

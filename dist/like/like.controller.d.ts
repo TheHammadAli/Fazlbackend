@@ -3,7 +3,10 @@ import { CreateLikeDto, RemoveLikeDto } from './dto/like.dto';
 export declare class LikeController {
     private readonly likeService;
     constructor(likeService: LikeService);
-    addLike(userId: string, dto: CreateLikeDto): Promise<import("./schema/like.schema").Like>;
+    addLike(userId: string, dto: CreateLikeDto): Promise<{
+        message: string;
+        data: import("./schema/like.schema").Like;
+    }>;
     removeLike(userId: string, dto: RemoveLikeDto): Promise<{
         message: string;
     }>;

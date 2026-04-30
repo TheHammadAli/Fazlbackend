@@ -7,14 +7,16 @@ import { SharedModule } from 'src/shared/shared.module';
 import { UsersModule } from 'src/users/users.module';
 import { ServiceRequest, ServiceRequestSchema } from './schema/service_request.schema';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { LikeModule } from 'src/like/like.module';
 @Module({
   imports: [
     forwardRef(() => UsersModule),
+    forwardRef(() => LikeModule),
     forwardRef(() => SharedModule),
     forwardRef(() => NotificationsModule),
 
     MongooseModule.forFeature([{ name: Service.name, schema: ServiceSchema }, { name: ServiceRequest.name, schema: ServiceRequestSchema }]),
-    
+
   ],
   providers: [ServicesService],
   controllers: [ServicesController],

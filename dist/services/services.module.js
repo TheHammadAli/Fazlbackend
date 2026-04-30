@@ -16,6 +16,7 @@ const shared_module_1 = require("../shared/shared.module");
 const users_module_1 = require("../users/users.module");
 const service_request_schema_1 = require("./schema/service_request.schema");
 const notifications_module_1 = require("../notifications/notifications.module");
+const like_module_1 = require("../like/like.module");
 let ServicesModule = class ServicesModule {
 };
 exports.ServicesModule = ServicesModule;
@@ -23,6 +24,7 @@ exports.ServicesModule = ServicesModule = __decorate([
     (0, common_1.Module)({
         imports: [
             (0, common_1.forwardRef)(() => users_module_1.UsersModule),
+            (0, common_1.forwardRef)(() => like_module_1.LikeModule),
             (0, common_1.forwardRef)(() => shared_module_1.SharedModule),
             (0, common_1.forwardRef)(() => notifications_module_1.NotificationsModule),
             mongoose_1.MongooseModule.forFeature([{ name: services_schema_1.Service.name, schema: services_schema_1.ServiceSchema }, { name: service_request_schema_1.ServiceRequest.name, schema: service_request_schema_1.ServiceRequestSchema }]),

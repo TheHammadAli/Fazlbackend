@@ -4,10 +4,6 @@ import { ProductsModule } from 'src/products/products.module';
 import { ServicesModule } from 'src/services/services.module';
 import { FileUploadService } from 'src/common/file-upload/file-upload.service';
 import { ConfigModule } from '@nestjs/config';
-import { LikeService } from './like.service';
-import { LikeController } from './like.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Like, LikeSchema } from './schema/like.schema';
 
 @Module({
   imports: [

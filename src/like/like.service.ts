@@ -45,7 +45,7 @@ export class LikeService {
     /**a
      * Add a like/favorite
      */
-    async addLike(userId: string, dto: CreateLikeDto): Promise<Like> {
+    async addLike(userId: string, dto: CreateLikeDto): Promise<{ message: string; data: Like }> {
         const userObjectId = new Types.ObjectId(userId);
         const itemObjectId = new Types.ObjectId(dto.itemId);
 
@@ -70,7 +70,13 @@ export class LikeService {
             ownerModel: dto.ownerModel,
         });
 
-        return like.save();
+        const results = await like.save();
+
+        return {
+            message: this.i18n.translate('auth.like.created_success', { lang: this.lang }),
+            data: results
+
+        }
     }
 
     /**

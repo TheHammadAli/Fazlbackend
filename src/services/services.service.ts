@@ -27,6 +27,7 @@ import { CreateRequestDto } from "./dto/create-request-dto";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
+import { LikeService } from "src/like/like.service";
 
 @Injectable()
 export class ServicesService {
@@ -42,6 +43,10 @@ export class ServicesService {
     private readonly requestModel: Model<ServiceRequestDocument>,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
+    @Inject(forwardRef(() => LikeService))
+    private readonly likeService: LikeService,
+
+
   ) { }
 
   private get lang(): string {
@@ -619,6 +624,7 @@ export class ServicesService {
 
   async getServicesWithVideos(
     paginationDto: PaginationDto,
+    userId: string
   ): Promise<PaginatedResponseDto<Service>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -640,10 +646,26 @@ export class ServicesService {
 
       this.serviceModel.countDocuments(filter).exec(),
     ]);
-    console.log("It reached here", items, total);
+    const productIds = items.map((item: any) => new Types.ObjectId(item._id));
+
+    const likes = await this.likeService.getLikesByUser(
+      userId,
+      'service',
+      productIds,
+    );
+
+    console.log("Services with Likes:", likes);
+
+    const likedServiceIds = new Set(likes.map((like: any) => like.itemId.toString()));
+    console.log("Liked Service IDs:", likedServiceIds);
+    const data = items.map((item: any) => ({
+      ...item,                          // Now safe because of .lean()
+      isLiked: likedServiceIds.has(item._id.toString()),
+    }));
+
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      data: data,
     };
   }
 }

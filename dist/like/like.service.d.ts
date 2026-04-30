@@ -23,7 +23,10 @@ export declare class LikeService {
     private readonly cls;
     constructor(likeModel: Model<LikeDocument>, productsService: ProductsService, servicesService: ServicesService, i18n: I18nService, cls: ClsService);
     private get lang();
-    addLike(userId: string, dto: CreateLikeDto): Promise<Like>;
+    addLike(userId: string, dto: CreateLikeDto): Promise<{
+        message: string;
+        data: Like;
+    }>;
     removeLike(userId: string, dto: RemoveLikeDto): Promise<{
         message: string;
     }>;

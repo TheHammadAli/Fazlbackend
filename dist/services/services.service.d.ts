@@ -15,6 +15,7 @@ import { CreateRequestDto } from "./dto/create-request-dto";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
+import { LikeService } from "src/like/like.service";
 export declare class ServicesService {
     private readonly serviceModel;
     private readonly userService;
@@ -24,7 +25,8 @@ export declare class ServicesService {
     private readonly requestModel;
     private readonly i18n;
     private readonly cls;
-    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService);
+    private readonly likeService;
+    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService);
     private get lang();
     getServiceModel(): Model<ServiceDocument>;
     create(userId: string, dto: CreateServiceDto, lang?: string): Promise<Service>;
@@ -83,5 +85,5 @@ export declare class ServicesService {
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;
-    getServicesWithVideos(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Service>>;
+    getServicesWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<Service>>;
 }
