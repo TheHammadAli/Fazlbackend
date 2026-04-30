@@ -35,6 +35,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { Request } from "express";
+import { CurrentUser } from "src/common/decorators/current-user.decorator";
 
 @ApiTags("Products")
 @ApiBearerAuth("jwt")
@@ -77,7 +78,7 @@ export class ProductsController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
-  ): Promise<Product> {
+  ):Promise<{ message: string; data: { product: Product } }> {
     if (files?.images && files.images.length > 0) {
       createProductDto.images = files.images;
     } else {
@@ -91,12 +92,12 @@ export class ProductsController {
     createProductDto.parameters = JSON.parse(
       createProductDto.parameters?.toString() || "{}",
     );
-    const user = req.user as { sub: string };
+    
     return this.productsService.create(
       entityId,
       type,
       createProductDto,
-      user.sub,
+  
     );
   }
 
@@ -178,9 +179,10 @@ export class ProductsController {
   })
   async getProductsWithVideos(
     @Query() paginationDto: PaginationDto,
+     @CurrentUser('sub') userId: string,
   ): Promise<PaginatedResponseDto<Product>> {
     
-    return this.productsService.getProductsWithVideos(paginationDto);
+    return this.productsService.getProductsWithVideos(paginationDto,userId);
   }
 
   @Get("detail/:id")

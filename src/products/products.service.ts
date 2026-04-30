@@ -4,6 +4,8 @@ import {
   InternalServerErrorException,
   ForbiddenException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Model, Types } from "mongoose";
@@ -19,6 +21,9 @@ import { UsersService } from "src/users/users.service";
 import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { PromotionService } from "src/promotion/promotion.service";
+import { ClsService } from "nestjs-cls";
+import { LikeService } from "src/like/like.service";
+
 
 @Injectable()
 export class ProductsService {
@@ -31,15 +36,22 @@ export class ProductsService {
     private readonly fileUploadService: FileUploadService,
     private promotionService: PromotionService,
     private readonly i18n: I18nService,
+    private readonly cls: ClsService,
+    @Inject(forwardRef(() => LikeService))
+    private readonly likeService: LikeService,
+
   ) { }
+
+  private get lang(): string {
+    return this.cls.get("lang") || "en";
+  }
 
   async create(
     entityId: string,
     type: "shop" | "personal",
-    dto: CreateProductDto,
-    userId: string,
-    lang: string = "en",
-  ): Promise<Product> {
+    dto: CreateProductDto
+
+  ): Promise<{ message: string; data: { product: Product } }> {
     try {
       let location: { type: "Point"; coordinates: [number, number] };
       const productPayload: Partial<Product> = {
@@ -51,7 +63,7 @@ export class ProductsService {
         const shop = await this.shopService.getShopById(entityId);
         if (!shop) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.shop_not_found", { lang }),
+            this.i18n.translate("auth.products.shop_not_found", { lang: this.lang }),
           );
         }
 
@@ -61,7 +73,7 @@ export class ProductsService {
           shop.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("auth.products.shop_location_missing", { lang }),
+            this.i18n.translate("auth.products.shop_location_missing", { lang: this.lang }),
           );
         }
 
@@ -72,7 +84,7 @@ export class ProductsService {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.user_not_found", { lang }),
+            this.i18n.translate("auth.products.user_not_found", { lang: this.lang }),
           );
         }
         console.log("User:", user);
@@ -83,7 +95,7 @@ export class ProductsService {
           user.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("auth.products.user_location_missing", { lang }),
+            this.i18n.translate("auth.products.user_location_missing", { lang: this.lang }),
           );
         }
 
@@ -129,7 +141,13 @@ export class ProductsService {
         createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
       }
 
-      return await createdProduct.save();
+      const result = await createdProduct.save();
+      return {
+        message: this.i18n.translate("auth.products.created_success", { lang: this.lang }),
+        data: {
+          product: result,
+        }
+      }
     } catch (err) {
       throw new InternalServerErrorException(err);
     }
@@ -188,7 +206,7 @@ export class ProductsService {
       .populate("category");
     if (!product)
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     return product;
   }
@@ -196,11 +214,11 @@ export class ProductsService {
   async update(
     productId: string,
     updateDto: UpdateProductDto,
-    lang: string = "en",
+
   ): Promise<Product> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
-        this.i18n.translate("auth.products.shop_cant_update", { lang }),
+        this.i18n.translate("auth.products.shop_cant_update", { lang: this.lang }),
       );
     }
     if (updateDto.category) {
@@ -219,7 +237,7 @@ export class ProductsService {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
 
@@ -254,7 +272,7 @@ export class ProductsService {
 
     if (!updated) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
 
@@ -265,7 +283,7 @@ export class ProductsService {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
     const type = existingProduct.shopId ? "shop" : "personal";
@@ -280,24 +298,24 @@ export class ProductsService {
     const result = await this.productModel.findByIdAndDelete(productId);
     if (!result)
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
   }
 
   async deleteProductMedia(
     productId: string,
     media: string[],
-    lang: string = "en",
+
   ) {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.products.no_media_provided", { lang }),
+        this.i18n.translate("auth.products.no_media_provided", { lang: this.lang }),
       );
     }
 
@@ -416,9 +434,11 @@ export class ProductsService {
 
   async getProductsWithVideos(
     paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<Product>> {
+    userId: string,
+  ): Promise<PaginatedResponseDto<any>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
+
     const filter = {
       video: { $exists: true, $nin: ["", null] },
     };
@@ -426,17 +446,41 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.productModel
         .find(filter)
-        .populate("category")
+        .populate('category')           // you can also populate shopId or ownerId if needed
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .lean()                         // ← This is the key fix
         .exec(),
+
       this.productModel.countDocuments(filter).exec(),
     ]);
 
+    const productIds = items.map((item: any) => new Types.ObjectId(item._id));
+
+    const likes = await this.likeService.getLikesByUser(
+      userId,
+      'product',
+      productIds,
+    );
+
+    console.log("Products with Likes:", likes);
+
+    const likedProductIds = new Set(likes.map((like: any) => like.itemId.toString()));
+    console.log("Liked Product IDs:", likedProductIds);
+    const data = items.map((item: any) => ({
+      ...item,                          // Now safe because of .lean()
+      isLiked: likedProductIds.has(item._id.toString()),
+    }));
+
     return {
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      data
     };
   }
 }

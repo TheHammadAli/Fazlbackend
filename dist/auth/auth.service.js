@@ -66,9 +66,12 @@ let AuthService = class AuthService {
         });
         await this.userService.updateUser(user.id, { refreshToken });
         return {
-            refreshToken,
-            accessToken,
-            user,
+            message: this.i18n.translate("auth.auth.login_success", { lang: this.getLang() }),
+            data: {
+                refreshToken,
+                accessToken,
+                user
+            }
         };
     }
     async refreshTokens(refreshToken) {

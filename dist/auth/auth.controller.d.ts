@@ -11,9 +11,12 @@ export declare class AuthController {
     constructor(authService: AuthService, configService: ConfigService);
     getCurrentUser(user: JwtPayload): JwtPayload;
     loginUser(loginDto: LoginDto): Promise<{
-        refreshToken: string;
-        accessToken: string;
-        user: import("../users/schema/users.schema").UserDocument;
+        message: string;
+        data: {
+            refreshToken: string;
+            accessToken: string;
+            user: import("../users/schema/users.schema").UserDocument;
+        };
     }>;
     refreshToken(token: RefreshTokenDto): Promise<{
         message: string;

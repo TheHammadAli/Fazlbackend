@@ -113,7 +113,7 @@ export class UsersService {
     userId: string,
     updateData: Partial<UpdateUserDto>,
 
-  ): Promise<User> {
+  ): Promise<{ message: string; data: User }> {
     try {
       // Remove empty, null, or undefined fields
       Object.keys(updateData).forEach((key) => {
@@ -174,7 +174,10 @@ export class UsersService {
         );
       }
 
-      return updatedUser;
+      return {
+        message: this.i18n.translate("auth.users.updated_success", { lang: this.lang }),
+        data: updatedUser,
+      };
     } catch (err) {
       throw new AppError(err);
     }
@@ -191,7 +194,7 @@ export class UsersService {
 
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("users.user_not_found", { lang:this.lang }),
+        this.i18n.translate("users.user_not_found", { lang: this.lang }),
       );
     }
 

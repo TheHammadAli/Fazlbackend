@@ -11,6 +11,8 @@ import { UsersService } from "src/users/users.service";
 import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { PromotionService } from "src/promotion/promotion.service";
+import { ClsService } from "nestjs-cls";
+import { LikeService } from "src/like/like.service";
 export declare class ProductsService {
     private readonly productModel;
     private readonly shopService;
@@ -19,14 +21,22 @@ export declare class ProductsService {
     private readonly fileUploadService;
     private promotionService;
     private readonly i18n;
-    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService, i18n: I18nService);
-    create(entityId: string, type: "shop" | "personal", dto: CreateProductDto, userId: string, lang?: string): Promise<Product>;
+    private readonly cls;
+    private readonly likeService;
+    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService, i18n: I18nService, cls: ClsService, likeService: LikeService);
+    private get lang();
+    create(entityId: string, type: "shop" | "personal", dto: CreateProductDto): Promise<{
+        message: string;
+        data: {
+            product: Product;
+        };
+    }>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getById(id: string, lang?: string): Promise<Product>;
-    update(productId: string, updateDto: UpdateProductDto, lang?: string): Promise<Product>;
+    update(productId: string, updateDto: UpdateProductDto): Promise<Product>;
     delete(productId: string, lang?: string): Promise<void>;
-    deleteProductMedia(productId: string, media: string[], lang?: string): Promise<boolean>;
+    deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;
     updateLocationByShopId(shopId: string, location: {
         type: "Point";
@@ -52,5 +62,5 @@ export declare class ProductsService {
             totalPages: number;
         };
     }>;
-    getProductsWithVideos(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
+    getProductsWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<any>>;
 }

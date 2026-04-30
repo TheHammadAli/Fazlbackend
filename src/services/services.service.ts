@@ -517,7 +517,19 @@ export class ServicesService {
         );
     }
 
-    return request.save();
+    const result = await request.save();
+    return {
+      message: this.i18n.translate("auth.services.job_status_updated", {
+        lang: this.lang,
+        args: {
+          jobStatus: request.jobStatus,
+        },
+      }),
+      data: {
+        requestId: result._id,
+        jobStatus: result.jobStatus,
+      },
+    }
   }
 
   async getServiceRequestsByUser(

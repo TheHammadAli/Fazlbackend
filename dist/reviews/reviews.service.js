@@ -31,7 +31,7 @@ let ReviewService = class ReviewService {
     get lang() {
         return this.cls.get("lang") || "en";
     }
-    async createReview(dto, lang = "en") {
+    async createReview(dto) {
         const userId = new mongoose_2.Types.ObjectId(dto.userId);
         const itemId = new mongoose_2.Types.ObjectId(dto.itemId);
         const existing = await this.reviewModel.findOne({
@@ -40,7 +40,7 @@ let ReviewService = class ReviewService {
             itemType: dto.itemType,
         });
         if (existing) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.reviews.duplicate_review", { lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.reviews.duplicate_review", { lang: this.lang }));
         }
         const review = new this.reviewModel({
             userId,
@@ -49,7 +49,11 @@ let ReviewService = class ReviewService {
             rating: dto.rating,
             comment: dto.comment,
         });
-        return review.save();
+        const result = await review.save();
+        return {
+            message: this.i18n.translate("auth.reviews.created_success", { lang: this.lang }),
+            data: { review: result }
+        };
     }
     async getReviews(query) {
         const { itemId, itemType, page = 1, limit = 10 } = query;

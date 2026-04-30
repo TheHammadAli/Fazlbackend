@@ -34,7 +34,7 @@ export class ShopService {
   async createShop(
     ownerId: Types.ObjectId,
     dto: CreateUpdateShopDto,
-    
+
   ) {
     const existingUser = await this.usersService.findUserById(
       ownerId.toString(),
@@ -62,8 +62,11 @@ export class ShopService {
       );
       results.image = imageUrl; // Ensure the image is stored as a filename
     }
-    await results.save(); // Save the shop again to update the image field
-    return results.toJSON();
+    const shopResult = await results.save(); // Save the shop again to update the image field
+    return {
+      message: this.i18n.translate("auth.shop.created_success", { lang: this.lang }),
+      data: shopResult
+    }
   }
 
   async updateShop(
@@ -103,14 +106,14 @@ export class ShopService {
 
   async getShopById(
     shopId: string,
-   
+
   ): Promise<ShopDocument> {
     const shop = await this.shopModel
       .findById(shopId)
       .populate("ownerId", "name email");
     if (!shop) {
       throw new NotFoundException(
-        this.i18n.translate("auth.shop.shop_not_found", { lang:this.lang }),
+        this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
     return shop;

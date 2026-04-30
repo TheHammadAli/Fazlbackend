@@ -32,6 +32,7 @@ const broadcast_module_1 = require("./broadcast/broadcast.module");
 const cls_module_1 = require("./core/cls/cls.module");
 const path = require("path");
 const language_interceptor_1 = require("./common/interceptors/language.interceptor");
+const like_module_1 = require("./like/like.module");
 const isProduction = process.env.NODE_ENV === "production";
 console.log(path.join(process.cwd(), "src/i18n/"), "isProduction:", isProduction);
 let AppModule = class AppModule {
@@ -82,6 +83,7 @@ exports.AppModule = AppModule = __decorate([
             promotion_module_1.PromotionModule,
             notifications_module_1.NotificationsModule,
             broadcast_module_1.BroadcastModule,
+            like_module_1.LikeModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService, language_interceptor_1.LanguageInterceptor, {

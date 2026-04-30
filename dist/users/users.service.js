@@ -131,7 +131,10 @@ let UsersService = class UsersService {
             if (!updatedUser) {
                 throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
             }
-            return updatedUser;
+            return {
+                message: this.i18n.translate("auth.users.updated_success", { lang: this.lang }),
+                data: updatedUser,
+            };
         }
         catch (err) {
             throw new app_error_1.AppError(err);

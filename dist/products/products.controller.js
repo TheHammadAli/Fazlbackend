@@ -21,6 +21,7 @@ const pagination_dto_1 = require("../common/dto/pagination.dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 const swagger_1 = require("@nestjs/swagger");
+const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 let ProductsController = class ProductsController {
     productsService;
     constructor(productsService) {
@@ -40,8 +41,7 @@ let ProductsController = class ProductsController {
             createProductDto.video = null;
         }
         createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || "{}");
-        const user = req.user;
-        return this.productsService.create(entityId, type, createProductDto, user.sub);
+        return this.productsService.create(entityId, type, createProductDto);
     }
     async getAllByShop(shopId, paginationDto) {
         return this.productsService.getAllProductsByShop(shopId, paginationDto);
@@ -56,8 +56,8 @@ let ProductsController = class ProductsController {
     async getAllProductsByUser(userId, paginationDto) {
         return this.productsService.getAllProductsByUser(userId, paginationDto);
     }
-    async getProductsWithVideos(paginationDto) {
-        return this.productsService.getProductsWithVideos(paginationDto);
+    async getProductsWithVideos(paginationDto, userId) {
+        return this.productsService.getProductsWithVideos(paginationDto, userId);
     }
     async getById(id) {
         return this.productsService.getById(id);
@@ -184,8 +184,9 @@ __decorate([
         description: "Paginated list of products with videos",
     }),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto]),
+    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto, String]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getProductsWithVideos", null);
 __decorate([

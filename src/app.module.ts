@@ -24,6 +24,7 @@ import { ClsConfigModule } from "./core/cls/cls.module";
 
 import * as path from "path";
 import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
+import { LikeModule } from './like/like.module';
 
 const isProduction = process.env.NODE_ENV === "production";
 console.log(
@@ -75,6 +76,7 @@ console.log(
     PromotionModule,
     NotificationsModule,
     BroadcastModule,
+    LikeModule,
   ],
   controllers: [AppController],
   providers: [AppService, LanguageInterceptor, {

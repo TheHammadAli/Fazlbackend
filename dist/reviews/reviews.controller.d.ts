@@ -4,7 +4,12 @@ import { QueryReviewDto } from './dto/query-review.dto';
 export declare class ReviewController {
     private readonly reviewService;
     constructor(reviewService: ReviewService);
-    createReview(dto: CreateReviewDto): Promise<import("./schema/review.schema").Review>;
+    createReview(dto: CreateReviewDto): Promise<{
+        message: string;
+        data: {
+            review: import("./schema/review.schema").Review;
+        };
+    }>;
     getReviewsByItem(query: QueryReviewDto): Promise<{
         data: {
             reviews: (import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{

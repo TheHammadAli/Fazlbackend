@@ -21,10 +21,12 @@ export declare class ServicesController {
             requestId: string;
         };
     }>;
-    updateJobStatus(dto: UpdateJobStatusDto): Promise<import("mongoose").Document<unknown, {}, import("./schema/service_request.schema").ServiceRequestDocument, {}> & import("./schema/service_request.schema").ServiceRequest & Document & {
-        _id: import("mongoose").Types.ObjectId;
-    } & {
-        __v: number;
+    updateJobStatus(dto: UpdateJobStatusDto): Promise<{
+        message: string;
+        data: {
+            requestId: import("mongoose").Types.ObjectId;
+            jobStatus: import("./schema/service_request.schema").JobStatus;
+        };
     }>;
     create(req: Request, dto: CreateServiceDto, files: {
         images?: Express.Multer.File[];

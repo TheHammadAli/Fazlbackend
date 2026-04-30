@@ -62,8 +62,11 @@ let ShopService = class ShopService {
             const imageUrl = await this.fileUploadService.uploadShopImage(results._id, image);
             results.image = imageUrl;
         }
-        await results.save();
-        return results.toJSON();
+        const shopResult = await results.save();
+        return {
+            message: this.i18n.translate("auth.shop.created_success", { lang: this.lang }),
+            data: shopResult
+        };
     }
     async updateShop(shopId, dto) {
         const { ...safeDto } = dto;

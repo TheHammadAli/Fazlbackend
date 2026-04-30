@@ -21,9 +21,12 @@ export declare class AuthService {
     constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService);
     private getLang;
     loginUser(loginDto: LoginDto): Promise<{
-        refreshToken: string;
-        accessToken: string;
-        user: UserDocument;
+        message: string;
+        data: {
+            refreshToken: string;
+            accessToken: string;
+            user: UserDocument;
+        };
     }>;
     refreshTokens(refreshToken: RefreshTokenDto): Promise<{
         message: string;

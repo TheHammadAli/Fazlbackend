@@ -74,7 +74,7 @@ export class UsersController {
     @UploadedFiles() files: {
       image?: Express.Multer.File[],
     },
-  ): Promise<User> {
+  ): Promise<{ message: string; data: User }> {
     if (files?.image && files.image.length > 0) {
       updateUserDto.image = files.image[0];
     }

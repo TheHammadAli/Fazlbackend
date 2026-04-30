@@ -10,7 +10,12 @@ export declare class ReviewService {
     private readonly cls;
     constructor(reviewModel: Model<ReviewDocument>, i18n: I18nService, cls: ClsService);
     private get lang();
-    createReview(dto: CreateReviewDto, lang?: string): Promise<Review>;
+    createReview(dto: CreateReviewDto): Promise<{
+        message: string;
+        data: {
+            review: Review;
+        };
+    }>;
     getReviews(query: QueryReviewDto): Promise<{
         data: {
             reviews: (import("mongoose").Document<unknown, {}, ReviewDocument, {}> & Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{

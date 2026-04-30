@@ -72,10 +72,12 @@ export declare class ServicesService {
             requestId: string;
         };
     }>;
-    updateJobStatus(dto: UpdateJobStatusDto): Promise<import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
-        _id: Types.ObjectId;
-    } & {
-        __v: number;
+    updateJobStatus(dto: UpdateJobStatusDto): Promise<{
+        message: string;
+        data: {
+            requestId: Types.ObjectId;
+            jobStatus: import("./schema/service_request.schema").JobStatus;
+        };
     }>;
     getServiceRequestsByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<ServiceRequest>>;
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{

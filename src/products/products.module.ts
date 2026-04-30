@@ -8,13 +8,16 @@ import { SharedModule } from 'src/shared/shared.module';
 import { UsersModule } from 'src/users/users.module';
 
 import { PromotionModule } from 'src/promotion/promotion.module';
+import { LikeModule } from 'src/like/like.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
+    forwardRef(() => LikeModule),
     forwardRef(() => ShopModule), // If circular dependency
     forwardRef(() => SharedModule),
     forwardRef(() => UsersModule),
+    // If LikeService is used in ProductsService
     forwardRef(() => PromotionModule), // If PromotionService is used in ProductsService
   ],
   controllers: [ProductsController],

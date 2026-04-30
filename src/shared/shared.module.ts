@@ -14,10 +14,10 @@ import { Like, LikeSchema } from './schema/like.schema';
     ConfigModule,
     forwardRef(() => ProductsModule),
     forwardRef(() => ServicesModule),
-    MongooseModule.forFeature([{ name: Like.name, schema: LikeSchema }]),
+
   ],
-  providers: [ListingUtilsService, FileUploadService, LikeService],
-  controllers: [LikeController],
-  exports: [ListingUtilsService, FileUploadService, LikeService],
+  providers: [ListingUtilsService, FileUploadService],
+
+  exports: [ListingUtilsService, FileUploadService],
 })
 export class SharedModule { }

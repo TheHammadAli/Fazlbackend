@@ -23,6 +23,8 @@ const listing_util_service_1 = require("../shared/listing-util-service");
 const users_service_1 = require("../users/users.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const promotion_service_1 = require("../promotion/promotion.service");
+const nestjs_cls_1 = require("nestjs-cls");
+const like_service_1 = require("../like/like.service");
 let ProductsService = class ProductsService {
     productModel;
     shopService;
@@ -31,7 +33,9 @@ let ProductsService = class ProductsService {
     fileUploadService;
     promotionService;
     i18n;
-    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n) {
+    cls;
+    likeService;
+    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n, cls, likeService) {
         this.productModel = productModel;
         this.shopService = shopService;
         this.listingUtils = listingUtils;
@@ -39,8 +43,13 @@ let ProductsService = class ProductsService {
         this.fileUploadService = fileUploadService;
         this.promotionService = promotionService;
         this.i18n = i18n;
+        this.cls = cls;
+        this.likeService = likeService;
     }
-    async create(entityId, type, dto, userId, lang = "en") {
+    get lang() {
+        return this.cls.get("lang") || "en";
+    }
+    async create(entityId, type, dto) {
         try {
             let location;
             const productPayload = {
@@ -50,12 +59,12 @@ let ProductsService = class ProductsService {
             if (type === "shop") {
                 const shop = await this.shopService.getShopById(entityId);
                 if (!shop) {
-                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.shop_not_found", { lang }));
+                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.shop_not_found", { lang: this.lang }));
                 }
                 if (!shop.location ||
                     !shop.location.coordinates ||
                     shop.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.shop_location_missing", { lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.shop_location_missing", { lang: this.lang }));
                 }
                 productPayload.shopId = shop._id;
                 location = shop.location;
@@ -64,14 +73,14 @@ let ProductsService = class ProductsService {
             else if (type === "personal") {
                 const user = await this.userService.findUserById(entityId);
                 if (!user) {
-                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", { lang }));
+                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", { lang: this.lang }));
                 }
                 console.log("User:", user);
                 productPayload.ownerId = user._id;
                 if (!user.location ||
                     !user.location.coordinates ||
                     user.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.user_location_missing", { lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.user_location_missing", { lang: this.lang }));
                 }
                 location = {
                     type: "Point",
@@ -101,7 +110,13 @@ let ProductsService = class ProductsService {
                 console.log("Uploaded Video:", uploadedVideo);
                 createdProduct.video = uploadedVideo[0].url;
             }
-            return await createdProduct.save();
+            const result = await createdProduct.save();
+            return {
+                message: this.i18n.translate("auth.products.created_success", { lang: this.lang }),
+                data: {
+                    product: result,
+                }
+            };
         }
         catch (err) {
             throw new common_1.InternalServerErrorException(err);
@@ -147,12 +162,12 @@ let ProductsService = class ProductsService {
             .findById(new mongoose_2.Types.ObjectId(id))
             .populate("category");
         if (!product)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
         return product;
     }
-    async update(productId, updateDto, lang = "en") {
+    async update(productId, updateDto) {
         if ("shopId" in updateDto) {
-            throw new common_1.ForbiddenException(this.i18n.translate("auth.products.shop_cant_update", { lang }));
+            throw new common_1.ForbiddenException(this.i18n.translate("auth.products.shop_cant_update", { lang: this.lang }));
         }
         if (updateDto.category) {
             updateDto.category = new mongoose_2.Types.ObjectId(updateDto.category);
@@ -166,7 +181,7 @@ let ProductsService = class ProductsService {
         });
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
         }
         if (updateDto.images && updateDto.images.length > 0) {
             const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId.toString(), productId, "images");
@@ -183,14 +198,14 @@ let ProductsService = class ProductsService {
             .findByIdAndUpdate(productId, updateDto, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
         }
         return updated;
     }
     async delete(productId, lang = "en") {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
         }
         const type = existingProduct.shopId ? "shop" : "personal";
         const entityId = existingProduct.shopId
@@ -199,15 +214,15 @@ let ProductsService = class ProductsService {
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
         const result = await this.productModel.findByIdAndDelete(productId);
         if (!result)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
     }
-    async deleteProductMedia(productId, media, lang = "en") {
+    async deleteProductMedia(productId, media) {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.products.no_media_provided", { lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.products.no_media_provided", { lang: this.lang }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingProduct.images || [];
@@ -276,7 +291,7 @@ let ProductsService = class ProductsService {
             },
         };
     }
-    async getProductsWithVideos(paginationDto) {
+    async getProductsWithVideos(paginationDto, userId) {
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const filter = {
@@ -285,16 +300,31 @@ let ProductsService = class ProductsService {
         const [items, total] = await Promise.all([
             this.productModel
                 .find(filter)
-                .populate("category")
+                .populate('category')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
+                .lean()
                 .exec(),
             this.productModel.countDocuments(filter).exec(),
         ]);
+        const productIds = items.map((item) => new mongoose_2.Types.ObjectId(item._id));
+        const likes = await this.likeService.getLikesByUser(userId, 'product', productIds);
+        console.log("Products with Likes:", likes);
+        const likedProductIds = new Set(likes.map((like) => like.itemId.toString()));
+        console.log("Liked Product IDs:", likedProductIds);
+        const data = items.map((item) => ({
+            ...item,
+            isLiked: likedProductIds.has(item._id.toString()),
+        }));
         return {
-            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-            data: items,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+            data
         };
     }
 };
@@ -302,12 +332,15 @@ exports.ProductsService = ProductsService;
 exports.ProductsService = ProductsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
+    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         shop_service_1.ShopService,
         listing_util_service_1.ListingUtilsService,
         users_service_1.UsersService,
         file_upload_service_1.FileUploadService,
         promotion_service_1.PromotionService,
-        nestjs_i18n_1.I18nService])
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService,
+        like_service_1.LikeService])
 ], ProductsService);
 //# sourceMappingURL=products.service.js.map

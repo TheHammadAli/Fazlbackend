@@ -11,13 +11,18 @@ export declare class ProductsController {
     createProduct(entityId: string, type: "shop" | "personal", req: Request, createProductDto: CreateProductDto, files: {
         images?: Express.Multer.File[];
         video?: Express.Multer.File[];
-    }): Promise<Product>;
+    }): Promise<{
+        message: string;
+        data: {
+            product: Product;
+        };
+    }>;
     getAllByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     deleteProductMedia(productId: string, media: string[]): Promise<{
         message: string;
     }>;
     getAllProductsByUser(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
-    getProductsWithVideos(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
+    getProductsWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<Product>>;
     getById(id: string): Promise<Product>;
     update(id: string, updateProductDto: UpdateProductDto, files: {
         images?: Express.Multer.File[];
