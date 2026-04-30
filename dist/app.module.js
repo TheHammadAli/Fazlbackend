@@ -22,6 +22,7 @@ const services_module_1 = require("./services/services.module");
 const chat_module_1 = require("./chat/chat.module");
 const reviews_module_1 = require("./reviews/reviews.module");
 const throttler_1 = require("@nestjs/throttler");
+const core_1 = require("@nestjs/core");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const orders_module_1 = require("./orders/orders.module");
 const subscription_module_1 = require("./subscription/subscription.module");
@@ -83,7 +84,10 @@ exports.AppModule = AppModule = __decorate([
             broadcast_module_1.BroadcastModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService, language_interceptor_1.LanguageInterceptor],
+        providers: [app_service_1.AppService, language_interceptor_1.LanguageInterceptor, {
+                provide: core_1.APP_GUARD,
+                useClass: throttler_1.ThrottlerGuard,
+            },],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

@@ -18,6 +18,7 @@ const users_module_1 = require("../users/users.module");
 const shop_module_1 = require("../shop/shop.module");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const config_1 = require("@nestjs/config");
+const notifications_module_1 = require("../notifications/notifications.module");
 let ChatModule = class ChatModule {
 };
 exports.ChatModule = ChatModule;
@@ -30,6 +31,7 @@ exports.ChatModule = ChatModule = __decorate([
             ]),
             users_module_1.UsersModule,
             shop_module_1.ShopModule,
+            notifications_module_1.NotificationsModule
         ],
         providers: [chat_service_1.ChatService, chat_gateway_1.ChatGateway, file_upload_service_1.FileUploadService, config_1.ConfigService],
         controllers: [chat_controller_1.ChatController],

@@ -23,6 +23,7 @@ const users_service_1 = require("../users/users.service");
 const app_error_1 = require("../common/exceptions/app-error");
 const shop_service_1 = require("../shop/shop.service");
 const nestjs_cls_1 = require("nestjs-cls");
+const notifications_service_1 = require("../notifications/notifications.service");
 let ChatService = class ChatService {
     conversationModel;
     messageModel;
@@ -30,13 +31,15 @@ let ChatService = class ChatService {
     shopService;
     i18n;
     cls;
-    constructor(conversationModel, messageModel, userService, shopService, i18n, cls) {
+    notificationsService;
+    constructor(conversationModel, messageModel, userService, shopService, i18n, cls, notificationsService) {
         this.conversationModel = conversationModel;
         this.messageModel = messageModel;
         this.userService = userService;
         this.shopService = shopService;
         this.i18n = i18n;
         this.cls = cls;
+        this.notificationsService = notificationsService;
     }
     get lang() {
         return this.cls.get("lang") || "en";
@@ -81,22 +84,50 @@ let ChatService = class ChatService {
         if (!conversation) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
         }
-        if (senderId !== conversation.buyer.toString() && senderId !== conversation.seller.toString()) {
+        if (senderId !== conversation.buyer.toString() &&
+            senderId !== conversation.seller.toString()) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }));
         }
-        if (receiverId !== conversation.buyer.toString() && receiverId !== conversation.seller.toString()) {
+        if (receiverId !== conversation.buyer.toString() &&
+            receiverId !== conversation.seller.toString()) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }));
+        }
+        const [sender, receiver] = await Promise.all([
+            this.userService.findUserById(senderId),
+            this.userService.findUserById(receiverId),
+        ]);
+        if (!sender || !receiver) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }));
         }
         const message = await this.messageModel.create({
-            conversationId: new mongoose_2.Types.ObjectId(conversationId),
-            sender: new mongoose_2.Types.ObjectId(senderId),
-            receiver: new mongoose_2.Types.ObjectId(receiverId),
+            conversationId,
+            sender: senderId,
+            receiver: receiverId,
             text,
             imageUrl,
         });
         await this.conversationModel.findByIdAndUpdate(conversationId, {
             lastMessageAt: new Date(),
         });
+        await this.notificationsService.createAndNotify(receiverId, "auth.chat.new_message", "MESSAGE", {
+            conversation: {
+                id: conversation._id,
+                buyer: conversation.buyer,
+                seller: conversation.seller,
+                status: conversation.status,
+            },
+            message: {
+                id: message._id,
+                text: message.text,
+                imageUrl: message.imageUrl,
+                createdAt: message.createdAt,
+            },
+            sender: {
+                id: sender._id,
+                name: sender.name,
+                image: sender.image,
+            },
+        }, { senderName: sender.name });
         return message;
     }
     async getMessages(conversationId, paginationDto) {
@@ -247,8 +278,8 @@ let ChatService = class ChatService {
                 {
                     $project: {
                         _id: 1,
-                        buyer: { _id: 1, name: 1, email: 1, profilePicture: 1 },
-                        seller: { _id: 1, name: 1, email: 1, profilePicture: 1 },
+                        buyer: { _id: 1, name: 1, email: 1, image: 1 },
+                        seller: { _id: 1, name: 1, email: 1, image: 1 },
                         status: 1,
                         lastMessageAt: 1,
                         createdAt: 1,
@@ -291,6 +322,7 @@ exports.ChatService = ChatService = __decorate([
         users_service_1.UsersService,
         shop_service_1.ShopService,
         nestjs_i18n_1.I18nService,
-        nestjs_cls_1.ClsService])
+        nestjs_cls_1.ClsService,
+        notifications_service_1.NotificationsService])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map

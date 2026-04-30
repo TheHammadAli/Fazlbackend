@@ -6,6 +6,7 @@ export declare class Message extends Document {
     text: string;
     imageUrl?: string;
     read: boolean;
+    createdAt: Date;
 }
 export declare const MessageSchema: import("mongoose").Schema<Message, import("mongoose").Model<Message, any, any, any, Document<unknown, any, Message, any> & Message & Required<{
     _id: unknown;

@@ -12,7 +12,8 @@ import { CategoryModule } from "./category/category.module";
 import { ServicesModule } from "./services/services.module";
 import { ChatModule } from "./chat/chat.module";
 import { ReviewsModule } from "./reviews/reviews.module";
-import { ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 import { AcceptLanguageResolver, I18nModule, QueryResolver } from "nestjs-i18n";
 import { OrdersModule } from "./orders/orders.module";
 import { SubscriptionModule } from "./subscription/subscription.module";
@@ -76,6 +77,9 @@ console.log(
     BroadcastModule,
   ],
   controllers: [AppController],
-  providers: [AppService, LanguageInterceptor],
+  providers: [AppService, LanguageInterceptor, {
+    provide: APP_GUARD,
+    useClass: ThrottlerGuard,
+  },],
 })
 export class AppModule { }

@@ -21,6 +21,9 @@ export class Message extends Document {
   imageUrl?: string; // Optional field for S3 link
   @Prop({ default: false })
   read: boolean;
+
+  @Prop({ type: Date, default: Date.now })
+  createdAt: Date;
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);

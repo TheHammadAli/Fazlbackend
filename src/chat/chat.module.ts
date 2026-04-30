@@ -9,6 +9,7 @@ import { UsersModule } from 'src/users/users.module';
 import { ShopModule } from 'src/shop/shop.module';
 import { FileUploadService } from 'src/common/file-upload/file-upload.service';
 import { ConfigService } from '@nestjs/config';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -17,6 +18,7 @@ import { ConfigService } from '@nestjs/config';
     ]),
     UsersModule,
     ShopModule,
+    NotificationsModule
   ],
   providers: [ChatService, ChatGateway,FileUploadService,ConfigService],
   controllers: [ChatController],

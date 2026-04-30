@@ -19,6 +19,7 @@ let Message = class Message extends mongoose_2.Document {
     text;
     imageUrl;
     read;
+    createdAt;
 };
 exports.Message = Message;
 __decorate([
@@ -45,6 +46,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
 ], Message.prototype, "read", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date, default: Date.now }),
+    __metadata("design:type", Date)
+], Message.prototype, "createdAt", void 0);
 exports.Message = Message = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Message);

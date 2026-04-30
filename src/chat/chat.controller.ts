@@ -48,47 +48,48 @@ export class ChatController {
 
   @Post("message")
   @ApiOperation({ summary: "Send a message in a conversation" })
- @ApiConsumes('application/json', 'multipart/form-data')
- @ApiBody({
-  schema: {
-    type: 'object',
-    properties: {
-      conversationId: { type: 'string' },
-      senderId: { type: 'string' },
-      receiverId: { type: 'string' },
-      text: { type: 'string' },
-      file: {
-        type: 'string',
-        format: 'binary',
-        nullable: true,
+  @ApiConsumes('application/json', 'multipart/form-data')
+
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        conversationId: { type: 'string' },
+        senderId: { type: 'string' },
+        receiverId: { type: 'string' },
+        text: { type: 'string' },
+        file: {
+          type: 'string',
+          format: 'binary',
+          nullable: true,
+        },
       },
     },
-  },
-}) // Required for Swagger to show file upload
+  }) // Required for Swagger to show file upload
   @UseInterceptors(FileInterceptor('file')) // 'file' is the key in form-data
   async sendMessage(
     @Body() body: CreateMessageDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-   
+
     console.log("File received in controller:", file);
     // If a file is provided, upload it first
-     let imageUrl: string | undefined;
+    let imageUrl: string | undefined;
 
-  if (file && file.size > 0) {
-    imageUrl = await this.fileUploadService.uploadChatMessage(
+    if (file && file.size > 0) {
+      imageUrl = await this.fileUploadService.uploadChatMessage(
+        body.conversationId,
+        file,
+      );
+    }
+
+    return this.chatService.sendMessage(
       body.conversationId,
-      file,
+      body.senderId,
+      body.receiverId,
+      body.text,
+      imageUrl,
     );
-  }
-
-  return this.chatService.sendMessage(
-    body.conversationId,
-    body.senderId,
-    body.receiverId,
-    body.text,
-    imageUrl,
-  );
   }
 
   @Get("messages/:conversationId")

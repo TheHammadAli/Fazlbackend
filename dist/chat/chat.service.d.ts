@@ -7,6 +7,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { UsersService } from "src/users/users.service";
 import { ShopService } from "src/shop/shop.service";
 import { ClsService } from "nestjs-cls";
+import { NotificationsService } from "src/notifications/notifications.service";
 export declare class ChatService {
     private readonly conversationModel;
     private readonly messageModel;
@@ -14,7 +15,8 @@ export declare class ChatService {
     private readonly shopService;
     private readonly i18n;
     private readonly cls;
-    constructor(conversationModel: Model<Conversation>, messageModel: Model<Message>, userService: UsersService, shopService: ShopService, i18n: I18nService, cls: ClsService);
+    private readonly notificationsService;
+    constructor(conversationModel: Model<Conversation>, messageModel: Model<Message>, userService: UsersService, shopService: ShopService, i18n: I18nService, cls: ClsService, notificationsService: NotificationsService);
     private get lang();
     getOrCreateConversation(buyerId: string, sellerId: string): Promise<(import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
         _id: unknown;

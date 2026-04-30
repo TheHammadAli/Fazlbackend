@@ -10,6 +10,7 @@ import { UsersService } from "src/users/users.service";
 import { AppError } from "src/common/exceptions/app-error";
 import { ShopService } from "src/shop/shop.service";
 import { ClsService } from "nestjs-cls";
+import { NotificationsService } from "src/notifications/notifications.service";
 
 @Injectable()
 export class ChatService {
@@ -21,7 +22,8 @@ export class ChatService {
     private readonly userService: UsersService,
     private readonly shopService: ShopService,
     private readonly i18n: I18nService,
-    private readonly cls: ClsService
+    private readonly cls: ClsService,
+    private readonly notificationsService: NotificationsService
   ) { }
 
   /** Dynamic getter to retrieve the current request language safely */
@@ -81,41 +83,85 @@ export class ChatService {
     senderId: string,
     receiverId: string,
     text: string,
-    imageUrl?: string, // Optional parameter for S3 image URL
+    imageUrl?: string,
   ) {
-
-
     const conversation = await this.conversationModel.findById(conversationId);
+
     if (!conversation) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }),
       );
     }
-    if (senderId !== conversation.buyer.toString() && senderId !== conversation.seller.toString()) {
+
+    if (
+      senderId !== conversation.buyer.toString() &&
+      senderId !== conversation.seller.toString()
+    ) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang })
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
       );
     }
-    if (receiverId !== conversation.buyer.toString() && receiverId !== conversation.seller.toString()) {
+
+    if (
+      receiverId !== conversation.buyer.toString() &&
+      receiverId !== conversation.seller.toString()
+    ) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang })
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
       );
     }
+
+    const [sender, receiver] = await Promise.all([
+      this.userService.findUserById(senderId),
+      this.userService.findUserById(receiverId),
+    ]);
+
+    if (!sender || !receiver) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }),
+      );
+    }
+
     const message = await this.messageModel.create({
-      conversationId: new Types.ObjectId(conversationId),
-      sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(receiverId),
+      conversationId,
+      sender: senderId,
+      receiver: receiverId,
       text,
-      imageUrl, // Save the S3 URL here
+      imageUrl,
     });
 
     await this.conversationModel.findByIdAndUpdate(conversationId, {
       lastMessageAt: new Date(),
     });
 
+    await this.notificationsService.createAndNotify(
+      receiverId,
+      "auth.chat.new_message",
+      "MESSAGE",
+      {
+        conversation: {
+          id: conversation._id,
+          buyer: conversation.buyer,
+          seller: conversation.seller,
+          status: conversation.status,
+        },
+        message: {
+          id: message._id,
+          text: message.text,
+          imageUrl: message.imageUrl,
+          createdAt: message.createdAt,
+        },
+        sender: {
+          id: sender._id,
+          name: sender.name,
+          image: sender.image,
+        },
+      },
+      { senderName: sender.name },
+    );
+
     return message;
   }
-
   async getMessages(
     conversationId: string,
     paginationDto: PaginationDto,
@@ -296,8 +342,8 @@ export class ChatService {
         {
           $project: {
             _id: 1,
-            buyer: { _id: 1, name: 1, email: 1, profilePicture: 1 },
-            seller: { _id: 1, name: 1, email: 1, profilePicture: 1 },
+            buyer: { _id: 1, name: 1, email: 1, image: 1 },
+            seller: { _id: 1, name: 1, email: 1, image: 1 },
             status: 1,
             lastMessageAt: 1,
             createdAt: 1,
