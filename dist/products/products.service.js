@@ -200,7 +200,12 @@ let ProductsService = class ProductsService {
         if (!updated) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
         }
-        return updated;
+        return {
+            message: this.i18n.translate("auth.products.updated_success", { lang: this.lang }),
+            data: {
+                product: updated,
+            }
+        };
     }
     async delete(productId, lang = "en") {
         const existingProduct = await this.productModel.findById(productId);

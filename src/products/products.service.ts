@@ -215,7 +215,7 @@ export class ProductsService {
     productId: string,
     updateDto: UpdateProductDto,
 
-  ): Promise<Product> {
+  ): Promise<any> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
         this.i18n.translate("auth.products.shop_cant_update", { lang: this.lang }),
@@ -276,7 +276,12 @@ export class ProductsService {
       );
     }
 
-    return updated;
+    return {
+      message: this.i18n.translate("auth.products.updated_success", { lang: this.lang }),
+      data: {
+        product: updated,
+      }
+    }
   }
 
   async delete(productId: string, lang: string = "en"): Promise<void> {

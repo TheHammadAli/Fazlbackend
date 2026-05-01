@@ -35,7 +35,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Message.prototype, "receiver", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, required: true }),
+    (0, mongoose_1.Prop)({ type: String, required: false }),
     __metadata("design:type", String)
 ], Message.prototype, "text", void 0);
 __decorate([

@@ -34,7 +34,7 @@ export declare class ProductsService {
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getById(id: string, lang?: string): Promise<Product>;
-    update(productId: string, updateDto: UpdateProductDto): Promise<Product>;
+    update(productId: string, updateDto: UpdateProductDto): Promise<any>;
     delete(productId: string, lang?: string): Promise<void>;
     deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;

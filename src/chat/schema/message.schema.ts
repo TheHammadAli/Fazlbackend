@@ -13,11 +13,11 @@ export class Message extends Document {
   @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   receiver: Types.ObjectId;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false })
   text: string;
 
   // message.schema.ts
-@Prop({ type: String })
+  @Prop({ type: String })
   imageUrl?: string; // Optional field for S3 link
   @Prop({ default: false })
   read: boolean;
