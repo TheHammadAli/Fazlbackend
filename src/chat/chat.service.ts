@@ -11,6 +11,7 @@ import { AppError } from "src/common/exceptions/app-error";
 import { ShopService } from "src/shop/shop.service";
 import { ClsService } from "nestjs-cls";
 import { NotificationsService } from "src/notifications/notifications.service";
+import { ChatGateway } from "./chat.gateway";
 
 @Injectable()
 export class ChatService {
@@ -159,8 +160,25 @@ export class ChatService {
       },
       { senderName: sender.name },
     );
-
-    return message;
+    if (ChatGateway.serverInstance) {
+      ChatGateway.serverInstance
+        .to(conversationId)
+        .emit('receiveMessage', {
+          message,
+          sender,
+          conversation: {
+            id: conversation._id,
+            buyer: conversation.buyer,
+            seller: conversation.seller,
+            status: conversation.status,
+          },
+        });
+    }
+    return {
+      data: {
+        message, sender, conversation
+      }
+    };
   }
   async getMessages(
     conversationId: string,

@@ -9,7 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
-import { Logger } from '@nestjs/common';
+import { forwardRef, Inject, Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: {
@@ -20,9 +20,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
+   static serverInstance: Server;
+
   private logger: Logger = new Logger('ChatGateway');
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+  @Inject(forwardRef(() => ChatService))
+  private readonly chatService: ChatService,
+) {}
 
   handleConnection(client: Socket) {
     console.log('Client connected', client.id);
@@ -61,8 +66,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.text,
     );
 
-    // Emit the message to both sender and receiver
-    this.server.to(data.conversationId).emit('receiveMessage', message);
+
   }
 
   @SubscribeMessage('startConversation')

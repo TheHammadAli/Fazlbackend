@@ -12,11 +12,7 @@ export declare class BroadcastController {
         message: string;
         data: string;
     }>;
-    sendMessage(broadcastId: string, dto: SendBroadcastMessageDto, req: Request, file?: Express.Multer.File): Promise<import("mongoose").Document<unknown, {}, import("./schema/broadcast-message.schema").BroadcastMessage, {}> & import("./schema/broadcast-message.schema").BroadcastMessage & {
-        _id: import("mongoose").Types.ObjectId;
-    } & {
-        __v: number;
-    }>;
+    sendMessage(broadcastId: string, dto: SendBroadcastMessageDto, req: Request, file?: Express.Multer.File): Promise<void>;
     getThreads(broadcastId: string): Promise<any[]>;
     getThreadMessages(broadcastId: string, threadId: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast-message.schema").BroadcastMessage, {}> & import("./schema/broadcast-message.schema").BroadcastMessage & {
         _id: import("mongoose").Types.ObjectId;

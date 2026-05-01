@@ -19,6 +19,7 @@ import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
 import { ServicesService } from "src/services/services.service";
 import { ClsService } from "nestjs-cls";
+import { BroadcastGateway } from "./broadcast.gateway";
 
 @Injectable()
 export class BroadcastService {
@@ -307,7 +308,7 @@ export class BroadcastService {
     }
 
     // 7. Create message
-    return this.messageModel.create({
+    const messageResults = await  this.messageModel.create({
       broadcast: broadcastObjectId,
       thread: new Types.ObjectId(threadId),
       sender: new Types.ObjectId(senderId),
@@ -315,7 +316,22 @@ export class BroadcastService {
       message,
       imageUrl, // Save the S3 URL here
     });
+
+    if (BroadcastGateway.serverInstance) {
+  BroadcastGateway.serverInstance
+    .to(threadId)
+    .emit('receiveMessage', {
+      message:messageResults,
+      sender,
+      thread: {
+        id: threadId,
+        buyer:thread.buyer ,
+        seller:thread.seller,
+        broadcast: thread.broadcast,
+      },
+    });
   }
+}
 
   // -----------------------------
   // GET THREADS

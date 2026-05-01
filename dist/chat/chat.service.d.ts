@@ -23,10 +23,20 @@ export declare class ChatService {
     }> & {
         __v: number;
     }) | null>;
-    sendMessage(conversationId: string, senderId: string, receiverId: string, text: string, imageUrl?: string): Promise<import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
-        _id: unknown;
-    }> & {
-        __v: number;
+    sendMessage(conversationId: string, senderId: string, receiverId: string, text: string, imageUrl?: string): Promise<{
+        data: {
+            message: import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            };
+            sender: import("../users/schema/users.schema").User & import("mongoose").Document<unknown, any, any, Record<string, any>>;
+            conversation: import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            };
+        };
     }>;
     getMessages(conversationId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Message>>;
     markAsRead(conversationId: string, userId: string): Promise<void>;

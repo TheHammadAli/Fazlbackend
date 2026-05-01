@@ -4,6 +4,7 @@ import { ChatService } from './chat.service';
 export declare class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatService;
     server: Server;
+    static serverInstance: Server;
     private logger;
     constructor(chatService: ChatService);
     handleConnection(client: Socket): void;

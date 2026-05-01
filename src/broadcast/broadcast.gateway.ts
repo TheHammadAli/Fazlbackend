@@ -9,7 +9,7 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { BroadcastService } from "./broadcast.service";
-import { Logger } from "@nestjs/common";
+import { forwardRef, Inject, Logger } from "@nestjs/common";
 
 @WebSocketGateway({
   cors: {
@@ -17,14 +17,17 @@ import { Logger } from "@nestjs/common";
   },
 })
 export class BroadcastGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
+  static serverInstance: Server;
   private logger: Logger = new Logger("BroadcastGateway");
 
-  constructor(private readonly broadcastService: BroadcastService) {}
+
+  constructor(
+    @Inject(forwardRef(() => BroadcastService))
+    private readonly broadcastService: BroadcastService) { }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -64,7 +67,7 @@ export class BroadcastGateway
     );
 
     // Emit the message to all clients in the thread room
-    this.server.to(data.threadId).emit("receiveBroadcastMessage", newMessage);
+
   }
 
   @SubscribeMessage("joinBroadcast")

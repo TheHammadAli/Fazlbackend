@@ -20,6 +20,7 @@ const common_1 = require("@nestjs/common");
 let BroadcastGateway = class BroadcastGateway {
     broadcastService;
     server;
+    static serverInstance;
     logger = new common_1.Logger("BroadcastGateway");
     constructor(broadcastService) {
         this.broadcastService = broadcastService;
@@ -36,7 +37,6 @@ let BroadcastGateway = class BroadcastGateway {
     }
     async handleSendBroadcastMessage(data, client) {
         const newMessage = await this.broadcastService.sendBroadcastMessage(data.broadcastId, data.senderId, data.receiverId, data.threadId, data.message);
-        this.server.to(data.threadId).emit("receiveBroadcastMessage", newMessage);
     }
     async handleJoinBroadcast(data, client) {
         client.join(data.broadcastId);
@@ -92,6 +92,7 @@ exports.BroadcastGateway = BroadcastGateway = __decorate([
             origin: "*",
         },
     }),
+    __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => broadcast_service_1.BroadcastService))),
     __metadata("design:paramtypes", [broadcast_service_1.BroadcastService])
 ], BroadcastGateway);
 //# sourceMappingURL=broadcast.gateway.js.map

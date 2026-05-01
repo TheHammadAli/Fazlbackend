@@ -24,6 +24,7 @@ const app_error_1 = require("../common/exceptions/app-error");
 const shop_service_1 = require("../shop/shop.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const notifications_service_1 = require("../notifications/notifications.service");
+const chat_gateway_1 = require("./chat.gateway");
 let ChatService = class ChatService {
     conversationModel;
     messageModel;
@@ -128,7 +129,25 @@ let ChatService = class ChatService {
                 image: sender.image,
             },
         }, { senderName: sender.name });
-        return message;
+        if (chat_gateway_1.ChatGateway.serverInstance) {
+            chat_gateway_1.ChatGateway.serverInstance
+                .to(conversationId)
+                .emit('receiveMessage', {
+                message,
+                sender,
+                conversation: {
+                    id: conversation._id,
+                    buyer: conversation.buyer,
+                    seller: conversation.seller,
+                    status: conversation.status,
+                },
+            });
+        }
+        return {
+            data: {
+                message, sender, conversation
+            }
+        };
     }
     async getMessages(conversationId, paginationDto) {
         const convo = await this.conversationModel.findById(conversationId);

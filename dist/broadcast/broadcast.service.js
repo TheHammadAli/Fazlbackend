@@ -25,6 +25,7 @@ const users_service_1 = require("../users/users.service");
 const category_service_1 = require("../category/category.service");
 const services_service_1 = require("../services/services.service");
 const nestjs_cls_1 = require("nestjs-cls");
+const broadcast_gateway_1 = require("./broadcast.gateway");
 let BroadcastService = class BroadcastService {
     broadcastModel;
     messageModel;
@@ -174,7 +175,7 @@ let BroadcastService = class BroadcastService {
         if (!isValidReceiver) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", { lang: this.lang }));
         }
-        return this.messageModel.create({
+        const messageResults = await this.messageModel.create({
             broadcast: broadcastObjectId,
             thread: new mongoose_2.Types.ObjectId(threadId),
             sender: new mongoose_2.Types.ObjectId(senderId),
@@ -182,6 +183,20 @@ let BroadcastService = class BroadcastService {
             message,
             imageUrl,
         });
+        if (broadcast_gateway_1.BroadcastGateway.serverInstance) {
+            broadcast_gateway_1.BroadcastGateway.serverInstance
+                .to(threadId)
+                .emit('receiveMessage', {
+                message: messageResults,
+                sender,
+                thread: {
+                    id: threadId,
+                    buyer: thread.buyer,
+                    seller: thread.seller,
+                    broadcast: thread.broadcast,
+                },
+            });
+        }
     }
     async getBroadcastThreads(broadcastId) {
         return this.threadModel

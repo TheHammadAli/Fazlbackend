@@ -4,6 +4,7 @@ import { BroadcastService } from "./broadcast.service";
 export declare class BroadcastGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly broadcastService;
     server: Server;
+    static serverInstance: Server;
     private logger;
     constructor(broadcastService: BroadcastService);
     handleConnection(client: Socket): void;

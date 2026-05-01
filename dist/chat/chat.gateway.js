@@ -20,6 +20,7 @@ const common_1 = require("@nestjs/common");
 let ChatGateway = class ChatGateway {
     chatService;
     server;
+    static serverInstance;
     logger = new common_1.Logger('ChatGateway');
     constructor(chatService) {
         this.chatService = chatService;
@@ -36,7 +37,6 @@ let ChatGateway = class ChatGateway {
     }
     async handleSendMessage(data, client) {
         const message = await this.chatService.sendMessage(data.conversationId, data.senderId, data.receiverId, data.text);
-        this.server.to(data.conversationId).emit('receiveMessage', message);
     }
     async handleStartConversation(data, client) {
         const convo = await this.chatService.getOrCreateConversation(data.buyerId, data.sellerId);
@@ -93,6 +93,7 @@ exports.ChatGateway = ChatGateway = __decorate([
             origin: '*',
         },
     }),
+    __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => chat_service_1.ChatService))),
     __metadata("design:paramtypes", [chat_service_1.ChatService])
 ], ChatGateway);
 //# sourceMappingURL=chat.gateway.js.map
