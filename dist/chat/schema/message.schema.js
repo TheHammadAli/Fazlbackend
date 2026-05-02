@@ -23,15 +23,15 @@ let Message = class Message extends mongoose_2.Document {
 };
 exports.Message = Message;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'Conversation' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "Conversation" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Message.prototype, "conversationId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Message.prototype, "sender", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Message.prototype, "receiver", void 0);
 __decorate([

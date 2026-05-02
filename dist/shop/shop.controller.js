@@ -32,7 +32,7 @@ let ShopController = class ShopController {
             dto.image = files.image[0];
         }
         if (dto.location) {
-            dto.location = JSON.parse(dto.location?.toString() || '{}');
+            dto.location = JSON.parse(dto.location?.toString() || "{}");
         }
         return this.shopService.createShop(new mongoose_1.Types.ObjectId(user.sub), dto);
     }
@@ -41,7 +41,7 @@ let ShopController = class ShopController {
             dto.image = files.image[0];
         }
         if (dto.location) {
-            dto.location = JSON.parse(dto.location?.toString() || '{}');
+            dto.location = JSON.parse(dto.location?.toString() || "{}");
         }
         return this.shopService.updateShop(id, dto);
     }
@@ -54,10 +54,10 @@ let ShopController = class ShopController {
 };
 exports.ShopController = ShopController;
 __decorate([
-    (0, common_1.Post)('create'),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new shop' }),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'image', maxCount: 1 }])),
+    (0, common_1.Post)("create"),
+    (0, swagger_1.ApiOperation)({ summary: "Create a new shop" }),
+    (0, swagger_1.ApiConsumes)("multipart/form-data"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: "image", maxCount: 1 }])),
     (0, swagger_1.ApiBody)({ type: create_update_shop_dto_1.CreateUpdateShopDto }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -67,13 +67,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "createShop", null);
 __decorate([
-    (0, common_1.Put)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update existing shop by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', type: String }),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: 'image', maxCount: 1 }])),
+    (0, common_1.Put)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Update existing shop by ID" }),
+    (0, swagger_1.ApiParam)({ name: "id", type: String }),
+    (0, swagger_1.ApiConsumes)("multipart/form-data"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: "image", maxCount: 1 }])),
     (0, swagger_1.ApiBody)({ type: create_update_shop_dto_1.CreateUpdateShopDto }),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
@@ -81,27 +81,27 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "updateShop", null);
 __decorate([
-    (0, common_1.Get)('detail/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get shop details by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', type: String }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)("detail/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get shop details by ID" }),
+    (0, swagger_1.ApiParam)({ name: "id", type: String }),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "getShop", null);
 __decorate([
-    (0, common_1.Get)('userShops'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all shops owned by current user' }),
+    (0, common_1.Get)("userShops"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all shops owned by current user" }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "getMyShops", null);
 exports.ShopController = ShopController = __decorate([
-    (0, swagger_1.ApiTags)('Shops'),
-    (0, swagger_1.ApiBearerAuth)('jwt'),
+    (0, swagger_1.ApiTags)("Shops"),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    (0, common_1.Controller)('shops'),
+    (0, common_1.Controller)("shops"),
     __metadata("design:paramtypes", [shop_service_1.ShopService])
 ], ShopController);
 //# sourceMappingURL=shop.controller.js.map

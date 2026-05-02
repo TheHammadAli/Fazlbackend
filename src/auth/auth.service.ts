@@ -38,14 +38,15 @@ export class AuthService {
   }
 
   async loginUser(loginDto: LoginDto) {
-
     const user = await this.userService.validateUserForLogin(
       loginDto.email,
       loginDto.password,
     );
     if (!user) {
       throw new UnauthorizedException(
-        this.i18n.translate("auth.auth.invalid_credentials", { lang: this.getLang() }),
+        this.i18n.translate("auth.auth.invalid_credentials", {
+          lang: this.getLang(),
+        }),
       );
     }
 
@@ -69,25 +70,28 @@ export class AuthService {
     await this.userService.updateUser(user.id, { refreshToken });
 
     return {
-      message: this.i18n.translate("auth.auth.login_success", { lang: this.getLang() }),
+      message: this.i18n.translate("auth.auth.login_success", {
+        lang: this.getLang(),
+      }),
       data: {
         refreshToken,
         accessToken,
-        user
-      }
+        user,
+      },
     };
   }
 
   async refreshTokens(refreshToken: RefreshTokenDto) {
     try {
-
       const payload = this.jwtService.verify(refreshToken.token); // Verifies expiration and signature
 
       const user = await this.userService.findByIdWithToken(payload.sub);
       console.log("User", user);
       if (!user || user.refreshToken !== refreshToken.token) {
         throw new UnauthorizedException(
-          this.i18n.translate("auth.auth.refresh_token_invalid", { lang: this.getLang() }),
+          this.i18n.translate("auth.auth.refresh_token_invalid", {
+            lang: this.getLang(),
+          }),
         );
       }
 
@@ -112,14 +116,18 @@ export class AuthService {
       });
 
       return {
-        message: this.i18n.translate("auth.auth.refresh_token_success", { lang: this.getLang() }),
+        message: this.i18n.translate("auth.auth.refresh_token_success", {
+          lang: this.getLang(),
+        }),
         accessToken: newAccessToken,
         user,
         refreshToken: refreshToken.token,
       };
     } catch (err) {
       throw new UnauthorizedException(
-        this.i18n.translate("auth.auth.refresh_token_invalid", { lang: this.getLang() }),
+        this.i18n.translate("auth.auth.refresh_token_invalid", {
+          lang: this.getLang(),
+        }),
       );
     }
   }
@@ -133,7 +141,11 @@ export class AuthService {
       // Invalidate refresh token in DB
       await this.userService.updateUser(user.id, { refreshToken: null });
 
-      return { message: this.i18n.translate("auth.auth.logout_success", { lang: this.getLang() }) };
+      return {
+        message: this.i18n.translate("auth.auth.logout_success", {
+          lang: this.getLang(),
+        }),
+      };
     } catch {
       throw new UnauthorizedException("Invalid refresh token");
     }
@@ -182,7 +194,9 @@ export class AuthService {
 
     return {
       data: token,
-      message: this.i18n.translate("auth.auth.verification_email_sent", { lang: this.getLang() }),
+      message: this.i18n.translate("auth.auth.verification_email_sent", {
+        lang: this.getLang(),
+      }),
     };
   }
   async verifyEmailToken(token: string) {
@@ -194,7 +208,11 @@ export class AuthService {
     });
     console.log("Record", record);
     if (!record) {
-      throw new UnauthorizedException(this.i18n.translate("auth.auth.google_verification_failed", { lang: this.getLang() }));
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.google_verification_failed", {
+          lang: this.getLang(),
+        }),
+      );
     }
 
     // Check expiration
@@ -202,19 +220,28 @@ export class AuthService {
       (record.expiresAt && record.expiresAt < new Date()) ||
       (record.createdAt &&
         new Date().getTime() - new Date(record.createdAt).getTime() >
-        24 * 60 * 60 * 1000);
+          24 * 60 * 60 * 1000);
     if (isExpired) {
       await this.otpModel.deleteOne({
         code: token,
         type: "email_verification",
       });
-      throw new UnauthorizedException(this.i18n.translate("auth.auth.verification_token_expired", { lang: this.getLang() }));
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.verification_token_expired", {
+          lang: this.getLang(),
+        }),
+      );
     }
 
     // Optionally, delete the token after verification
     await this.otpModel.deleteOne({ code: token, type: "email_verification" });
 
-    return { email: record.email, message: this.i18n.translate("auth.auth.email_verified", { lang: this.getLang() }) };
+    return {
+      email: record.email,
+      message: this.i18n.translate("auth.auth.email_verified", {
+        lang: this.getLang(),
+      }),
+    };
   }
 
   async verifyOtp(phoneNumber: string, code: string): Promise<boolean> {
@@ -246,7 +273,9 @@ export class AuthService {
     console.log("User found for forgot password:", user);
     if (!user) {
       throw new UnauthorizedException(
-        this.i18n.translate("auth.auth.email_not_found", { lang: this.getLang() }),
+        this.i18n.translate("auth.auth.email_not_found", {
+          lang: this.getLang(),
+        }),
       );
     }
     // Generate token
@@ -277,11 +306,19 @@ export class AuthService {
   async verifyResetPasswordToken(token: string) {
     const user = await this.userService.findByResetToken(token);
     if (!user) {
-      throw new UnauthorizedException(this.i18n.translate("auth.auth.invalid_reset_token", { lang: this.getLang() }));
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.invalid_reset_token", {
+          lang: this.getLang(),
+        }),
+      );
     }
 
     if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
-      throw new UnauthorizedException(this.i18n.translate("auth.auth.reset_token_expired", { lang: this.getLang() }));
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.reset_token_expired", {
+          lang: this.getLang(),
+        }),
+      );
     }
     return user;
   }
@@ -293,7 +330,11 @@ export class AuthService {
       resetPasswordToken: null,
       resetPasswordExpires: null,
     });
-    return { message: this.i18n.translate("auth.auth.password_reset_success", { lang: this.getLang() }) };
+    return {
+      message: this.i18n.translate("auth.auth.password_reset_success", {
+        lang: this.getLang(),
+      }),
+    };
   }
 
   async findOrCreateUserByEmail(payload: {
@@ -305,7 +346,7 @@ export class AuthService {
   }): Promise<{ accessToken: string; returnPayload: any }> {
     console.log("Finding or creating user with payload:", payload);
     // Check if user exists
-    let user = await this.userService.findUserByEmail(payload.email);
+    const user = await this.userService.findUserByEmail(payload.email);
     let returnPayload: any = {};
     if (!user) {
       // Create new user
@@ -373,7 +414,7 @@ export class AuthService {
         ].filter((value): value is string => Boolean(value)),
       });
 
-      let payload = ticket.getPayload();
+      const payload = ticket.getPayload();
 
       if (!payload) {
         throw new UnauthorizedException("Invalid Google token");
@@ -382,7 +423,7 @@ export class AuthService {
       console.log("Google token payload:", payload);
 
       const user = await this.findOrCreateUserByEmail({
-        sub: payload["sub"] as string,
+        sub: payload["sub"],
         email: payload["email"] as string,
         firstName: payload["given_name"],
         lastName: payload["family_name"],
@@ -392,7 +433,11 @@ export class AuthService {
       return { user, accessToken: user.accessToken };
     } catch (err) {
       console.error("Error verifying Google ID token:", err);
-      throw new UnauthorizedException(this.i18n.translate("auth.auth.google_verification_failed", { lang: this.getLang() }));
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.google_verification_failed", {
+          lang: this.getLang(),
+        }),
+      );
     }
   }
 }

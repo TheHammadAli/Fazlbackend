@@ -1,14 +1,14 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { ProductsController } from './products.controller';
-import { ProductsService } from './products.service';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Product, ProductSchema } from './schema/product.schema';
-import { ShopModule } from 'src/shop/shop.module';
-import { SharedModule } from 'src/shared/shared.module';
-import { UsersModule } from 'src/users/users.module';
+import { forwardRef, Module } from "@nestjs/common";
+import { ProductsController } from "./products.controller";
+import { ProductsService } from "./products.service";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Product, ProductSchema } from "./schema/product.schema";
+import { ShopModule } from "src/shop/shop.module";
+import { SharedModule } from "src/shared/shared.module";
+import { UsersModule } from "src/users/users.module";
 
-import { PromotionModule } from 'src/promotion/promotion.module';
-import { LikeModule } from 'src/like/like.module';
+import { PromotionModule } from "src/promotion/promotion.module";
+import { LikeModule } from "src/like/like.module";
 
 @Module({
   imports: [
@@ -24,4 +24,4 @@ import { LikeModule } from 'src/like/like.module';
   providers: [ProductsService],
   exports: [ProductsService],
 })
-export class ProductsModule { }
+export class ProductsModule {}

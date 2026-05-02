@@ -19,19 +19,19 @@ class RespondBroadcastDto {
 }
 exports.RespondBroadcastDto = RespondBroadcastDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '66b1a2c3d4e5f67890123456' }),
+    (0, swagger_1.ApiProperty)({ example: "66b1a2c3d4e5f67890123456" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RespondBroadcastDto.prototype, "broadcastId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '66c1a2c3d4e5f67890123456 (sellerId)' }),
+    (0, swagger_1.ApiProperty)({ example: "66c1a2c3d4e5f67890123456 (sellerId)" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RespondBroadcastDto.prototype, "sellerId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'I can supply at best price within 2 hours' }),
+    (0, swagger_1.ApiProperty)({ example: "I can supply at best price within 2 hours" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)

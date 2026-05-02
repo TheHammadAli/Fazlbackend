@@ -44,7 +44,12 @@ exports.BroadcastModule = BroadcastModule = __decorate([
             services_module_1.ServicesModule,
         ],
         controllers: [broadcast_controller_1.BroadcastController],
-        providers: [broadcast_service_1.BroadcastService, broadcast_gateway_1.BroadcastGateway, file_upload_service_1.FileUploadService, config_1.ConfigService],
+        providers: [
+            broadcast_service_1.BroadcastService,
+            broadcast_gateway_1.BroadcastGateway,
+            file_upload_service_1.FileUploadService,
+            config_1.ConfigService,
+        ],
         exports: [broadcast_service_1.BroadcastService],
     })
 ], BroadcastModule);

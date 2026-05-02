@@ -26,7 +26,7 @@ exports.OrdersModule = OrdersModule = __decorate([
             users_module_1.UsersModule,
             products_module_1.ProductsModule,
             shop_module_1.ShopModule,
-            notifications_module_1.NotificationsModule
+            notifications_module_1.NotificationsModule,
         ],
         controllers: [orders_controller_1.OrdersController],
         providers: [orders_service_1.OrdersService],

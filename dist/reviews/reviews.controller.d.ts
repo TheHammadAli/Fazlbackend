@@ -1,6 +1,6 @@
-import { ReviewService } from './reviews.service';
-import { CreateReviewDto } from './dto/create-review.dto';
-import { QueryReviewDto } from './dto/query-review.dto';
+import { ReviewService } from "./reviews.service";
+import { CreateReviewDto } from "./dto/create-review.dto";
+import { QueryReviewDto } from "./dto/query-review.dto";
 export declare class ReviewController {
     private readonly reviewService;
     constructor(reviewService: ReviewService);
@@ -37,5 +37,5 @@ export declare class ReviewController {
         };
     }>;
     flagReview(id: string): Promise<import("./schema/review.schema").Review>;
-    getAverageRating(itemType: 'product' | 'service', itemId: string): Promise<any>;
+    getAverageRating(itemType: "product" | "service", itemId: string): Promise<any>;
 }

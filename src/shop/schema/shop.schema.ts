@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type ShopDocument = Shop & Document;
 
@@ -9,7 +9,7 @@ export type ShopDocument = Shop & Document;
   toObject: { virtuals: true },
 })
 export class Shop {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   ownerId: Types.ObjectId;
 
   @Prop({ required: true, trim: true })
@@ -27,9 +27,9 @@ export class Shop {
   @Prop({
     type: {
       type: String,
-      enum: ['Point'],
+      enum: ["Point"],
       required: true,
-      default: 'Point',
+      default: "Point",
     },
     coordinates: {
       type: [Number],
@@ -37,7 +37,7 @@ export class Shop {
     },
   })
   location: {
-    type: 'Point';
+    type: "Point";
     coordinates: [number, number];
   };
 }
@@ -45,4 +45,4 @@ export class Shop {
 export const ShopSchema = SchemaFactory.createForClass(Shop);
 
 // Add geospatial index on location
-ShopSchema.index({ location: '2dsphere' });
+ShopSchema.index({ location: "2dsphere" });

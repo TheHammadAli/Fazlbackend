@@ -24,43 +24,46 @@ class SearchQueryDto {
 }
 exports.SearchQueryDto = SearchQueryDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['product', 'service'], example: 'product' }),
-    (0, class_validator_1.IsIn)(['product', 'service']),
+    (0, swagger_1.ApiProperty)({ enum: ["product", "service"], example: "product" }),
+    (0, class_validator_1.IsIn)(["product", "service"]),
     __metadata("design:type", String)
 ], SearchQueryDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'electronics' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "electronics" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SearchQueryDto.prototype, "category", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 10, description: 'Search radius in kilometers' }),
+    (0, swagger_1.ApiProperty)({ example: 10, description: "Search radius in kilometers" }),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], SearchQueryDto.prototype, "radius", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 33.6844, description: 'Latitude coordinate' }),
+    (0, swagger_1.ApiProperty)({ example: 33.6844, description: "Latitude coordinate" }),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], SearchQueryDto.prototype, "lat", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 73.0479, description: 'Longitude coordinate' }),
+    (0, swagger_1.ApiProperty)({ example: 73.0479, description: "Longitude coordinate" }),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], SearchQueryDto.prototype, "lng", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 1, description: 'Pagination: page number' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 1, description: "Pagination: page number" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], SearchQueryDto.prototype, "page", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 10, description: 'Pagination: limit per page' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 10,
+        description: "Pagination: limit per page",
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),

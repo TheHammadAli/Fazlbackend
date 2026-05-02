@@ -20,9 +20,7 @@ exports.LikeModule = LikeModule;
 exports.LikeModule = LikeModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([
-                { name: like_schema_1.Like.name, schema: like_schema_1.LikeSchema },
-            ]),
+            mongoose_1.MongooseModule.forFeature([{ name: like_schema_1.Like.name, schema: like_schema_1.LikeSchema }]),
             (0, common_1.forwardRef)(() => products_module_1.ProductsModule),
             (0, common_1.forwardRef)(() => services_module_1.ServicesModule),
         ],

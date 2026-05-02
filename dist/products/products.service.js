@@ -59,12 +59,16 @@ let ProductsService = class ProductsService {
             if (type === "shop") {
                 const shop = await this.shopService.getShopById(entityId);
                 if (!shop) {
-                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.shop_not_found", { lang: this.lang }));
+                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.shop_not_found", {
+                        lang: this.lang,
+                    }));
                 }
                 if (!shop.location ||
                     !shop.location.coordinates ||
                     shop.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.shop_location_missing", { lang: this.lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.shop_location_missing", {
+                        lang: this.lang,
+                    }));
                 }
                 productPayload.shopId = shop._id;
                 location = shop.location;
@@ -73,14 +77,18 @@ let ProductsService = class ProductsService {
             else if (type === "personal") {
                 const user = await this.userService.findUserById(entityId);
                 if (!user) {
-                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", { lang: this.lang }));
+                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", {
+                        lang: this.lang,
+                    }));
                 }
                 console.log("User:", user);
                 productPayload.ownerId = user._id;
                 if (!user.location ||
                     !user.location.coordinates ||
                     user.location.coordinates.length !== 2) {
-                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.user_location_missing", { lang: this.lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.products.user_location_missing", {
+                        lang: this.lang,
+                    }));
                 }
                 location = {
                     type: "Point",
@@ -112,10 +120,12 @@ let ProductsService = class ProductsService {
             }
             const result = await createdProduct.save();
             return {
-                message: this.i18n.translate("auth.products.created_success", { lang: this.lang }),
+                message: this.i18n.translate("auth.products.created_success", {
+                    lang: this.lang,
+                }),
                 data: {
                     product: result,
-                }
+                },
             };
         }
         catch (err) {
@@ -162,12 +172,16 @@ let ProductsService = class ProductsService {
             .findById(new mongoose_2.Types.ObjectId(id))
             .populate("category");
         if (!product)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
         return product;
     }
     async update(productId, updateDto) {
         if ("shopId" in updateDto) {
-            throw new common_1.ForbiddenException(this.i18n.translate("auth.products.shop_cant_update", { lang: this.lang }));
+            throw new common_1.ForbiddenException(this.i18n.translate("auth.products.shop_cant_update", {
+                lang: this.lang,
+            }));
         }
         if (updateDto.category) {
             updateDto.category = new mongoose_2.Types.ObjectId(updateDto.category);
@@ -181,12 +195,14 @@ let ProductsService = class ProductsService {
         });
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
         }
         if (updateDto.images && updateDto.images.length > 0) {
             const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId.toString(), productId, "images");
             console.log("Uploaded Images:", uploadedFiles);
-            let newImages = uploadedFiles.map((file) => file.url);
+            const newImages = uploadedFiles.map((file) => file.url);
             updateDto.images = [...(existingProduct.images || []), ...newImages];
         }
         if (updateDto.video) {
@@ -198,19 +214,25 @@ let ProductsService = class ProductsService {
             .findByIdAndUpdate(productId, updateDto, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
         }
         return {
-            message: this.i18n.translate("auth.products.updated_success", { lang: this.lang }),
+            message: this.i18n.translate("auth.products.updated_success", {
+                lang: this.lang,
+            }),
             data: {
                 product: updated,
-            }
+            },
         };
     }
     async delete(productId, lang = "en") {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
         }
         const type = existingProduct.shopId ? "shop" : "personal";
         const entityId = existingProduct.shopId
@@ -219,15 +241,21 @@ let ProductsService = class ProductsService {
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
         const result = await this.productModel.findByIdAndDelete(productId);
         if (!result)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
     }
     async deleteProductMedia(productId, media) {
         const existingProduct = await this.productModel.findById(productId);
         if (!existingProduct) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.products.no_media_provided", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.products.no_media_provided", {
+                lang: this.lang,
+            }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingProduct.images || [];
@@ -305,7 +333,7 @@ let ProductsService = class ProductsService {
         const [items, total] = await Promise.all([
             this.productModel
                 .find(filter)
-                .populate('category')
+                .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -314,7 +342,7 @@ let ProductsService = class ProductsService {
             this.productModel.countDocuments(filter).exec(),
         ]);
         const productIds = items.map((item) => new mongoose_2.Types.ObjectId(item._id));
-        const likes = await this.likeService.getLikesByUser(userId, 'product', productIds);
+        const likes = await this.likeService.getLikesByUser(userId, "product", productIds);
         console.log("Products with Likes:", likes);
         const likedProductIds = new Set(likes.map((like) => like.itemId.toString()));
         console.log("Liked Product IDs:", likedProductIds);
@@ -329,7 +357,7 @@ let ProductsService = class ProductsService {
                 limit,
                 totalPages: Math.ceil(total / limit),
             },
-            data
+            data,
         };
     }
 };

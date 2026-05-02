@@ -5,56 +5,54 @@ import {
   IsNumber,
   IsEnum,
   IsArray,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateServiceDto {
   @ApiProperty({
-    example: 'Home Cleaning',
-    description: 'Title of the service',
+    example: "Home Cleaning",
+    description: "Title of the service",
   })
   @IsString()
   @IsNotEmpty()
   title: string;
 
-
-  @ApiPropertyOptional({ example: 'We offer deep cleaning for all rooms.' })
+  @ApiPropertyOptional({ example: "We offer deep cleaning for all rooms." })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: 1500, description: 'Price of the service in PKR' })
+  @ApiProperty({ example: 1500, description: "Price of the service in PKR" })
   @IsNumber()
   price: number;
 
-  @ApiProperty({ enum: ['hourly', 'fixed'], example: 'hourly' })
-  @IsEnum(['hourly', 'fixed'])
-  paymentType: 'hourly' | 'fixed';
+  @ApiProperty({ enum: ["hourly", "fixed"], example: "hourly" })
+  @IsEnum(["hourly", "fixed"])
+  paymentType: "hourly" | "fixed";
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
   requiresAppointment?: boolean;
 
-
   @ApiProperty({
-    type: 'string',
-    format: 'binary',
+    type: "string",
+    format: "binary",
     isArray: true,
-    description: 'Upload multiple images',
+    description: "Upload multiple images",
   })
   images: any; // NestJS
 
   @ApiProperty({
-    type: 'string',
-    format: 'binary',
+    type: "string",
+    format: "binary",
     isArray: true,
-    description: 'Upload One video file',
-    maximum: 1
+    description: "Upload One video file",
+    maximum: 1,
   })
   @IsNotEmpty()
   video: any;
 
-  @ApiProperty({ example: 'cleaning', description: 'Category ID or slug' })
+  @ApiProperty({ example: "cleaning", description: "Category ID or slug" })
   @IsString()
   category: string;
 }

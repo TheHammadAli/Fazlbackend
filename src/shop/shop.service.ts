@@ -27,15 +27,11 @@ export class ShopService {
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) { }
+  ) {}
   private get lang(): string {
-    return this.cls?.get('lang') ?? 'en';
+    return this.cls?.get("lang") ?? "en";
   }
-  async createShop(
-    ownerId: Types.ObjectId,
-    dto: CreateUpdateShopDto,
-
-  ) {
+  async createShop(ownerId: Types.ObjectId, dto: CreateUpdateShopDto) {
     const existingUser = await this.usersService.findUserById(
       ownerId.toString(),
     );
@@ -57,23 +53,21 @@ export class ShopService {
     const results = await shop.save();
     if (dto.image) {
       const imageUrl = await this.fileUploadService.uploadShopImage(
-        results._id as unknown as string,
+        results._id as string,
         image,
       );
       results.image = imageUrl; // Ensure the image is stored as a filename
     }
     const shopResult = await results.save(); // Save the shop again to update the image field
     return {
-      message: this.i18n.translate("auth.shop.created_success", { lang: this.lang }),
-      data: shopResult
-    }
+      message: this.i18n.translate("auth.shop.created_success", {
+        lang: this.lang,
+      }),
+      data: shopResult,
+    };
   }
 
-  async updateShop(
-    shopId: string,
-    dto: CreateUpdateShopDto,
-
-  ): Promise<Shop> {
+  async updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<Shop> {
     const { ...safeDto } = dto as any;
     const existingShop = await this.shopModel.findById(shopId);
     if (!existingShop) {
@@ -104,10 +98,7 @@ export class ShopService {
     return safeDto;
   }
 
-  async getShopById(
-    shopId: string,
-
-  ): Promise<ShopDocument> {
+  async getShopById(shopId: string): Promise<ShopDocument> {
     const shop = await this.shopModel
       .findById(shopId)
       .populate("ownerId", "name email");

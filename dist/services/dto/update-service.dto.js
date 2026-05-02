@@ -24,14 +24,14 @@ class UpdateServiceDto {
 }
 exports.UpdateServiceDto = UpdateServiceDto;
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Home Cleaning Deluxe' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "Home Cleaning Deluxe" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateServiceDto.prototype, "title", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        example: 'Includes balcony, kitchen, and bathroom cleaning.',
+        example: "Includes balcony, kitchen, and bathroom cleaning.",
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
@@ -44,8 +44,8 @@ __decorate([
     __metadata("design:type", Number)
 ], UpdateServiceDto.prototype, "price", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: ['hourly', 'fixed'], example: 'fixed' }),
-    (0, class_validator_1.IsEnum)(['hourly', 'fixed']),
+    (0, swagger_1.ApiPropertyOptional)({ enum: ["hourly", "fixed"], example: "fixed" }),
+    (0, class_validator_1.IsEnum)(["hourly", "fixed"]),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateServiceDto.prototype, "paymentType", void 0);
@@ -56,27 +56,27 @@ __decorate([
 ], UpdateServiceDto.prototype, "requiresAppointment", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload multiple images',
+        description: "Upload multiple images",
     }),
     (0, swagger_1.ApiPropertyOptional)(),
     __metadata("design:type", Object)
 ], UpdateServiceDto.prototype, "images", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload One video file',
-        maximum: 1
+        description: "Upload One video file",
+        maximum: 1,
     }),
     (0, swagger_1.ApiPropertyOptional)(),
     __metadata("design:type", Object)
 ], UpdateServiceDto.prototype, "video", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'cleaning' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "cleaning" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)

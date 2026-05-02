@@ -32,15 +32,15 @@ __decorate([
     __metadata("design:type", String)
 ], CategoryRequest.prototype, "description", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], CategoryRequest.prototype, "requestedBy", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ enum: ['pending', 'approved', 'rejected'], default: 'pending' }),
+    (0, mongoose_1.Prop)({ enum: ["pending", "approved", "rejected"], default: "pending" }),
     __metadata("design:type", String)
 ], CategoryRequest.prototype, "status", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], CategoryRequest.prototype, "reviewedBy", void 0);
 __decorate([

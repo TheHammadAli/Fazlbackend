@@ -18,15 +18,23 @@ class UpdateOrderDto {
 }
 exports.UpdateOrderDto = UpdateOrderDto;
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'confirmed', enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'], description: 'Order status' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "confirmed",
+        enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+        description: "Order status",
+    }),
     __metadata("design:type", String)
 ], UpdateOrderDto.prototype, "status", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Easypaisa', enum: ['cashonDelivery', 'Easypaisa'], description: 'Payment type' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "Easypaisa",
+        enum: ["cashonDelivery", "Easypaisa"],
+        description: "Payment type",
+    }),
     __metadata("design:type", String)
 ], UpdateOrderDto.prototype, "paymentType", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 599.99, description: 'Order amount' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 599.99, description: "Order amount" }),
     __metadata("design:type", Number)
 ], UpdateOrderDto.prototype, "amount", void 0);
 //# sourceMappingURL=update-order-dto.js.map

@@ -30,7 +30,7 @@ let NotificationsGateway = class NotificationsGateway {
         }
         else {
             client.disconnect();
-            console.log('Client without userId disconnected');
+            console.log("Client without userId disconnected");
         }
     }
     handleDisconnect(client) {
@@ -45,7 +45,7 @@ __decorate([
     __metadata("design:type", socket_io_1.Server)
 ], NotificationsGateway.prototype, "server", void 0);
 exports.NotificationsGateway = NotificationsGateway = __decorate([
-    (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' } }),
+    (0, websockets_1.WebSocketGateway)({ cors: { origin: "*" } }),
     __metadata("design:paramtypes", [notifications_service_1.NotificationsService])
 ], NotificationsGateway);
 //# sourceMappingURL=notification.gateway.js.map

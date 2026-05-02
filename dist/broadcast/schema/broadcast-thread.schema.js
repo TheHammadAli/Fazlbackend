@@ -20,15 +20,15 @@ let BroadcastThread = class BroadcastThread extends mongoose_2.Document {
 };
 exports.BroadcastThread = BroadcastThread;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Broadcast', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Broadcast", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastThread.prototype, "broadcast", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastThread.prototype, "buyer", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastThread.prototype, "seller", void 0);
 __decorate([

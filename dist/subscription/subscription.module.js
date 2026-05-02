@@ -18,7 +18,9 @@ exports.SubscriptionModule = SubscriptionModule;
 exports.SubscriptionModule = SubscriptionModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: subscription_schema_1.Subscription.name, schema: subscription_schema_1.SubscriptionSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: subscription_schema_1.Subscription.name, schema: subscription_schema_1.SubscriptionSchema },
+            ]),
         ],
         controllers: [subscription_controller_1.SubscriptionController],
         providers: [subscription_service_1.SubscriptionService],

@@ -21,13 +21,13 @@ class QueryReviewDto {
 }
 exports.QueryReviewDto = QueryReviewDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'itemId456' }),
+    (0, swagger_1.ApiProperty)({ example: "itemId456" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryReviewDto.prototype, "itemId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['product', 'service'], example: 'product' }),
-    (0, class_validator_1.IsIn)(['product', 'service']),
+    (0, swagger_1.ApiProperty)({ enum: ["product", "service"], example: "product" }),
+    (0, class_validator_1.IsIn)(["product", "service"]),
     __metadata("design:type", String)
 ], QueryReviewDto.prototype, "itemType", void 0);
 __decorate([

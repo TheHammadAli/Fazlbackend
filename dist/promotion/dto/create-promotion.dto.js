@@ -22,27 +22,30 @@ class CreatePromotionDto {
 }
 exports.CreatePromotionDto = CreatePromotionDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: String, description: 'Subscription ID' }),
+    (0, swagger_1.ApiProperty)({ type: String, description: "Subscription ID" }),
     __metadata("design:type", String)
 ], CreatePromotionDto.prototype, "subscriptionId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['Product', 'Shop'], description: 'Target type' }),
+    (0, swagger_1.ApiProperty)({ enum: ["Product", "Shop"], description: "Target type" }),
     __metadata("design:type", String)
 ], CreatePromotionDto.prototype, "targetType", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: String, description: 'Target ID (Product or Shop)' }),
+    (0, swagger_1.ApiProperty)({ type: String, description: "Target ID (Product or Shop)" }),
     __metadata("design:type", String)
 ], CreatePromotionDto.prototype, "targetId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: String, format: 'date-time' }),
+    (0, swagger_1.ApiProperty)({ type: String, format: "date-time" }),
     __metadata("design:type", Date)
 ], CreatePromotionDto.prototype, "startDate", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: String, format: 'date-time' }),
+    (0, swagger_1.ApiProperty)({ type: String, format: "date-time" }),
     __metadata("design:type", Date)
 ], CreatePromotionDto.prototype, "endDate", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: ['active', 'expired', 'cancelled', 'scheduled'], default: 'active' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ["active", "expired", "cancelled", "scheduled"],
+        default: "active",
+    }),
     __metadata("design:type", String)
 ], CreatePromotionDto.prototype, "status", void 0);
 __decorate([

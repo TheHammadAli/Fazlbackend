@@ -14,14 +14,14 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_google_oauth20_1 = require("passport-google-oauth20");
 const config_1 = require("@nestjs/config");
-let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrategy)(passport_google_oauth20_1.Strategy, 'google') {
+let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrategy)(passport_google_oauth20_1.Strategy, "google") {
     configService;
     constructor(configService) {
         super({
-            clientID: configService.getOrThrow('GOOGLE_CLIENT_ID'),
-            clientSecret: configService.getOrThrow('GOOGLE_CLIENT_SECRET'),
-            callbackURL: configService.getOrThrow('GOOGLE_CALLBACK_URL'),
-            scope: ['email', 'profile'],
+            clientID: configService.getOrThrow("GOOGLE_CLIENT_ID"),
+            clientSecret: configService.getOrThrow("GOOGLE_CLIENT_SECRET"),
+            callbackURL: configService.getOrThrow("GOOGLE_CALLBACK_URL"),
+            scope: ["email", "profile"],
             passReqToCallback: true,
         });
         this.configService = configService;
@@ -35,7 +35,7 @@ let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrateg
             picture: photos[0].value,
             accessToken,
             refreshToken,
-            provider: 'google',
+            provider: "google",
         };
         done(null, user);
     }

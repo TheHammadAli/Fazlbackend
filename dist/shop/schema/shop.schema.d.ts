@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type ShopDocument = Shop & Document;
 export declare class Shop {
     ownerId: Types.ObjectId;
@@ -7,7 +7,7 @@ export declare class Shop {
     address: string;
     description: string;
     location: {
-        type: 'Point';
+        type: "Point";
         coordinates: [number, number];
     };
 }

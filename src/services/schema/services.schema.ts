@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 @Schema({
   timestamps: true,
@@ -7,7 +7,7 @@ import { Document, Types } from 'mongoose';
   toObject: { virtuals: true },
 })
 export class Service {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   ownerId!: Types.ObjectId;
 
   @Prop({ required: true, trim: true })
@@ -21,10 +21,10 @@ export class Service {
 
   @Prop({
     required: true,
-    enum: ['hourly', 'fixed'],
-    default: 'fixed',
+    enum: ["hourly", "fixed"],
+    default: "fixed",
   })
-  paymentType!: 'hourly' | 'fixed';
+  paymentType!: "hourly" | "fixed";
 
   @Prop({ type: Boolean, default: true })
   requiresAppointment!: boolean;
@@ -32,15 +32,15 @@ export class Service {
   @Prop({ type: [String], default: [] })
   images!: string[];
 
-  @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Category", required: true })
   category!: Types.ObjectId;
 
   @Prop({
     type: {
       type: String,
-      enum: ['Point'],
+      enum: ["Point"],
       required: true,
-      default: 'Point',
+      default: "Point",
     },
     coordinates: {
       type: [Number],
@@ -48,7 +48,7 @@ export class Service {
     },
   })
   location!: {
-    type: 'Point';
+    type: "Point";
     coordinates: [number, number];
   };
 
@@ -57,5 +57,5 @@ export class Service {
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);
-ServiceSchema.index({ location: '2dsphere' });
+ServiceSchema.index({ location: "2dsphere" });
 export type ServiceDocument = Service & Document;

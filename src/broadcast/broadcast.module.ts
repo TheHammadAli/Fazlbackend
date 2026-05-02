@@ -40,7 +40,12 @@ import { ConfigService } from "@nestjs/config";
     ServicesModule,
   ],
   controllers: [BroadcastController],
-  providers: [BroadcastService, BroadcastGateway,FileUploadService,ConfigService],
+  providers: [
+    BroadcastService,
+    BroadcastGateway,
+    FileUploadService,
+    ConfigService,
+  ],
   exports: [BroadcastService],
 })
 export class BroadcastModule {}

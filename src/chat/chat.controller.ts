@@ -11,7 +11,13 @@ import {
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import { PaginationDto } from "src/common/dto/pagination.dto";
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiConsumes } from "@nestjs/swagger";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiConsumes,
+} from "@nestjs/swagger";
 import { CreateMessageDto } from "./dto/create-message.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
@@ -21,8 +27,8 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    private readonly fileUploadService: FileUploadService
-  ) { }
+    private readonly fileUploadService: FileUploadService,
+  ) {}
 
   @Post("conversation")
   @ApiOperation({
@@ -48,30 +54,28 @@ export class ChatController {
 
   @Post("message")
   @ApiOperation({ summary: "Send a message in a conversation" })
-  @ApiConsumes('application/json', 'multipart/form-data')
-
+  @ApiConsumes("application/json", "multipart/form-data")
   @ApiBody({
     schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        conversationId: { type: 'string' },
-        senderId: { type: 'string' },
-        receiverId: { type: 'string' },
-        text: { type: 'string' },
+        conversationId: { type: "string" },
+        senderId: { type: "string" },
+        receiverId: { type: "string" },
+        text: { type: "string" },
         file: {
-          type: 'string',
-          format: 'binary',
+          type: "string",
+          format: "binary",
           nullable: true,
         },
       },
     },
   }) // Required for Swagger to show file upload
-  @UseInterceptors(FileInterceptor('file')) // 'file' is the key in form-data
+  @UseInterceptors(FileInterceptor("file")) // 'file' is the key in form-data
   async sendMessage(
     @Body() body: CreateMessageDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-
     console.log("File received in controller:", file);
     // If a file is provided, upload it first
     let imageUrl: string | undefined;
@@ -183,6 +187,4 @@ export class ChatController {
   ) {
     return this.chatService.getConversationsByUserId(userId, paginationDto);
   }
-
-
 }

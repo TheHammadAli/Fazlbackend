@@ -1,21 +1,15 @@
-import {
-  IsOptional,
-  IsString,
-  IsIn,
-  IsInt,
-  Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsIn, IsInt, Min } from "class-validator";
+import { Type } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class QueryReviewDto {
-  @ApiProperty({ example: 'itemId456' })
+  @ApiProperty({ example: "itemId456" })
   @IsString()
   itemId: string;
 
-  @ApiProperty({ enum: ['product', 'service'], example: 'product' })
-  @IsIn(['product', 'service'])
-  itemType: 'product' | 'service';
+  @ApiProperty({ enum: ["product", "service"], example: "product" })
+  @IsIn(["product", "service"])
+  itemType: "product" | "service";
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()

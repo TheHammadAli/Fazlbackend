@@ -17,17 +17,18 @@ import { forwardRef, Inject, Logger } from "@nestjs/common";
   },
 })
 export class BroadcastGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server!: Server;
 
   static serverInstance: Server;
   private logger: Logger = new Logger("BroadcastGateway");
 
-
   constructor(
     @Inject(forwardRef(() => BroadcastService))
-    private readonly broadcastService: BroadcastService) { }
+    private readonly broadcastService: BroadcastService,
+  ) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -67,7 +68,6 @@ export class BroadcastGateway
     );
 
     // Emit the message to all clients in the thread room
-
   }
 
   @SubscribeMessage("joinBroadcast")

@@ -18,8 +18,8 @@ class GoogleLoginDto {
 exports.GoogleLoginDto = GoogleLoginDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Google ID token obtained from Google SDK (Android, iOS, or Web)',
-        example: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjE2Z...',
+        description: "Google ID token obtained from Google SDK (Android, iOS, or Web)",
+        example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE2Z...",
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),

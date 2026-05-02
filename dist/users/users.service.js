@@ -34,7 +34,7 @@ let UsersService = class UsersService {
         this.cls = cls;
     }
     get lang() {
-        return this.cls?.get('lang') ?? 'en';
+        return this.cls?.get("lang") ?? "en";
     }
     async createUser(createUserDto) {
         try {
@@ -42,7 +42,9 @@ let UsersService = class UsersService {
                 email: createUserDto.email,
             });
             if (existingUser) {
-                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_already_registered", { lang: this.lang }));
+                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_already_registered", {
+                    lang: this.lang,
+                }));
             }
             const hashedPassword = await this.hashPassword(createUserDto.password);
             let imageUrl = "default-avatar.png";
@@ -63,7 +65,7 @@ let UsersService = class UsersService {
         catch (err) {
             throw err instanceof common_1.HttpException
                 ? err
-                : new app_error_1.AppError(err?.message || 'Internal server error');
+                : new app_error_1.AppError(err?.message || "Internal server error");
         }
     }
     async hashPassword(password) {
@@ -132,7 +134,9 @@ let UsersService = class UsersService {
                 throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
             }
             return {
-                message: this.i18n.translate("auth.users.updated_success", { lang: this.lang }),
+                message: this.i18n.translate("auth.users.updated_success", {
+                    lang: this.lang,
+                }),
                 data: updatedUser,
             };
         }

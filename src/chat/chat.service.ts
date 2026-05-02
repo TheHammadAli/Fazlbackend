@@ -24,8 +24,8 @@ export class ChatService {
     private readonly shopService: ShopService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-    private readonly notificationsService: NotificationsService
-  ) { }
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   /** Dynamic getter to retrieve the current request language safely */
   private get lang(): string {
@@ -90,7 +90,9 @@ export class ChatService {
 
     if (!conversation) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.chat.conversation_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -99,7 +101,9 @@ export class ChatService {
       senderId !== conversation.seller.toString()
     ) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
+        this.i18n.translate("auth.chat.user_not_in_conversation", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -108,7 +112,9 @@ export class ChatService {
       receiverId !== conversation.seller.toString()
     ) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
+        this.i18n.translate("auth.chat.user_not_in_conversation", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -161,23 +167,23 @@ export class ChatService {
       { senderName: sender.name },
     );
     if (ChatGateway.serverInstance) {
-      ChatGateway.serverInstance
-        .to(conversationId)
-        .emit('receiveMessage', {
-          message,
-          sender,
-          conversation: {
-            id: conversation._id,
-            buyer: conversation.buyer,
-            seller: conversation.seller,
-            status: conversation.status,
-          },
-        });
+      ChatGateway.serverInstance.to(conversationId).emit("receiveMessage", {
+        message,
+        sender,
+        conversation: {
+          id: conversation._id,
+          buyer: conversation.buyer,
+          seller: conversation.seller,
+          status: conversation.status,
+        },
+      });
     }
     return {
       data: {
-        message, sender, conversation
-      }
+        message,
+        sender,
+        conversation,
+      },
     };
   }
   async getMessages(
@@ -187,7 +193,9 @@ export class ChatService {
     const convo = await this.conversationModel.findById(conversationId);
     if (!convo) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
+        this.i18n.translate("auth.chat.conversation_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -216,16 +224,15 @@ export class ChatService {
     };
   }
 
-  async markAsRead(
-    conversationId: string,
-    userId: string,
-  ) {
+  async markAsRead(conversationId: string, userId: string) {
     await this.userService.findUserById(userId);
 
     const convo = await this.conversationModel.findById(conversationId);
     if (!convo) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang })
+        this.i18n.translate("auth.chat.conversation_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 

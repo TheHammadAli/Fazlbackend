@@ -16,8 +16,8 @@ let ListingUtilsService = class ListingUtilsService {
         const data = await model.aggregate([
             {
                 $geoNear: {
-                    near: { type: 'Point', coordinates },
-                    distanceField: 'distance',
+                    near: { type: "Point", coordinates },
+                    distanceField: "distance",
                     maxDistance: radius * 1000,
                     query: { category: new mongoose_1.Types.ObjectId(category) },
                     spherical: true,
@@ -28,15 +28,15 @@ let ListingUtilsService = class ListingUtilsService {
             { $limit: limit },
             {
                 $lookup: {
-                    from: 'categories',
-                    localField: 'category',
-                    foreignField: '_id',
-                    as: 'category',
+                    from: "categories",
+                    localField: "category",
+                    foreignField: "_id",
+                    as: "category",
                 },
             },
             {
                 $unwind: {
-                    path: '$category',
+                    path: "$category",
                     preserveNullAndEmptyArrays: true,
                 },
             },
@@ -44,15 +44,15 @@ let ListingUtilsService = class ListingUtilsService {
         const countAgg = await model.aggregate([
             {
                 $geoNear: {
-                    near: { type: 'Point', coordinates },
-                    distanceField: 'distance',
+                    near: { type: "Point", coordinates },
+                    distanceField: "distance",
                     maxDistance: radius,
                     query: { category: new mongoose_1.Types.ObjectId(category) },
                     spherical: true,
                 },
             },
             {
-                $count: 'total',
+                $count: "total",
             },
         ]);
         const total = countAgg[0]?.total || 0;

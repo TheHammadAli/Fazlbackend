@@ -55,7 +55,9 @@ let ServicesService = class ServicesService {
     async create(userId, dto, lang = "en") {
         const user = await this.userService.findUserById(userId);
         if (!user) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.user_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.user_not_found", {
+                lang: this.lang,
+            }));
         }
         const existingService = await this.serviceModel.findOne({
             ownerId: user._id,
@@ -124,7 +126,7 @@ let ServicesService = class ServicesService {
                 throw new common_1.BadRequestException("You can only upload up to 5 images");
             }
             images = existingService.images || [];
-            let newimages = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), serviceId, imageFiles);
+            const newimages = await this.fileUploadService.uploadServiceFile(existingService.ownerId.toString(), serviceId, imageFiles);
             images = [...images, ...newimages];
         }
         const videoFiles = dto.video;
@@ -145,7 +147,9 @@ let ServicesService = class ServicesService {
         }, { new: true })
             .populate("category");
         if (!updated) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         }
         console.log("Updated Service:", video);
         return { ...dto, images, video };
@@ -153,7 +157,9 @@ let ServicesService = class ServicesService {
     async delete(serviceId) {
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         }
         const media = [...existingService.images, existingService.video];
         if (media && media.length > 0) {
@@ -161,16 +167,22 @@ let ServicesService = class ServicesService {
         }
         const result = await this.serviceModel.findByIdAndDelete(serviceId);
         if (!result) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         }
     }
     async deleteServiceMedia(serviceId, media) {
         const existingService = await this.serviceModel.findById(serviceId);
         if (!existingService) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", {
+                lang: this.lang,
+            }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingService.images || [];
@@ -189,7 +201,9 @@ let ServicesService = class ServicesService {
             .findById(serviceId)
             .populate("category");
         if (!service) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         }
         return service;
     }
@@ -241,18 +255,24 @@ let ServicesService = class ServicesService {
         };
     }
     async createServiceRequest(dto) {
-        const { serviceId, customerId, requestedDateTime, message, } = dto;
+        const { serviceId, customerId, requestedDateTime, message } = dto;
         const customer = customerId
             ? await this.userService.findUserById(customerId)
             : null;
         if (customerId && !customer)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.customer_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.customer_not_found", {
+                lang: this.lang,
+            }));
         if (!serviceId || !requestedDateTime || !customerId) {
             throw new common_1.BadRequestException("Missing required fields for request creation");
         }
-        const service = await this.serviceModel.findById(serviceId).populate("ownerId");
+        const service = await this.serviceModel
+            .findById(serviceId)
+            .populate("ownerId");
         if (!service)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         const request = new this.requestModel({
             service: new mongoose_2.Types.ObjectId(serviceId),
             customer: new mongoose_2.Types.ObjectId(customerId),
@@ -274,11 +294,13 @@ let ServicesService = class ServicesService {
             .populate("customer")
             .populate("provider");
         if (!request)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.request_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.request_not_found", {
+                lang: this.lang,
+            }));
         const serviceName = request.service?.title || "service";
         let notificationKey = null;
         let recipientId = request.customer._id.toString();
-        let notificationPayload = { requestId: request._id, action, request };
+        const notificationPayload = { requestId: request._id, action, request };
         switch (action) {
             case "accept":
                 request.status = "accepted";
@@ -333,7 +355,9 @@ let ServicesService = class ServicesService {
                 });
                 console.log("Existing in-progress job for provider:", existingInProgress, "Provider ID:", request.provider, "Request ID:", request._id);
                 if (existingInProgress) {
-                    throw new common_1.BadRequestException(this.i18n.translate("auth.services.provider_has_in_progress_job", { lang: this.lang }));
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.services.provider_has_in_progress_job", {
+                        lang: this.lang,
+                    }));
                 }
                 request.jobStatus = "in_progress";
                 request.status = "accepted";
@@ -388,7 +412,9 @@ let ServicesService = class ServicesService {
             }),
         ]);
         if (!requests || requests.length === 0) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.no_requests_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.no_requests_found", {
+                lang: this.lang,
+            }));
         }
         return {
             meta: {
@@ -403,10 +429,14 @@ let ServicesService = class ServicesService {
     async deleteAllServiceMedia(serviceId, media) {
         const service = await this.serviceModel.findById(serviceId);
         if (!service) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
+                lang: this.lang,
+            }));
         }
         if (!media || media.length === 0) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", {
+                lang: this.lang,
+            }));
         }
         await this.fileUploadService.deleteFiles(media);
         let images = service.images || [];
@@ -442,7 +472,7 @@ let ServicesService = class ServicesService {
             this.serviceModel.countDocuments(filter).exec(),
         ]);
         const productIds = items.map((item) => new mongoose_2.Types.ObjectId(item._id));
-        const likes = await this.likeService.getLikesByUser(userId, 'service', productIds);
+        const likes = await this.likeService.getLikesByUser(userId, "service", productIds);
         console.log("Services with Likes:", likes);
         const likedServiceIds = new Set(likes.map((like) => like.itemId.toString()));
         console.log("Liked Service IDs:", likedServiceIds);

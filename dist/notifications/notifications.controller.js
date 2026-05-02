@@ -43,7 +43,7 @@ let NotificationsController = class NotificationsController {
             sentAt: new Date().toISOString(),
             action: "open_chat",
         }, {
-            userName: "John Doe"
+            userName: "John Doe",
         });
     }
 };

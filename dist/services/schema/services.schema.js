@@ -26,7 +26,7 @@ let Service = class Service {
 };
 exports.Service = Service;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Service.prototype, "ownerId", void 0);
 __decorate([
@@ -44,8 +44,8 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         required: true,
-        enum: ['hourly', 'fixed'],
-        default: 'fixed',
+        enum: ["hourly", "fixed"],
+        default: "fixed",
     }),
     __metadata("design:type", String)
 ], Service.prototype, "paymentType", void 0);
@@ -58,16 +58,16 @@ __decorate([
     __metadata("design:type", Array)
 ], Service.prototype, "images", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Category', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Category", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Service.prototype, "category", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: {
             type: String,
-            enum: ['Point'],
+            enum: ["Point"],
             required: true,
-            default: 'Point',
+            default: "Point",
         },
         coordinates: {
             type: [Number],
@@ -88,5 +88,5 @@ exports.Service = Service = __decorate([
     })
 ], Service);
 exports.ServiceSchema = mongoose_1.SchemaFactory.createForClass(Service);
-exports.ServiceSchema.index({ location: '2dsphere' });
+exports.ServiceSchema.index({ location: "2dsphere" });
 //# sourceMappingURL=services.schema.js.map

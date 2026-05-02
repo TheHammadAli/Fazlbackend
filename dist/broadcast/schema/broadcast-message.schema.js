@@ -22,19 +22,19 @@ let BroadcastMessage = class BroadcastMessage {
 };
 exports.BroadcastMessage = BroadcastMessage;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'Broadcast' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "Broadcast" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastMessage.prototype, "broadcast", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastMessage.prototype, "sender", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastMessage.prototype, "receiver", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'BroadcastThread', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "BroadcastThread", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastMessage.prototype, "thread", void 0);
 __decorate([

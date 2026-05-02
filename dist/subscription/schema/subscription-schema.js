@@ -22,7 +22,7 @@ let Subscription = class Subscription extends mongoose_2.Document {
 };
 exports.Subscription = Subscription;
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['Product', 'Shop'] }),
+    (0, mongoose_1.Prop)({ required: true, enum: ["Product", "Shop"] }),
     __metadata("design:type", String)
 ], Subscription.prototype, "targetType", void 0);
 __decorate([
@@ -38,7 +38,7 @@ __decorate([
     __metadata("design:type", Number)
 ], Subscription.prototype, "durationInDays", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['listing', 'feed'], default: 'listing' }),
+    (0, mongoose_1.Prop)({ required: true, enum: ["listing", "feed"], default: "listing" }),
     __metadata("design:type", String)
 ], Subscription.prototype, "screenType", void 0);
 __decorate([

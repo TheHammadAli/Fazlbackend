@@ -86,10 +86,14 @@ exports.AppModule = AppModule = __decorate([
             like_module_1.LikeModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService, language_interceptor_1.LanguageInterceptor, {
+        providers: [
+            app_service_1.AppService,
+            language_interceptor_1.LanguageInterceptor,
+            {
                 provide: core_1.APP_GUARD,
                 useClass: throttler_1.ThrottlerGuard,
-            },],
+            },
+        ],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

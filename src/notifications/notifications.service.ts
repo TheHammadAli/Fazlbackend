@@ -26,7 +26,7 @@ export class NotificationsService {
     private readonly usersService: UsersService,
     private readonly firebaseService: FirebaseService,
     private readonly i18n: I18nService,
-    private readonly cls: ClsService
+    private readonly cls: ClsService,
   ) { }
 
   private get lang(): string {
@@ -70,7 +70,12 @@ export class NotificationsService {
     payload: T,
     i18nArgs: Record<string, any> = {},
   ) {
-    console.log("Creating notification for user:", userId, "with payload:", payload);
+    console.log(
+      "Creating notification for user:",
+      userId,
+      "with payload:",
+      payload,
+    );
 
     const user = await this.usersService.findUserById(userId.toString());
     console.log("User for notification:", userId, user);
@@ -90,9 +95,14 @@ export class NotificationsService {
     const translatedMessage = this.i18n.translate(fullKey, {
       lang: this.lang,
       args: i18nArgs,
-    }) as string;
+    }) as string;;
 
-    const notif = await this.create<T>(userId, translatedMessage, type, payload);
+    const notif = await this.create<T>(
+      userId,
+      translatedMessage,
+      type,
+      payload,
+    );
 
     if (this.server) {
       this.server.to(userId.toString()).emit("notification", notif);
@@ -112,7 +122,7 @@ export class NotificationsService {
           type,
           ...payload,
           notificationId,
-        }
+        },
       );
     }
 

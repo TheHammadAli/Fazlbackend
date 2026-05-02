@@ -1,5 +1,5 @@
-import { NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
+import { NestInterceptor, ExecutionContext, CallHandler } from "@nestjs/common";
+import { ClsService } from "nestjs-cls";
 export declare class LanguageInterceptor implements NestInterceptor {
     private readonly cls;
     constructor(cls: ClsService);

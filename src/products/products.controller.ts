@@ -78,7 +78,7 @@ export class ProductsController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
-  ):Promise<{ message: string; data: { product: Product } }> {
+  ): Promise<{ message: string; data: { product: Product } }> {
     if (files?.images && files.images.length > 0) {
       createProductDto.images = files.images;
     } else {
@@ -92,13 +92,8 @@ export class ProductsController {
     createProductDto.parameters = JSON.parse(
       createProductDto.parameters?.toString() || "{}",
     );
-    
-    return this.productsService.create(
-      entityId,
-      type,
-      createProductDto,
-  
-    );
+
+    return this.productsService.create(entityId, type, createProductDto);
   }
 
   @Get(":shopId")
@@ -179,10 +174,9 @@ export class ProductsController {
   })
   async getProductsWithVideos(
     @Query() paginationDto: PaginationDto,
-     @CurrentUser('sub') userId: string,
+    @CurrentUser("sub") userId: string,
   ): Promise<PaginatedResponseDto<Product>> {
-    
-    return this.productsService.getProductsWithVideos(paginationDto,userId);
+    return this.productsService.getProductsWithVideos(paginationDto, userId);
   }
 
   @Get("detail/:id")

@@ -1,12 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PaginatedResponseDto } from 'src/common/dto/pagination-response.dto';
+import { Injectable } from "@nestjs/common";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 
-import { Model, Types } from 'mongoose';
+import { Model, Types } from "mongoose";
 
 @Injectable()
 export class ListingUtilsService {
-  async   findNearbyWithCategory<T>(
+  async findNearbyWithCategory<T>(
     model: Model<T>,
     category: string,
     coordinates: [number, number],
@@ -20,8 +20,8 @@ export class ListingUtilsService {
     const data = await model.aggregate([
       {
         $geoNear: {
-          near: { type: 'Point', coordinates },
-          distanceField: 'distance',
+          near: { type: "Point", coordinates },
+          distanceField: "distance",
           maxDistance: radius * 1000,
           query: { category: new Types.ObjectId(category) },
           spherical: true,
@@ -32,15 +32,15 @@ export class ListingUtilsService {
       { $limit: limit },
       {
         $lookup: {
-          from: 'categories',
-          localField: 'category',
-          foreignField: '_id',
-          as: 'category',
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
         },
       },
       {
         $unwind: {
-          path: '$category',
+          path: "$category",
           preserveNullAndEmptyArrays: true,
         },
       },
@@ -50,15 +50,15 @@ export class ListingUtilsService {
     const countAgg = await model.aggregate([
       {
         $geoNear: {
-          near: { type: 'Point', coordinates },
-          distanceField: 'distance',
+          near: { type: "Point", coordinates },
+          distanceField: "distance",
           maxDistance: radius,
           query: { category: new Types.ObjectId(category) },
           spherical: true,
         },
       },
       {
-        $count: 'total',
+        $count: "total",
       },
     ]);
 

@@ -1,6 +1,6 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import { Location } from './users.interfaces';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
+import { Location } from "./users.interfaces";
 @Schema({
   timestamps: true,
   toJSON: { virtuals: true },
@@ -18,18 +18,18 @@ export class User {
 
   @Prop({
     type: [String],
-    enum: ['buyer', 'seller', 'admin', 'subadmin'],
-    default: ['buyer'],
+    enum: ["buyer", "seller", "admin", "subadmin"],
+    default: ["buyer"],
   })
   roles: string[];
   @Prop({ unique: true, sparse: true, required: false })
   phone?: string;
-  language: 'en' | 'ur';
-  isVerified: Boolean;
+  language: "en" | "ur";
+  isVerified: boolean;
   @Prop({
     type: {
       type: String,
-      enum: ['Point'],
+      enum: ["Point"],
       required: false,
     },
     coordinates: {
@@ -50,11 +50,10 @@ export class User {
   @Prop({ type: Date, select: false })
   resetPasswordExpires?: Date | null;
 
-
   @Prop({ type: String, select: false })
   provider?: string | null;
 
-  @Prop({ type: String, })
+  @Prop({ type: String })
   address?: string | null;
 
   @Prop({ type: String, required: false })
@@ -71,4 +70,4 @@ UserSchema.methods.toJSON = function () {
 };
 
 export type UserDocument = User & Document;
-UserSchema.index({ location: '2dsphere' });
+UserSchema.index({ location: "2dsphere" });

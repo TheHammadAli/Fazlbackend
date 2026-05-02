@@ -18,12 +18,12 @@ let SuccessResponseInterceptor = class SuccessResponseInterceptor {
             return {
                 success: true,
                 statusCode: response.statusCode,
-                message: data?.message || 'Operation successful',
+                message: data?.message || "Operation successful",
                 error: null,
                 data: data?.data || (data?.message ? undefined : data),
                 ...(data?.meta && { meta: data.meta }),
                 path: request.url,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
             };
         }));
     }

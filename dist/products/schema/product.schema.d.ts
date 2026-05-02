@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export declare class Product {
     shopId: Types.ObjectId;
     ownerId?: Types.ObjectId;
@@ -6,11 +6,11 @@ export declare class Product {
     description: string;
     price: number;
     category: Types.ObjectId;
-    type: 'retail' | 'classified';
+    type: "retail" | "classified";
     images: string[];
     video: string;
     location: {
-        type: 'Point';
+        type: "Point";
         coordinates: [number, number];
     };
     parameters?: Array<{

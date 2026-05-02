@@ -21,7 +21,7 @@ class CreateSubscriptionDto {
 }
 exports.CreateSubscriptionDto = CreateSubscriptionDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['product', 'shop'] }),
+    (0, swagger_1.ApiProperty)({ enum: ["product", "shop"] }),
     __metadata("design:type", String)
 ], CreateSubscriptionDto.prototype, "targetType", void 0);
 __decorate([
@@ -37,7 +37,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateSubscriptionDto.prototype, "durationInDays", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: ['listing', 'feed'], default: 'listing' }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: ["listing", "feed"], default: "listing" }),
     __metadata("design:type", String)
 ], CreateSubscriptionDto.prototype, "screenType", void 0);
 __decorate([

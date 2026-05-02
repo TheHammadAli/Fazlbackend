@@ -42,7 +42,7 @@ let ReviewController = class ReviewController {
 exports.ReviewController = ReviewController;
 __decorate([
     (0, common_1.Post)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a review' }),
+    (0, swagger_1.ApiOperation)({ summary: "Create a review" }),
     (0, swagger_1.ApiBody)({ type: create_review_dto_1.CreateReviewDto }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -51,48 +51,48 @@ __decorate([
 ], ReviewController.prototype, "createReview", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Get paginated reviews for a product or service' }),
-    (0, swagger_1.ApiQuery)({ name: 'itemId', required: true }),
-    (0, swagger_1.ApiQuery)({ name: 'itemType', enum: ['product', 'service'], required: true }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated reviews for a product or service" }),
+    (0, swagger_1.ApiQuery)({ name: "itemId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "itemType", enum: ["product", "service"], required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false }),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [query_review_dto_1.QueryReviewDto]),
     __metadata("design:returntype", Promise)
 ], ReviewController.prototype, "getReviewsByItem", null);
 __decorate([
-    (0, common_1.Get)('/user/:userId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all reviews by a user' }),
-    (0, swagger_1.ApiParam)({ name: 'userId', required: true }),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)("/user/:userId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all reviews by a user" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    __param(0, (0, common_1.Param)("userId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ReviewController.prototype, "getUserReviews", null);
 __decorate([
-    (0, common_1.Patch)('/:id/flag'),
-    (0, swagger_1.ApiOperation)({ summary: 'Flag a review for moderation' }),
-    (0, swagger_1.ApiParam)({ name: 'id', required: true }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)("/:id/flag"),
+    (0, swagger_1.ApiOperation)({ summary: "Flag a review for moderation" }),
+    (0, swagger_1.ApiParam)({ name: "id", required: true }),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ReviewController.prototype, "flagReview", null);
 __decorate([
-    (0, common_1.Get)('/average/:itemType/:itemId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get average rating and total review count' }),
-    (0, swagger_1.ApiParam)({ name: 'itemType', enum: ['product', 'service'] }),
-    (0, swagger_1.ApiParam)({ name: 'itemId' }),
-    __param(0, (0, common_1.Param)('itemType')),
-    __param(1, (0, common_1.Param)('itemId')),
+    (0, common_1.Get)("/average/:itemType/:itemId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get average rating and total review count" }),
+    (0, swagger_1.ApiParam)({ name: "itemType", enum: ["product", "service"] }),
+    (0, swagger_1.ApiParam)({ name: "itemId" }),
+    __param(0, (0, common_1.Param)("itemType")),
+    __param(1, (0, common_1.Param)("itemId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ReviewController.prototype, "getAverageRating", null);
 exports.ReviewController = ReviewController = __decorate([
-    (0, swagger_1.ApiTags)('Reviews'),
-    (0, common_1.Controller)('reviews'),
+    (0, swagger_1.ApiTags)("Reviews"),
+    (0, common_1.Controller)("reviews"),
     __metadata("design:paramtypes", [reviews_service_1.ReviewService])
 ], ReviewController);
 //# sourceMappingURL=reviews.controller.js.map

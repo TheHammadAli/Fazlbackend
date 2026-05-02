@@ -1,5 +1,5 @@
-import { ConfigService } from '@nestjs/config';
-import { Strategy } from 'passport-jwt';
+import { ConfigService } from "@nestjs/config";
+import { Strategy } from "passport-jwt";
 export interface JwtPayload {
     sub: string;
     email: string;

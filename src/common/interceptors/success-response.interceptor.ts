@@ -1,6 +1,11 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from "@nestjs/common";
+import { Observable } from "rxjs";
+import { map } from "rxjs/operators";
 
 @Injectable()
 export class SuccessResponseInterceptor implements NestInterceptor {
@@ -14,14 +19,14 @@ export class SuccessResponseInterceptor implements NestInterceptor {
         return {
           success: true,
           statusCode: response.statusCode,
-          message: data?.message || 'Operation successful',
+          message: data?.message || "Operation successful",
           error: null, // Explicit null error field
           data: data?.data || (data?.message ? undefined : data),
           ...(data?.meta && { meta: data.meta }),
           path: request.url,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
-      })
+      }),
     );
   }
 }

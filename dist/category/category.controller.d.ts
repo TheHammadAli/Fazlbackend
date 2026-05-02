@@ -1,8 +1,8 @@
-import { CategoryService } from './category.service';
-import { CreateUpdateCategoryDto } from './dto/category-create-update.dto';
-import { CreateCategoryRequestDto } from './dto/category-request.dto';
-import { JwtPayload } from 'src/auth/strategies/jwt-strategy';
-import { ReviewCategoryRequestDto } from './dto/review-category.dto';
+import { CategoryService } from "./category.service";
+import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
+import { CreateCategoryRequestDto } from "./dto/category-request.dto";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
+import { ReviewCategoryRequestDto } from "./dto/review-category.dto";
 export declare class CategoryController {
     private readonly categoryService;
     constructor(categoryService: CategoryService);

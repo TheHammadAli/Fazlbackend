@@ -18,14 +18,14 @@ class LocationDto {
     coordinates;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['Point'], example: 'Point' }),
-    (0, class_validator_1.IsEnum)(['Point'], { message: 'Location type must be "Point"' }),
+    (0, swagger_1.ApiProperty)({ enum: ["Point"], example: "Point" }),
+    (0, class_validator_1.IsEnum)(["Point"], { message: 'Location type must be "Point"' }),
     __metadata("design:type", String)
 ], LocationDto.prototype, "type", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         example: [73.0479, 33.6844],
-        description: 'Coordinates in [longitude, latitude] format',
+        description: "Coordinates in [longitude, latitude] format",
     }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMinSize)(2),
@@ -42,29 +42,29 @@ class CreateUpdateShopDto {
 }
 exports.CreateUpdateShopDto = CreateUpdateShopDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Smart Tech Store' }),
+    (0, swagger_1.ApiProperty)({ example: "Smart Tech Store" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "title", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Address of shop' }),
+    (0, swagger_1.ApiProperty)({ example: "Address of shop" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "address", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Selling the latest smart gadgets and accessories.' }),
+    (0, swagger_1.ApiProperty)({ example: "Selling the latest smart gadgets and accessories." }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "description", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload One image',
+        description: "Upload One image",
     }),
     __metadata("design:type", Object)
 ], CreateUpdateShopDto.prototype, "image", void 0);

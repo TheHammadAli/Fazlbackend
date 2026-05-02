@@ -29,7 +29,6 @@ export class ReviewService {
    */
   async createReview(
     dto: CreateReviewDto,
-    
   ): Promise<{ message: string; data: { review: Review } }> {
     const userId = new Types.ObjectId(dto.userId);
     const itemId = new Types.ObjectId(dto.itemId);
@@ -42,7 +41,9 @@ export class ReviewService {
 
     if (existing) {
       throw new BadRequestException(
-        this.i18n.translate("auth.reviews.duplicate_review", { lang:this.lang }),
+        this.i18n.translate("auth.reviews.duplicate_review", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -56,9 +57,11 @@ export class ReviewService {
 
     const result = await review.save();
     return {
-      message: this.i18n.translate("auth.reviews.created_success", { lang: this.lang }),
-      data:{ review: result }
-    }
+      message: this.i18n.translate("auth.reviews.created_success", {
+        lang: this.lang,
+      }),
+      data: { review: result },
+    };
   }
 
   /**

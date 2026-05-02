@@ -4,9 +4,9 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-} from '@nestjs/common';
-import { Request, Response } from 'express';
-import { AppError } from './app-error'; // adjust the import path as needed
+} from "@nestjs/common";
+import { Request, Response } from "express";
+import { AppError } from "./app-error"; // adjust the import path as needed
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -16,31 +16,31 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let error = 'Internal Server Error';
-    let message = 'An unexpected error occurred';
+    let error = "Internal Server Error";
+    let message = "An unexpected error occurred";
 
     if (exception instanceof AppError) {
       status = exception.status;
       message = exception.message;
       error = exception.code;
-      console.error('AppError:', exception.originalError ?? exception.stack);
+      console.error("AppError:", exception.originalError ?? exception.stack);
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      if (typeof exceptionResponse === 'string') {
+      if (typeof exceptionResponse === "string") {
         message = exceptionResponse;
-        error = exception.name.replace('Exception', '');
-      } else if (typeof exceptionResponse === 'object') {
+        error = exception.name.replace("Exception", "");
+      } else if (typeof exceptionResponse === "object") {
         message = (exceptionResponse as any).message || message;
         error =
           (exceptionResponse as any).error ||
-          exception.name.replace('Exception', '');
+          exception.name.replace("Exception", "");
       }
 
-      console.error('HttpException:', exception.stack);
+      console.error("HttpException:", exception.stack);
     } else {
-      console.error('Unhandled Exception:', exception);
+      console.error("Unhandled Exception:", exception);
     }
 
     response.status(status).json({

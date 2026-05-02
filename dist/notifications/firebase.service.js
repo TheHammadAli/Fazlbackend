@@ -56,15 +56,14 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
             }
             const sanitizedData = {};
             Object.entries(payload).forEach(([key, value]) => {
-                sanitizedData[key] = typeof value === 'object'
-                    ? JSON.stringify(value)
-                    : String(value);
+                sanitizedData[key] =
+                    typeof value === "object" ? JSON.stringify(value) : String(value);
             });
             return await admin.messaging().send({
                 token,
                 notification: { title, body },
                 data: sanitizedData,
-                android: { priority: 'high' },
+                android: { priority: "high" },
                 apns: { payload: { aps: { contentAvailable: true } } },
             });
         }

@@ -24,8 +24,32 @@ class HandleRequestDto {
 }
 exports.HandleRequestDto = HandleRequestDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['create', 'accept', 'reject', 'propose', 'confirm', 'cancel', 'start_job', 'complete_job', 'verify_job', 'dispute_job'] }),
-    (0, class_validator_1.IsEnum)(['create', 'accept', 'reject', 'propose', 'confirm', 'cancel', 'start_job', 'complete_job', 'verify_job', 'dispute_job']),
+    (0, swagger_1.ApiProperty)({
+        enum: [
+            "create",
+            "accept",
+            "reject",
+            "propose",
+            "confirm",
+            "cancel",
+            "start_job",
+            "complete_job",
+            "verify_job",
+            "dispute_job",
+        ],
+    }),
+    (0, class_validator_1.IsEnum)([
+        "create",
+        "accept",
+        "reject",
+        "propose",
+        "confirm",
+        "cancel",
+        "start_job",
+        "complete_job",
+        "verify_job",
+        "dispute_job",
+    ]),
     __metadata("design:type", String)
 ], HandleRequestDto.prototype, "action", void 0);
 __decorate([
@@ -53,13 +77,13 @@ __decorate([
     __metadata("design:type", String)
 ], HandleRequestDto.prototype, "providerId", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '2025-07-01T15:00:00Z' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "2025-07-01T15:00:00Z" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], HandleRequestDto.prototype, "requestedDateTime", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '2025-07-01T18:00:00Z' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "2025-07-01T18:00:00Z" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)

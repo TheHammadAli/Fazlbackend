@@ -19,19 +19,19 @@ class CreateMessageDto {
 }
 exports.CreateMessageDto = CreateMessageDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '665f6d9a3ef12a0c4c122d23' }),
+    (0, swagger_1.ApiProperty)({ example: "665f6d9a3ef12a0c4c122d23" }),
     __metadata("design:type", String)
 ], CreateMessageDto.prototype, "conversationId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '6645f1d8a8c02c2b8f5a9df2' }),
+    (0, swagger_1.ApiProperty)({ example: "6645f1d8a8c02c2b8f5a9df2" }),
     __metadata("design:type", String)
 ], CreateMessageDto.prototype, "senderId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '6645f1d8a8c02c2b8f5a9df3' }),
+    (0, swagger_1.ApiProperty)({ example: "6645f1d8a8c02c2b8f5a9df3" }),
     __metadata("design:type", String)
 ], CreateMessageDto.prototype, "receiverId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Hello! Is this still available?' }),
+    (0, swagger_1.ApiProperty)({ example: "Hello! Is this still available?" }),
     __metadata("design:type", String)
 ], CreateMessageDto.prototype, "text", void 0);
 //# sourceMappingURL=create-message.dto.js.map

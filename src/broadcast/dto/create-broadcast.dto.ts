@@ -27,6 +27,6 @@ export class CreateBroadcastDto {
   @IsNotEmpty()
   type: "product" | "service";
 
-  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @ApiProperty({ type: "string", format: "binary", required: false })
   file?: any;
 }

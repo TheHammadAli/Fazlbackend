@@ -22,7 +22,7 @@ let Shop = class Shop {
 };
 exports.Shop = Shop;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Shop.prototype, "ownerId", void 0);
 __decorate([
@@ -45,9 +45,9 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: {
             type: String,
-            enum: ['Point'],
+            enum: ["Point"],
             required: true,
-            default: 'Point',
+            default: "Point",
         },
         coordinates: {
             type: [Number],
@@ -64,5 +64,5 @@ exports.Shop = Shop = __decorate([
     })
 ], Shop);
 exports.ShopSchema = mongoose_1.SchemaFactory.createForClass(Shop);
-exports.ShopSchema.index({ location: '2dsphere' });
+exports.ShopSchema.index({ location: "2dsphere" });
 //# sourceMappingURL=shop.schema.js.map

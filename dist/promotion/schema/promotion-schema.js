@@ -24,15 +24,23 @@ let Promotion = class Promotion extends mongoose_2.Document {
 };
 exports.Promotion = Promotion;
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Subscription' }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        type: mongoose_2.default.Schema.Types.ObjectId,
+        ref: "Subscription",
+    }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Promotion.prototype, "subscriptionId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['Product', 'Shop', 'Service'] }),
+    (0, mongoose_1.Prop)({ required: true, enum: ["Product", "Shop", "Service"] }),
     __metadata("design:type", String)
 ], Promotion.prototype, "targetType", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, type: mongoose_2.default.Schema.Types.ObjectId, refPath: 'targetType' }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        type: mongoose_2.default.Schema.Types.ObjectId,
+        refPath: "targetType",
+    }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Promotion.prototype, "targetId", void 0);
 __decorate([
@@ -44,7 +52,10 @@ __decorate([
     __metadata("design:type", Date)
 ], Promotion.prototype, "endDate", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ default: 'active', enum: ['active', 'expired', 'cancelled', 'scheduled'] }),
+    (0, mongoose_1.Prop)({
+        default: "active",
+        enum: ["active", "expired", "cancelled", "scheduled"],
+    }),
     __metadata("design:type", String)
 ], Promotion.prototype, "status", void 0);
 __decorate([

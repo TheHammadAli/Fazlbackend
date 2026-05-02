@@ -18,12 +18,12 @@ class LocationDto {
     coordinates;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['Point'], example: 'Point' }),
-    (0, class_validator_1.IsEnum)(['Point'], { message: 'Location type must be "Point"' }),
+    (0, swagger_1.ApiProperty)({ enum: ["Point"], example: "Point" }),
+    (0, class_validator_1.IsEnum)(["Point"], { message: 'Location type must be "Point"' }),
     __metadata("design:type", String)
 ], LocationDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: [73.0479, 33.6844], description: '[lng, lat]' }),
+    (0, swagger_1.ApiProperty)({ example: [73.0479, 33.6844], description: "[lng, lat]" }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMinSize)(2),
     (0, class_validator_1.ArrayMaxSize)(2),
@@ -44,37 +44,37 @@ class UpdateUserDto {
 }
 exports.UpdateUserDto = UpdateUserDto;
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'secret123' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "secret123" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateUserDto.prototype, "password", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '+923001234567' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "+923001234567" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateUserDto.prototype, "phone", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Street 1, City' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "Street 1, City" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateUserDto.prototype, "address", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        example: ['buyer'],
-        enum: ['buyer', 'seller', 'admin', 'subadmin'],
+        example: ["buyer"],
+        enum: ["buyer", "seller", "admin", "subadmin"],
         isArray: true,
     }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(['buyer', 'seller', 'admin', 'subadmin'], { each: true }),
+    (0, class_validator_1.IsEnum)(["buyer", "seller", "admin", "subadmin"], { each: true }),
     __metadata("design:type", Array)
 ], UpdateUserDto.prototype, "roles", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: ['en', 'ur'], example: 'en' }),
-    (0, class_validator_1.IsEnum)(['en', 'ur'], { message: 'Language must be either en or ur' }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: ["en", "ur"], example: "en" }),
+    (0, class_validator_1.IsEnum)(["en", "ur"], { message: "Language must be either en or ur" }),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateUserDto.prototype, "language", void 0);
@@ -87,10 +87,10 @@ __decorate([
 ], UpdateUserDto.prototype, "location", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload image',
+        description: "Upload image",
     }),
     __metadata("design:type", Object)
 ], UpdateUserDto.prototype, "image", void 0);

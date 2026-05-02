@@ -1,11 +1,11 @@
 import mongoose, { Document, Types } from "mongoose";
 export declare class Promotion extends Document {
     subscriptionId: Types.ObjectId;
-    targetType: 'Product' | 'Shop' | 'Service';
+    targetType: "Product" | "Shop" | "Service";
     targetId: Types.ObjectId;
     startDate: Date;
     endDate: Date;
-    status: 'active' | 'expired' | 'cancelled' | 'scheduled';
+    status: "active" | "expired" | "cancelled" | "scheduled";
     isAutoRenew?: boolean;
     isInFeed?: boolean;
 }

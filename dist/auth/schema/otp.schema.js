@@ -37,7 +37,7 @@ __decorate([
     __metadata("design:type", Date)
 ], Otp.prototype, "createdAt", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ default: 'phone' }),
+    (0, mongoose_1.Prop)({ default: "phone" }),
     __metadata("design:type", String)
 ], Otp.prototype, "type", void 0);
 __decorate([

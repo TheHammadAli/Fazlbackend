@@ -31,8 +31,8 @@ let SearchController = class SearchController {
     async autocomplete(query) {
         return this.searchService.autocompleteLocations(query);
     }
-    async searchNearby(type, category, radius, latitude, longitude, page = '1', limit = '10') {
-        if (!['product', 'service'].includes(type)) {
+    async searchNearby(type, category, radius, latitude, longitude, page = "1", limit = "10") {
+        if (!["product", "service"].includes(type)) {
             throw new common_1.BadRequestException('Type must be "product" or "service"');
         }
         const parsedRadius = parseFloat(radius);
@@ -43,18 +43,18 @@ let SearchController = class SearchController {
         if (isNaN(parsedRadius) ||
             isNaN(parsedLatitude) ||
             isNaN(parsedLongitude)) {
-            throw new common_1.BadRequestException('Invalid or missing location parameters');
+            throw new common_1.BadRequestException("Invalid or missing location parameters");
         }
-        if (type === 'product') {
+        if (type === "product") {
             return this.productsService.searchNearbyWithCategory(category, [parsedLatitude, parsedLongitude], parsedRadius, { page: parsedPage, limit: parsedLimit });
         }
         return this.servicesService.searchNearbyWithCategory(category, [parsedLatitude, parsedLongitude], parsedRadius, { page: parsedPage, limit: parsedLimit });
     }
     async searchAllProducts(query) {
-        console.log('Search query:', query);
+        console.log("Search query:", query);
         const { name, category, page = 1, limit = 20 } = query;
         if (page < 1 || limit < 1) {
-            throw new common_1.BadRequestException('Page and limit must be greater than 0');
+            throw new common_1.BadRequestException("Page and limit must be greater than 0");
         }
         return this.productsService.searchProducts({
             name,
@@ -64,10 +64,10 @@ let SearchController = class SearchController {
         });
     }
     async searchAllServices(query) {
-        console.log('Search query:', query);
+        console.log("Search query:", query);
         const { name, category, page = 1, limit = 20 } = query;
         if (page < 1 || limit < 1) {
-            throw new common_1.BadRequestException('Page and limit must be greater than 0');
+            throw new common_1.BadRequestException("Page and limit must be greater than 0");
         }
         return this.servicesService.searchServices({
             name,
@@ -79,48 +79,50 @@ let SearchController = class SearchController {
 };
 exports.SearchController = SearchController;
 __decorate([
-    (0, common_1.Get)('autocomplete-locations'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get location autocomplete suggestions from Google Places API' }),
+    (0, common_1.Get)("autocomplete-locations"),
+    (0, swagger_1.ApiOperation)({
+        summary: "Get location autocomplete suggestions from Google Places API",
+    }),
     (0, swagger_1.ApiQuery)({
-        name: 'q',
+        name: "q",
         type: String,
         required: true,
-        description: 'Search query (e.g. partial city or address)'
+        description: "Search query (e.g. partial city or address)",
     }),
-    __param(0, (0, common_1.Query)('q')),
+    __param(0, (0, common_1.Query)("q")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SearchController.prototype, "autocomplete", null);
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('type')),
-    __param(1, (0, common_1.Query)('category')),
-    __param(2, (0, common_1.Query)('radius')),
-    __param(3, (0, common_1.Query)('latitude')),
-    __param(4, (0, common_1.Query)('longitude')),
-    __param(5, (0, common_1.Query)('page')),
-    __param(6, (0, common_1.Query)('limit')),
+    __param(0, (0, common_1.Query)("type")),
+    __param(1, (0, common_1.Query)("category")),
+    __param(2, (0, common_1.Query)("radius")),
+    __param(3, (0, common_1.Query)("latitude")),
+    __param(4, (0, common_1.Query)("longitude")),
+    __param(5, (0, common_1.Query)("page")),
+    __param(6, (0, common_1.Query)("limit")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, String, String, String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], SearchController.prototype, "searchNearby", null);
 __decorate([
-    (0, common_1.Get)('all-products'),
+    (0, common_1.Get)("all-products"),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [product_service_search_for_dto_1.SearchAllProductsServiceDto]),
     __metadata("design:returntype", Promise)
 ], SearchController.prototype, "searchAllProducts", null);
 __decorate([
-    (0, common_1.Get)('all-services'),
+    (0, common_1.Get)("all-services"),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [product_service_search_for_dto_1.SearchAllProductsServiceDto]),
     __metadata("design:returntype", Promise)
 ], SearchController.prototype, "searchAllServices", null);
 exports.SearchController = SearchController = __decorate([
-    (0, common_1.Controller)('search'),
+    (0, common_1.Controller)("search"),
     __metadata("design:paramtypes", [search_service_1.SearchService,
         products_service_1.ProductsService,
         services_service_1.ServicesService])

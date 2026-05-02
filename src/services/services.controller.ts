@@ -43,7 +43,7 @@ import { CurrentUser } from "src/common/decorators/current-user.decorator";
 @UseGuards(JwtAuthGuard)
 @Controller("services")
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) { }
+  constructor(private readonly servicesService: ServicesService) {}
 
   @Post("create-request")
   @ApiOperation({ summary: "Create a new service request" })
@@ -204,9 +204,9 @@ export class ServicesController {
   })
   async getServicesWithVideos(
     @Query() paginationDto: { page?: number; limit?: number },
-    @CurrentUser('sub') userId: string,
+    @CurrentUser("sub") userId: string,
   ): Promise<PaginatedResponseDto<any>> {
-    console.log("Recieved pagination", paginationDto)
+    console.log("Recieved pagination", paginationDto);
     return this.servicesService.getServicesWithVideos(paginationDto, userId);
   }
 

@@ -25,27 +25,27 @@ class CreateServiceDto {
 exports.CreateServiceDto = CreateServiceDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 'Home Cleaning',
-        description: 'Title of the service',
+        example: "Home Cleaning",
+        description: "Title of the service",
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateServiceDto.prototype, "title", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'We offer deep cleaning for all rooms.' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "We offer deep cleaning for all rooms." }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateServiceDto.prototype, "description", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 1500, description: 'Price of the service in PKR' }),
+    (0, swagger_1.ApiProperty)({ example: 1500, description: "Price of the service in PKR" }),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateServiceDto.prototype, "price", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['hourly', 'fixed'], example: 'hourly' }),
-    (0, class_validator_1.IsEnum)(['hourly', 'fixed']),
+    (0, swagger_1.ApiProperty)({ enum: ["hourly", "fixed"], example: "hourly" }),
+    (0, class_validator_1.IsEnum)(["hourly", "fixed"]),
     __metadata("design:type", String)
 ], CreateServiceDto.prototype, "paymentType", void 0);
 __decorate([
@@ -55,26 +55,26 @@ __decorate([
 ], CreateServiceDto.prototype, "requiresAppointment", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload multiple images',
+        description: "Upload multiple images",
     }),
     __metadata("design:type", Object)
 ], CreateServiceDto.prototype, "images", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload One video file',
-        maximum: 1
+        description: "Upload One video file",
+        maximum: 1,
     }),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", Object)
 ], CreateServiceDto.prototype, "video", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'cleaning', description: 'Category ID or slug' }),
+    (0, swagger_1.ApiProperty)({ example: "cleaning", description: "Category ID or slug" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateServiceDto.prototype, "category", void 0);

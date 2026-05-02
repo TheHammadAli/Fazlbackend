@@ -1,12 +1,12 @@
-import { Document, Types } from 'mongoose';
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-export type paymentType = 'cashonDelivery' | 'Easypaisa';
+import { Document, Types } from "mongoose";
+export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
+export type paymentType = "cashonDelivery" | "Easypaisa";
 export declare class Order {
     buyer: Types.ObjectId;
     owner: Types.ObjectId;
     ownerModel: string;
     product: Types.ObjectId;
-    deliveryOption: 'self-pickup' | 'delivery';
+    deliveryOption: "self-pickup" | "delivery";
     status: OrderStatus;
     paymentType: paymentType;
     amount: number;

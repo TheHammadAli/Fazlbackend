@@ -40,7 +40,9 @@ let ReviewService = class ReviewService {
             itemType: dto.itemType,
         });
         if (existing) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.reviews.duplicate_review", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.reviews.duplicate_review", {
+                lang: this.lang,
+            }));
         }
         const review = new this.reviewModel({
             userId,
@@ -51,8 +53,10 @@ let ReviewService = class ReviewService {
         });
         const result = await review.save();
         return {
-            message: this.i18n.translate("auth.reviews.created_success", { lang: this.lang }),
-            data: { review: result }
+            message: this.i18n.translate("auth.reviews.created_success", {
+                lang: this.lang,
+            }),
+            data: { review: result },
         };
     }
     async getReviews(query) {

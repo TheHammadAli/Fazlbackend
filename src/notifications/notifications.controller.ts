@@ -30,7 +30,6 @@ import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-
   @Get(":userId")
   @ApiOperation({ summary: "Get paginated notifications for a user" })
   @ApiParam({ name: "userId", description: "The ID of the user" })
@@ -115,19 +114,21 @@ export class NotificationsController {
     status: 201,
     description: "Notification created and sent successfully",
   })
- async testNotification(@Body() body: { userId: string; message: string }) {
+  async testNotification(@Body() body: { userId: string; message: string }) {
     return this.notificationsService.createAndNotify(
-      body.userId,      // Recipient
-      body.message,     // Translation Key (e.g., "new_message_received")
-      "MESSAGE",        // Notification Type
-      {                 // Generic Payload (Mandatory)
+      body.userId, // Recipient
+      body.message, // Translation Key (e.g., "new_message_received")
+      "MESSAGE", // Notification Type
+      {
+        // Generic Payload (Mandatory)
         senderId: "system_admin",
         sentAt: new Date().toISOString(),
         action: "open_chat",
       },
-      {                 // i18n Params (Optional)
-        userName: "John Doe" 
-      }
+      {
+        // i18n Params (Optional)
+        userName: "John Doe",
+      },
     );
   }
 }

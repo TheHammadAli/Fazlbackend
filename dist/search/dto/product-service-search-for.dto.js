@@ -19,19 +19,31 @@ class SearchAllProductsServiceDto {
 }
 exports.SearchAllProductsServiceDto = SearchAllProductsServiceDto;
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Product name to search for', example: 'iPhone' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: "Product name to search for",
+        example: "iPhone",
+    }),
     __metadata("design:type", String)
 ], SearchAllProductsServiceDto.prototype, "name", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Category of the product', example: 'electronics' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: "Category of the product",
+        example: "electronics",
+    }),
     __metadata("design:type", String)
 ], SearchAllProductsServiceDto.prototype, "category", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Page number for pagination', example: 1 }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: "Page number for pagination",
+        example: 1,
+    }),
     __metadata("design:type", Number)
 ], SearchAllProductsServiceDto.prototype, "page", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Number of results per page', example: 20 }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: "Number of results per page",
+        example: 20,
+    }),
     __metadata("design:type", Number)
 ], SearchAllProductsServiceDto.prototype, "limit", void 0);
 //# sourceMappingURL=product-service-search-for.dto.js.map

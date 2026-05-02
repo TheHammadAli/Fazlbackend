@@ -1,11 +1,11 @@
-import { Document } from 'mongoose';
-import mongoose, { Types } from 'mongoose';
+import { Document } from "mongoose";
+import mongoose, { Types } from "mongoose";
 export type CategoryRequestDocument = CategoryRequest & Document;
 export declare class CategoryRequest {
     name: string;
     description?: string;
     requestedBy: Types.ObjectId;
-    status: 'pending' | 'approved' | 'rejected';
+    status: "pending" | "approved" | "rejected";
     reviewedBy?: Types.ObjectId;
     adminComment?: string;
     createdAt: Date;

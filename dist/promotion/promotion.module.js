@@ -19,7 +19,7 @@ exports.PromotionModule = PromotionModule = __decorate([
     (0, common_1.Module)({
         imports: [
             mongoose_1.MongooseModule.forFeature([
-                { name: promotion_schema_1.Promotion.name, schema: promotion_schema_1.PromotionSchema }
+                { name: promotion_schema_1.Promotion.name, schema: promotion_schema_1.PromotionSchema },
             ]),
         ],
         controllers: [promotion_controller_1.PromotionController],

@@ -26,31 +26,50 @@ class CreateOrderDto {
 }
 exports.CreateOrderDto = CreateOrderDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '6645f1d8a8c02c2b8f5a9df0', description: 'Buyer user ID' }),
+    (0, swagger_1.ApiProperty)({
+        example: "6645f1d8a8c02c2b8f5a9df0",
+        description: "Buyer user ID",
+    }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "buyer", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '6645f1d8a8c02c2b8f5a9df1', description: 'Owner (shop or user) ID' }),
+    (0, swagger_1.ApiProperty)({
+        example: "6645f1d8a8c02c2b8f5a9df1",
+        description: "Owner (shop or user) ID",
+    }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "owner", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Shop', enum: ['Shop', 'User'], description: 'Owner model discriminator' }),
+    (0, swagger_1.ApiProperty)({
+        example: "Shop",
+        enum: ["Shop", "User"],
+        description: "Owner model discriminator",
+    }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "ownerModel", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '6650aa2f17e0114f1e7a9a89', description: 'Product ID' }),
+    (0, swagger_1.ApiProperty)({
+        example: "6650aa2f17e0114f1e7a9a89",
+        description: "Product ID",
+    }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "product", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'self-pickup', enum: ['self-pickup', 'delivery'] }),
+    (0, swagger_1.ApiProperty)({ example: "self-pickup", enum: ["self-pickup", "delivery"] }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "deliveryOption", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'pending', enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "pending",
+        enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+    }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "status", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'cashonDelivery', enum: ['cashonDelivery', 'Easypaisa'] }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "cashonDelivery",
+        enum: ["cashonDelivery", "Easypaisa"],
+    }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "paymentType", void 0);
 __decorate([
@@ -58,7 +77,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateOrderDto.prototype, "amount", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: { "size": "M", "color": "black" } }),
+    (0, swagger_1.ApiProperty)({ example: { size: "M", color: "black" } }),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], CreateOrderDto.prototype, "variant", void 0);

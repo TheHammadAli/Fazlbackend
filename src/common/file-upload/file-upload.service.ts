@@ -1,8 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
-import { extname } from 'path';
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { v4 as uuidv4 } from "uuid";
+import { extname } from "path";
 
 @Injectable()
 export class FileUploadService {
@@ -10,18 +10,23 @@ export class FileUploadService {
   private bucketName: string;
 
   constructor(private readonly configService: ConfigService) {
-    const region = this.configService.get<string>('AWS_REGION');
-    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const region = this.configService.get<string>("AWS_REGION");
+    const accessKeyId = this.configService.get<string>("AWS_ACCESS_KEY_ID");
     const secretAccessKey = this.configService.get<string>(
-      'AWS_SECRET_ACCESS_KEY',
+      "AWS_SECRET_ACCESS_KEY",
     );
-    const bucket = this.configService.get<string>('AWS_S3_BUCKET_NAME');
+    const bucket = this.configService.get<string>("AWS_S3_BUCKET_NAME");
 
     if (!region || !accessKeyId || !secretAccessKey || !bucket) {
-      throw new Error('Missing AWS S3 configuration');
+      throw new Error("Missing AWS S3 configuration");
     }
 
-    console.log(`Initializing S3 client with bucket: ${bucket}`, accessKeyId, secretAccessKey, region);
+    console.log(
+      `Initializing S3 client with bucket: ${bucket}`,
+      accessKeyId,
+      secretAccessKey,
+      region,
+    );
 
     this.bucketName = bucket;
     this.s3 = new S3Client({
@@ -38,16 +43,16 @@ export class FileUploadService {
     type: string,
     entityId: string,
     productId: string,
-    fileType: 'images' | 'video' = 'images',
+    fileType: "images" | "video" = "images",
   ): Promise<{ key: string; url: string }[]> {
     const uploadedFiles: { key: string; url: string }[] = [];
 
-    console.log('Uploading files:', files);
+    console.log("Uploading files:", files);
     for (const file of files) {
       const fileExt = extname(file.originalname);
       const uniqueName = `${uuidv4()}${fileExt}`;
       let key = `${type}/${entityId}/products/${productId}/${fileType}/${uniqueName}`;
-      if (fileType === 'video') {
+      if (fileType === "video") {
         key = `${type}/${entityId}/products/${productId}/video`;
       }
       try {
@@ -62,15 +67,15 @@ export class FileUploadService {
         await this.s3.send(command);
 
         const url = `https://${this.bucketName}.s3.${this.configService.get(
-          'AWS_REGION',
+          "AWS_REGION",
         )}.amazonaws.com/${key}`;
 
         console.log(`File uploaded successfully: ${url}`);
         uploadedFiles.push({ key, url });
       } catch (err) {
-        console.error('S3 upload error:', err);
+        console.error("S3 upload error:", err);
         throw new InternalServerErrorException(
-          'One or more file uploads failed',
+          "One or more file uploads failed",
         );
       }
     }
@@ -95,20 +100,17 @@ export class FileUploadService {
       await this.s3.send(command);
 
       const url = `https://${this.bucketName}.s3.${this.configService.get(
-        'AWS_REGION',
+        "AWS_REGION",
       )}.amazonaws.com/${key}`;
 
       console.log(`File uploaded successfully: ${url}`);
       return url;
     } catch (err) {
-      console.error('S3 upload error:', err);
-      throw new InternalServerErrorException(
-        'One or more file uploads failed',
-      );
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("One or more file uploads failed");
     }
   }
   async uploadShopImage(shopId: string, file: Express.Multer.File) {
-
     const key = `shop/${shopId}/images/logo`;
 
     try {
@@ -119,33 +121,35 @@ export class FileUploadService {
         ContentType: file.mimetype,
       });
 
-
       console.log(`Uploading file to S3 with key: ${key}`);
       await this.s3.send(command);
 
       const url = `https://${this.bucketName}.s3.${this.configService.get(
-        'AWS_REGION',
+        "AWS_REGION",
       )}.amazonaws.com/${key}`;
 
       console.log(`File uploaded successfully: ${url}`);
       return url;
     } catch (err) {
-      console.error('S3 upload error:', err);
-      throw new InternalServerErrorException(
-        'One or more file uploads failed',
-      );
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("One or more file uploads failed");
     }
   }
-  async uploadServiceFile(userId: string, serviceId: string, files: Express.Multer.File[], fileType: 'images' | 'video' = 'images',) {
+  async uploadServiceFile(
+    userId: string,
+    serviceId: string,
+    files: Express.Multer.File[],
+    fileType: "images" | "video" = "images",
+  ) {
     const uploadedFiles: string[] = [];
 
-    console.log('Uploading files:', files);
+    console.log("Uploading files:", files);
     for (const file of files) {
       const fileExt = extname(file.originalname);
       const uniqueName = `${uuidv4()}${fileExt}`;
       let key = `service/${userId}/${serviceId}/${fileType}/${uniqueName}`;
 
-      if (fileType === 'video') {
+      if (fileType === "video") {
         key = `service/${userId}/${serviceId}/video`;
       }
       try {
@@ -160,16 +164,15 @@ export class FileUploadService {
         await this.s3.send(command);
 
         const url = `https://${this.bucketName}.s3.${this.configService.get(
-          'AWS_REGION',
+          "AWS_REGION",
         )}.amazonaws.com/${key}`;
 
         console.log(`File uploaded successfully: ${url}`);
         uploadedFiles.push(url);
-
       } catch (err) {
-        console.error('S3 upload error:', err);
+        console.error("S3 upload error:", err);
         throw new InternalServerErrorException(
-          'One or more file uploads failed',
+          "One or more file uploads failed",
         );
       }
     }
@@ -177,7 +180,11 @@ export class FileUploadService {
     return uploadedFiles;
   }
 
-  async deleteEntityProducts(type: string, entityId: string, productId?: string): Promise<void> {
+  async deleteEntityProducts(
+    type: string,
+    entityId: string,
+    productId?: string,
+  ): Promise<void> {
     try {
       const prefix = `${type}/${entityId}/products/${productId}`;
       const command = new PutObjectCommand({
@@ -188,20 +195,17 @@ export class FileUploadService {
       console.log(`Deleting files from S3 with prefix: ${prefix}`);
       await this.s3.send(command);
       console.log(`Files deleted successfully from S3 with prefix: ${prefix}`);
-
-    }
-    catch (err) {
-
-    }
+    } catch (err) {}
   }
 
   async deleteFiles(media: string[]): Promise<void> {
     try {
-
       for (const path of media) {
-        const key = path.split(`https://${this.bucketName}.s3.us-east-1.amazonaws.com/`)[1];
+        const key = path.split(
+          `https://${this.bucketName}.s3.us-east-1.amazonaws.com/`,
+        )[1];
 
-        if (!key) throw new Error('Invalid S3 URL');
+        if (!key) throw new Error("Invalid S3 URL");
 
         const command = new PutObjectCommand({
           Bucket: this.bucketName,
@@ -213,12 +217,15 @@ export class FileUploadService {
         console.log(`File deleted successfully: ${key}`);
       }
     } catch (err) {
-      console.error('S3 delete error:', err);
-      throw new InternalServerErrorException('File deletion failed');
+      console.error("S3 delete error:", err);
+      throw new InternalServerErrorException("File deletion failed");
     }
   }
 
-  async uploadChatMessage(conversationId: string, file: Express.Multer.File): Promise<string> {
+  async uploadChatMessage(
+    conversationId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
     const fileExt = extname(file.originalname);
     const uniqueName = `${uuidv4()}${fileExt}`;
     const key = `chats/${conversationId}/${uniqueName}`;
@@ -233,16 +240,19 @@ export class FileUploadService {
 
       await this.s3.send(command);
 
-      return `https://${this.bucketName}.s3.${this.configService.get('AWS_REGION')}.amazonaws.com/${key}`;
+      return `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
     } catch (err) {
-      console.error('S3 upload error:', err);
-      throw new InternalServerErrorException('Chat image upload failed');
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Chat image upload failed");
     }
   }
 
   // file-upload.service.ts
 
-  async uploadBroadcastImage(buyerId: string, file: Express.Multer.File): Promise<string> {
+  async uploadBroadcastImage(
+    buyerId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
     const fileExt = extname(file.originalname);
     const uniqueName = `${uuidv4()}${fileExt}`;
     // Structure: broadcasts/buyerId/uuid.ext
@@ -258,15 +268,18 @@ export class FileUploadService {
 
       await this.s3.send(command);
 
-      return `https://${this.bucketName}.s3.${this.configService.get('AWS_REGION')}.amazonaws.com/${key}`;
+      return `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
     } catch (err) {
-      console.error('S3 upload error:', err);
-      throw new InternalServerErrorException('Broadcast image upload failed');
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Broadcast image upload failed");
     }
   }
   // file-upload.service.ts
 
-  async uploadBroadcastThreadImage(threadId: string, file: Express.Multer.File): Promise<string> {
+  async uploadBroadcastThreadImage(
+    threadId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
     const fileExt = extname(file.originalname);
     const uniqueName = `${uuidv4()}${fileExt}`;
     const key = `broadcasts/threads/${threadId}/${uniqueName}`;
@@ -281,10 +294,10 @@ export class FileUploadService {
 
       await this.s3.send(command);
 
-      return `https://${this.bucketName}.s3.${this.configService.get('AWS_REGION')}.amazonaws.com/${key}`;
+      return `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
     } catch (err) {
-      console.error('S3 upload error:', err);
-      throw new InternalServerErrorException('Thread image upload failed');
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Thread image upload failed");
     }
   }
 }

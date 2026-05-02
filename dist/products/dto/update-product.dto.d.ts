@@ -5,7 +5,7 @@ declare class ProductParameterDto {
 export declare class UpdateProductDto {
     title?: string;
     description?: string;
-    type: 'retail' | 'classified';
+    type: "retail" | "classified";
     price?: number;
     category?: string;
     images: any;

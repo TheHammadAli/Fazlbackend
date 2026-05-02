@@ -26,15 +26,15 @@ let ServiceRequest = class ServiceRequest {
 };
 exports.ServiceRequest = ServiceRequest;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Service', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Service", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ServiceRequest.prototype, "service", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ServiceRequest.prototype, "customer", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], ServiceRequest.prototype, "provider", void 0);
 __decorate([
@@ -48,16 +48,16 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         required: true,
-        enum: ['pending', 'accepted', 'rejected', 'proposed', 'cancelled',],
-        default: 'pending',
+        enum: ["pending", "accepted", "rejected", "proposed", "cancelled"],
+        default: "pending",
     }),
     __metadata("design:type", String)
 ], ServiceRequest.prototype, "status", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         required: true,
-        enum: ['not_started', 'in_progress', 'completed'],
-        default: 'not_started'
+        enum: ["not_started", "in_progress", "completed"],
+        default: "not_started",
     }),
     __metadata("design:type", String)
 ], ServiceRequest.prototype, "jobStatus", void 0);

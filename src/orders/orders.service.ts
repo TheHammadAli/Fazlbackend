@@ -26,7 +26,7 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) { }
+  ) {}
 
   /** Dynamic getter for the current request language */
   private get lang(): string {
@@ -45,7 +45,9 @@ export class OrdersService {
     const product = await this.productsService.getById(dto.product, this.lang);
     if (!product)
       throw new NotFoundException(
-        this.i18n.translate("auth.orders.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.orders.product_not_found", {
+          lang: this.lang,
+        }),
       );
 
     let ownerExists = false;
@@ -61,13 +63,14 @@ export class OrdersService {
 
     if (!ownerExists)
       throw new NotFoundException(
-        this.i18n.translate("auth.orders.order_owner_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.orders.order_owner_not_found", {
+          lang: this.lang,
+        }),
       );
 
     let isValidOwner = false;
     if (dto.ownerModel === "Shop") {
       isValidOwner = dto.owner === product.shopId.toString();
-
     } else if (dto.ownerModel === "User") {
       isValidOwner = dto.owner === product.ownerId?.toString();
     }
@@ -92,10 +95,10 @@ export class OrdersService {
     const notificationPayload = {
       orderId: (savedOrder as any)._id.toString(),
       productId: dto.product,
-      ownerModel: dto.ownerModel
+      ownerModel: dto.ownerModel,
     };
 
-    console.log("Product.Ownerid", product.ownerId)
+    console.log("Product.Ownerid", product.ownerId);
 
     // Notify buyer (using translation placeholders)
     this.notificationsService.createAndNotify(
@@ -108,7 +111,9 @@ export class OrdersService {
     console.log("Owner for notification:", owner); // Debug log
     // Notify owner/seller
     this.notificationsService.createAndNotify(
-      dto.ownerModel === 'Shop' ? owner.ownerId._id?.toString() : owner._id?.toString() || dto.owner,
+      dto.ownerModel === "Shop"
+        ? owner.ownerId._id?.toString()
+        : owner._id?.toString() || dto.owner,
       "order_created_seller",
       "ORDER",
       notificationPayload,
@@ -122,7 +127,9 @@ export class OrdersService {
   async getOrderById(orderId: string): Promise<Order> {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
-        this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang }),
+        this.i18n.translate("auth.orders.invalid_order_id", {
+          lang: this.lang,
+        }),
       );
 
     const order = await this.orderModel
@@ -154,12 +161,16 @@ export class OrdersService {
   }> {
     if (!Types.ObjectId.isValid(ownerId))
       throw new BadRequestException(
-        this.i18n.translate("auth.orders.invalid_owner_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_owner_id", {
+          lang: this.lang,
+        }),
       );
 
     if (page < 1 || limit < 1)
       throw new BadRequestException(
-        this.i18n.translate("auth.orders.invalid_page_limit", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_page_limit", {
+          lang: this.lang,
+        }),
       );
 
     const skip = (page - 1) * limit;
@@ -199,7 +210,9 @@ export class OrdersService {
   }> {
     if (!Types.ObjectId.isValid(buyerId))
       throw new BadRequestException(
-        this.i18n.translate("auth.orders.invalid_buyer_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_buyer_id", {
+          lang: this.lang,
+        }),
       );
 
     const skip = (page - 1) * limit;
@@ -227,28 +240,31 @@ export class OrdersService {
   async updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order> {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
-        this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_order_id", {
+          lang: this.lang,
+        }),
       );
 
     const updated = await this.orderModel
       .findByIdAndUpdate(orderId, dto, { new: true })
-      .populate('product');
+      .populate("product");
 
     if (!updated)
       throw new NotFoundException(
-        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang })
+        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }),
       );
 
     // If the order status was updated, notify the buyer with the new status
     if (dto.status) {
       // 1. Safely extract the ID as a string
-      const orderId = updated._id instanceof Types.ObjectId
-        ? updated._id.toHexString()
-        : String(updated._id);
+      const orderId =
+        updated._id instanceof Types.ObjectId
+          ? updated._id.toHexString()
+          : String(updated._id);
 
       // 2. Safely extract the product title
       // Since you populated 'product', we cast to any to access the title property
-      const productTitle = (updated.product as any)?.title || 'Product';
+      const productTitle = (updated.product as any)?.title || "Product";
 
       // 3. Dispatch
       this.notificationsService.createAndNotify(
@@ -257,12 +273,12 @@ export class OrdersService {
         "ORDER",
         {
           orderId: orderId, // This is our mandatory generic payload
-          status: dto.status
+          status: dto.status,
         },
         {
           productTitle: productTitle,
-          status: dto.status
-        }
+          status: dto.status,
+        },
       );
     }
 
@@ -273,13 +289,15 @@ export class OrdersService {
   async deleteOrder(orderId: string): Promise<void> {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
-        this.i18n.translate("auth.orders.invalid_order_id", { lang: this.lang })
+        this.i18n.translate("auth.orders.invalid_order_id", {
+          lang: this.lang,
+        }),
       );
 
     const result = await this.orderModel.findByIdAndDelete(orderId);
     if (!result)
       throw new NotFoundException(
-        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang })
+        this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }),
       );
   }
 }

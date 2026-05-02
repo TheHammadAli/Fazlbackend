@@ -6,20 +6,20 @@ import {
   Query,
   Param,
   Patch,
-} from '@nestjs/common';
-import { ReviewService } from './reviews.service';
-import { CreateReviewDto } from './dto/create-review.dto';
-import { QueryReviewDto } from './dto/query-review.dto';
+} from "@nestjs/common";
+import { ReviewService } from "./reviews.service";
+import { CreateReviewDto } from "./dto/create-review.dto";
+import { QueryReviewDto } from "./dto/query-review.dto";
 import {
   ApiTags,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiBody,
-} from '@nestjs/swagger';
+} from "@nestjs/swagger";
 
-@ApiTags('Reviews')
-@Controller('reviews')
+@ApiTags("Reviews")
+@Controller("reviews")
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
@@ -27,7 +27,7 @@ export class ReviewController {
    * Create a review for a product or service
    */
   @Post()
-  @ApiOperation({ summary: 'Create a review' })
+  @ApiOperation({ summary: "Create a review" })
   @ApiBody({ type: CreateReviewDto })
   async createReview(@Body() dto: CreateReviewDto) {
     return this.reviewService.createReview(dto);
@@ -37,11 +37,11 @@ export class ReviewController {
    * Get paginated reviews for a specific item
    */
   @Get()
-  @ApiOperation({ summary: 'Get paginated reviews for a product or service' })
-  @ApiQuery({ name: 'itemId', required: true })
-  @ApiQuery({ name: 'itemType', enum: ['product', 'service'], required: true })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
+  @ApiOperation({ summary: "Get paginated reviews for a product or service" })
+  @ApiQuery({ name: "itemId", required: true })
+  @ApiQuery({ name: "itemType", enum: ["product", "service"], required: true })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "limit", required: false })
   async getReviewsByItem(@Query() query: QueryReviewDto) {
     return this.reviewService.getReviews(query);
   }
@@ -49,33 +49,33 @@ export class ReviewController {
   /**
    * Get all reviews made by a user
    */
-  @Get('/user/:userId')
-  @ApiOperation({ summary: 'Get all reviews by a user' })
-  @ApiParam({ name: 'userId', required: true })
-  async getUserReviews(@Param('userId') userId: string) {
+  @Get("/user/:userId")
+  @ApiOperation({ summary: "Get all reviews by a user" })
+  @ApiParam({ name: "userId", required: true })
+  async getUserReviews(@Param("userId") userId: string) {
     return this.reviewService.getUserReviews(userId);
   }
 
   /**
    * Flag a review by ID (soft moderation)
    */
-  @Patch('/:id/flag')
-  @ApiOperation({ summary: 'Flag a review for moderation' })
-  @ApiParam({ name: 'id', required: true })
-  async flagReview(@Param('id') id: string) {
+  @Patch("/:id/flag")
+  @ApiOperation({ summary: "Flag a review for moderation" })
+  @ApiParam({ name: "id", required: true })
+  async flagReview(@Param("id") id: string) {
     return this.reviewService.flagReview(id);
   }
 
   /**
    * Get average rating and count for a specific item
    */
-  @Get('/average/:itemType/:itemId')
-  @ApiOperation({ summary: 'Get average rating and total review count' })
-  @ApiParam({ name: 'itemType', enum: ['product', 'service'] })
-  @ApiParam({ name: 'itemId' })
+  @Get("/average/:itemType/:itemId")
+  @ApiOperation({ summary: "Get average rating and total review count" })
+  @ApiParam({ name: "itemType", enum: ["product", "service"] })
+  @ApiParam({ name: "itemId" })
   async getAverageRating(
-    @Param('itemType') itemType: 'product' | 'service',
-    @Param('itemId') itemId: string,
+    @Param("itemType") itemType: "product" | "service",
+    @Param("itemId") itemId: string,
   ) {
     return this.reviewService.getAverageRating(itemId, itemType);
   }

@@ -83,15 +83,21 @@ let ChatService = class ChatService {
     async sendMessage(conversationId, senderId, receiverId, text, imageUrl) {
         const conversation = await this.conversationModel.findById(conversationId);
         if (!conversation) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", {
+                lang: this.lang,
+            }));
         }
         if (senderId !== conversation.buyer.toString() &&
             senderId !== conversation.seller.toString()) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", {
+                lang: this.lang,
+            }));
         }
         if (receiverId !== conversation.buyer.toString() &&
             receiverId !== conversation.seller.toString()) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", {
+                lang: this.lang,
+            }));
         }
         const [sender, receiver] = await Promise.all([
             this.userService.findUserById(senderId),
@@ -130,9 +136,7 @@ let ChatService = class ChatService {
             },
         }, { senderName: sender.name });
         if (chat_gateway_1.ChatGateway.serverInstance) {
-            chat_gateway_1.ChatGateway.serverInstance
-                .to(conversationId)
-                .emit('receiveMessage', {
+            chat_gateway_1.ChatGateway.serverInstance.to(conversationId).emit("receiveMessage", {
                 message,
                 sender,
                 conversation: {
@@ -145,14 +149,18 @@ let ChatService = class ChatService {
         }
         return {
             data: {
-                message, sender, conversation
-            }
+                message,
+                sender,
+                conversation,
+            },
         };
     }
     async getMessages(conversationId, paginationDto) {
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", {
+                lang: this.lang,
+            }));
         }
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
@@ -180,7 +188,9 @@ let ChatService = class ChatService {
         await this.userService.findUserById(userId);
         const convo = await this.conversationModel.findById(conversationId);
         if (!convo) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.chat.conversation_not_found", {
+                lang: this.lang,
+            }));
         }
         await this.messageModel.updateMany({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),

@@ -23,8 +23,8 @@ __decorate([
     __metadata("design:type", String)
 ], UpdateJobStatusDto.prototype, "requestId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['start_job', 'complete_job'] }),
-    (0, class_validator_1.IsEnum)(['start_job', 'complete_job']),
+    (0, swagger_1.ApiProperty)({ enum: ["start_job", "complete_job"] }),
+    (0, class_validator_1.IsEnum)(["start_job", "complete_job"]),
     __metadata("design:type", String)
 ], UpdateJobStatusDto.prototype, "action", void 0);
 //# sourceMappingURL=update-job-dto.js.map

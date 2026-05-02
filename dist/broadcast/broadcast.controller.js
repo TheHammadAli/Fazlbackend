@@ -69,8 +69,8 @@ exports.BroadcastController = BroadcastController;
 __decorate([
     (0, common_1.Post)("/create"),
     (0, swagger_1.ApiOperation)({ summary: "Create broadcast and dispatch sellers" }),
-    (0, swagger_1.ApiConsumes)('application/json', 'multipart/form-data'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiConsumes)("application/json", "multipart/form-data"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("file")),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __param(2, (0, common_1.UploadedFile)()),
@@ -82,8 +82,8 @@ __decorate([
     (0, common_1.Post)("/message/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Send message in broadcast thread" }),
     (0, swagger_1.ApiParam)({ name: "id", description: "Broadcast ID" }),
-    (0, swagger_1.ApiConsumes)('application/json', 'multipart/form-data'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiConsumes)("application/json", "multipart/form-data"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("file")),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -144,6 +144,7 @@ exports.BroadcastController = BroadcastController = __decorate([
     (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)("broadcast"),
-    __metadata("design:paramtypes", [broadcast_service_1.BroadcastService, file_upload_service_1.FileUploadService])
+    __metadata("design:paramtypes", [broadcast_service_1.BroadcastService,
+        file_upload_service_1.FileUploadService])
 ], BroadcastController);
 //# sourceMappingURL=broadcast.controller.js.map

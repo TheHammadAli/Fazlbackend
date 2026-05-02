@@ -73,6 +73,7 @@ let NotificationsService = class NotificationsService {
             lang: this.lang,
             args: i18nArgs,
         });
+        ;
         const notif = await this.create(userId, translatedMessage, type, payload);
         if (this.server) {
             this.server.to(userId.toString()).emit("notification", notif);

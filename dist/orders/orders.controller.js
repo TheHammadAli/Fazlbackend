@@ -48,33 +48,33 @@ let OrdersController = class OrdersController {
 exports.OrdersController = OrdersController;
 __decorate([
     (0, common_1.Post)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new order' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'Order created', type: order_schema_1.Order }),
+    (0, swagger_1.ApiOperation)({ summary: "Create a new order" }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "Order created", type: order_schema_1.Order }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_order_dto_1.CreateOrderDto]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "createOrder", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get order by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Order ID' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Order found', type: order_schema_1.Order }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get order by ID" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Order ID" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Order found", type: order_schema_1.Order }),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getOrderById", null);
 __decorate([
-    (0, common_1.Get)('owner/:ownerId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get paginated orders by owner (Shop or User)' }),
-    (0, swagger_1.ApiParam)({ name: 'ownerId', description: 'Owner ID (Shop or User)' }),
-    (0, swagger_1.ApiQuery)({ name: 'ownerModel', enum: ['Shop', 'User'], required: true }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    (0, common_1.Get)("owner/:ownerId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated orders by owner (Shop or User)" }),
+    (0, swagger_1.ApiParam)({ name: "ownerId", description: "Owner ID (Shop or User)" }),
+    (0, swagger_1.ApiQuery)({ name: "ownerModel", enum: ["Shop", "User"], required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Paginated orders found',
+        description: "Paginated orders found",
         schema: {
             example: {
                 data: [],
@@ -82,25 +82,25 @@ __decorate([
                 page: 1,
                 limit: 10,
                 totalPages: 0,
-            }
-        }
+            },
+        },
     }),
-    __param(0, (0, common_1.Param)('ownerId')),
-    __param(1, (0, common_1.Query)('ownerModel')),
+    __param(0, (0, common_1.Param)("ownerId")),
+    __param(1, (0, common_1.Query)("ownerModel")),
     __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getOrdersByOwner", null);
 __decorate([
-    (0, common_1.Get)('buyer/:buyerId'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get paginated orders by buyer' }),
-    (0, swagger_1.ApiParam)({ name: 'buyerId', description: 'Buyer User ID' }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    (0, common_1.Get)("buyer/:buyerId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated orders by buyer" }),
+    (0, swagger_1.ApiParam)({ name: "buyerId", description: "Buyer User ID" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Paginated orders found',
+        description: "Paginated orders found",
         schema: {
             example: {
                 data: [],
@@ -108,42 +108,42 @@ __decorate([
                 page: 1,
                 limit: 10,
                 totalPages: 0,
-            }
-        }
+            },
+        },
     }),
-    __param(0, (0, common_1.Param)('buyerId')),
+    __param(0, (0, common_1.Param)("buyerId")),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getOrdersByBuyer", null);
 __decorate([
-    (0, common_1.Patch)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update an order' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Order ID' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Order updated', type: order_schema_1.Order }),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Update an order" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Order ID" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Order updated", type: order_schema_1.Order }),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_order_dto_1.UpdateOrderDto]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "updateOrder", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete an order' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Order ID' }),
-    (0, swagger_1.ApiResponse)({ status: 204, description: 'Order deleted' }),
+    (0, common_1.Delete)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete an order" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Order ID" }),
+    (0, swagger_1.ApiResponse)({ status: 204, description: "Order deleted" }),
     (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "deleteOrder", null);
 exports.OrdersController = OrdersController = __decorate([
-    (0, swagger_1.ApiTags)('Orders'),
-    (0, swagger_1.ApiBearerAuth)('jwt'),
+    (0, swagger_1.ApiTags)("Orders"),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    (0, common_1.Controller)('orders'),
+    (0, common_1.Controller)("orders"),
     __metadata("design:paramtypes", [orders_service_1.OrdersService])
 ], OrdersController);
 //# sourceMappingURL=orders.controller.js.map

@@ -1,6 +1,6 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import mongoose, { Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
+import mongoose, { Types } from "mongoose";
 
 export type CategoryRequestDocument = CategoryRequest & Document;
 
@@ -12,13 +12,13 @@ export class CategoryRequest {
   @Prop()
   description?: string;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "User", required: true })
   requestedBy: Types.ObjectId;
 
-  @Prop({ enum: ['pending', 'approved', 'rejected'], default: 'pending' })
-  status: 'pending' | 'approved' | 'rejected';
+  @Prop({ enum: ["pending", "approved", "rejected"], default: "pending" })
+  status: "pending" | "approved" | "rejected";
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: "User" })
   reviewedBy?: Types.ObjectId;
 
   @Prop()
@@ -31,4 +31,5 @@ export class CategoryRequest {
   reviewedAt?: Date;
 }
 
-export const CategoryRequestSchema = SchemaFactory.createForClass(CategoryRequest);
+export const CategoryRequestSchema =
+  SchemaFactory.createForClass(CategoryRequest);

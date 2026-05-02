@@ -21,7 +21,9 @@ export class FirebaseService {
         .get<string>("FIREBASE_PRIVATE_KEY")
         ?.replace(/\\n/g, "\n");
 
-      const clientEmail = this.configService.get<string>("FIREBASE_CLIENT_EMAIL");
+      const clientEmail = this.configService.get<string>(
+        "FIREBASE_CLIENT_EMAIL",
+      );
 
       if (!projectId || !privateKey || !clientEmail) {
         throw new Error("Missing Firebase environment variables");
@@ -38,7 +40,7 @@ export class FirebaseService {
       this.initialized = true;
       this.logger.log("Firebase initialized successfully");
     } catch (err) {
-      this.logger.error("Firebase initialization failed", err as any);
+      this.logger.error("Firebase initialization failed", err);
     }
   }
 
@@ -61,22 +63,21 @@ export class FirebaseService {
       // 1️⃣ Sanitize payload: FCM 'data' values MUST be strings.
       const sanitizedData: Record<string, string> = {};
       Object.entries(payload).forEach(([key, value]) => {
-        sanitizedData[key] = typeof value === 'object' 
-          ? JSON.stringify(value) 
-          : String(value);
+        sanitizedData[key] =
+          typeof value === "object" ? JSON.stringify(value) : String(value);
       });
 
       // 2️⃣ Send message
       return await admin.messaging().send({
         token,
         notification: { title, body }, // The visual alert
-        data: sanitizedData,           // The logic payload
+        data: sanitizedData, // The logic payload
         // Optional: High priority for instant delivery
-        android: { priority: 'high' },
-        apns: { payload: { aps: { contentAvailable: true } } }, 
+        android: { priority: "high" },
+        apns: { payload: { aps: { contentAvailable: true } } },
       });
     } catch (err) {
-      this.logger.error("FCM error (notification skipped)", err as any);
+      this.logger.error("FCM error (notification skipped)", err);
       return null;
     }
   }

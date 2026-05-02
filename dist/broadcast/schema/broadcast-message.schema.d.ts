@@ -1,4 +1,4 @@
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Types } from "mongoose";
 export type BroadcastMessageDocument = HydratedDocument<BroadcastMessage>;
 export declare class BroadcastMessage {
     broadcast: Types.ObjectId;

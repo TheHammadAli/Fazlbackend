@@ -24,7 +24,7 @@ import { ClsConfigModule } from "./core/cls/cls.module";
 
 import * as path from "path";
 import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
-import { LikeModule } from './like/like.module';
+import { LikeModule } from "./like/like.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 console.log(
@@ -79,9 +79,13 @@ console.log(
     LikeModule,
   ],
   controllers: [AppController],
-  providers: [AppService, LanguageInterceptor, {
-    provide: APP_GUARD,
-    useClass: ThrottlerGuard,
-  },],
+  providers: [
+    AppService,
+    LanguageInterceptor,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
-export class AppModule { }
+export class AppModule {}

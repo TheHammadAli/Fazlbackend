@@ -18,9 +18,7 @@ exports.ReviewsModule = ReviewsModule;
 exports.ReviewsModule = ReviewsModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([
-                { name: review_schema_1.Review.name, schema: review_schema_1.ReviewSchema },
-            ]),
+            mongoose_1.MongooseModule.forFeature([{ name: review_schema_1.Review.name, schema: review_schema_1.ReviewSchema }]),
         ],
         providers: [reviews_service_1.ReviewService],
         controllers: [reviews_controller_1.ReviewController],

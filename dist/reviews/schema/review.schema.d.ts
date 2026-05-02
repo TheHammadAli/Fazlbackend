@@ -1,9 +1,9 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type ReviewDocument = Review & Document;
 export declare class Review {
     userId: Types.ObjectId;
     itemId: Types.ObjectId;
-    itemType: 'product' | 'service';
+    itemType: "product" | "service";
     rating: number;
     comment: string;
     isFlagged: boolean;

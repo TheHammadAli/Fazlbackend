@@ -1,13 +1,16 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { ServicesService } from './services.service';
-import { ServicesController } from './services.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Service, ServiceSchema } from './schema/services.schema';
-import { SharedModule } from 'src/shared/shared.module';
-import { UsersModule } from 'src/users/users.module';
-import { ServiceRequest, ServiceRequestSchema } from './schema/service_request.schema';
-import { NotificationsModule } from 'src/notifications/notifications.module';
-import { LikeModule } from 'src/like/like.module';
+import { forwardRef, Module } from "@nestjs/common";
+import { ServicesService } from "./services.service";
+import { ServicesController } from "./services.controller";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Service, ServiceSchema } from "./schema/services.schema";
+import { SharedModule } from "src/shared/shared.module";
+import { UsersModule } from "src/users/users.module";
+import {
+  ServiceRequest,
+  ServiceRequestSchema,
+} from "./schema/service_request.schema";
+import { NotificationsModule } from "src/notifications/notifications.module";
+import { LikeModule } from "src/like/like.module";
 @Module({
   imports: [
     forwardRef(() => UsersModule),
@@ -15,11 +18,13 @@ import { LikeModule } from 'src/like/like.module';
     forwardRef(() => SharedModule),
     forwardRef(() => NotificationsModule),
 
-    MongooseModule.forFeature([{ name: Service.name, schema: ServiceSchema }, { name: ServiceRequest.name, schema: ServiceRequestSchema }]),
-
+    MongooseModule.forFeature([
+      { name: Service.name, schema: ServiceSchema },
+      { name: ServiceRequest.name, schema: ServiceRequestSchema },
+    ]),
   ],
   providers: [ServicesService],
   controllers: [ServicesController],
   exports: [ServicesService],
 })
-export class ServicesModule { }
+export class ServicesModule {}

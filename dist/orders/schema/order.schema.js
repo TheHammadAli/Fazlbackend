@@ -26,31 +26,39 @@ let Order = class Order {
 };
 exports.Order = Order;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Order.prototype, "buyer", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, refPath: 'ownerModel', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, refPath: "ownerModel", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Order.prototype, "owner", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, required: true, enum: ['Shop', 'User'] }),
+    (0, mongoose_1.Prop)({ type: String, required: true, enum: ["Shop", "User"] }),
     __metadata("design:type", String)
 ], Order.prototype, "ownerModel", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Product', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Product", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Order.prototype, "product", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, enum: ['self-pickup', 'delivery'], required: true }),
+    (0, mongoose_1.Prop)({ type: String, enum: ["self-pickup", "delivery"], required: true }),
     __metadata("design:type", String)
 ], Order.prototype, "deliveryOption", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'], default: 'pending' }),
+    (0, mongoose_1.Prop)({
+        type: String,
+        enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+        default: "pending",
+    }),
     __metadata("design:type", String)
 ], Order.prototype, "status", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, enum: ['cashonDelivery', 'Easypaisa'], default: 'cashonDelivery' }),
+    (0, mongoose_1.Prop)({
+        type: String,
+        enum: ["cashonDelivery", "Easypaisa"],
+        default: "cashonDelivery",
+    }),
     __metadata("design:type", String)
 ], Order.prototype, "paymentType", void 0);
 __decorate([

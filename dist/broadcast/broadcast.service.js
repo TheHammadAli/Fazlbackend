@@ -53,7 +53,9 @@ let BroadcastService = class BroadcastService {
     async createBroadcast(dto, buyerId, location) {
         const results = await this.userService.findUserById(buyerId);
         if (!results) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.broadcast.user_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.broadcast.user_not_found", {
+                lang: this.lang,
+            }));
         }
         return this.broadcastModel.create({
             buyer: new mongoose_2.Types.ObjectId(buyerId),
@@ -109,7 +111,9 @@ let BroadcastService = class BroadcastService {
     async createBroadcastAndDispatch(dto, buyerId, location, imageUrl) {
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.category_invalid", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.category_invalid", {
+                lang: this.lang,
+            }));
         }
         if (dto.type !== "product" && dto.type !== "service") {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.type_invalid", { lang: this.lang }));
@@ -124,7 +128,9 @@ let BroadcastService = class BroadcastService {
         sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
         sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
         if (!sellerIds.length) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.no_sellers_found", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.no_sellers_found", {
+                lang: this.lang,
+            }));
         }
         const broadcast = await this.createBroadcast(dto, buyerId, location);
         console.log("Broadcast created:", broadcast);
@@ -141,7 +147,9 @@ let BroadcastService = class BroadcastService {
         }));
         await this.messageModel.insertMany(initialMessages);
         return {
-            message: this.i18n.translate("auth.broadcast.created_success", { lang: this.lang }),
+            message: this.i18n.translate("auth.broadcast.created_success", {
+                lang: this.lang,
+            }),
             data: broadcast._id.toString(),
         };
     }
@@ -149,31 +157,43 @@ let BroadcastService = class BroadcastService {
         const broadcastObjectId = new mongoose_2.Types.ObjectId(broadcastId);
         const broadcast = await this.broadcastModel.findById(broadcastObjectId);
         if (!broadcast) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.broadcast.broadcast_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.broadcast.broadcast_not_found", {
+                lang: this.lang,
+            }));
         }
         const [sender, receiver] = await Promise.all([
             this.userService.findUserById(senderId),
             this.userService.findUserById(receiverId),
         ]);
         if (!sender || !receiver) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", {
+                lang: this.lang,
+            }));
         }
         const thread = await this.threadModel.findById(threadId);
         if (!thread) {
-            throw new common_1.NotFoundException(this.i18n.translate("auth.broadcast.thread_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.broadcast.thread_not_found", {
+                lang: this.lang,
+            }));
         }
         if (thread.broadcast.toString() !== broadcastId) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.thread_invalid", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.thread_invalid", {
+                lang: this.lang,
+            }));
         }
         const isParticipant = thread.buyer.toString() === senderId ||
             thread.seller.toString() === senderId;
         if (!isParticipant) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.sender_not_in_thread", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.sender_not_in_thread", {
+                lang: this.lang,
+            }));
         }
         const isValidReceiver = thread.buyer.toString() === receiverId ||
             thread.seller.toString() === receiverId;
         if (!isValidReceiver) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", { lang: this.lang }));
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", {
+                lang: this.lang,
+            }));
         }
         const messageResults = await this.messageModel.create({
             broadcast: broadcastObjectId,
@@ -184,9 +204,7 @@ let BroadcastService = class BroadcastService {
             imageUrl,
         });
         if (broadcast_gateway_1.BroadcastGateway.serverInstance) {
-            broadcast_gateway_1.BroadcastGateway.serverInstance
-                .to(threadId)
-                .emit('receiveMessage', {
+            broadcast_gateway_1.BroadcastGateway.serverInstance.to(threadId).emit("receiveMessage", {
                 message: messageResults,
                 sender,
                 thread: {

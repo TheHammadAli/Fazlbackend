@@ -18,11 +18,11 @@ class RefreshTokenDto {
 exports.RefreshTokenDto = RefreshTokenDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 'your-refresh-token-here',
-        description: 'Refresh token string',
+        example: "your-refresh-token-here",
+        description: "Refresh token string",
     }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)({ message: 'refreshToken must not be empty' }),
+    (0, class_validator_1.IsNotEmpty)({ message: "refreshToken must not be empty" }),
     __metadata("design:type", String)
 ], RefreshTokenDto.prototype, "token", void 0);
 //# sourceMappingURL=refreshToken-dto.js.map

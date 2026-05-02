@@ -14,18 +14,18 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 let SearchService = class SearchService {
     configService;
-    AUTOCOMPLETE_URL = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
-    DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
+    AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
+    DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
     constructor(configService) {
         this.configService = configService;
     }
     async autocompleteLocations(input) {
-        const apiKey = this.configService.getOrThrow('GOOGLE_LOCATION_API_KEY');
+        const apiKey = this.configService.getOrThrow("GOOGLE_LOCATION_API_KEY");
         const params = new URLSearchParams({
             input,
             key: apiKey,
-            language: 'en',
-            components: 'country:pk',
+            language: "en",
+            components: "country:pk",
         });
         const res = await fetch(`${this.AUTOCOMPLETE_URL}?${params.toString()}`);
         if (!res.ok)
@@ -45,7 +45,7 @@ let SearchService = class SearchService {
         const params = new URLSearchParams({
             place_id: placeId,
             key: apiKey,
-            fields: 'geometry',
+            fields: "geometry",
         });
         const res = await fetch(`${this.DETAILS_URL}?${params.toString()}`);
         if (!res.ok)

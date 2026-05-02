@@ -74,24 +74,24 @@ __decorate([
 __decorate([
     (0, common_1.Post)("message"),
     (0, swagger_1.ApiOperation)({ summary: "Send a message in a conversation" }),
-    (0, swagger_1.ApiConsumes)('application/json', 'multipart/form-data'),
+    (0, swagger_1.ApiConsumes)("application/json", "multipart/form-data"),
     (0, swagger_1.ApiBody)({
         schema: {
-            type: 'object',
+            type: "object",
             properties: {
-                conversationId: { type: 'string' },
-                senderId: { type: 'string' },
-                receiverId: { type: 'string' },
-                text: { type: 'string' },
+                conversationId: { type: "string" },
+                senderId: { type: "string" },
+                receiverId: { type: "string" },
+                text: { type: "string" },
                 file: {
-                    type: 'string',
-                    format: 'binary',
+                    type: "string",
+                    format: "binary",
                     nullable: true,
                 },
             },
         },
     }),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("file")),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),

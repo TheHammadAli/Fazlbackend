@@ -12,17 +12,17 @@ import {
   ValidateNested,
   ArrayNotEmpty,
   IsOptional,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Location } from '../schema/users.interfaces';
+} from "class-validator";
+import { Type } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Location } from "../schema/users.interfaces";
 
 class LocationDto implements Location {
-  @ApiProperty({ enum: ['Point'], example: 'Point' })
-  @IsEnum(['Point'], { message: 'Location type must be "Point"' })
-  type: 'Point';
+  @ApiProperty({ enum: ["Point"], example: "Point" })
+  @IsEnum(["Point"], { message: 'Location type must be "Point"' })
+  type: "Point";
 
-  @ApiProperty({ example: [73.0479, 33.6844], description: '[lng, lat]' })
+  @ApiProperty({ example: [73.0479, 33.6844], description: "[lng, lat]" })
   @IsArray()
   @ArrayMinSize(2)
   @ArrayMaxSize(2)
@@ -31,43 +31,43 @@ class LocationDto implements Location {
 }
 
 export class CreateUpdateUserDto {
-  @ApiProperty({ example: 'user@example.com' })
+  @ApiProperty({ example: "user@example.com" })
   @IsEmail()
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: 'secret123' })
+  @ApiProperty({ example: "secret123" })
   @IsString()
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ example: 'John Doe' })
+  @ApiProperty({ example: "John Doe" })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: '+923001234567' })
+  @ApiProperty({ example: "+923001234567" })
   @IsString()
   @IsOptional()
   phone?: string;
 
-  @ApiProperty({ example: 'Street 1, City' })
+  @ApiProperty({ example: "Street 1, City" })
   @IsString()
   address: string;
 
   @ApiProperty({
-    example: ['buyer'],
-    enum: ['buyer', 'seller', 'admin', 'subadmin'],
-    isArray: true, 
+    example: ["buyer"],
+    enum: ["buyer", "seller", "admin", "subadmin"],
+    isArray: true,
   })
   @IsArray()
   @ArrayNotEmpty()
-  @IsEnum(['buyer', 'seller', 'admin', 'subadmin'], { each: true })
-  roles: ('buyer' | 'seller' | 'admin' | 'subadmin')[];
+  @IsEnum(["buyer", "seller", "admin", "subadmin"], { each: true })
+  roles: ("buyer" | "seller" | "admin" | "subadmin")[];
 
-  @ApiProperty({ enum: ['en', 'ur'], example: 'en' })
-  @IsEnum(['en', 'ur'], { message: 'Language must be either en or ur' })
-  language: 'en' | 'ur';
+  @ApiProperty({ enum: ["en", "ur"], example: "en" })
+  @IsEnum(["en", "ur"], { message: "Language must be either en or ur" })
+  language: "en" | "ur";
 
   @ApiProperty({ example: true })
   @IsBoolean()
@@ -79,15 +79,14 @@ export class CreateUpdateUserDto {
   location: LocationDto;
 
   @ApiProperty({
-    type: 'string',
-    format: 'binary',
+    type: "string",
+    format: "binary",
     isArray: true,
-    description: 'Upload image',
+    description: "Upload image",
   })
   image: any; // NestJS will handle file upload
 
-  @ApiProperty({ example: 'local' })
+  @ApiProperty({ example: "local" })
   @IsString()
   provider: string;
-
 }

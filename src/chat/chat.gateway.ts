@@ -6,38 +6,38 @@ import {
   WebSocketServer,
   MessageBody,
   ConnectedSocket,
-} from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { ChatService } from './chat.service';
-import { forwardRef, Inject, Logger } from '@nestjs/common';
+} from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
+import { ChatService } from "./chat.service";
+import { forwardRef, Inject, Logger } from "@nestjs/common";
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // Adjust in production
+    origin: "*", // Adjust in production
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
-   static serverInstance: Server;
+  static serverInstance: Server;
 
-  private logger: Logger = new Logger('ChatGateway');
+  private logger: Logger = new Logger("ChatGateway");
 
   constructor(
-  @Inject(forwardRef(() => ChatService))
-  private readonly chatService: ChatService,
-) {}
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
+  ) {}
 
   handleConnection(client: Socket) {
-    console.log('Client connected', client.id);
+    console.log("Client connected", client.id);
   }
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  @SubscribeMessage('joinConversation')
+  @SubscribeMessage("joinConversation")
   async handleJoinRoom(
     @MessageBody() data: { conversationId: string },
     @ConnectedSocket() client: Socket,
@@ -48,7 +48,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
-  @SubscribeMessage('sendMessage')
+  @SubscribeMessage("sendMessage")
   async handleSendMessage(
     @MessageBody()
     data: {
@@ -65,11 +65,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.receiverId,
       data.text,
     );
-
-
   }
 
-  @SubscribeMessage('startConversation')
+  @SubscribeMessage("startConversation")
   async handleStartConversation(
     @MessageBody() data: { buyerId: string; sellerId: string },
     @ConnectedSocket() client: Socket,
@@ -82,15 +80,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(
       `Client ${client.id} joined or created conversation ${convo?._id}`,
     );
-    client.emit('conversationStarted', convo);
+    client.emit("conversationStarted", convo);
   }
 
-  @SubscribeMessage('markAsRead')
+  @SubscribeMessage("markAsRead")
   async handleMarkAsRead(
     @MessageBody() data: { conversationId: string; userId: string },
   ) {
     await this.chatService.markAsRead(data.conversationId, data.userId);
-    this.server.to(data.conversationId).emit('messagesMarkedAsRead', {
+    this.server.to(data.conversationId).emit("messagesMarkedAsRead", {
       userId: data.userId,
     });
   }

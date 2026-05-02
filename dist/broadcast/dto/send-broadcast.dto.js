@@ -21,8 +21,8 @@ class SendBroadcastMessageDto {
 exports.SendBroadcastMessageDto = SendBroadcastMessageDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: '662f1b2c8f1a2b3c4d5e6f7d',
-        description: 'Receiver user ID',
+        example: "662f1b2c8f1a2b3c4d5e6f7d",
+        description: "Receiver user ID",
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
@@ -30,8 +30,8 @@ __decorate([
 ], SendBroadcastMessageDto.prototype, "receiverId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: '662f1b2c8f1a2b3c4d5e6f7c',
-        description: 'Thread ID (usually sellerId)',
+        example: "662f1b2c8f1a2b3c4d5e6f7c",
+        description: "Thread ID (usually sellerId)",
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
@@ -39,14 +39,14 @@ __decorate([
 ], SendBroadcastMessageDto.prototype, "threadId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 'I can supply at best price',
+        example: "I can supply at best price",
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], SendBroadcastMessageDto.prototype, "message", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: 'string', format: 'binary', required: false }),
+    (0, swagger_1.ApiProperty)({ type: "string", format: "binary", required: false }),
     __metadata("design:type", Object)
 ], SendBroadcastMessageDto.prototype, "file", void 0);
 //# sourceMappingURL=send-broadcast.dto.js.map

@@ -1,17 +1,16 @@
 // conversation.schema.ts
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 @Schema({ timestamps: true })
-
 export class Conversation extends Document {
-  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
+  @Prop({ type: Types.ObjectId, required: true, ref: "User" })
   buyer!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
+  @Prop({ type: Types.ObjectId, required: true, ref: "User" })
   seller!: Types.ObjectId;
 
-  @Prop({ type: String, enum: ['open', 'closed'], default: 'open' })
+  @Prop({ type: String, enum: ["open", "closed"], default: "open" })
   status!: string;
 
   @Prop({ type: Date })

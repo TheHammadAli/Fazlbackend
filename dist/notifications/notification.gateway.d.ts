@@ -1,6 +1,6 @@
-import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { NotificationsService } from './notifications.service';
+import { OnGatewayConnection, OnGatewayDisconnect } from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
+import { NotificationsService } from "./notifications.service";
 export declare class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly notificationsService;
     server: Server;

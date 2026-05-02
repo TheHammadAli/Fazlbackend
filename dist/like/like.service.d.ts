@@ -1,15 +1,15 @@
-import { Model, Types } from 'mongoose';
-import { Like, LikeDocument } from './schema/like.schema';
-import { CreateLikeDto, RemoveLikeDto } from './dto/like.dto';
-import { ProductsService } from 'src/products/products.service';
-import { ServicesService } from 'src/services/services.service';
-import { I18nService } from 'nestjs-i18n';
-import { ClsService } from 'nestjs-cls';
+import { Model, Types } from "mongoose";
+import { Like, LikeDocument } from "./schema/like.schema";
+import { CreateLikeDto, RemoveLikeDto } from "./dto/like.dto";
+import { ProductsService } from "src/products/products.service";
+import { ServicesService } from "src/services/services.service";
+import { I18nService } from "nestjs-i18n";
+import { ClsService } from "nestjs-cls";
 export interface LikeItem {
     _id: Types.ObjectId;
     itemId: Types.ObjectId;
-    itemType: 'product' | 'service';
-    ownerModel: 'Shop' | 'User';
+    itemType: "product" | "service";
+    ownerModel: "Shop" | "User";
     createdAt: Date;
 }
 export interface PopulatedLikeItem extends LikeItem {
@@ -30,8 +30,8 @@ export declare class LikeService {
     removeLike(userId: string, dto: RemoveLikeDto): Promise<{
         message: string;
     }>;
-    getLikesByUser(userId: string, itemType?: 'product' | 'service', ids?: Types.ObjectId[]): Promise<PopulatedLikeItem[]>;
-    isLiked(userId: string, itemId: string, itemType: 'product' | 'service'): Promise<boolean>;
-    getLikeCount(itemId: string, itemType: 'product' | 'service'): Promise<number>;
+    getLikesByUser(userId: string, itemType?: "product" | "service", ids?: Types.ObjectId[]): Promise<PopulatedLikeItem[]>;
+    isLiked(userId: string, itemId: string, itemType: "product" | "service"): Promise<boolean>;
+    getLikeCount(itemId: string, itemType: "product" | "service"): Promise<number>;
     private validateItemExists;
 }

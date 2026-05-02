@@ -27,7 +27,10 @@ exports.ServicesModule = ServicesModule = __decorate([
             (0, common_1.forwardRef)(() => like_module_1.LikeModule),
             (0, common_1.forwardRef)(() => shared_module_1.SharedModule),
             (0, common_1.forwardRef)(() => notifications_module_1.NotificationsModule),
-            mongoose_1.MongooseModule.forFeature([{ name: services_schema_1.Service.name, schema: services_schema_1.ServiceSchema }, { name: service_request_schema_1.ServiceRequest.name, schema: service_request_schema_1.ServiceRequestSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: services_schema_1.Service.name, schema: services_schema_1.ServiceSchema },
+                { name: service_request_schema_1.ServiceRequest.name, schema: service_request_schema_1.ServiceRequestSchema },
+            ]),
         ],
         providers: [services_service_1.ServicesService],
         controllers: [services_controller_1.ServicesController],

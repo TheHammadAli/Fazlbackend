@@ -36,13 +36,16 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 @UseGuards(JwtAuthGuard) // 🔥 protects ALL routes in controller
 @Controller("broadcast")
 export class BroadcastController {
-  constructor(private readonly broadcastService: BroadcastService, private readonly fileUploadService: FileUploadService) { }
+  constructor(
+    private readonly broadcastService: BroadcastService,
+    private readonly fileUploadService: FileUploadService,
+  ) {}
 
   // 🚀 Create broadcast
   @Post("/create")
   @ApiOperation({ summary: "Create broadcast and dispatch sellers" })
-  @ApiConsumes('application/json', 'multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes("application/json", "multipart/form-data")
+  @UseInterceptors(FileInterceptor("file"))
   async createBroadcast(
     @Body() dto: CreateBroadcastDto,
     @Req() req: Request,
@@ -61,7 +64,10 @@ export class BroadcastController {
 
     // Upload to S3 if a file exists
     if (file) {
-      imageUrl = await this.fileUploadService.uploadBroadcastImage(buyerId, file);
+      imageUrl = await this.fileUploadService.uploadBroadcastImage(
+        buyerId,
+        file,
+      );
     }
 
     // Pass imageUrl to your service
@@ -77,8 +83,8 @@ export class BroadcastController {
   @Post("/message/:id")
   @ApiOperation({ summary: "Send message in broadcast thread" })
   @ApiParam({ name: "id", description: "Broadcast ID" })
-  @ApiConsumes('application/json', 'multipart/form-data') // Allow file upload in Swagger
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes("application/json", "multipart/form-data") // Allow file upload in Swagger
+  @UseInterceptors(FileInterceptor("file"))
   async sendMessage(
     @Param("id") broadcastId: string,
     @Body() dto: SendBroadcastMessageDto,

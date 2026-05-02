@@ -1,6 +1,6 @@
-import { Location } from '../schema/users.interfaces';
+import { Location } from "../schema/users.interfaces";
 declare class LocationDto implements Location {
-    type: 'Point';
+    type: "Point";
     coordinates: [number, number];
 }
 export declare class CreateUpdateUserDto {
@@ -9,8 +9,8 @@ export declare class CreateUpdateUserDto {
     name: string;
     phone?: string;
     address: string;
-    roles: ('buyer' | 'seller' | 'admin' | 'subadmin')[];
-    language: 'en' | 'ur';
+    roles: ("buyer" | "seller" | "admin" | "subadmin")[];
+    language: "en" | "ur";
     isVerified: boolean;
     location: LocationDto;
     image: any;

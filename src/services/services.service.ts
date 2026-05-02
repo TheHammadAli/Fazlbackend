@@ -45,9 +45,7 @@ export class ServicesService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
-
-
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
@@ -66,7 +64,9 @@ export class ServicesService {
     const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.user_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.user_not_found", {
+          lang: this.lang,
+        }),
       );
     }
     const existingService = await this.serviceModel.findOne({
@@ -158,7 +158,7 @@ export class ServicesService {
         throw new BadRequestException("You can only upload up to 5 images");
       }
       images = existingService.images || [];
-      let newimages = await this.fileUploadService.uploadServiceFile(
+      const newimages = await this.fileUploadService.uploadServiceFile(
         existingService.ownerId.toString(),
         serviceId,
         imageFiles,
@@ -195,7 +195,9 @@ export class ServicesService {
 
     if (!updated) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
     }
     console.log("Updated Service:", video);
@@ -206,7 +208,9 @@ export class ServicesService {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
       // Ensure the service exists before attempting to delete
     }
@@ -217,7 +221,9 @@ export class ServicesService {
     const result = await this.serviceModel.findByIdAndDelete(serviceId);
     if (!result) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
     }
   }
@@ -226,12 +232,16 @@ export class ServicesService {
     const existingService = await this.serviceModel.findById(serviceId);
     if (!existingService) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }),
+        this.i18n.translate("auth.services.no_media_provided", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -265,7 +275,9 @@ export class ServicesService {
 
     if (!service) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -348,12 +360,7 @@ export class ServicesService {
   }
 
   async createServiceRequest(dto: CreateRequestDto) {
-    const {
-      serviceId,
-      customerId,
-      requestedDateTime,
-      message,
-    } = dto;
+    const { serviceId, customerId, requestedDateTime, message } = dto;
 
     // --- Validation: User Existence ---
     const customer = customerId
@@ -362,7 +369,9 @@ export class ServicesService {
 
     if (customerId && !customer)
       throw new NotFoundException(
-        this.i18n.translate("auth.services.customer_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.customer_not_found", {
+          lang: this.lang,
+        }),
       );
 
     // --- Creation Flow ---
@@ -373,10 +382,14 @@ export class ServicesService {
       );
     }
 
-    const service = await this.serviceModel.findById(serviceId).populate("ownerId");
+    const service = await this.serviceModel
+      .findById(serviceId)
+      .populate("ownerId");
     if (!service)
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
 
     const request = new this.requestModel({
@@ -394,7 +407,7 @@ export class ServicesService {
       service.ownerId.toString(),
       `New service request for "${service.title}" from ${customer?.name || "a user"}`,
       "SERVICE_REQUEST",
-      { serviceId, customerId, requestedDateTime, service }
+      { serviceId, customerId, requestedDateTime, service },
     );
 
     return results;
@@ -410,7 +423,9 @@ export class ServicesService {
 
     if (!request)
       throw new NotFoundException(
-        this.i18n.translate("auth.services.request_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.request_not_found", {
+          lang: this.lang,
+        }),
       );
 
     // ✅ Safely extract service name (avoid using full object)
@@ -419,7 +434,7 @@ export class ServicesService {
     // 1. Prepare variables at the top
     let notificationKey: string | null = null;
     let recipientId: string = request.customer._id.toString();
-    let notificationPayload = { requestId: request._id, action, request };
+    const notificationPayload = { requestId: request._id, action, request };
 
     // 2. The Switch logic (ONLY updates status and picks the message key)
     switch (action) {
@@ -450,7 +465,9 @@ export class ServicesService {
         break;
 
       default:
-        throw new BadRequestException(this.i18n.translate("auth.services.unsupported_action"));
+        throw new BadRequestException(
+          this.i18n.translate("auth.services.unsupported_action"),
+        );
     }
 
     // 3. Perform the DB Operation (The Source of Truth)
@@ -465,7 +482,7 @@ export class ServicesService {
         notificationKey, // Use the translation key decided in the switch
         "SERVICE_REQUEST",
         notificationPayload, // Mandatory Payload
-        { serviceName, proposedDate: proposedDateTime } // i18n Args
+        { serviceName, proposedDate: proposedDateTime }, // i18n Args
       );
     }
 
@@ -495,10 +512,19 @@ export class ServicesService {
           jobStatus: "in_progress",
         });
 
-        console.log("Existing in-progress job for provider:", existingInProgress, "Provider ID:", request.provider, "Request ID:", request._id);
+        console.log(
+          "Existing in-progress job for provider:",
+          existingInProgress,
+          "Provider ID:",
+          request.provider,
+          "Request ID:",
+          request._id,
+        );
         if (existingInProgress) {
           throw new BadRequestException(
-            this.i18n.translate("auth.services.provider_has_in_progress_job", { lang: this.lang }),
+            this.i18n.translate("auth.services.provider_has_in_progress_job", {
+              lang: this.lang,
+            }),
           );
         }
 
@@ -534,7 +560,7 @@ export class ServicesService {
         requestId: result._id,
         jobStatus: result.jobStatus,
       },
-    }
+    };
   }
 
   async getServiceRequestsByUser(
@@ -569,7 +595,9 @@ export class ServicesService {
 
     if (!requests || requests.length === 0) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.no_requests_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.no_requests_found", {
+          lang: this.lang,
+        }),
       );
     }
     return {
@@ -587,12 +615,16 @@ export class ServicesService {
     const service = await this.serviceModel.findById(serviceId);
     if (!service) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }),
+        this.i18n.translate("auth.services.no_media_provided", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -624,7 +656,7 @@ export class ServicesService {
 
   async getServicesWithVideos(
     paginationDto: PaginationDto,
-    userId: string
+    userId: string,
   ): Promise<PaginatedResponseDto<Service>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -650,16 +682,18 @@ export class ServicesService {
 
     const likes = await this.likeService.getLikesByUser(
       userId,
-      'service',
+      "service",
       productIds,
     );
 
     console.log("Services with Likes:", likes);
 
-    const likedServiceIds = new Set(likes.map((like: any) => like.itemId.toString()));
+    const likedServiceIds = new Set(
+      likes.map((like: any) => like.itemId.toString()),
+    );
     console.log("Liked Service IDs:", likedServiceIds);
     const data = items.map((item: any) => ({
-      ...item,                          // Now safe because of .lean()
+      ...item, // Now safe because of .lean()
       isLiked: likedServiceIds.has(item._id.toString()),
     }));
 

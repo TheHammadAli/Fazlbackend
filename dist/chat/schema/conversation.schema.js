@@ -20,15 +20,15 @@ let Conversation = class Conversation extends mongoose_2.Document {
 };
 exports.Conversation = Conversation;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Conversation.prototype, "buyer", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Conversation.prototype, "seller", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, enum: ['open', 'closed'], default: 'open' }),
+    (0, mongoose_1.Prop)({ type: String, enum: ["open", "closed"], default: "open" }),
     __metadata("design:type", String)
 ], Conversation.prototype, "status", void 0);
 __decorate([

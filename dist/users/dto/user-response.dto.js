@@ -23,32 +23,32 @@ let UserResponseDto = class UserResponseDto {
 };
 exports.UserResponseDto = UserResponseDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '507f1f77bcf86cd799439011' }),
+    (0, swagger_1.ApiProperty)({ example: "507f1f77bcf86cd799439011" }),
     (0, class_transformer_1.Expose)(),
     __metadata("design:type", String)
 ], UserResponseDto.prototype, "id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'John Doe' }),
+    (0, swagger_1.ApiProperty)({ example: "John Doe" }),
     (0, class_transformer_1.Expose)(),
     __metadata("design:type", String)
 ], UserResponseDto.prototype, "name", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'user@example.com' }),
+    (0, swagger_1.ApiProperty)({ example: "user@example.com" }),
     (0, class_transformer_1.Expose)(),
     __metadata("design:type", String)
 ], UserResponseDto.prototype, "email", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: ['buyer'],
+        example: ["buyer"],
         isArray: true,
-        enum: ['buyer', 'seller', 'admin', 'subadmin'],
+        enum: ["buyer", "seller", "admin", "subadmin"],
     }),
     (0, class_transformer_1.Expose)(),
     __metadata("design:type", Array)
 ], UserResponseDto.prototype, "role", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: { type: 'Point', coordinates: [73.0479, 33.6844] },
+        example: { type: "Point", coordinates: [73.0479, 33.6844] },
     }),
     (0, class_transformer_1.Expose)(),
     __metadata("design:type", Object)

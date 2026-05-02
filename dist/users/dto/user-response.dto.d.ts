@@ -1,4 +1,4 @@
-import { Location } from '../schema/users.interfaces';
+import { Location } from "../schema/users.interfaces";
 export declare class UserResponseDto {
     id: string;
     name: string;

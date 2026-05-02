@@ -213,7 +213,7 @@ __decorate([
         description: "Paginated list of services with videos",
     }),
     __param(0, (0, common_1.Query)()),
-    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)("sub")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)

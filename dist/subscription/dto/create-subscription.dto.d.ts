@@ -1,8 +1,8 @@
 export declare class CreateSubscriptionDto {
-    targetType: 'product' | 'shop';
+    targetType: "product" | "shop";
     name: string;
     price: number;
     durationInDays: number;
-    screenType?: 'listing' | 'feed';
+    screenType?: "listing" | "feed";
     description?: string;
 }

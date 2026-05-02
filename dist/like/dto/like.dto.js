@@ -19,21 +19,27 @@ class CreateLikeDto {
 }
 exports.CreateLikeDto = CreateLikeDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '507f1f77bcf86cd799439011', description: 'ID of the item to like' }),
+    (0, swagger_1.ApiProperty)({
+        example: "507f1f77bcf86cd799439011",
+        description: "ID of the item to like",
+    }),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], CreateLikeDto.prototype, "itemId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['product', 'service'], description: 'Type of item being liked' }),
+    (0, swagger_1.ApiProperty)({
+        enum: ["product", "service"],
+        description: "Type of item being liked",
+    }),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.IsEnum)(['product', 'service']),
+    (0, class_validator_1.IsEnum)(["product", "service"]),
     __metadata("design:type", String)
 ], CreateLikeDto.prototype, "itemType", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['Shop', 'User'], description: 'Owner model type' }),
+    (0, swagger_1.ApiProperty)({ enum: ["Shop", "User"], description: "Owner model type" }),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.IsEnum)(['Shop', 'User']),
+    (0, class_validator_1.IsEnum)(["Shop", "User"]),
     __metadata("design:type", String)
 ], CreateLikeDto.prototype, "ownerModel", void 0);
 class RemoveLikeDto {
@@ -42,15 +48,21 @@ class RemoveLikeDto {
 }
 exports.RemoveLikeDto = RemoveLikeDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '507f1f77bcf86cd799439011', description: 'ID of the item to unlike' }),
+    (0, swagger_1.ApiProperty)({
+        example: "507f1f77bcf86cd799439011",
+        description: "ID of the item to unlike",
+    }),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], RemoveLikeDto.prototype, "itemId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['product', 'service'], description: 'Type of item being unliked' }),
+    (0, swagger_1.ApiProperty)({
+        enum: ["product", "service"],
+        description: "Type of item being unliked",
+    }),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.IsEnum)(['product', 'service']),
+    (0, class_validator_1.IsEnum)(["product", "service"]),
     __metadata("design:type", String)
 ], RemoveLikeDto.prototype, "itemType", void 0);
 //# sourceMappingURL=like.dto.js.map

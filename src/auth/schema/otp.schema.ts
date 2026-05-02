@@ -1,6 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 @Schema()
 export class Otp {
@@ -16,13 +15,12 @@ export class Otp {
   @Prop({ required: true })
   createdAt: Date;
 
-  @Prop({ default: 'phone' })
+  @Prop({ default: "phone" })
   type: string; // 'phone' | 'email_verification' | etc.
 
   @Prop()
   expiresAt?: Date; // Optional, for expiration logic
 }
-
 
 export type OtpDocument = Otp & Document;
 export const OtpSchema = SchemaFactory.createForClass(Otp);

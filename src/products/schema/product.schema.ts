@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 @Schema({
   timestamps: true,
@@ -7,10 +7,10 @@ import { Document, Types } from 'mongoose';
   toObject: { virtuals: true },
 })
 export class Product {
-  @Prop({ type: Types.ObjectId, ref: 'Shop', required: false })
+  @Prop({ type: Types.ObjectId, ref: "Shop", required: false })
   shopId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  @Prop({ type: Types.ObjectId, ref: "User", required: false })
   ownerId?: Types.ObjectId;
 
   @Prop({ required: true, trim: true })
@@ -22,13 +22,11 @@ export class Product {
   @Prop({ required: true })
   price: number;
 
-  @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
-  category: Types.ObjectId
+  @Prop({ type: Types.ObjectId, ref: "Category", required: true })
+  category: Types.ObjectId;
 
-
-
-  @Prop({ type: String, enum: ['retail', 'classified'], required: true })
-  type: 'retail' | 'classified';
+  @Prop({ type: String, enum: ["retail", "classified"], required: true })
+  type: "retail" | "classified";
 
   @Prop({ type: [String], default: [] })
   images: string[];
@@ -38,9 +36,9 @@ export class Product {
   @Prop({
     type: {
       type: String,
-      enum: ['Point'],
+      enum: ["Point"],
       required: true,
-      default: 'Point',
+      default: "Point",
     },
     coordinates: {
       type: [Number],
@@ -48,7 +46,7 @@ export class Product {
     },
   })
   location: {
-    type: 'Point';
+    type: "Point";
     coordinates: [number, number];
   };
 
@@ -66,11 +64,10 @@ export class Product {
     name: string;
     variants: string[];
   }>;
-
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-ProductSchema.index({ location: '2dsphere' });
+ProductSchema.index({ location: "2dsphere" });
 
 export type ProductDocument = Product & Document;

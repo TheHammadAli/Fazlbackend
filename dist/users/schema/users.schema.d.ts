@@ -1,13 +1,13 @@
-import { Document } from 'mongoose';
-import { Location } from './users.interfaces';
+import { Document } from "mongoose";
+import { Location } from "./users.interfaces";
 export declare class User {
     name: string;
     email: string;
     password: string;
     roles: string[];
     phone?: string;
-    language: 'en' | 'ur';
-    isVerified: Boolean;
+    language: "en" | "ur";
+    isVerified: boolean;
     location: Location;
     refreshToken?: string | null;
     resetPasswordToken?: string | null;

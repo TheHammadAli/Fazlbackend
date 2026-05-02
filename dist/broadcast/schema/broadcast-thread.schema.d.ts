@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export declare class BroadcastThread extends Document {
     broadcast: Types.ObjectId;
     buyer: Types.ObjectId;

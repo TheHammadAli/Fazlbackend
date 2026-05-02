@@ -24,7 +24,6 @@ import { PromotionService } from "src/promotion/promotion.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
 
-
 @Injectable()
 export class ProductsService {
   constructor(
@@ -39,8 +38,7 @@ export class ProductsService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
-
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -49,8 +47,7 @@ export class ProductsService {
   async create(
     entityId: string,
     type: "shop" | "personal",
-    dto: CreateProductDto
-
+    dto: CreateProductDto,
   ): Promise<{ message: string; data: { product: Product } }> {
     try {
       let location: { type: "Point"; coordinates: [number, number] };
@@ -63,7 +60,9 @@ export class ProductsService {
         const shop = await this.shopService.getShopById(entityId);
         if (!shop) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.shop_not_found", { lang: this.lang }),
+            this.i18n.translate("auth.products.shop_not_found", {
+              lang: this.lang,
+            }),
           );
         }
 
@@ -73,7 +72,9 @@ export class ProductsService {
           shop.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("auth.products.shop_location_missing", { lang: this.lang }),
+            this.i18n.translate("auth.products.shop_location_missing", {
+              lang: this.lang,
+            }),
           );
         }
 
@@ -84,7 +85,9 @@ export class ProductsService {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.user_not_found", { lang: this.lang }),
+            this.i18n.translate("auth.products.user_not_found", {
+              lang: this.lang,
+            }),
           );
         }
         console.log("User:", user);
@@ -95,7 +98,9 @@ export class ProductsService {
           user.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("auth.products.user_location_missing", { lang: this.lang }),
+            this.i18n.translate("auth.products.user_location_missing", {
+              lang: this.lang,
+            }),
           );
         }
 
@@ -143,11 +148,13 @@ export class ProductsService {
 
       const result = await createdProduct.save();
       return {
-        message: this.i18n.translate("auth.products.created_success", { lang: this.lang }),
+        message: this.i18n.translate("auth.products.created_success", {
+          lang: this.lang,
+        }),
         data: {
           product: result,
-        }
-      }
+        },
+      };
     } catch (err) {
       throw new InternalServerErrorException(err);
     }
@@ -206,19 +213,19 @@ export class ProductsService {
       .populate("category");
     if (!product)
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
       );
     return product;
   }
 
-  async update(
-    productId: string,
-    updateDto: UpdateProductDto,
-
-  ): Promise<any> {
+  async update(productId: string, updateDto: UpdateProductDto): Promise<any> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
-        this.i18n.translate("auth.products.shop_cant_update", { lang: this.lang }),
+        this.i18n.translate("auth.products.shop_cant_update", {
+          lang: this.lang,
+        }),
       );
     }
     if (updateDto.category) {
@@ -237,7 +244,9 @@ export class ProductsService {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -250,7 +259,7 @@ export class ProductsService {
         "images",
       );
       console.log("Uploaded Images:", uploadedFiles);
-      let newImages = uploadedFiles.map((file) => file.url);
+      const newImages = uploadedFiles.map((file) => file.url);
       updateDto.images = [...(existingProduct.images || []), ...newImages];
     }
     if (updateDto.video) {
@@ -272,23 +281,29 @@ export class ProductsService {
 
     if (!updated) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
       );
     }
 
     return {
-      message: this.i18n.translate("auth.products.updated_success", { lang: this.lang }),
+      message: this.i18n.translate("auth.products.updated_success", {
+        lang: this.lang,
+      }),
       data: {
         product: updated,
-      }
-    }
+      },
+    };
   }
 
   async delete(productId: string, lang: string = "en"): Promise<void> {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
       );
     }
     const type = existingProduct.shopId ? "shop" : "personal";
@@ -303,24 +318,26 @@ export class ProductsService {
     const result = await this.productModel.findByIdAndDelete(productId);
     if (!result)
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
       );
   }
 
-  async deleteProductMedia(
-    productId: string,
-    media: string[],
-
-  ) {
+  async deleteProductMedia(productId: string, media: string[]) {
     const existingProduct = await this.productModel.findById(productId);
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.products.no_media_provided", { lang: this.lang }),
+        this.i18n.translate("auth.products.no_media_provided", {
+          lang: this.lang,
+        }),
       );
     }
 
@@ -451,11 +468,11 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.productModel
         .find(filter)
-        .populate('category')           // you can also populate shopId or ownerId if needed
+        .populate("category") // you can also populate shopId or ownerId if needed
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean()                         // ← This is the key fix
+        .lean() // ← This is the key fix
         .exec(),
 
       this.productModel.countDocuments(filter).exec(),
@@ -465,16 +482,18 @@ export class ProductsService {
 
     const likes = await this.likeService.getLikesByUser(
       userId,
-      'product',
+      "product",
       productIds,
     );
 
     console.log("Products with Likes:", likes);
 
-    const likedProductIds = new Set(likes.map((like: any) => like.itemId.toString()));
+    const likedProductIds = new Set(
+      likes.map((like: any) => like.itemId.toString()),
+    );
     console.log("Liked Product IDs:", likedProductIds);
     const data = items.map((item: any) => ({
-      ...item,                          // Now safe because of .lean()
+      ...item, // Now safe because of .lean()
       isLiked: likedProductIds.has(item._id.toString()),
     }));
 
@@ -485,7 +504,7 @@ export class ProductsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data
+      data,
     };
   }
 }

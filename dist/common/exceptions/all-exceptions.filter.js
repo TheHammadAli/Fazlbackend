@@ -15,31 +15,31 @@ let AllExceptionsFilter = class AllExceptionsFilter {
         const response = ctx.getResponse();
         const request = ctx.getRequest();
         let status = common_1.HttpStatus.INTERNAL_SERVER_ERROR;
-        let error = 'Internal Server Error';
-        let message = 'An unexpected error occurred';
+        let error = "Internal Server Error";
+        let message = "An unexpected error occurred";
         if (exception instanceof app_error_1.AppError) {
             status = exception.status;
             message = exception.message;
             error = exception.code;
-            console.error('AppError:', exception.originalError ?? exception.stack);
+            console.error("AppError:", exception.originalError ?? exception.stack);
         }
         else if (exception instanceof common_1.HttpException) {
             status = exception.getStatus();
             const exceptionResponse = exception.getResponse();
-            if (typeof exceptionResponse === 'string') {
+            if (typeof exceptionResponse === "string") {
                 message = exceptionResponse;
-                error = exception.name.replace('Exception', '');
+                error = exception.name.replace("Exception", "");
             }
-            else if (typeof exceptionResponse === 'object') {
+            else if (typeof exceptionResponse === "object") {
                 message = exceptionResponse.message || message;
                 error =
                     exceptionResponse.error ||
-                        exception.name.replace('Exception', '');
+                        exception.name.replace("Exception", "");
             }
-            console.error('HttpException:', exception.stack);
+            console.error("HttpException:", exception.stack);
         }
         else {
-            console.error('Unhandled Exception:', exception);
+            console.error("Unhandled Exception:", exception);
         }
         response.status(status).json({
             success: false,

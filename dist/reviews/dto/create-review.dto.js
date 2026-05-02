@@ -21,18 +21,18 @@ class CreateReviewDto {
 }
 exports.CreateReviewDto = CreateReviewDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'userId123' }),
+    (0, swagger_1.ApiProperty)({ example: "userId123" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateReviewDto.prototype, "userId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'itemId456' }),
+    (0, swagger_1.ApiProperty)({ example: "itemId456" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateReviewDto.prototype, "itemId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['product', 'service'], example: 'product' }),
-    (0, class_validator_1.IsIn)(['product', 'service']),
+    (0, swagger_1.ApiProperty)({ enum: ["product", "service"], example: "product" }),
+    (0, class_validator_1.IsIn)(["product", "service"]),
     __metadata("design:type", String)
 ], CreateReviewDto.prototype, "itemType", void 0);
 __decorate([
@@ -43,7 +43,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateReviewDto.prototype, "rating", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ maxLength: 1000, example: 'Great product!' }),
+    (0, swagger_1.ApiPropertyOptional)({ maxLength: 1000, example: "Great product!" }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(1000),

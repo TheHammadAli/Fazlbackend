@@ -41,7 +41,7 @@ let ShopService = class ShopService {
         this.cls = cls;
     }
     get lang() {
-        return this.cls?.get('lang') ?? 'en';
+        return this.cls?.get("lang") ?? "en";
     }
     async createShop(ownerId, dto) {
         const existingUser = await this.usersService.findUserById(ownerId.toString());
@@ -64,8 +64,10 @@ let ShopService = class ShopService {
         }
         const shopResult = await results.save();
         return {
-            message: this.i18n.translate("auth.shop.created_success", { lang: this.lang }),
-            data: shopResult
+            message: this.i18n.translate("auth.shop.created_success", {
+                lang: this.lang,
+            }),
+            data: shopResult,
         };
     }
     async updateShop(shopId, dto) {

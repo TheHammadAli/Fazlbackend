@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export declare class Conversation extends Document {
     buyer: Types.ObjectId;
     seller: Types.ObjectId;

@@ -31,7 +31,7 @@ exports.ChatModule = ChatModule = __decorate([
             ]),
             users_module_1.UsersModule,
             shop_module_1.ShopModule,
-            notifications_module_1.NotificationsModule
+            notifications_module_1.NotificationsModule,
         ],
         providers: [chat_service_1.ChatService, chat_gateway_1.ChatGateway, file_upload_service_1.FileUploadService, config_1.ConfigService],
         controllers: [chat_controller_1.ChatController],

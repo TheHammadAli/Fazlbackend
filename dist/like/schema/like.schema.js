@@ -20,7 +20,7 @@ let Like = class Like {
 };
 exports.Like = Like;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Like.prototype, "userId", void 0);
 __decorate([
@@ -31,7 +31,7 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: String,
         required: true,
-        enum: ['product', 'service']
+        enum: ["product", "service"],
     }),
     __metadata("design:type", String)
 ], Like.prototype, "itemType", void 0);
@@ -39,7 +39,7 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: String,
         required: true,
-        enum: ['Shop', 'User']
+        enum: ["Shop", "User"],
     }),
     __metadata("design:type", String)
 ], Like.prototype, "ownerModel", void 0);

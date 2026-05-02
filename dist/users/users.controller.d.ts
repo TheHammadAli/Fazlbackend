@@ -1,8 +1,8 @@
-import { UsersService } from './users.service';
-import { CreateUpdateUserDto } from './dto/create-update-User.dto';
-import { User } from './schema/users.schema';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtPayload } from 'src/auth/strategies/jwt-strategy';
+import { UsersService } from "./users.service";
+import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
+import { User } from "./schema/users.schema";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);

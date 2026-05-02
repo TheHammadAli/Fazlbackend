@@ -19,11 +19,9 @@ let LanguageInterceptor = class LanguageInterceptor {
     }
     intercept(context, next) {
         const req = context.switchToHttp().getRequest();
-        const rawLang = req.headers['accept-language'];
-        const lang = typeof rawLang === 'string'
-            ? rawLang.split(',')[0].split('-')[0]
-            : 'en';
-        this.cls.set('lang', lang);
+        const rawLang = req.headers["accept-language"];
+        const lang = typeof rawLang === "string" ? rawLang.split(",")[0].split("-")[0] : "en";
+        this.cls.set("lang", lang);
         return next.handle();
     }
 };

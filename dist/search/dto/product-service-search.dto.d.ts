@@ -1,5 +1,5 @@
 export declare class SearchQueryDto {
-    type: 'product' | 'service';
+    type: "product" | "service";
     category?: string;
     radius: number;
     lat: number;

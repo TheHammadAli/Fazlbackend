@@ -44,8 +44,8 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         type: [String],
-        enum: ['buyer', 'seller', 'admin', 'subadmin'],
-        default: ['buyer'],
+        enum: ["buyer", "seller", "admin", "subadmin"],
+        default: ["buyer"],
     }),
     __metadata("design:type", Array)
 ], User.prototype, "roles", void 0);
@@ -57,7 +57,7 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: {
             type: String,
-            enum: ['Point'],
+            enum: ["Point"],
             required: false,
         },
         coordinates: {
@@ -88,7 +88,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "provider", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, }),
+    (0, mongoose_1.Prop)({ type: String }),
     __metadata("design:type", Object)
 ], User.prototype, "address", void 0);
 __decorate([
@@ -109,5 +109,5 @@ exports.UserSchema.methods.toJSON = function () {
     delete user.__v;
     return user;
 };
-exports.UserSchema.index({ location: '2dsphere' });
+exports.UserSchema.index({ location: "2dsphere" });
 //# sourceMappingURL=users.schema.js.map

@@ -19,21 +19,21 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromExtractors([
                 (req) => {
-                    console.log('Request headers:', req.headers);
+                    console.log("Request headers:", req.headers);
                     const authHeader = req.headers.authorization;
-                    console.log('step-2', authHeader);
-                    if (authHeader?.startsWith('Bearer ')) {
-                        return authHeader.split(' ')[1];
+                    console.log("step-2", authHeader);
+                    if (authHeader?.startsWith("Bearer ")) {
+                        return authHeader.split(" ")[1];
                     }
                     return null;
                 },
             ]),
             ignoreExpiration: false,
-            secretOrKey: configService.getOrThrow('JWT_SECRET'),
+            secretOrKey: configService.getOrThrow("JWT_SECRET"),
         });
     }
     async validate(payload) {
-        console.log('JWT Payload:', payload);
+        console.log("JWT Payload:", payload);
         return {
             sub: payload.sub,
             email: payload.email,

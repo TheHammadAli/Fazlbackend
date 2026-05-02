@@ -7,7 +7,7 @@ export declare class CreateProductDto {
     description?: string;
     price: number;
     category: string;
-    type: 'retail' | 'classified';
+    type: "retail" | "classified";
     images: any;
     video: any;
     parameters?: ProductParameterDto[];

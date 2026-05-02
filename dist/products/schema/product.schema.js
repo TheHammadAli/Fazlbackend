@@ -27,11 +27,11 @@ let Product = class Product {
 };
 exports.Product = Product;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Shop', required: false }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Shop", required: false }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Product.prototype, "shopId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: false }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: false }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Product.prototype, "ownerId", void 0);
 __decorate([
@@ -47,11 +47,11 @@ __decorate([
     __metadata("design:type", Number)
 ], Product.prototype, "price", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Category', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Category", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Product.prototype, "category", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, enum: ['retail', 'classified'], required: true }),
+    (0, mongoose_1.Prop)({ type: String, enum: ["retail", "classified"], required: true }),
     __metadata("design:type", String)
 ], Product.prototype, "type", void 0);
 __decorate([
@@ -66,9 +66,9 @@ __decorate([
     (0, mongoose_1.Prop)({
         type: {
             type: String,
-            enum: ['Point'],
+            enum: ["Point"],
             required: true,
-            default: 'Point',
+            default: "Point",
         },
         coordinates: {
             type: [Number],
@@ -98,5 +98,5 @@ exports.Product = Product = __decorate([
     })
 ], Product);
 exports.ProductSchema = mongoose_1.SchemaFactory.createForClass(Product);
-exports.ProductSchema.index({ location: '2dsphere' });
+exports.ProductSchema.index({ location: "2dsphere" });
 //# sourceMappingURL=product.schema.js.map

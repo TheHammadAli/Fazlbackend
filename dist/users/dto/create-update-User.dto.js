@@ -18,12 +18,12 @@ class LocationDto {
     coordinates;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['Point'], example: 'Point' }),
-    (0, class_validator_1.IsEnum)(['Point'], { message: 'Location type must be "Point"' }),
+    (0, swagger_1.ApiProperty)({ enum: ["Point"], example: "Point" }),
+    (0, class_validator_1.IsEnum)(["Point"], { message: 'Location type must be "Point"' }),
     __metadata("design:type", String)
 ], LocationDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: [73.0479, 33.6844], description: '[lng, lat]' }),
+    (0, swagger_1.ApiProperty)({ example: [73.0479, 33.6844], description: "[lng, lat]" }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMinSize)(2),
     (0, class_validator_1.ArrayMaxSize)(2),
@@ -45,48 +45,48 @@ class CreateUpdateUserDto {
 }
 exports.CreateUpdateUserDto = CreateUpdateUserDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'user@example.com' }),
+    (0, swagger_1.ApiProperty)({ example: "user@example.com" }),
     (0, class_validator_1.IsEmail)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'secret123' }),
+    (0, swagger_1.ApiProperty)({ example: "secret123" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(6),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "password", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'John Doe' }),
+    (0, swagger_1.ApiProperty)({ example: "John Doe" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "name", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '+923001234567' }),
+    (0, swagger_1.ApiProperty)({ example: "+923001234567" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "phone", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Street 1, City' }),
+    (0, swagger_1.ApiProperty)({ example: "Street 1, City" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "address", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: ['buyer'],
-        enum: ['buyer', 'seller', 'admin', 'subadmin'],
+        example: ["buyer"],
+        enum: ["buyer", "seller", "admin", "subadmin"],
         isArray: true,
     }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayNotEmpty)(),
-    (0, class_validator_1.IsEnum)(['buyer', 'seller', 'admin', 'subadmin'], { each: true }),
+    (0, class_validator_1.IsEnum)(["buyer", "seller", "admin", "subadmin"], { each: true }),
     __metadata("design:type", Array)
 ], CreateUpdateUserDto.prototype, "roles", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ['en', 'ur'], example: 'en' }),
-    (0, class_validator_1.IsEnum)(['en', 'ur'], { message: 'Language must be either en or ur' }),
+    (0, swagger_1.ApiProperty)({ enum: ["en", "ur"], example: "en" }),
+    (0, class_validator_1.IsEnum)(["en", "ur"], { message: "Language must be either en or ur" }),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "language", void 0);
 __decorate([
@@ -102,15 +102,15 @@ __decorate([
 ], CreateUpdateUserDto.prototype, "location", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload image',
+        description: "Upload image",
     }),
     __metadata("design:type", Object)
 ], CreateUpdateUserDto.prototype, "image", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'local' }),
+    (0, swagger_1.ApiProperty)({ example: "local" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateUpdateUserDto.prototype, "provider", void 0);

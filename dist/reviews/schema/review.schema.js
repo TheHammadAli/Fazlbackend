@@ -22,7 +22,7 @@ let Review = class Review {
 };
 exports.Review = Review;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: 'User' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Review.prototype, "userId", void 0);
 __decorate([
@@ -30,7 +30,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Review.prototype, "itemId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['product', 'service'] }),
+    (0, mongoose_1.Prop)({ required: true, enum: ["product", "service"] }),
     __metadata("design:type", String)
 ], Review.prototype, "itemType", void 0);
 __decorate([

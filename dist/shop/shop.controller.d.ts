@@ -1,7 +1,7 @@
-import { ShopService } from './shop.service';
-import { CreateUpdateShopDto } from './dto/create-update-shop.dto';
-import { Request } from 'express';
-import { JwtPayload } from 'src/auth/strategies/jwt-strategy';
+import { ShopService } from "./shop.service";
+import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
+import { Request } from "express";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 export declare class ShopController {
     private readonly shopService;
     constructor(shopService: ShopService);

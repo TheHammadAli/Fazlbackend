@@ -1,10 +1,10 @@
 import { Document } from "mongoose";
 export declare class Subscription extends Document {
-    targetType: 'Product' | 'Shop';
+    targetType: "Product" | "Shop";
     name: string;
     price: number;
     durationInDays: number;
-    screenType?: 'listing' | 'feed';
+    screenType?: "listing" | "feed";
     description?: string;
 }
 export declare const SubscriptionSchema: import("mongoose").Schema<Subscription, import("mongoose").Model<Subscription, any, any, any, Document<unknown, any, Subscription, any> & Subscription & Required<{

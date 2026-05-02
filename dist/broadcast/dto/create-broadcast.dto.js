@@ -44,7 +44,7 @@ __decorate([
     __metadata("design:type", String)
 ], CreateBroadcastDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: 'string', format: 'binary', required: false }),
+    (0, swagger_1.ApiProperty)({ type: "string", format: "binary", required: false }),
     __metadata("design:type", Object)
 ], CreateBroadcastDto.prototype, "file", void 0);
 //# sourceMappingURL=create-broadcast.dto.js.map

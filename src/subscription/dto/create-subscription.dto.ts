@@ -1,8 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateSubscriptionDto {
-  @ApiProperty({ enum: ['product', 'shop'] })
-  targetType: 'product' | 'shop';
+  @ApiProperty({ enum: ["product", "shop"] })
+  targetType: "product" | "shop";
 
   @ApiProperty()
   name: string;
@@ -13,8 +13,8 @@ export class CreateSubscriptionDto {
   @ApiProperty()
   durationInDays: number;
 
-  @ApiPropertyOptional({ enum: ['listing', 'feed'], default: 'listing' })
-  screenType?: 'listing' | 'feed';
+  @ApiPropertyOptional({ enum: ["listing", "feed"], default: "listing" })
+  screenType?: "listing" | "feed";
 
   @ApiPropertyOptional()
   description?: string;

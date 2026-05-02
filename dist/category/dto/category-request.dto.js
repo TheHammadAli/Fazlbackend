@@ -18,13 +18,16 @@ class CreateCategoryRequestDto {
 }
 exports.CreateCategoryRequestDto = CreateCategoryRequestDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Home Appliances', description: 'Requested category name' }),
+    (0, swagger_1.ApiProperty)({
+        example: "Home Appliances",
+        description: "Requested category name",
+    }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateCategoryRequestDto.prototype, "name", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Products like refrigerators, ovens, etc.' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "Products like refrigerators, ovens, etc." }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)

@@ -1,15 +1,15 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export declare class Service {
     ownerId: Types.ObjectId;
     title: string;
     description?: string;
     price: number;
-    paymentType: 'hourly' | 'fixed';
+    paymentType: "hourly" | "fixed";
     requiresAppointment: boolean;
     images: string[];
     category: Types.ObjectId;
     location: {
-        type: 'Point';
+        type: "Point";
         coordinates: [number, number];
     };
     video: string;

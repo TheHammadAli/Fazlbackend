@@ -19,17 +19,17 @@ class ReviewCategoryRequestDto {
 exports.ReviewCategoryRequestDto = ReviewCategoryRequestDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 'approved',
-        enum: ['approved', 'rejected'],
-        description: 'Request status update',
+        example: "approved",
+        enum: ["approved", "rejected"],
+        description: "Request status update",
     }),
-    (0, class_validator_1.IsEnum)(['approved', 'rejected']),
+    (0, class_validator_1.IsEnum)(["approved", "rejected"]),
     __metadata("design:type", String)
 ], ReviewCategoryRequestDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: 'This category is already covered under "Appliances"',
-        description: 'Optional admin comment',
+        description: "Optional admin comment",
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

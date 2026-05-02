@@ -1,7 +1,7 @@
-import { SubscriptionService } from './subscription.service';
-import { CreateSubscriptionDto } from './dto/create-subscription.dto';
-import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
-import { Subscription } from './schema/subscription-schema';
+import { SubscriptionService } from "./subscription.service";
+import { CreateSubscriptionDto } from "./dto/create-subscription.dto";
+import { UpdateSubscriptionDto } from "./dto/update-subscription.dto";
+import { Subscription } from "./schema/subscription-schema";
 export declare class SubscriptionController {
     private readonly subscriptionService;
     constructor(subscriptionService: SubscriptionService);

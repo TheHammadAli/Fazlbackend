@@ -35,7 +35,7 @@ let LikeService = class LikeService {
         this.cls = cls;
     }
     get lang() {
-        return this.cls.get('lang') || 'en';
+        return this.cls.get("lang") || "en";
     }
     async addLike(userId, dto) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
@@ -47,7 +47,7 @@ let LikeService = class LikeService {
             itemType: dto.itemType,
         });
         if (existingLike) {
-            throw new common_1.ConflictException(this.i18n.translate('auth.like.already_liked', { lang: this.lang }));
+            throw new common_1.ConflictException(this.i18n.translate("auth.like.already_liked", { lang: this.lang }));
         }
         const like = new this.likeModel({
             userId: userObjectId,
@@ -57,8 +57,10 @@ let LikeService = class LikeService {
         });
         const results = await like.save();
         return {
-            message: this.i18n.translate('auth.like.created_success', { lang: this.lang }),
-            data: results
+            message: this.i18n.translate("auth.like.created_success", {
+                lang: this.lang,
+            }),
+            data: results,
         };
     }
     async removeLike(userId, dto) {
@@ -68,10 +70,10 @@ let LikeService = class LikeService {
             itemType: dto.itemType,
         });
         if (!result) {
-            throw new common_1.NotFoundException(this.i18n.translate('auth.like.not_found', { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.like.not_found", { lang: this.lang }));
         }
         return {
-            message: this.i18n.translate('auth.like.removed', { lang: this.lang }),
+            message: this.i18n.translate("auth.like.removed", { lang: this.lang }),
         };
     }
     async getLikesByUser(userId, itemType, ids) {
@@ -90,10 +92,10 @@ let LikeService = class LikeService {
                 return null;
             let itemDetails = null;
             try {
-                if (like.itemType === 'product') {
+                if (like.itemType === "product") {
                     itemDetails = await this.productsService.getById(like.itemId.toString(), this.lang);
                 }
-                else if (like.itemType === 'service') {
+                else if (like.itemType === "service") {
                     itemDetails = await this.servicesService.getById(like.itemId.toString());
                 }
             }
@@ -123,18 +125,18 @@ let LikeService = class LikeService {
         });
     }
     async validateItemExists(itemId, itemType) {
-        if (itemType === 'product') {
+        if (itemType === "product") {
             const product = await this.productsService.getById(itemId, this.lang);
             if (!product) {
-                throw new common_1.NotFoundException(this.i18n.translate('auth.like.product_not_found', {
+                throw new common_1.NotFoundException(this.i18n.translate("auth.like.product_not_found", {
                     lang: this.lang,
                 }));
             }
         }
-        if (itemType === 'service') {
+        if (itemType === "service") {
             const service = await this.servicesService.getById(itemId);
             if (!service) {
-                throw new common_1.NotFoundException(this.i18n.translate('auth.like.service_not_found', {
+                throw new common_1.NotFoundException(this.i18n.translate("auth.like.service_not_found", {
                     lang: this.lang,
                 }));
             }

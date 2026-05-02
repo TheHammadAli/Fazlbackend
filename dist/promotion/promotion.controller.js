@@ -46,7 +46,7 @@ let PromotionController = class PromotionController {
 exports.PromotionController = PromotionController;
 __decorate([
     (0, common_1.Post)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a promotion' }),
+    (0, swagger_1.ApiOperation)({ summary: "Create a promotion" }),
     (0, swagger_1.ApiResponse)({ status: 201, type: promotion_schema_1.Promotion }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -55,55 +55,62 @@ __decorate([
 ], PromotionController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all promotions' }),
+    (0, swagger_1.ApiOperation)({ summary: "Get all promotions" }),
     (0, swagger_1.ApiResponse)({ status: 200, type: [promotion_schema_1.Promotion] }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], PromotionController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get promotion by ID' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Promotion ID' }),
+    (0, common_1.Get)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get promotion by ID" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Promotion ID" }),
     (0, swagger_1.ApiResponse)({ status: 200, type: promotion_schema_1.Promotion }),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], PromotionController.prototype, "findById", null);
 __decorate([
-    (0, common_1.Patch)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update a promotion' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Promotion ID' }),
+    (0, common_1.Patch)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Update a promotion" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Promotion ID" }),
     (0, swagger_1.ApiResponse)({ status: 200, type: promotion_schema_1.Promotion }),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_promotion_dto_1.UpdatePromotionDto]),
     __metadata("design:returntype", Promise)
 ], PromotionController.prototype, "update", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a promotion' }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'Promotion ID' }),
-    (0, swagger_1.ApiResponse)({ status: 204, description: 'Promotion deleted' }),
+    (0, common_1.Delete)(":id"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete a promotion" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Promotion ID" }),
+    (0, swagger_1.ApiResponse)({ status: 204, description: "Promotion deleted" }),
     (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], PromotionController.prototype, "delete", null);
 __decorate([
-    (0, common_1.Get)('feed'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get feed promotions', description: 'Fetches all promotions where isInFeed is true.' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Feed promotions found.', type: [promotion_schema_1.Promotion] }),
+    (0, common_1.Get)("feed"),
+    (0, swagger_1.ApiOperation)({
+        summary: "Get feed promotions",
+        description: "Fetches all promotions where isInFeed is true.",
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Feed promotions found.",
+        type: [promotion_schema_1.Promotion],
+    }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], PromotionController.prototype, "getFeedPromotions", null);
 exports.PromotionController = PromotionController = __decorate([
-    (0, swagger_1.ApiTags)('Promotions'),
-    (0, common_1.Controller)('promotions'),
+    (0, swagger_1.ApiTags)("Promotions"),
+    (0, common_1.Controller)("promotions"),
     __metadata("design:paramtypes", [promotion_service_1.PromotionService])
 ], PromotionController);
 //# sourceMappingURL=promotion.controller.js.map

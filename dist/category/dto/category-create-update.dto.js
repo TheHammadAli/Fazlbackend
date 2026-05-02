@@ -17,7 +17,7 @@ class CreateUpdateCategoryDto {
 }
 exports.CreateUpdateCategoryDto = CreateUpdateCategoryDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Electronics', description: 'Category name' }),
+    (0, swagger_1.ApiProperty)({ example: "Electronics", description: "Category name" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)

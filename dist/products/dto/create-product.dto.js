@@ -18,12 +18,12 @@ class ProductParameterDto {
     variants;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Color' }),
+    (0, swagger_1.ApiProperty)({ example: "Color" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ProductParameterDto.prototype, "name", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: ['Red', 'Blue'], type: [String] }),
+    (0, swagger_1.ApiProperty)({ example: ["Red", "Blue"], type: [String] }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
@@ -40,13 +40,13 @@ class CreateProductDto {
 }
 exports.CreateProductDto = CreateProductDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Wireless Mouse' }),
+    (0, swagger_1.ApiProperty)({ example: "Wireless Mouse" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateProductDto.prototype, "title", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Ergonomic wireless mouse' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: "Ergonomic wireless mouse" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
@@ -57,35 +57,39 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateProductDto.prototype, "price", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'electronics' }),
+    (0, swagger_1.ApiProperty)({ example: "electronics" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateProductDto.prototype, "category", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'retail', enum: ['retail', 'classified'], description: 'Product Type' }),
+    (0, swagger_1.ApiProperty)({
+        example: "retail",
+        enum: ["retail", "classified"],
+        description: "Product Type",
+    }),
     __metadata("design:type", String)
 ], CreateProductDto.prototype, "type", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: [String],
-        example: ['https://img.com/p1.jpg', 'https://img.com/p2.jpg'],
+        example: ["https://img.com/p1.jpg", "https://img.com/p2.jpg"],
     }),
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload multiple images',
+        description: "Upload multiple images",
     }),
     __metadata("design:type", Object)
 ], CreateProductDto.prototype, "images", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        type: 'string',
-        format: 'binary',
+        type: "string",
+        format: "binary",
         isArray: true,
-        description: 'Upload One video file',
-        maximum: 1
+        description: "Upload One video file",
+        maximum: 1,
     }),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", Object)
@@ -94,10 +98,10 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: [ProductParameterDto],
         example: [
-            { name: 'Color', variants: ['Red', 'Blue'] },
-            { name: 'Size', variants: ['S', 'M', 'L'] },
+            { name: "Color", variants: ["Red", "Blue"] },
+            { name: "Size", variants: ["S", "M", "L"] },
         ],
-        description: 'Custom product parameters like size, color, etc.',
+        description: "Custom product parameters like size, color, etc.",
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),

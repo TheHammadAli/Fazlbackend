@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
-export type RequestStatus = 'pending' | 'accepted' | 'rejected' | 'proposed' | 'cancelled' | 'confirmed';
-export type JobStatus = 'not_started' | 'in_progress' | 'completed' | 'verified' | 'disputed';
+export type RequestStatus = "pending" | "accepted" | "rejected" | "proposed" | "cancelled" | "confirmed";
+export type JobStatus = "not_started" | "in_progress" | "completed" | "verified" | "disputed";
 export declare class ServiceRequest {
     service: Types.ObjectId;
     customer: Types.ObjectId;

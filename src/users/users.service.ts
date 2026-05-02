@@ -25,10 +25,10 @@ export class UsersService {
     private readonly fileUploadService: FileUploadService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService, //
-  ) { }
+  ) {}
 
   private get lang(): string {
-    return this.cls?.get('lang') ?? 'en';
+    return this.cls?.get("lang") ?? "en";
   }
   async createUser(createUserDto: CreateUpdateUserDto) {
     try {
@@ -37,7 +37,9 @@ export class UsersService {
       });
       if (existingUser) {
         throw new ConflictException(
-          this.i18n.translate("auth.users.email_already_registered", { lang: this.lang }),
+          this.i18n.translate("auth.users.email_already_registered", {
+            lang: this.lang,
+          }),
         );
       }
       const hashedPassword = await this.hashPassword(createUserDto.password);
@@ -53,7 +55,7 @@ export class UsersService {
       console.log("User image", createUserDto.image);
       if (createUserDto.image) {
         imageUrl = await this.fileUploadService.uploadUserImage(
-          newUser._id as unknown as string,
+          newUser._id as string,
           createUserDto.image,
         ); // Function to handle image upload
         savedUser.image = imageUrl; // Ensure the image is stored as a filename
@@ -63,7 +65,7 @@ export class UsersService {
     } catch (err) {
       throw err instanceof HttpException
         ? err
-        : new AppError(err?.message || 'Internal server error');
+        : new AppError(err?.message || "Internal server error");
     }
   }
 
@@ -78,7 +80,6 @@ export class UsersService {
 
   async findByResetToken(
     resetPasswordToken: string,
-
   ): Promise<UserDocument | null> {
     const results = await this.userModel
       .findOne({ resetPasswordToken })
@@ -112,7 +113,6 @@ export class UsersService {
   async updateUser(
     userId: string,
     updateData: Partial<UpdateUserDto>,
-
   ): Promise<{ message: string; data: User }> {
     try {
       // Remove empty, null, or undefined fields
@@ -175,7 +175,9 @@ export class UsersService {
       }
 
       return {
-        message: this.i18n.translate("auth.users.updated_success", { lang: this.lang }),
+        message: this.i18n.translate("auth.users.updated_success", {
+          lang: this.lang,
+        }),
         data: updatedUser,
       };
     } catch (err) {
@@ -205,7 +207,6 @@ export class UsersService {
     userId: string,
     lang: string = "en",
   ): Promise<UserDocument> {
-
     const user = await this.userModel.findById(userId).exec();
 
     if (!user) {

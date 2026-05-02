@@ -21,12 +21,12 @@ let ChatGateway = class ChatGateway {
     chatService;
     server;
     static serverInstance;
-    logger = new common_1.Logger('ChatGateway');
+    logger = new common_1.Logger("ChatGateway");
     constructor(chatService) {
         this.chatService = chatService;
     }
     handleConnection(client) {
-        console.log('Client connected', client.id);
+        console.log("Client connected", client.id);
     }
     handleDisconnect(client) {
         this.logger.log(`Client disconnected: ${client.id}`);
@@ -42,11 +42,11 @@ let ChatGateway = class ChatGateway {
         const convo = await this.chatService.getOrCreateConversation(data.buyerId, data.sellerId);
         client.join(convo?.id.toString());
         this.logger.log(`Client ${client.id} joined or created conversation ${convo?._id}`);
-        client.emit('conversationStarted', convo);
+        client.emit("conversationStarted", convo);
     }
     async handleMarkAsRead(data) {
         await this.chatService.markAsRead(data.conversationId, data.userId);
-        this.server.to(data.conversationId).emit('messagesMarkedAsRead', {
+        this.server.to(data.conversationId).emit("messagesMarkedAsRead", {
             userId: data.userId,
         });
     }
@@ -57,7 +57,7 @@ __decorate([
     __metadata("design:type", socket_io_1.Server)
 ], ChatGateway.prototype, "server", void 0);
 __decorate([
-    (0, websockets_1.SubscribeMessage)('joinConversation'),
+    (0, websockets_1.SubscribeMessage)("joinConversation"),
     __param(0, (0, websockets_1.MessageBody)()),
     __param(1, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
@@ -65,7 +65,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleJoinRoom", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)('sendMessage'),
+    (0, websockets_1.SubscribeMessage)("sendMessage"),
     __param(0, (0, websockets_1.MessageBody)()),
     __param(1, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
@@ -73,7 +73,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleSendMessage", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)('startConversation'),
+    (0, websockets_1.SubscribeMessage)("startConversation"),
     __param(0, (0, websockets_1.MessageBody)()),
     __param(1, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
@@ -81,7 +81,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleStartConversation", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)('markAsRead'),
+    (0, websockets_1.SubscribeMessage)("markAsRead"),
     __param(0, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -90,7 +90,7 @@ __decorate([
 exports.ChatGateway = ChatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
-            origin: '*',
+            origin: "*",
         },
     }),
     __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => chat_service_1.ChatService))),

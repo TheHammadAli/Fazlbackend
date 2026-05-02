@@ -21,7 +21,13 @@ let NotificationsModule = class NotificationsModule {
 exports.NotificationsModule = NotificationsModule;
 exports.NotificationsModule = NotificationsModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: notifications_schema_1.Notification.name, schema: notifications_schema_1.NotificationSchema }]), (0, common_1.forwardRef)(() => users_module_1.UsersModule), config_1.ConfigModule],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([
+                { name: notifications_schema_1.Notification.name, schema: notifications_schema_1.NotificationSchema },
+            ]),
+            (0, common_1.forwardRef)(() => users_module_1.UsersModule),
+            config_1.ConfigModule,
+        ],
         controllers: [notifications_controller_1.NotificationsController],
         providers: [notifications_service_1.NotificationsService, notification_gateway_1.NotificationsGateway, firebase_service_1.FirebaseService],
         exports: [notifications_service_1.NotificationsService, notification_gateway_1.NotificationsGateway],

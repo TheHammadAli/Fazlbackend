@@ -30,7 +30,7 @@ __decorate([
     __metadata("design:type", String)
 ], CreateRequestDto.prototype, "customerId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '2025-07-01T15:00:00Z' }),
+    (0, swagger_1.ApiProperty)({ example: "2025-07-01T15:00:00Z" }),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], CreateRequestDto.prototype, "requestedDateTime", void 0);
