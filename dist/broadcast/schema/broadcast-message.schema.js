@@ -38,7 +38,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], BroadcastMessage.prototype, "thread", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String, required: true }),
+    (0, mongoose_1.Prop)({ type: String, required: false }),
     __metadata("design:type", String)
 ], BroadcastMessage.prototype, "message", void 0);
 __decorate([

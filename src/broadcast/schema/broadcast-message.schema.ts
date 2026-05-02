@@ -16,7 +16,7 @@ export class BroadcastMessage {
 
   @Prop({ type: Types.ObjectId, ref: 'BroadcastThread', required: true })
   thread: Types.ObjectId;
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false })
   message: string;
   @Prop({ type: String })
   imageUrl?: string; // Optional field for S3 link
