@@ -101,9 +101,9 @@ let ChatService = class ChatService {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }));
         }
         const message = await this.messageModel.create({
-            conversationId,
-            sender: senderId,
-            receiver: receiverId,
+            conversationId: new mongoose_2.Types.ObjectId(conversationId),
+            sender: new mongoose_2.Types.ObjectId(senderId),
+            receiver: new mongoose_2.Types.ObjectId(receiverId),
             text,
             imageUrl,
         });

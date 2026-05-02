@@ -124,9 +124,9 @@ export class ChatService {
     }
 
     const message = await this.messageModel.create({
-      conversationId,
-      sender: senderId,
-      receiver: receiverId,
+      conversationId: new Types.ObjectId(conversationId),
+      sender: new Types.ObjectId(senderId),
+      receiver: new Types.ObjectId(receiverId),
       text,
       imageUrl,
     });
