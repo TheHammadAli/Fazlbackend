@@ -25,7 +25,7 @@ export class ChatService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   /** Dynamic getter to retrieve the current request language safely */
   private get lang(): string {
@@ -143,7 +143,7 @@ export class ChatService {
 
     await this.notificationsService.createAndNotify(
       receiverId,
-      "auth.chat.new_message",
+      "chat.new_message",
       "MESSAGE",
       {
         conversation: {

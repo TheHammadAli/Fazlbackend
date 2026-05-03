@@ -446,8 +446,8 @@ export class BroadcastService {
           $project: {
             _id: 1,
             broadcast: 1,
-            buyer: { _id: 1, name: 1 },
-            seller: { _id: 1, name: 1 },
+            buyer: { _id: 1, name: 1 ,image:1},
+            seller: { _id: 1, name: 1 ,image:1},
             lastMessageAt: 1,
             createdAt: 1,
             updatedAt: 1,
