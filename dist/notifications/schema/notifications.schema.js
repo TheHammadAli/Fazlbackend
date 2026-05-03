@@ -18,6 +18,7 @@ let Notification = class Notification extends mongoose_2.Document {
     message;
     metadata;
     read;
+    payload;
 };
 exports.Notification = Notification;
 __decorate([
@@ -43,6 +44,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
 ], Notification.prototype, "read", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Object, default: {} }),
+    __metadata("design:type", Object)
+], Notification.prototype, "payload", void 0);
 exports.Notification = Notification = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Notification);

@@ -28,8 +28,9 @@ export class Notification extends Document {
   @Prop({ default: false })
   read!: boolean;
 
-  @Prop({ required: false })
-  payload!: Record<string, any>; // generic payload for frontend use
+
+  @Prop({ type: Object, default: {} })
+  payload!: Record<string, any>;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

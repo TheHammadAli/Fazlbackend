@@ -116,7 +116,7 @@ let ChatService = class ChatService {
         await this.conversationModel.findByIdAndUpdate(conversationId, {
             lastMessageAt: new Date(),
         });
-        await this.notificationsService.createAndNotify(receiverId, "auth.chat.new_message", "MESSAGE", {
+        await this.notificationsService.createAndNotify(receiverId, "chat.new_message", "MESSAGE", {
             conversation: {
                 id: conversation._id,
                 buyer: conversation.buyer,
