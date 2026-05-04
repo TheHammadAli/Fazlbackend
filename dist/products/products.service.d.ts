@@ -13,6 +13,7 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { PromotionService } from "src/promotion/promotion.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ReviewService } from "src/reviews/reviews.service";
 export declare class ProductsService {
     private readonly productModel;
     private readonly shopService;
@@ -23,7 +24,8 @@ export declare class ProductsService {
     private readonly i18n;
     private readonly cls;
     private readonly likeService;
-    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService, i18n: I18nService, cls: ClsService, likeService: LikeService);
+    private readonly reviewService;
+    constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
     private get lang();
     create(entityId: string, type: "shop" | "personal", dto: CreateProductDto): Promise<{
         message: string;
@@ -44,16 +46,8 @@ export declare class ProductsService {
     }): Promise<void>;
     searchProducts(query: SearchAllProductsServiceDto): Promise<{
         data: {
-            promotions: (import("mongoose").Document<unknown, {}, ProductDocument, {}> & Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            })[];
-            items: (import("mongoose").Document<unknown, {}, ProductDocument, {}> & Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            })[];
+            promotions: any[];
+            items: any[];
         };
         meta: {
             total: number;
@@ -62,5 +56,6 @@ export declare class ProductsService {
             totalPages: number;
         };
     }>;
+    private enrichProductsWithReviewStats;
     getProductsWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<any>>;
 }

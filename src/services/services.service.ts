@@ -28,6 +28,7 @@ import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ReviewService } from "src/reviews/reviews.service";
 
 @Injectable()
 export class ServicesService {
@@ -45,7 +46,8 @@ export class ServicesService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
-  ) {}
+    private readonly reviewService: ReviewService,
+  ) { }
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
@@ -349,14 +351,52 @@ export class ServicesService {
         .skip(skip)
         .limit(limit)
         .populate("category")
+        .lean()
         .exec(),
       this.serviceModel.countDocuments(filter),
     ]);
 
+    const enrichedResults = await this.enrichServicesWithReviewStats(results);
+
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: results,
+      data: enrichedResults,
     };
+  }
+
+  private async enrichServicesWithReviewStats(services: any[]) {
+    if (!services || services.length === 0) {
+      return services;
+    }
+
+    const serviceIds = services.map((service) =>
+      new Types.ObjectId(service._id),
+    );
+    const reviewStats = await this.reviewService.getAverageRatingsForItems(
+      serviceIds,
+      "service",
+    );
+
+    const reviewMap = new Map(
+      reviewStats.map((item: any) => [
+        (item._id as Types.ObjectId).toString(),
+        {
+          avgRating: item.avgRating ?? 0,
+          reviewCount: item.count ?? 0,
+        },
+      ]),
+    );
+
+    return services.map((service: any) => {
+      const stats = reviewMap.get(new Types.ObjectId(service._id).toString());
+      return {
+        ...service,
+        averageRating: stats?.avgRating
+          ? Number(stats.avgRating.toFixed(1))
+          : 0,
+        reviewCount: stats?.reviewCount ?? 0,
+      };
+    });
   }
 
   async createServiceRequest(dto: CreateRequestDto) {

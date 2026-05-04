@@ -132,6 +132,27 @@ let ReviewService = class ReviewService {
         ]);
         return result[0] || { avgRating: 0, count: 0 };
     }
+    async getAverageRatingsForItems(itemIds, itemType) {
+        if (!itemIds || itemIds.length === 0) {
+            return [];
+        }
+        const objectIds = itemIds.map((itemId) => itemId instanceof mongoose_2.Types.ObjectId ? itemId : new mongoose_2.Types.ObjectId(itemId));
+        return this.reviewModel.aggregate([
+            {
+                $match: {
+                    itemId: { $in: objectIds },
+                    itemType,
+                },
+            },
+            {
+                $group: {
+                    _id: "$itemId",
+                    avgRating: { $avg: "$rating" },
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+    }
 };
 exports.ReviewService = ReviewService;
 exports.ReviewService = ReviewService = __decorate([

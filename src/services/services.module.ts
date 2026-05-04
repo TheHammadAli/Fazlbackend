@@ -11,12 +11,14 @@ import {
 } from "./schema/service_request.schema";
 import { NotificationsModule } from "src/notifications/notifications.module";
 import { LikeModule } from "src/like/like.module";
+import { ReviewsModule } from "src/reviews/reviews.module";
 @Module({
   imports: [
     forwardRef(() => UsersModule),
     forwardRef(() => LikeModule),
     forwardRef(() => SharedModule),
     forwardRef(() => NotificationsModule),
+    forwardRef(() => ReviewsModule),
 
     MongooseModule.forFeature([
       { name: Service.name, schema: ServiceSchema },
@@ -27,4 +29,4 @@ import { LikeModule } from "src/like/like.module";
   controllers: [ServicesController],
   exports: [ServicesService],
 })
-export class ServicesModule {}
+export class ServicesModule { }

@@ -19,7 +19,7 @@ export class ReviewService {
     private readonly reviewModel: Model<ReviewDocument>,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -157,5 +157,34 @@ export class ReviewService {
     ]);
 
     return result[0] || { avgRating: 0, count: 0 };
+  }
+
+  async getAverageRatingsForItems(
+    itemIds: Array<string | Types.ObjectId>,
+    itemType: "product" | "service",
+  ) {
+    if (!itemIds || itemIds.length === 0) {
+      return [];
+    }
+
+    const objectIds = itemIds.map((itemId) =>
+      itemId instanceof Types.ObjectId ? itemId : new Types.ObjectId(itemId),
+    );
+
+    return this.reviewModel.aggregate([
+      {
+        $match: {
+          itemId: { $in: objectIds },
+          itemType,
+        },
+      },
+      {
+        $group: {
+          _id: "$itemId",
+          avgRating: { $avg: "$rating" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
   }
 }

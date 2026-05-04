@@ -25,6 +25,7 @@ const file_upload_service_1 = require("../common/file-upload/file-upload.service
 const promotion_service_1 = require("../promotion/promotion.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const like_service_1 = require("../like/like.service");
+const reviews_service_1 = require("../reviews/reviews.service");
 let ProductsService = class ProductsService {
     productModel;
     shopService;
@@ -35,7 +36,8 @@ let ProductsService = class ProductsService {
     i18n;
     cls;
     likeService;
-    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n, cls, likeService) {
+    reviewService;
+    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n, cls, likeService, reviewService) {
         this.productModel = productModel;
         this.shopService = shopService;
         this.listingUtils = listingUtils;
@@ -45,6 +47,7 @@ let ProductsService = class ProductsService {
         this.i18n = i18n;
         this.cls = cls;
         this.likeService = likeService;
+        this.reviewService = reviewService;
     }
     get lang() {
         return this.cls.get("lang") || "en";
@@ -296,9 +299,11 @@ let ProductsService = class ProductsService {
             .find({
             _id: { $in: allPromotedIds },
             ...promotionFilter,
-        }).sort({ createdAt: -1 })
+        })
+            .sort({ createdAt: -1 })
+            .lean()
             .exec();
-        const promotedProductIds = promotedProducts.map((p) => p._id.toString());
+        const promotedProductIds = promotedProducts.map((p) => new mongoose_2.Types.ObjectId(p._id).toString());
         const filteredProductSearchFilter = {
             ...productSearchFilter,
             _id: { $nin: promotedProductIds },
@@ -308,13 +313,16 @@ let ProductsService = class ProductsService {
                 .find(filteredProductSearchFilter)
                 .skip(skip)
                 .limit(limit)
+                .lean()
                 .exec(),
             this.productModel.countDocuments(filteredProductSearchFilter),
         ]);
+        const enrichedPromotions = await this.enrichProductsWithReviewStats(promotedProducts);
+        const enrichedRegularProducts = await this.enrichProductsWithReviewStats(regularProducts);
         return {
             data: {
-                promotions: promotedProducts,
-                items: regularProducts,
+                promotions: enrichedPromotions,
+                items: enrichedRegularProducts,
             },
             meta: {
                 total,
@@ -323,6 +331,30 @@ let ProductsService = class ProductsService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+    }
+    async enrichProductsWithReviewStats(products) {
+        if (!products || products.length === 0) {
+            return products;
+        }
+        const productIds = products.map((product) => new mongoose_2.Types.ObjectId(product._id));
+        const reviewStats = await this.reviewService.getAverageRatingsForItems(productIds, "product");
+        const reviewMap = new Map(reviewStats.map((item) => [
+            item._id.toString(),
+            {
+                avgRating: item.avgRating ?? 0,
+                reviewCount: item.count ?? 0,
+            },
+        ]));
+        return products.map((product) => {
+            const stats = reviewMap.get(new mongoose_2.Types.ObjectId(product._id).toString());
+            return {
+                ...product,
+                averageRating: stats?.avgRating
+                    ? Number(stats.avgRating.toFixed(1))
+                    : 0,
+                reviewCount: stats?.reviewCount ?? 0,
+            };
+        });
     }
     async getProductsWithVideos(paginationDto, userId) {
         const { page = 1, limit = 10 } = paginationDto;
@@ -374,6 +406,7 @@ exports.ProductsService = ProductsService = __decorate([
         promotion_service_1.PromotionService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
-        like_service_1.LikeService])
+        like_service_1.LikeService,
+        reviews_service_1.ReviewService])
 ], ProductsService);
 //# sourceMappingURL=products.service.js.map

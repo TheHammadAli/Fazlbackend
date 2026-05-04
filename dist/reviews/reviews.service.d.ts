@@ -1,4 +1,4 @@
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { Review, ReviewDocument } from "./schema/review.schema";
 import { CreateReviewDto } from "./dto/create-review.dto";
@@ -44,4 +44,5 @@ export declare class ReviewService {
     }>;
     flagReview(id: string): Promise<Review>;
     getAverageRating(itemId: string, itemType: "product" | "service"): Promise<any>;
+    getAverageRatingsForItems(itemIds: Array<string | Types.ObjectId>, itemType: "product" | "service"): Promise<any[]>;
 }

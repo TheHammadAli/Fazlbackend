@@ -8,19 +8,11 @@ export declare class SearchController {
     private readonly servicesService;
     constructor(searchService: SearchService, productsService: ProductsService, servicesService: ServicesService);
     autocomplete(query: string): Promise<any[]>;
-    searchNearby(type: "product" | "service", category: string, radius: string, latitude: string, longitude: string, page?: string, limit?: string): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../products/schema/product.schema").ProductDocument> | import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../services/schema/services.schema").ServiceDocument>>;
+    searchNearby(type: "product" | "service", category: string, radius: string, latitude: string, longitude: string, page?: string, limit?: string): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../services/schema/services.schema").ServiceDocument> | import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("../products/schema/product.schema").ProductDocument>>;
     searchAllProducts(query: SearchAllProductsServiceDto): Promise<{
         data: {
-            promotions: (import("mongoose").Document<unknown, {}, import("../products/schema/product.schema").ProductDocument, {}> & import("../products/schema/product.schema").Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            })[];
-            items: (import("mongoose").Document<unknown, {}, import("../products/schema/product.schema").ProductDocument, {}> & import("../products/schema/product.schema").Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-                _id: unknown;
-            }> & {
-                __v: number;
-            })[];
+            promotions: any[];
+            items: any[];
         };
         meta: {
             total: number;
@@ -36,10 +28,6 @@ export declare class SearchController {
             limit: number;
             totalPages: number;
         };
-        data: (import("mongoose").Document<unknown, {}, import("../services/schema/services.schema").ServiceDocument, {}> & import("../services/schema/services.schema").Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        })[];
+        data: any[];
     }>;
 }

@@ -25,6 +25,7 @@ const notifications_service_1 = require("../notifications/notifications.service"
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const like_service_1 = require("../like/like.service");
+const reviews_service_1 = require("../reviews/reviews.service");
 let ServicesService = class ServicesService {
     serviceModel;
     userService;
@@ -35,7 +36,8 @@ let ServicesService = class ServicesService {
     i18n;
     cls;
     likeService;
-    constructor(serviceModel, userService, notificationsService, listingUtils, fileUploadService, requestModel, i18n, cls, likeService) {
+    reviewService;
+    constructor(serviceModel, userService, notificationsService, listingUtils, fileUploadService, requestModel, i18n, cls, likeService, reviewService) {
         this.serviceModel = serviceModel;
         this.userService = userService;
         this.notificationsService = notificationsService;
@@ -45,6 +47,7 @@ let ServicesService = class ServicesService {
         this.i18n = i18n;
         this.cls = cls;
         this.likeService = likeService;
+        this.reviewService = reviewService;
     }
     get lang() {
         return this.cls?.get("lang") ?? "en";
@@ -246,13 +249,39 @@ let ServicesService = class ServicesService {
                 .skip(skip)
                 .limit(limit)
                 .populate("category")
+                .lean()
                 .exec(),
             this.serviceModel.countDocuments(filter),
         ]);
+        const enrichedResults = await this.enrichServicesWithReviewStats(results);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-            data: results,
+            data: enrichedResults,
         };
+    }
+    async enrichServicesWithReviewStats(services) {
+        if (!services || services.length === 0) {
+            return services;
+        }
+        const serviceIds = services.map((service) => new mongoose_2.Types.ObjectId(service._id));
+        const reviewStats = await this.reviewService.getAverageRatingsForItems(serviceIds, "service");
+        const reviewMap = new Map(reviewStats.map((item) => [
+            item._id.toString(),
+            {
+                avgRating: item.avgRating ?? 0,
+                reviewCount: item.count ?? 0,
+            },
+        ]));
+        return services.map((service) => {
+            const stats = reviewMap.get(new mongoose_2.Types.ObjectId(service._id).toString());
+            return {
+                ...service,
+                averageRating: stats?.avgRating
+                    ? Number(stats.avgRating.toFixed(1))
+                    : 0,
+                reviewCount: stats?.reviewCount ?? 0,
+            };
+        });
     }
     async createServiceRequest(dto) {
         const { serviceId, customerId, requestedDateTime, message } = dto;
@@ -501,6 +530,7 @@ exports.ServicesService = ServicesService = __decorate([
         mongoose_2.Model,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
-        like_service_1.LikeService])
+        like_service_1.LikeService,
+        reviews_service_1.ReviewService])
 ], ServicesService);
 //# sourceMappingURL=services.service.js.map

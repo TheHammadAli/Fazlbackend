@@ -16,6 +16,7 @@ import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ReviewService } from "src/reviews/reviews.service";
 export declare class ServicesService {
     private readonly serviceModel;
     private readonly userService;
@@ -26,7 +27,8 @@ export declare class ServicesService {
     private readonly i18n;
     private readonly cls;
     private readonly likeService;
-    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService);
+    private readonly reviewService;
+    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
     private get lang();
     getServiceModel(): Model<ServiceDocument>;
     create(userId: string, dto: CreateServiceDto, lang?: string): Promise<Service>;
@@ -56,12 +58,9 @@ export declare class ServicesService {
             limit: number;
             totalPages: number;
         };
-        data: (import("mongoose").Document<unknown, {}, ServiceDocument, {}> & Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        })[];
+        data: any[];
     }>;
+    private enrichServicesWithReviewStats;
     createServiceRequest(dto: CreateRequestDto): Promise<import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
         _id: Types.ObjectId;
     } & {

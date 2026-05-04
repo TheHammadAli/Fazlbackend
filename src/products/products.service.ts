@@ -23,6 +23,7 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { PromotionService } from "src/promotion/promotion.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ReviewService } from "src/reviews/reviews.service";
 
 @Injectable()
 export class ProductsService {
@@ -38,6 +39,7 @@ export class ProductsService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
+    private readonly reviewService: ReviewService,
   ) { }
 
   private get lang(): string {
@@ -418,11 +420,13 @@ export class ProductsService {
       .find({
         _id: { $in: allPromotedIds },
         ...promotionFilter,
-      }).sort({ createdAt: -1 })
+      })
+      .sort({ createdAt: -1 })
+      .lean()
       .exec();
 
-    const promotedProductIds = promotedProducts.map((p: ProductDocument) =>
-      (p._id as Types.ObjectId).toString(),
+    const promotedProductIds = promotedProducts.map((p: any) =>
+      new Types.ObjectId(p._id).toString(),
     );
 
     // Regular products filter, excluding promoted ones
@@ -436,14 +440,22 @@ export class ProductsService {
         .find(filteredProductSearchFilter)
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec(),
       this.productModel.countDocuments(filteredProductSearchFilter),
     ]);
 
+    const enrichedPromotions = await this.enrichProductsWithReviewStats(
+      promotedProducts,
+    );
+    const enrichedRegularProducts = await this.enrichProductsWithReviewStats(
+      regularProducts,
+    );
+
     return {
       data: {
-        promotions: promotedProducts,
-        items: regularProducts,
+        promotions: enrichedPromotions,
+        items: enrichedRegularProducts,
       },
       meta: {
         total,
@@ -452,6 +464,41 @@ export class ProductsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  private async enrichProductsWithReviewStats(products: any[]) {
+    if (!products || products.length === 0) {
+      return products;
+    }
+
+    const productIds = products.map((product) =>
+      new Types.ObjectId(product._id),
+    );
+    const reviewStats = await this.reviewService.getAverageRatingsForItems(
+      productIds,
+      "product",
+    );
+
+    const reviewMap = new Map(
+      reviewStats.map((item: any) => [
+        (item._id as Types.ObjectId).toString(),
+        {
+          avgRating: item.avgRating ?? 0,
+          reviewCount: item.count ?? 0,
+        },
+      ]),
+    );
+
+    return products.map((product: any) => {
+      const stats = reviewMap.get(new Types.ObjectId(product._id).toString());
+      return {
+        ...product,
+        averageRating: stats?.avgRating
+          ? Number(stats.avgRating.toFixed(1))
+          : 0,
+        reviewCount: stats?.reviewCount ?? 0,
+      };
+    });
   }
 
   async getProductsWithVideos(

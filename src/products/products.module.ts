@@ -9,6 +9,7 @@ import { UsersModule } from "src/users/users.module";
 
 import { PromotionModule } from "src/promotion/promotion.module";
 import { LikeModule } from "src/like/like.module";
+import { ReviewsModule } from "src/reviews/reviews.module";
 
 @Module({
   imports: [
@@ -19,9 +20,10 @@ import { LikeModule } from "src/like/like.module";
     forwardRef(() => UsersModule),
     // If LikeService is used in ProductsService
     forwardRef(() => PromotionModule), // If PromotionService is used in ProductsService
+    forwardRef(() => ReviewsModule),
   ],
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService],
 })
-export class ProductsModule {}
+export class ProductsModule { }
