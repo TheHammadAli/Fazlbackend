@@ -22,6 +22,7 @@ const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 const swagger_1 = require("@nestjs/swagger");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
+const public_decorator_1 = require("../common/decorators/public.decorator");
 let ProductsController = class ProductsController {
     productsService;
     constructor(productsService) {
@@ -111,7 +112,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "createProduct", null);
 __decorate([
-    (0, common_1.Get)(":shopId"),
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)("shop/:shopId"),
     (0, swagger_1.ApiOperation)({ summary: "Get all products for a shop" }),
     (0, swagger_1.ApiParam)({ name: "shopId", required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false }),
@@ -156,6 +158,7 @@ __decorate([
 ], ProductsController.prototype, "deleteProductMedia", null);
 __decorate([
     (0, common_1.Get)("user/:userId"),
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: "Get all products for a User" }),
     (0, swagger_1.ApiParam)({ name: "userId", required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false }),
@@ -168,6 +171,7 @@ __decorate([
 ], ProductsController.prototype, "getAllProductsByUser", null);
 __decorate([
     (0, common_1.Get)("with-videos/all"),
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: "Get all products with videos (paginated)" }),
     (0, swagger_1.ApiQuery)({
         name: "page",
@@ -191,6 +195,7 @@ __decorate([
 ], ProductsController.prototype, "getProductsWithVideos", null);
 __decorate([
     (0, common_1.Get)("detail/:id"),
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: "Get product details by ID" }),
     (0, swagger_1.ApiParam)({ name: "id", required: true }),
     __param(0, (0, common_1.Param)("id")),

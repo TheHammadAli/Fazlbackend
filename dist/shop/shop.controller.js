@@ -21,6 +21,7 @@ const mongoose_1 = require("mongoose");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
+const public_decorator_1 = require("../common/decorators/public.decorator");
 let ShopController = class ShopController {
     shopService;
     constructor(shopService) {
@@ -81,6 +82,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "updateShop", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)("detail/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Get shop details by ID" }),
     (0, swagger_1.ApiParam)({ name: "id", type: String }),

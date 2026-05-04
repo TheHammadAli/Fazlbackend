@@ -77,6 +77,9 @@ let LikeService = class LikeService {
         };
     }
     async getLikesByUser(userId, itemType, ids) {
+        if (!userId) {
+            return [];
+        }
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
         const query = { userId: userObjectId };
         if (itemType)
@@ -93,7 +96,7 @@ let LikeService = class LikeService {
             let itemDetails = null;
             try {
                 if (like.itemType === "product") {
-                    itemDetails = await this.productsService.getById(like.itemId.toString(), this.lang);
+                    itemDetails = await this.productsService.getById(like.itemId.toString());
                 }
                 else if (like.itemType === "service") {
                     itemDetails = await this.servicesService.getById(like.itemId.toString());
@@ -126,7 +129,7 @@ let LikeService = class LikeService {
     }
     async validateItemExists(itemId, itemType) {
         if (itemType === "product") {
-            const product = await this.productsService.getById(itemId, this.lang);
+            const product = await this.productsService.getById(itemId);
             if (!product) {
                 throw new common_1.NotFoundException(this.i18n.translate("auth.like.product_not_found", {
                     lang: this.lang,

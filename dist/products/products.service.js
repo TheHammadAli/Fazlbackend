@@ -167,7 +167,7 @@ let ProductsService = class ProductsService {
             data: items,
         };
     }
-    async getById(id, lang = "en") {
+    async getById(id) {
         const product = await this.productModel
             .findById(new mongoose_2.Types.ObjectId(id))
             .populate("category");
@@ -296,7 +296,7 @@ let ProductsService = class ProductsService {
             .find({
             _id: { $in: allPromotedIds },
             ...promotionFilter,
-        })
+        }).sort({ createdAt: -1 })
             .exec();
         const promotedProductIds = promotedProducts.map((p) => p._id.toString());
         const filteredProductSearchFilter = {

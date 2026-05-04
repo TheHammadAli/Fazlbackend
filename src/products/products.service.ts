@@ -38,7 +38,7 @@ export class ProductsService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -207,7 +207,7 @@ export class ProductsService {
     };
   }
 
-  async getById(id: string, lang: string = "en"): Promise<Product> {
+  async getById(id: string): Promise<Product> {
     const product = await this.productModel
       .findById(new Types.ObjectId(id))
       .populate("category");
@@ -418,7 +418,7 @@ export class ProductsService {
       .find({
         _id: { $in: allPromotedIds },
         ...promotionFilter,
-      })
+      }).sort({ createdAt: -1 })
       .exec();
 
     const promotedProductIds = promotedProducts.map((p: ProductDocument) =>

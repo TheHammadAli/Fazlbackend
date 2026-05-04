@@ -47,7 +47,7 @@ let OrdersService = class OrdersService {
         const buyer = await this.usersService.findUserById(dto.buyer);
         if (!buyer)
             throw new common_1.NotFoundException(this.i18n.translate("auth.orders.buyer_not_found", { lang: this.lang }));
-        const product = await this.productsService.getById(dto.product, this.lang);
+        const product = await this.productsService.getById(dto.product);
         if (!product)
             throw new common_1.NotFoundException(this.i18n.translate("auth.orders.product_not_found", {
                 lang: this.lang,

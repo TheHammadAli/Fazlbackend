@@ -37,13 +37,14 @@ import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { Public } from "src/common/decorators/public.decorator";
 
 @ApiTags("Services")
 @ApiBearerAuth("jwt")
 @UseGuards(JwtAuthGuard)
 @Controller("services")
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) {}
+  constructor(private readonly servicesService: ServicesService) { }
 
   @Post("create-request")
   @ApiOperation({ summary: "Create a new service request" })
@@ -143,7 +144,7 @@ export class ServicesController {
   // async delete(@Param('serviceId') serviceId: string): Promise<void> {
   //   return await this.servicesService.delete(serviceId);
   // }
-
+  @Public()
   @Get(":serviceId")
   @ApiOperation({ summary: "Get service by ID" })
   @ApiParam({ name: "serviceId", required: true })
@@ -153,6 +154,7 @@ export class ServicesController {
   }
 
   @Get("/user/:userId")
+  @Public()
   @ApiOperation({ summary: "Get paginated services by user ID" })
   @ApiParam({ name: "userId", required: true })
   @ApiQuery({ name: "page", required: false, type: Number })
@@ -185,7 +187,7 @@ export class ServicesController {
   ): Promise<PaginatedResponseDto<any>> {
     return this.servicesService.getServiceRequestsByUser(userId, page, limit);
   }
-
+  @Public()
   @Get("with-videos/all")
   @ApiOperation({ summary: "Get all services with videos (paginated)" })
   @ApiQuery({

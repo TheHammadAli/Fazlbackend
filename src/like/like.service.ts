@@ -36,7 +36,7 @@ export class LikeService {
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -115,6 +115,9 @@ export class LikeService {
     itemType?: "product" | "service",
     ids?: Types.ObjectId[],
   ): Promise<PopulatedLikeItem[]> {
+    if (!userId) {
+      return []
+    }
     const userObjectId = new Types.ObjectId(userId);
 
     const query: any = { userId: userObjectId };
@@ -136,7 +139,6 @@ export class LikeService {
           if (like.itemType === "product") {
             itemDetails = await this.productsService.getById(
               like.itemId.toString(),
-              this.lang,
             );
           } else if (like.itemType === "service") {
             itemDetails = await this.servicesService.getById(
@@ -198,7 +200,7 @@ export class LikeService {
     itemType: "product" | "service",
   ): Promise<void> {
     if (itemType === "product") {
-      const product = await this.productsService.getById(itemId, this.lang);
+      const product = await this.productsService.getById(itemId);
 
       if (!product) {
         throw new NotFoundException(

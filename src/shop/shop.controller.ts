@@ -26,6 +26,7 @@ import {
   ApiConsumes,
 } from "@nestjs/swagger";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
+import { Public } from "src/common/decorators/public.decorator";
 
 @ApiTags("Shops")
 @ApiBearerAuth("jwt")
@@ -80,6 +81,7 @@ export class ShopController {
     return this.shopService.updateShop(id, dto);
   }
 
+  @Public()
   @Get("detail/:id")
   @ApiOperation({ summary: "Get shop details by ID" })
   @ApiParam({ name: "id", type: String })

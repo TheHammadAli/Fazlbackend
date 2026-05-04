@@ -42,7 +42,7 @@ export class OrdersService {
         this.i18n.translate("auth.orders.buyer_not_found", { lang: this.lang }),
       );
 
-    const product = await this.productsService.getById(dto.product, this.lang);
+    const product = await this.productsService.getById(dto.product);
     if (!product)
       throw new NotFoundException(
         this.i18n.translate("auth.orders.product_not_found", {

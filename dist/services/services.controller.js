@@ -24,6 +24,7 @@ const update_request_dto_1 = require("./dto/update-request-dto");
 const update_job_dto_1 = require("./dto/update-job-dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
+const public_decorator_1 = require("../common/decorators/public.decorator");
 let ServicesController = class ServicesController {
     servicesService;
     constructor(servicesService) {
@@ -152,6 +153,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "update", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)(":serviceId"),
     (0, swagger_1.ApiOperation)({ summary: "Get service by ID" }),
     (0, swagger_1.ApiParam)({ name: "serviceId", required: true }),
@@ -163,6 +165,7 @@ __decorate([
 ], ServicesController.prototype, "getById", null);
 __decorate([
     (0, common_1.Get)("/user/:userId"),
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: "Get paginated services by user ID" }),
     (0, swagger_1.ApiParam)({ name: "userId", required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
@@ -196,6 +199,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getServiceRequestsByUser", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Get)("with-videos/all"),
     (0, swagger_1.ApiOperation)({ summary: "Get all services with videos (paginated)" }),
     (0, swagger_1.ApiQuery)({

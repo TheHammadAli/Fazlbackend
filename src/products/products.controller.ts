@@ -36,6 +36,7 @@ import {
 } from "@nestjs/swagger";
 import { Request } from "express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { Public } from "src/common/decorators/public.decorator";
 
 @ApiTags("Products")
 @ApiBearerAuth("jwt")
@@ -96,7 +97,8 @@ export class ProductsController {
     return this.productsService.create(entityId, type, createProductDto);
   }
 
-  @Get(":shopId")
+  @Public()
+  @Get("shop/:shopId")
   @ApiOperation({ summary: "Get all products for a shop" })
   @ApiParam({ name: "shopId", required: true })
   @ApiQuery({ name: "page", required: false })
@@ -145,6 +147,7 @@ export class ProductsController {
   }
 
   @Get("user/:userId")
+  @Public()
   @ApiOperation({ summary: "Get all products for a User" })
   @ApiParam({ name: "userId", required: true })
   @ApiQuery({ name: "page", required: false })
@@ -157,6 +160,7 @@ export class ProductsController {
   }
 
   @Get("with-videos/all")
+  @Public()
   @ApiOperation({ summary: "Get all products with videos (paginated)" })
   @ApiQuery({
     name: "page",
@@ -180,6 +184,7 @@ export class ProductsController {
   }
 
   @Get("detail/:id")
+  @Public()
   @ApiOperation({ summary: "Get product details by ID" })
   @ApiParam({ name: "id", required: true })
   async getById(@Param("id") id: string): Promise<Product> {

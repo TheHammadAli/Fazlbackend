@@ -15,6 +15,7 @@ export class Notification extends Document {
 
   @Prop({
     required: true,
+    
     enum: ["ORDER", "MESSAGE", "PROMOTION", "SERVICE_REQUEST"],
   })
   type!: NotificationType;
