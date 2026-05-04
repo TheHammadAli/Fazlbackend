@@ -42,6 +42,8 @@ let BroadcastGateway = class BroadcastGateway {
     }
     async handleSendBroadcastMessage(data, client) {
         const newMessage = await this.broadcastService.sendBroadcastMessage(data.broadcastId, data.senderId, data.receiverId, data.threadId, data.message);
+        this.server.to(data.threadId).emit("receiveMessage", newMessage);
+        return newMessage;
     }
     async handleJoinBroadcast(data, client) {
         client.join(data.broadcastId);

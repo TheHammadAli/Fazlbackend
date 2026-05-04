@@ -42,6 +42,8 @@ let ChatGateway = class ChatGateway {
     }
     async handleSendMessage(data, client) {
         const message = await this.chatService.sendMessage(data.conversationId, data.senderId, data.receiverId, data.text);
+        this.server.to(data.conversationId).emit("receiveMessage", message);
+        return message;
     }
     async handleStartConversation(data, client) {
         const convo = await this.chatService.getOrCreateConversation(data.buyerId, data.sellerId);

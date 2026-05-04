@@ -34,7 +34,22 @@ export declare class BroadcastService {
         message: string;
         data: string;
     }>;
-    sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string, imageUrl?: string): Promise<void>;
+    sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string, imageUrl?: string): Promise<{
+        data: {
+            message: import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
+                _id: Types.ObjectId;
+            } & {
+                __v: number;
+            };
+            sender: import("../users/schema/users.schema").User & import("mongoose").Document<unknown, any, any, Record<string, any>>;
+            thread: {
+                id: string;
+                buyer: Types.ObjectId;
+                seller: Types.ObjectId;
+                broadcast: Types.ObjectId;
+            };
+        };
+    }>;
     getBroadcastThreads(broadcastId: string): Promise<any[]>;
     getThreadMessages(threadId: string): Promise<(import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
         _id: Types.ObjectId;

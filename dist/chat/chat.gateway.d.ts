@@ -18,7 +18,21 @@ export declare class ChatGateway implements OnGatewayConnection, OnGatewayDiscon
         senderId: string;
         receiverId: string;
         text: string;
-    }, client: Socket): Promise<void>;
+    }, client: Socket): Promise<{
+        data: {
+            message: import("mongoose").Document<unknown, {}, import("./schema/message.schema").Message, {}> & import("./schema/message.schema").Message & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            };
+            sender: import("../users/schema/users.schema").User & import("mongoose").Document<unknown, any, any, Record<string, any>>;
+            conversation: import("mongoose").Document<unknown, {}, import("./schema/conversation.schema").Conversation, {}> & import("./schema/conversation.schema").Conversation & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            };
+        };
+    }>;
     handleStartConversation(data: {
         buyerId: string;
         sellerId: string;
