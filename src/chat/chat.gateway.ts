@@ -71,6 +71,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       data.receiverId,
       data.text,
     );
+
+     this.server.to(data.conversationId).emit("receiveMessage", message);
+
+
+    return message;
   }
 
   @SubscribeMessage("startConversation")

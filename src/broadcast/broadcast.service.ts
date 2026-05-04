@@ -39,7 +39,7 @@ export class BroadcastService {
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -338,8 +338,9 @@ export class BroadcastService {
       imageUrl, // Save the S3 URL here
     });
 
-    if (BroadcastGateway.serverInstance) {
-      BroadcastGateway.serverInstance.to(threadId).emit("receiveMessage", {
+    return {
+      data: {
+
         message: messageResults,
         sender,
         thread: {
@@ -348,7 +349,7 @@ export class BroadcastService {
           seller: thread.seller,
           broadcast: thread.broadcast,
         },
-      });
+      }
     }
   }
 
@@ -446,8 +447,8 @@ export class BroadcastService {
           $project: {
             _id: 1,
             broadcast: 1,
-            buyer: { _id: 1, name: 1 ,image:1},
-            seller: { _id: 1, name: 1 ,image:1},
+            buyer: { _id: 1, name: 1, image: 1 },
+            seller: { _id: 1, name: 1, image: 1 },
             lastMessageAt: 1,
             createdAt: 1,
             updatedAt: 1,
