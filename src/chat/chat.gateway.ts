@@ -6,6 +6,7 @@ import {
   WebSocketServer,
   MessageBody,
   ConnectedSocket,
+  OnGatewayInit,
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { ChatService } from "./chat.service";
@@ -16,18 +17,23 @@ import { forwardRef, Inject, Logger } from "@nestjs/common";
     origin: "*", // Adjust in production
   },
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server!: Server;
-
   static serverInstance: Server;
+
+  afterInit(server: Server) {
+    ChatGateway.serverInstance = server;
+  }
+
+
 
   private logger: Logger = new Logger("ChatGateway");
 
   constructor(
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
-  ) {}
+  ) { }
 
   handleConnection(client: Socket) {
     console.log("Client connected", client.id);

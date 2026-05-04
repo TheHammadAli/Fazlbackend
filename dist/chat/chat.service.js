@@ -136,6 +136,7 @@ let ChatService = class ChatService {
             },
         }, { senderName: sender.name });
         if (chat_gateway_1.ChatGateway.serverInstance) {
+            console.log("Emitting message to conversation room:", conversationId);
             chat_gateway_1.ChatGateway.serverInstance.to(conversationId).emit("receiveMessage", {
                 message,
                 sender,

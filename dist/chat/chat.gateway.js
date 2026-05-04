@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var ChatGateway_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
@@ -18,9 +19,13 @@ const socket_io_1 = require("socket.io");
 const chat_service_1 = require("./chat.service");
 const common_1 = require("@nestjs/common");
 let ChatGateway = class ChatGateway {
+    static { ChatGateway_1 = this; }
     chatService;
     server;
     static serverInstance;
+    afterInit(server) {
+        ChatGateway_1.serverInstance = server;
+    }
     logger = new common_1.Logger("ChatGateway");
     constructor(chatService) {
         this.chatService = chatService;
@@ -87,7 +92,7 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleMarkAsRead", null);
-exports.ChatGateway = ChatGateway = __decorate([
+exports.ChatGateway = ChatGateway = ChatGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
             origin: "*",

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var BroadcastGateway_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BroadcastGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
@@ -18,9 +19,13 @@ const socket_io_1 = require("socket.io");
 const broadcast_service_1 = require("./broadcast.service");
 const common_1 = require("@nestjs/common");
 let BroadcastGateway = class BroadcastGateway {
+    static { BroadcastGateway_1 = this; }
     broadcastService;
     server;
     static serverInstance;
+    afterInit(server) {
+        BroadcastGateway_1.serverInstance = server;
+    }
     logger = new common_1.Logger("BroadcastGateway");
     constructor(broadcastService) {
         this.broadcastService = broadcastService;
@@ -86,7 +91,7 @@ __decorate([
     __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
     __metadata("design:returntype", Promise)
 ], BroadcastGateway.prototype, "handleLeaveBroadcast", null);
-exports.BroadcastGateway = BroadcastGateway = __decorate([
+exports.BroadcastGateway = BroadcastGateway = BroadcastGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
             origin: "*",

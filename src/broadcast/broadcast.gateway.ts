@@ -6,6 +6,7 @@ import {
   WebSocketServer,
   MessageBody,
   ConnectedSocket,
+  OnGatewayInit,
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { BroadcastService } from "./broadcast.service";
@@ -17,18 +18,23 @@ import { forwardRef, Inject, Logger } from "@nestjs/common";
   },
 })
 export class BroadcastGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server!: Server;
 
   static serverInstance: Server;
+
+
+  afterInit(server: Server) {
+    BroadcastGateway.serverInstance = server;
+  }
+
   private logger: Logger = new Logger("BroadcastGateway");
 
   constructor(
     @Inject(forwardRef(() => BroadcastService))
     private readonly broadcastService: BroadcastService,
-  ) {}
+  ) { }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
