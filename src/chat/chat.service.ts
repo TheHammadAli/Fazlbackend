@@ -11,7 +11,7 @@ import { AppError } from "src/common/exceptions/app-error";
 import { ShopService } from "src/shop/shop.service";
 import { ClsService } from "nestjs-cls";
 import { NotificationsService } from "src/notifications/notifications.service";
-
+import { ChatGateway } from "./chat.gateway";
 
 @Injectable()
 export class ChatService {
@@ -25,6 +25,7 @@ export class ChatService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly notificationsService: NotificationsService,
+    private readonly chatGateway: ChatGateway
   ) { }
 
   /** Dynamic getter to retrieve the current request language safely */
@@ -141,31 +142,39 @@ export class ChatService {
       lastMessageAt: new Date(),
     });
 
-    await this.notificationsService.createAndNotify(
-      receiverId,
-      "chat.new_message",
-      "MESSAGE",
-      {
-        conversation: {
-          id: conversation._id,
-          buyer: conversation.buyer,
-          seller: conversation.seller,
-          status: conversation.status,
-        },
-        message: {
-          id: message._id,
-          text: message.text,
-          imageUrl: message.imageUrl,
-          createdAt: message.createdAt,
-        },
-        sender: {
-          id: sender._id,
-          name: sender.name,
-          image: sender.image,
-        },
-      },
-      { senderName: sender.name },
-    );
+    // await this.notificationsService.createAndNotify(
+    //   receiverId,
+    //   "chat.new_message",
+    //   "MESSAGE",
+    //   {
+    //     conversation: {
+    //       id: conversation._id,
+    //       buyer: conversation.buyer,
+    //       seller: conversation.seller,
+    //       status: conversation.status,
+    //     },
+    //     message: {
+    //       id: message._id,
+    //       text: message.text,
+    //       imageUrl: message.imageUrl,
+    //       createdAt: message.createdAt,
+    //     },
+    //     sender: {
+    //       id: sender._id,
+    //       name: sender.name,
+    //       image: sender.image,
+    //     },
+    //   },
+    //   { senderName: sender.name },
+    // );
+
+    this.chatGateway.server
+      .to(conversationId)
+      .emit("receiveMessage", {
+        message,
+        sender,
+        conversation,
+      });
 
     return {
       data: {

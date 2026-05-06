@@ -24,6 +24,7 @@ const app_error_1 = require("../common/exceptions/app-error");
 const shop_service_1 = require("../shop/shop.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const notifications_service_1 = require("../notifications/notifications.service");
+const chat_gateway_1 = require("./chat.gateway");
 let ChatService = class ChatService {
     conversationModel;
     messageModel;
@@ -32,7 +33,8 @@ let ChatService = class ChatService {
     i18n;
     cls;
     notificationsService;
-    constructor(conversationModel, messageModel, userService, shopService, i18n, cls, notificationsService) {
+    chatGateway;
+    constructor(conversationModel, messageModel, userService, shopService, i18n, cls, notificationsService, chatGateway) {
         this.conversationModel = conversationModel;
         this.messageModel = messageModel;
         this.userService = userService;
@@ -40,6 +42,7 @@ let ChatService = class ChatService {
         this.i18n = i18n;
         this.cls = cls;
         this.notificationsService = notificationsService;
+        this.chatGateway = chatGateway;
     }
     get lang() {
         return this.cls.get("lang") || "en";
@@ -115,25 +118,13 @@ let ChatService = class ChatService {
         await this.conversationModel.findByIdAndUpdate(conversationId, {
             lastMessageAt: new Date(),
         });
-        await this.notificationsService.createAndNotify(receiverId, "chat.new_message", "MESSAGE", {
-            conversation: {
-                id: conversation._id,
-                buyer: conversation.buyer,
-                seller: conversation.seller,
-                status: conversation.status,
-            },
-            message: {
-                id: message._id,
-                text: message.text,
-                imageUrl: message.imageUrl,
-                createdAt: message.createdAt,
-            },
-            sender: {
-                id: sender._id,
-                name: sender.name,
-                image: sender.image,
-            },
-        }, { senderName: sender.name });
+        this.chatGateway.server
+            .to(conversationId)
+            .emit("receiveMessage", {
+            message,
+            sender,
+            conversation,
+        });
         return {
             data: {
                 message,
@@ -339,6 +330,7 @@ exports.ChatService = ChatService = __decorate([
         shop_service_1.ShopService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
-        notifications_service_1.NotificationsService])
+        notifications_service_1.NotificationsService,
+        chat_gateway_1.ChatGateway])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map
