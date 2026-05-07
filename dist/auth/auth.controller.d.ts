@@ -31,7 +31,12 @@ export declare class AuthController {
         phoneNumber: string;
         code: string;
     }): Promise<{
-        valid: boolean;
+        valid: {
+            message: string;
+            data: {
+                isValid: boolean;
+            };
+        };
     }>;
     sendEmailVerification(email: string, lang: string): Promise<{
         data: string;

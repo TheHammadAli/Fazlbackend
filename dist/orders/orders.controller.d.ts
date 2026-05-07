@@ -6,7 +6,14 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 export declare class OrdersController {
     private readonly ordersService;
     constructor(ordersService: OrdersService);
-    createOrder(dto: CreateOrderDto): Promise<Order>;
+    createOrder(dto: CreateOrderDto): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("./schema/order.schema").OrderDocument, {}> & Order & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
     getOrderById(id: string): Promise<Order>;
     getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", pagination: PaginationDto): Promise<{
         data: Order[];

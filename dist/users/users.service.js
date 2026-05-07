@@ -60,7 +60,7 @@ let UsersService = class UsersService {
                 savedUser.image = imageUrl;
             }
             await savedUser.save();
-            return savedUser.toJSON();
+            return { message: this.i18n.translate("auth.users.created_success", { lang: this.lang }), data: savedUser.toJSON() };
         }
         catch (err) {
             throw err instanceof common_1.HttpException

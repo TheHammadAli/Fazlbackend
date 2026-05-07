@@ -31,19 +31,29 @@ export declare class ServicesController {
     create(req: Request, dto: CreateServiceDto, files: {
         images?: Express.Multer.File[];
         video?: Express.Multer.File[];
-    }): Promise<import("./schema/services.schema").Service>;
+    }): Promise<{
+        message: string;
+        data: Promise<Omit<import("mongoose").Document<unknown, {}, import("./schema/services.schema").ServiceDocument, {}> & import("./schema/services.schema").Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        }, never>>;
+    }>;
     update(serviceId: string, dto: UpdateServiceDto, files: {
         images?: Express.Multer.File[];
         video?: Express.Multer.File[];
     }): Promise<{
-        images: string[];
-        video: string;
-        title?: string;
-        description?: string;
-        price?: number;
-        paymentType?: "hourly" | "fixed";
-        requiresAppointment?: boolean;
-        category?: string;
+        message: string;
+        data: {
+            images: string[];
+            video: string;
+            title?: string;
+            description?: string;
+            price?: number;
+            paymentType?: "hourly" | "fixed";
+            requiresAppointment?: boolean;
+            category?: string;
+        };
     }>;
     getById(serviceId: string): Promise<import("./schema/services.schema").Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;

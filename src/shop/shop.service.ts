@@ -67,7 +67,7 @@ export class ShopService {
     };
   }
 
-  async updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<Shop> {
+  async updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<{ message: string; data: Shop }> {
     const { ...safeDto } = dto as any;
     const existingShop = await this.shopModel.findById(shopId);
     if (!existingShop) {
@@ -95,7 +95,7 @@ export class ShopService {
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
-    return safeDto;
+    return {message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }), data: updated.toJSON() };
   }
 
   async getShopById(shopId: string): Promise<ShopDocument> {

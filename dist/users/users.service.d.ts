@@ -14,11 +14,14 @@ export declare class UsersService {
     private readonly cls;
     constructor(userModel: Model<UserDocument>, fileUploadService: FileUploadService, i18n: I18nService, cls: ClsService);
     private get lang();
-    createUser(createUserDto: CreateUpdateUserDto): Promise<import("mongoose").FlattenMaps<User & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
-        _id: unknown;
-    }> & {
-        __v: number;
-    }>>;
+    createUser(createUserDto: CreateUpdateUserDto): Promise<{
+        message: string;
+        data: import("mongoose").FlattenMaps<User & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        }>;
+    }>;
     hashPassword(password: string): Promise<string>;
     findUserByEmail(email: string): Promise<(import("mongoose").Document<unknown, {}, UserDocument, {}> & User & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;

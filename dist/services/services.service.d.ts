@@ -31,16 +31,26 @@ export declare class ServicesService {
     constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
     private get lang();
     getServiceModel(): Model<ServiceDocument>;
-    create(userId: string, dto: CreateServiceDto, lang?: string): Promise<Service>;
+    create(userId: string, dto: CreateServiceDto): Promise<{
+        message: string;
+        data: Promise<Omit<import("mongoose").Document<unknown, {}, ServiceDocument, {}> & Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        }, never>>;
+    }>;
     update(serviceId: string, dto: UpdateServiceDto): Promise<{
-        images: string[];
-        video: string;
-        title?: string;
-        description?: string;
-        price?: number;
-        paymentType?: "hourly" | "fixed";
-        requiresAppointment?: boolean;
-        category?: string;
+        message: string;
+        data: {
+            images: string[];
+            video: string;
+            title?: string;
+            description?: string;
+            price?: number;
+            paymentType?: "hourly" | "fixed";
+            requiresAppointment?: boolean;
+            category?: string;
+        };
     }>;
     delete(serviceId: string): Promise<void>;
     deleteServiceMedia(serviceId: string, media: string[]): Promise<boolean>;

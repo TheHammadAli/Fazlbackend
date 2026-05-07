@@ -17,7 +17,10 @@ export declare class ShopController {
     }>;
     updateShop(id: string, dto: CreateUpdateShopDto, files: {
         image?: Express.Multer.File[];
-    }): Promise<import("./schema/shop.schema").Shop>;
+    }): Promise<{
+        message: string;
+        data: import("./schema/shop.schema").Shop;
+    }>;
     getShop(id: string): Promise<import("./schema/shop.schema").ShopDocument>;
     getMyShops(user: JwtPayload): Promise<import("./schema/shop.schema").Shop[]>;
 }

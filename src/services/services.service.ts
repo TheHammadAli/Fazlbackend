@@ -61,8 +61,8 @@ export class ServicesService {
   async create(
     userId: string,
     dto: CreateServiceDto,
-    lang: string = "en",
-  ): Promise<Service> {
+
+  ) {
     const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new NotFoundException(
@@ -136,7 +136,7 @@ export class ServicesService {
       created.video = video[0]; // Assuming only one video file is uploaded
     }
     await created.save(); // Save the service again to update the images and video fields
-    return created.populate("category");
+    return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
   }
 
   async update(serviceId: string, dto: UpdateServiceDto) {
@@ -203,7 +203,7 @@ export class ServicesService {
       );
     }
     console.log("Updated Service:", video);
-    return { ...dto, images, video }; // Ensure the images and video are included in the returned object
+    return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
 
   async delete(serviceId: string): Promise<void> {
@@ -444,10 +444,11 @@ export class ServicesService {
 
     const results = await request.save();
     this.notificationsService.createAndNotify(
-      service.ownerId.toString(),
-      `New service request for "${service.title}" from ${customer?.name || "a user"}`,
+      service.ownerId._id.toString(),
+      "request_created",
       "SERVICE_REQUEST",
-      { serviceId, customerId, requestedDateTime, service },
+      { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime },
+      { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
     return results;

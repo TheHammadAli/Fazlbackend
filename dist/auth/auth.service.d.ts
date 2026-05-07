@@ -46,7 +46,12 @@ export declare class AuthService {
         email: string | undefined;
         message: string;
     }>;
-    verifyOtp(phoneNumber: string, code: string): Promise<boolean>;
+    verifyOtp(phoneNumber: string, code: string): Promise<{
+        message: string;
+        data: {
+            isValid: boolean;
+        };
+    }>;
     sendForgotPasswordEmail(email: string, lang?: string): Promise<{
         message: string;
         data: string;

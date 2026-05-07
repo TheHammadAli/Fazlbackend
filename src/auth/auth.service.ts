@@ -244,11 +244,11 @@ export class AuthService {
     };
   }
 
-  async verifyOtp(phoneNumber: string, code: string): Promise<boolean> {
+  async verifyOtp(phoneNumber: string, code: string) {
     const lang = this.cls.get("lang") || "en";
     const record = await this.otpModel.findOne({ phoneNumber });
 
-    if (!record) return false;
+    if (!record) return { message: this.i18n.translate("auth.auth.otp_not_found", { lang }), data: { isValid: false } };
 
     // Check expiration (5 mins window)
     const isExpired =
@@ -256,7 +256,7 @@ export class AuthService {
       5 * 60 * 1000;
     if (isExpired) {
       await this.otpModel.deleteOne({ phoneNumber }); // Delete expired OTP
-      return false;
+      return { message: this.i18n.translate("auth.auth.otp_expired", { lang }), data: { isValid: false } };
     }
 
     const isValid = record.code === code;
@@ -265,7 +265,7 @@ export class AuthService {
       await this.otpModel.deleteOne({ phoneNumber }); // Delete OTP after successful verification
     }
 
-    return isValid;
+    return { message: this.i18n.translate("auth.auth.otp_verified", { lang: this.getLang() }), data: { isValid } };
   }
 
   async sendForgotPasswordEmail(email: string, lang: string = "en") {

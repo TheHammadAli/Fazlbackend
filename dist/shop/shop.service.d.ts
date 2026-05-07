@@ -25,7 +25,10 @@ export declare class ShopService {
             __v: number;
         };
     }>;
-    updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<Shop>;
+    updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<{
+        message: string;
+        data: Shop;
+    }>;
     getShopById(shopId: string): Promise<ShopDocument>;
     getAllShopsByUser(userId: string): Promise<Shop[]>;
     findShopsNearLocation(location: [number, number], radiusInMeters: number): Promise<Shop[]>;

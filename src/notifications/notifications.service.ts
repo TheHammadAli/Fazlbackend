@@ -71,10 +71,7 @@ export class NotificationsService {
     i18nArgs: Record<string, any> = {},
   ) {
     console.log(
-      "Creating notification for user:",
-      userId,
-      "with payload:",
-      payload,
+      "lang args", i18nArgs
     );
 
     const user = await this.usersService.findUserById(userId.toString());
@@ -97,6 +94,11 @@ export class NotificationsService {
       args: i18nArgs,
     }) as string;;
 
+    console.log("Does it reach here", userId,
+      translatedMessage,
+      type,
+      payload,)
+
     const notif = await this.create<T>(
       userId,
       translatedMessage,
@@ -107,6 +109,7 @@ export class NotificationsService {
     if (this.server) {
       this.server.to(userId.toString()).emit("notification", notif);
     }
+    console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
 
     if (user?.fcmToken) {
       const notificationId =

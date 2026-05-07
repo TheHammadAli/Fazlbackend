@@ -18,7 +18,14 @@ export declare class OrdersService {
     private readonly cls;
     constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService, notificationsService: NotificationsService, i18n: I18nService, cls: ClsService);
     private get lang();
-    createOrder(dto: CreateOrderDto): Promise<Order>;
+    createOrder(dto: CreateOrderDto): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, OrderDocument, {}> & Order & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
     getOrderById(orderId: string): Promise<Order>;
     getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", page?: number, limit?: number): Promise<{
         data: Order[];

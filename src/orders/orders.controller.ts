@@ -36,7 +36,7 @@ export class OrdersController {
   @Post()
   @ApiOperation({ summary: "Create a new order" })
   @ApiResponse({ status: 201, description: "Order created", type: Order })
-  async createOrder(@Body() dto: CreateOrderDto): Promise<Order> {
+  async createOrder(@Body() dto: CreateOrderDto) {
     return this.ordersService.createOrder(dto);
   }
 

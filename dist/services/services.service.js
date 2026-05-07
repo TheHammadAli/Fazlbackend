@@ -55,7 +55,7 @@ let ServicesService = class ServicesService {
     getServiceModel() {
         return this.serviceModel;
     }
-    async create(userId, dto, lang = "en") {
+    async create(userId, dto) {
         const user = await this.userService.findUserById(userId);
         if (!user) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.user_not_found", {
@@ -108,7 +108,7 @@ let ServicesService = class ServicesService {
             created.video = video[0];
         }
         await created.save();
-        return created.populate("category");
+        return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
     }
     async update(serviceId, dto) {
         Object.keys(dto).forEach((key) => {
@@ -155,7 +155,7 @@ let ServicesService = class ServicesService {
             }));
         }
         console.log("Updated Service:", video);
-        return { ...dto, images, video };
+        return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } };
     }
     async delete(serviceId) {
         const existingService = await this.serviceModel.findById(serviceId);
@@ -312,7 +312,7 @@ let ServicesService = class ServicesService {
             message,
         });
         const results = await request.save();
-        this.notificationsService.createAndNotify(service.ownerId.toString(), `New service request for "${service.title}" from ${customer?.name || "a user"}`, "SERVICE_REQUEST", { serviceId, customerId, requestedDateTime, service });
+        this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime }, { serviceName: service.title, customerName: customer?.name || "A customer" });
         return results;
     }
     async updateRequestStatus(dto) {

@@ -25,7 +25,7 @@ export class UsersService {
     private readonly fileUploadService: FileUploadService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService, //
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
@@ -61,7 +61,7 @@ export class UsersService {
         savedUser.image = imageUrl; // Ensure the image is stored as a filename
       }
       await savedUser.save(); // Save the user again to update the image field
-      return savedUser.toJSON();
+      return { message: this.i18n.translate("auth.users.created_success", { lang: this.lang }), data: savedUser.toJSON() };
     } catch (err) {
       throw err instanceof HttpException
         ? err

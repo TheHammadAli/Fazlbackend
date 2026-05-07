@@ -89,7 +89,7 @@ let ShopService = class ShopService {
         if (!updated) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
-        return safeDto;
+        return { message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }), data: updated.toJSON() };
     }
     async getShopById(shopId) {
         const shop = await this.shopModel

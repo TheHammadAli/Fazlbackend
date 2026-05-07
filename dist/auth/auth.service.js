@@ -200,18 +200,18 @@ let AuthService = class AuthService {
         const lang = this.cls.get("lang") || "en";
         const record = await this.otpModel.findOne({ phoneNumber });
         if (!record)
-            return false;
+            return { message: this.i18n.translate("auth.auth.otp_not_found", { lang }), data: { isValid: false } };
         const isExpired = new Date().getTime() - new Date(record.createdAt).getTime() >
             5 * 60 * 1000;
         if (isExpired) {
             await this.otpModel.deleteOne({ phoneNumber });
-            return false;
+            return { message: this.i18n.translate("auth.auth.otp_expired", { lang }), data: { isValid: false } };
         }
         const isValid = record.code === code;
         if (isValid) {
             await this.otpModel.deleteOne({ phoneNumber });
         }
-        return isValid;
+        return { message: this.i18n.translate("auth.auth.otp_verified", { lang: this.getLang() }), data: { isValid } };
     }
     async sendForgotPasswordEmail(email, lang = "en") {
         const user = await this.userService.findUserByEmail(email);

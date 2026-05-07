@@ -94,7 +94,7 @@ let OrdersService = class OrdersService {
         this.notificationsService.createAndNotify(dto.ownerModel === "Shop"
             ? owner.ownerId._id?.toString()
             : owner._id?.toString() || dto.owner, "order_created_seller", "ORDER", notificationPayload, { productTitle: product.title });
-        return savedOrder;
+        return { message: this.i18n.translate("auth.orders.created_success", { lang: this.lang }), data: savedOrder };
     }
     async getOrderById(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))

@@ -26,7 +26,7 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
 
   /** Dynamic getter for the current request language */
   private get lang(): string {
@@ -34,7 +34,7 @@ export class OrdersService {
   }
 
   // CREATE: Logic updated to include mandatory payloads and post-save notifications
-  async createOrder(dto: CreateOrderDto): Promise<Order> {
+  async createOrder(dto: CreateOrderDto) {
     // 1. Validation Logic
     const buyer = await this.usersService.findUserById(dto.buyer);
     if (!buyer)
@@ -120,7 +120,7 @@ export class OrdersService {
       { productTitle: product.title },
     );
 
-    return savedOrder;
+    return { message: this.i18n.translate("auth.orders.created_success", { lang: this.lang }), data: savedOrder };
   }
 
   // READ: Get by ID
