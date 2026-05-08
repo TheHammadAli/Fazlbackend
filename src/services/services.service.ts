@@ -451,7 +451,12 @@ export class ServicesService {
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
-    return results;
+    return {
+      data: results,
+      message: this.i18n.translate("auth.services.request_created_success", {
+        lang: this.lang,
+      }),
+    }
   }
   async updateRequestStatus(dto: UpdateRequestStatusDto) {
     const { requestId, action, proposedDateTime } = dto;
