@@ -64,6 +64,12 @@ __decorate([
 ], CategoryController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, swagger_1.ApiHeader)({
+        name: "Accept-Language",
+        required: false,
+        description: "Language code",
+        example: "en",
+    }),
     (0, swagger_1.ApiOperation)({ summary: "Get all categories" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "List of categories" }),
     __metadata("design:type", Function),
@@ -72,6 +78,12 @@ __decorate([
 ], CategoryController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)("detail/:id"),
+    (0, swagger_1.ApiHeader)({
+        name: "Accept-Language",
+        required: false,
+        description: "Language code",
+        example: "en",
+    }),
     (0, swagger_1.ApiOperation)({ summary: "Get category by ID" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Category found" }),
     (0, swagger_1.ApiResponse)({ status: 404, description: "Category not found" }),

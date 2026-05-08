@@ -12,14 +12,37 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateUpdateCategoryDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const category_schema_1 = require("../schema/category.schema");
 class CreateUpdateCategoryDto {
     name;
+    type;
+    isDisabled;
 }
 exports.CreateUpdateCategoryDto = CreateUpdateCategoryDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: "Electronics", description: "Category name" }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({
+        example: {
+            en: "Cleaning",
+            ur: "صفائی",
+        },
+    }),
+    (0, class_validator_1.IsObject)(),
+    __metadata("design:type", Object)
 ], CreateUpdateCategoryDto.prototype, "name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        enum: category_schema_1.CategoryType,
+        example: category_schema_1.CategoryType.SERVICE,
+    }),
+    (0, class_validator_1.IsEnum)(category_schema_1.CategoryType),
+    __metadata("design:type", String)
+], CreateUpdateCategoryDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateUpdateCategoryDto.prototype, "isDisabled", void 0);
 //# sourceMappingURL=category-create-update.dto.js.map

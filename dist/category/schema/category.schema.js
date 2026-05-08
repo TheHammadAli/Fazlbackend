@@ -9,16 +9,38 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CategorySchema = exports.Category = void 0;
+exports.CategorySchema = exports.Category = exports.CategoryType = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
+var CategoryType;
+(function (CategoryType) {
+    CategoryType["SERVICE"] = "service";
+    CategoryType["PRODUCT"] = "product";
+})(CategoryType || (exports.CategoryType = CategoryType = {}));
 let Category = class Category {
     name;
+    isDisabled;
+    type;
 };
 exports.Category = Category;
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, unique: true, trim: true }),
-    __metadata("design:type", String)
+    (0, mongoose_1.Prop)({
+        type: Map,
+        of: String,
+        required: true,
+    }),
+    __metadata("design:type", Map)
 ], Category.prototype, "name", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], Category.prototype, "isDisabled", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        required: true,
+        enum: CategoryType,
+    }),
+    __metadata("design:type", String)
+], Category.prototype, "type", void 0);
 exports.Category = Category = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

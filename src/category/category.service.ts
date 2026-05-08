@@ -11,6 +11,7 @@ import {
 } from "./schema/category-request.schema";
 import { CreateCategoryRequestDto } from "./dto/category-request.dto";
 import { ReviewCategoryRequestDto } from "./dto/review-category.dto";
+import { ClsService } from "nestjs-cls";
 
 @Injectable()
 export class CategoryService {
@@ -20,18 +21,34 @@ export class CategoryService {
     @InjectModel(CategoryRequest.name)
     private categoryRequestModel: Model<CategoryRequestDocument>,
     private readonly i18n: I18nService,
-  ) {}
+    private readonly cls: ClsService,
+  ) { }
+  private getLocalizedValue = (
+    field: Map<string, string>,
+    lang = "en",
+  ) => {
+    return field?.get(lang) || field?.get("en") || "";
+  };
+
+  private get lang(): string {
+    return this.cls?.get("lang") ?? "en";
+  }
 
   async create(dto: CreateUpdateCategoryDto): Promise<Category> {
     return new this.categoryModel(dto).save();
   }
 
-  async findAll(): Promise<Category[]> {
-    return this.categoryModel.find().exec();
+  async findAll() {
+    const categories = await this.categoryModel.find({ isDisabled: false }).exec();
+    console.log(categories)
+    return {data:categories.map((cat) => ({
+      ...cat.toObject(),
+      name: this.getLocalizedValue(cat.name, this.lang),
+    })), message: this.i18n.translate("category.fetched_success", { lang: this.lang })};
   }
 
   async findById(id: string, lang: string = "en"): Promise<Category> {
-    const category = await this.categoryModel.findById(id);
+    const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).exec();
     if (!category)
       throw new NotFoundException(
         this.i18n.translate("auth.category.category_not_found", { lang }),
@@ -42,24 +59,25 @@ export class CategoryService {
   async update(
     id: string,
     dto: CreateUpdateCategoryDto,
-    lang: string = "en",
+
   ): Promise<Category> {
     const updated = await this.categoryModel.findByIdAndUpdate(id, dto, {
       new: true,
     });
     if (!updated)
       throw new NotFoundException(
-        this.i18n.translate("category.category_not_found", { lang }),
+        this.i18n.translate("category.category_not_found", { lang: this.lang }),
       );
     return updated;
   }
 
-  async delete(id: string, lang: string = "en"): Promise<void> {
-    const result = await this.categoryModel.findByIdAndDelete(id);
+  async delete(id: string): Promise<void> {
+    const result = await this.categoryModel.findById(id);
     if (!result)
       throw new NotFoundException(
-        this.i18n.translate("category.category_not_found", { lang }),
+        this.i18n.translate("category.category_not_found", { lang: this.lang }),
       );
+    await this.categoryModel.updateOne({ _id: id }, { isDisabled: true }).exec();
   }
 
   async createRequest(createDto: CreateCategoryRequestDto, userId: string) {

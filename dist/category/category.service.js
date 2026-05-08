@@ -19,39 +19,54 @@ const category_schema_1 = require("./schema/category.schema");
 const mongoose_2 = require("mongoose");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const category_request_schema_1 = require("./schema/category-request.schema");
+const nestjs_cls_1 = require("nestjs-cls");
 let CategoryService = class CategoryService {
     categoryModel;
     categoryRequestModel;
     i18n;
-    constructor(categoryModel, categoryRequestModel, i18n) {
+    cls;
+    constructor(categoryModel, categoryRequestModel, i18n, cls) {
         this.categoryModel = categoryModel;
         this.categoryRequestModel = categoryRequestModel;
         this.i18n = i18n;
+        this.cls = cls;
+    }
+    getLocalizedValue = (field, lang = "en") => {
+        return field?.get(lang) || field?.get("en") || "";
+    };
+    get lang() {
+        return this.cls?.get("lang") ?? "en";
     }
     async create(dto) {
         return new this.categoryModel(dto).save();
     }
     async findAll() {
-        return this.categoryModel.find().exec();
+        const categories = await this.categoryModel.find({ isDisabled: false }).exec();
+        console.log(categories);
+        return { data: categories.map((cat) => ({
+                ...cat.toObject(),
+                name: this.getLocalizedValue(cat.name, this.lang),
+            })), message: this.i18n.translate("category.fetched_success", { lang: this.lang }) };
     }
     async findById(id, lang = "en") {
-        const category = await this.categoryModel.findById(id);
+        const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).exec();
         if (!category)
             throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang }));
         return category;
     }
-    async update(id, dto, lang = "en") {
+    async update(id, dto) {
         const updated = await this.categoryModel.findByIdAndUpdate(id, dto, {
             new: true,
         });
         if (!updated)
-            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang: this.lang }));
         return updated;
     }
-    async delete(id, lang = "en") {
-        const result = await this.categoryModel.findByIdAndDelete(id);
+    async delete(id) {
+        const result = await this.categoryModel.findById(id);
         if (!result)
-            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang: this.lang }));
+        await this.categoryModel.updateOne({ _id: id }, { isDisabled: true }).exec();
     }
     async createRequest(createDto, userId) {
         return this.categoryRequestModel.create({
@@ -100,6 +115,7 @@ exports.CategoryService = CategoryService = __decorate([
     __param(1, (0, mongoose_1.InjectModel)(category_request_schema_1.CategoryRequest.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        nestjs_i18n_1.I18nService])
+        nestjs_i18n_1.I18nService,
+        nestjs_cls_1.ClsService])
 ], CategoryService);
 //# sourceMappingURL=category.service.js.map

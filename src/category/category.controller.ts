@@ -21,6 +21,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBody,
+  ApiHeader,
 } from "@nestjs/swagger";
 
 @ApiTags("Categories")
@@ -39,6 +40,12 @@ export class CategoryController {
   }
 
   @Get()
+  @ApiHeader({
+    name: "Accept-Language",
+    required: false,
+    description: "Language code",
+    example: "en",
+  })
   @ApiOperation({ summary: "Get all categories" })
   @ApiResponse({ status: 200, description: "List of categories" })
   findAll() {
@@ -46,6 +53,12 @@ export class CategoryController {
   }
 
   @Get("detail/:id")
+  @ApiHeader({
+    name: "Accept-Language",
+    required: false,
+    description: "Language code",
+    example: "en",
+  })
   @ApiOperation({ summary: "Get category by ID" })
   @ApiResponse({ status: 200, description: "Category found" })
   @ApiResponse({ status: 404, description: "Category not found" })

@@ -1,6 +1,12 @@
 import { Document } from "mongoose";
+export declare enum CategoryType {
+    SERVICE = "service",
+    PRODUCT = "product"
+}
 export declare class Category {
-    name: string;
+    name: Map<string, string>;
+    isDisabled: boolean;
+    type: CategoryType;
 }
 export type CategoryDocument = Category & Document;
 export declare const CategorySchema: import("mongoose").Schema<Category, import("mongoose").Model<Category, any, any, any, Document<unknown, any, Category, any> & Category & {

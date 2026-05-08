@@ -7,7 +7,26 @@ export declare class CategoryController {
     private readonly categoryService;
     constructor(categoryService: CategoryService);
     create(dto: CreateUpdateCategoryDto): Promise<import("./schema/category.schema").Category>;
-    findAll(): Promise<import("./schema/category.schema").Category[]>;
+    findAll(): Promise<{
+        data: {
+            name: string;
+            isDisabled: boolean;
+            type: import("./schema/category.schema").CategoryType;
+            _id: unknown;
+            $locals: Record<string, unknown>;
+            $op: "save" | "validate" | "remove" | null;
+            $where: Record<string, unknown>;
+            baseModelName?: string;
+            collection: import("mongoose").Collection;
+            db: import("mongoose").Connection;
+            errors?: import("mongoose").Error.ValidationError;
+            id?: any;
+            isNew: boolean;
+            schema: import("mongoose").Schema;
+            __v: number;
+        }[];
+        message: string;
+    }>;
     findById(id: string): Promise<import("./schema/category.schema").Category>;
     update(id: string, dto: CreateUpdateCategoryDto): Promise<import("./schema/category.schema").Category>;
     delete(id: string): Promise<void>;
