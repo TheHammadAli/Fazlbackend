@@ -17,7 +17,7 @@ class CreateBroadcastDto {
     radius;
     categoryId;
     type;
-    file;
+    files;
 }
 exports.CreateBroadcastDto = CreateBroadcastDto;
 __decorate([
@@ -44,7 +44,13 @@ __decorate([
     __metadata("design:type", String)
 ], CreateBroadcastDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: "string", format: "binary", required: false }),
-    __metadata("design:type", Object)
-], CreateBroadcastDto.prototype, "file", void 0);
+    (0, swagger_1.ApiPropertyOptional)({
+        type: "array",
+        items: {
+            type: "string",
+            format: "binary",
+        },
+    }),
+    __metadata("design:type", Array)
+], CreateBroadcastDto.prototype, "files", void 0);
 //# sourceMappingURL=create-broadcast.dto.js.map

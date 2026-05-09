@@ -1,6 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
-  IsArray,
   IsNotEmpty,
   IsNumber,
   IsString,
@@ -27,6 +26,12 @@ export class CreateBroadcastDto {
   @IsNotEmpty()
   type: "product" | "service";
 
-  @ApiProperty({ type: "string", format: "binary", required: false })
-  file?: any;
+  @ApiPropertyOptional({
+    type: "array",
+    items: {
+      type: "string",
+      format: "binary",
+    },
+  })
+  files?: any[];
 }

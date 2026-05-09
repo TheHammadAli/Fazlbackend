@@ -18,8 +18,8 @@ export class BroadcastMessage {
   thread: Types.ObjectId;
   @Prop({ type: String, required: false })
   message: string;
-  @Prop({ type: String })
-  imageUrl?: string; // Optional field for S3 link
+  @Prop({required:false })
+  imageUrl?: string[]; // Optional field for S3 link
 }
 
 export const BroadcastMessageSchema =

@@ -1,5 +1,0 @@
-export declare class GetWithVideosDto {
-    page?: number;
-    limit?: number;
-    category?: string;
-}

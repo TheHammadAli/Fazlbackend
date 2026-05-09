@@ -167,7 +167,7 @@ export class BroadcastService {
     dto: CreateBroadcastDto,
     buyerId: string,
     location: { type: string; coordinates: [number, number] },
-    imageUrl?: string,
+    imageUrls?: string[],
   ) {
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
@@ -233,7 +233,7 @@ export class BroadcastService {
       receiver: thread.seller,
       message: dto.message || "📢 New broadcast request",
       type: "SYSTEM",
-      imageUrl, // Include image URL if provided
+      imageUrls, // Include image URL if provided
     }));
 
     await this.messageModel.insertMany(initialMessages);

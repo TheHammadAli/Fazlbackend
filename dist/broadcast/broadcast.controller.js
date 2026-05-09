@@ -29,16 +29,17 @@ let BroadcastController = class BroadcastController {
         this.broadcastService = broadcastService;
         this.fileUploadService = fileUploadService;
     }
-    async createBroadcast(dto, req, file) {
+    async createBroadcast(dto, req, files) {
         const user = req.user;
         const buyerId = user.sub;
         const location = user.location;
-        const lang = (req.headers["accept-language"] || "en").split(",")[0];
-        let imageUrl;
-        if (file) {
-            imageUrl = await this.fileUploadService.uploadBroadcastImage(buyerId, file);
+        let imageUrls = [];
+        console.log("Received files for broadcast:", files);
+        if (files?.length) {
+            imageUrls = await Promise.all(files.map((file) => this.fileUploadService.uploadBroadcastImage(buyerId, file)));
         }
-        return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location, imageUrl);
+        console.log("Final image URLs for broadcast:", imageUrls);
+        return this.broadcastService.createBroadcastAndDispatch(dto, buyerId, location, imageUrls);
     }
     async sendMessage(broadcastId, dto, req, file) {
         const user = req.user;
@@ -70,12 +71,12 @@ __decorate([
     (0, common_1.Post)("/create"),
     (0, swagger_1.ApiOperation)({ summary: "Create broadcast and dispatch sellers" }),
     (0, swagger_1.ApiConsumes)("application/json", "multipart/form-data"),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("file")),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)("files", 5)),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
-    __param(2, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_broadcast_dto_1.CreateBroadcastDto, Object, Object]),
+    __metadata("design:paramtypes", [create_broadcast_dto_1.CreateBroadcastDto, Object, Array]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "createBroadcast", null);
 __decorate([

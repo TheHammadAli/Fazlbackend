@@ -32,7 +32,7 @@ export declare class BroadcastService {
     createBroadcastAndDispatch(dto: CreateBroadcastDto, buyerId: string, location: {
         type: string;
         coordinates: [number, number];
-    }, imageUrl?: string): Promise<{
+    }, imageUrls?: string[]): Promise<{
         message: string;
         data: string;
     }>;

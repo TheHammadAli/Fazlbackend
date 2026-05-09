@@ -110,7 +110,7 @@ let BroadcastService = class BroadcastService {
         const threads = await Promise.all(threadPromises);
         return threads;
     }
-    async createBroadcastAndDispatch(dto, buyerId, location, imageUrl) {
+    async createBroadcastAndDispatch(dto, buyerId, location, imageUrls) {
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.category_invalid", {
@@ -145,7 +145,7 @@ let BroadcastService = class BroadcastService {
             receiver: thread.seller,
             message: dto.message || "📢 New broadcast request",
             type: "SYSTEM",
-            imageUrl,
+            imageUrls,
         }));
         await this.messageModel.insertMany(initialMessages);
         return {

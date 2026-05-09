@@ -42,8 +42,8 @@ __decorate([
     __metadata("design:type", String)
 ], BroadcastMessage.prototype, "message", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: String }),
-    __metadata("design:type", String)
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", Array)
 ], BroadcastMessage.prototype, "imageUrl", void 0);
 exports.BroadcastMessage = BroadcastMessage = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })

@@ -9,6 +9,7 @@ import {
   UseGuards,
   UploadedFile,
   UseInterceptors,
+  UploadedFiles,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -28,7 +29,7 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 
 // ✅ import your guard
 import { JwtAuthGuard } from "../auth/guard/jwt-auth-guard";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 
 @ApiTags("Broadcast")
@@ -39,17 +40,17 @@ export class BroadcastController {
   constructor(
     private readonly broadcastService: BroadcastService,
     private readonly fileUploadService: FileUploadService,
-  ) {}
+  ) { }
 
   // 🚀 Create broadcast
   @Post("/create")
   @ApiOperation({ summary: "Create broadcast and dispatch sellers" })
   @ApiConsumes("application/json", "multipart/form-data")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(FilesInterceptor("files", 5))
   async createBroadcast(
     @Body() dto: CreateBroadcastDto,
     @Req() req: Request,
-    @UploadedFile() file?: Express.Multer.File, // Grab the file
+    @UploadedFiles() files?: Express.Multer.File[], // Grab the file
   ) {
     const user = req.user as {
       sub: string;
@@ -58,24 +59,27 @@ export class BroadcastController {
 
     const buyerId = user.sub;
     const location = user.location;
-    const lang = (req.headers["accept-language"] || "en").split(",")[0];
 
-    let imageUrl: string | undefined;
 
+    let imageUrls: string[] = [];
+
+    console.log("Received files for broadcast:", files);
     // Upload to S3 if a file exists
-    if (file) {
-      imageUrl = await this.fileUploadService.uploadBroadcastImage(
-        buyerId,
-        file,
+    if (files?.length) {
+      imageUrls = await Promise.all(
+        files.map((file) =>
+          this.fileUploadService.uploadBroadcastImage(buyerId, file),
+        ),
       );
     }
 
+    console.log("Final image URLs for broadcast:", imageUrls);
     // Pass imageUrl to your service
     return this.broadcastService.createBroadcastAndDispatch(
       dto,
       buyerId,
       location,
-      imageUrl, // Ensure your service method is updated to accept this
+      imageUrls, // Ensure your service method is updated to accept this
     );
   }
 
