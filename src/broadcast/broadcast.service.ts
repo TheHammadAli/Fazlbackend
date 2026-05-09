@@ -39,6 +39,7 @@ export class BroadcastService {
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
+    private readonly broadcastGateway: BroadcastGateway,
   ) { }
 
   private get lang(): string {
@@ -338,6 +339,15 @@ export class BroadcastService {
       imageUrl, // Save the S3 URL here
     });
 
+    this.broadcastGateway.server
+      .to(threadId)
+      .emit("receiveMessage", {
+        message,
+        sender,
+        thread,
+      });
+
+
     return {
       data: {
 
@@ -352,7 +362,7 @@ export class BroadcastService {
       }
     }
   }
-  
+
   // -----------------------------
   // GET THREADS
   // -----------------------------
