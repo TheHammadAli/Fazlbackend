@@ -504,13 +504,17 @@ export class ProductsService {
   async getProductsWithVideos(
     paginationDto: PaginationDto,
     userId: string,
+    category?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
-    const filter = {
+    const filter : FilterQuery<ProductDocument> = {
       video: { $exists: true, $nin: ["", null] },
     };
+    if (category) {
+      filter.category = new Types.ObjectId(category)
+    }
 
     const [items, total] = await Promise.all([
       this.productModel

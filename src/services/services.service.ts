@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Service, ServiceDocument } from "./schema/services.schema";
-import { Model, Types } from "mongoose";
+import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { CreateServiceDto } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
@@ -703,15 +703,20 @@ export class ServicesService {
   async getServicesWithVideos(
     paginationDto: PaginationDto,
     userId: string,
+      category?: string,
   ): Promise<PaginatedResponseDto<Service>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // ✅ Robust filter (handles null, empty string, missing field)
-    const filter = {
+    const filter: FilterQuery<Service> = {
       video: { $exists: true, $nin: ["", null] },
     };
 
+
+    if (category) {
+      filter.category = new Types.ObjectId(category);
+    }
     const [items, total] = await Promise.all([
       this.serviceModel
         .find(filter)

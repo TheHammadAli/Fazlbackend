@@ -71,10 +71,13 @@ export declare class ServicesService {
         data: any[];
     }>;
     private enrichServicesWithReviewStats;
-    createServiceRequest(dto: CreateRequestDto): Promise<import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
-        _id: Types.ObjectId;
-    } & {
-        __v: number;
+    createServiceRequest(dto: CreateRequestDto): Promise<{
+        data: import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
+            _id: Types.ObjectId;
+        } & {
+            __v: number;
+        };
+        message: string;
     }>;
     updateRequestStatus(dto: UpdateRequestStatusDto): Promise<{
         status: number;
@@ -94,5 +97,5 @@ export declare class ServicesService {
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;
-    getServicesWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<Service>>;
+    getServicesWithVideos(paginationDto: PaginationDto, userId: string, category?: string): Promise<PaginatedResponseDto<Service>>;
 }

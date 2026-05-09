@@ -356,12 +356,15 @@ let ProductsService = class ProductsService {
             };
         });
     }
-    async getProductsWithVideos(paginationDto, userId) {
+    async getProductsWithVideos(paginationDto, userId, category) {
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const filter = {
             video: { $exists: true, $nin: ["", null] },
         };
+        if (category) {
+            filter.category = new mongoose_2.Types.ObjectId(category);
+        }
         const [items, total] = await Promise.all([
             this.productModel
                 .find(filter)

@@ -25,6 +25,7 @@ const users_service_1 = require("../users/users.service");
 const category_service_1 = require("../category/category.service");
 const services_service_1 = require("../services/services.service");
 const nestjs_cls_1 = require("nestjs-cls");
+const broadcast_gateway_1 = require("./broadcast.gateway");
 let BroadcastService = class BroadcastService {
     broadcastModel;
     messageModel;
@@ -35,7 +36,8 @@ let BroadcastService = class BroadcastService {
     servicesService;
     i18n;
     cls;
-    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, i18n, cls) {
+    broadcastGateway;
+    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, i18n, cls, broadcastGateway) {
         this.broadcastModel = broadcastModel;
         this.messageModel = messageModel;
         this.threadModel = threadModel;
@@ -45,6 +47,7 @@ let BroadcastService = class BroadcastService {
         this.servicesService = servicesService;
         this.i18n = i18n;
         this.cls = cls;
+        this.broadcastGateway = broadcastGateway;
     }
     get lang() {
         return this.cls.get("lang") || "en";
@@ -201,6 +204,13 @@ let BroadcastService = class BroadcastService {
             receiver: new mongoose_2.Types.ObjectId(receiverId),
             message,
             imageUrl,
+        });
+        this.broadcastGateway.server
+            .to(threadId)
+            .emit("receiveMessage", {
+            message,
+            sender,
+            thread,
         });
         return {
             data: {
@@ -404,6 +414,7 @@ exports.BroadcastService = BroadcastService = __decorate([
         users_service_1.UsersService,
         services_service_1.ServicesService,
         nestjs_i18n_1.I18nService,
-        nestjs_cls_1.ClsService])
+        nestjs_cls_1.ClsService,
+        broadcast_gateway_1.BroadcastGateway])
 ], BroadcastService);
 //# sourceMappingURL=broadcast.service.js.map

@@ -5,6 +5,7 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 import { Product } from "./schema/product.schema";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { Request } from "express";
+import { GetWithVideosDto } from "src/services/dto/video-with-dto";
 export declare class ProductsController {
     private readonly productsService;
     constructor(productsService: ProductsService);
@@ -22,7 +23,7 @@ export declare class ProductsController {
         message: string;
     }>;
     getAllProductsByUser(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
-    getProductsWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<Product>>;
+    getProductsWithVideos(query: GetWithVideosDto, userId: string): Promise<PaginatedResponseDto<Product>>;
     getById(id: string): Promise<Product>;
     update(id: string, updateProductDto: UpdateProductDto, files: {
         images?: Express.Multer.File[];

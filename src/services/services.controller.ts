@@ -38,6 +38,7 @@ import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { Public } from "src/common/decorators/public.decorator";
+import { GetWithVideosDto } from "./dto/video-with-dto";
 
 @ApiTags("Services")
 @ApiBearerAuth("jwt")
@@ -190,26 +191,17 @@ export class ServicesController {
   @Public()
   @Get("with-videos/all")
   @ApiOperation({ summary: "Get all services with videos (paginated)" })
-  @ApiQuery({
-    name: "page",
-    required: false,
-    description: "Page number (default: 1)",
-  })
-  @ApiQuery({
-    name: "limit",
-    required: false,
-    description: "Items per page (default: 10)",
-  })
+
   @ApiResponse({
     status: 200,
     description: "Paginated list of services with videos",
   })
   async getServicesWithVideos(
-    @Query() paginationDto: { page?: number; limit?: number },
+    @Query() query: GetWithVideosDto,
     @CurrentUser("sub") userId: string,
   ): Promise<PaginatedResponseDto<any>> {
-    console.log("Recieved pagination", paginationDto);
-    return this.servicesService.getServicesWithVideos(paginationDto, userId);
+    console.log("Recieved pagination", query);
+    return this.servicesService.getServicesWithVideos(query, userId, query.category);
   }
 
   @Delete(":id/media")

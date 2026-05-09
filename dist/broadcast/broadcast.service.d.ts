@@ -10,6 +10,7 @@ import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
 import { ServicesService } from "src/services/services.service";
 import { ClsService } from "nestjs-cls";
+import { BroadcastGateway } from "./broadcast.gateway";
 export declare class BroadcastService {
     private readonly broadcastModel;
     private readonly messageModel;
@@ -20,7 +21,8 @@ export declare class BroadcastService {
     private readonly servicesService;
     private readonly i18n;
     private readonly cls;
-    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, servicesService: ServicesService, i18n: I18nService, cls: ClsService);
+    private readonly broadcastGateway;
+    constructor(broadcastModel: Model<Broadcast>, messageModel: Model<BroadcastMessage>, threadModel: Model<BroadcastThread>, shopService: ShopService, categoryService: CategoryService, userService: UsersService, servicesService: ServicesService, i18n: I18nService, cls: ClsService, broadcastGateway: BroadcastGateway);
     private get lang();
     private createBroadcast;
     private findNearbySellers;

@@ -57,5 +57,5 @@ export declare class ProductsService {
         };
     }>;
     private enrichProductsWithReviewStats;
-    getProductsWithVideos(paginationDto: PaginationDto, userId: string): Promise<PaginatedResponseDto<any>>;
+    getProductsWithVideos(paginationDto: PaginationDto, userId: string, category?: string): Promise<PaginatedResponseDto<any>>;
 }

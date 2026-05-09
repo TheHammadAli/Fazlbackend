@@ -37,13 +37,14 @@ import {
 import { Request } from "express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { Public } from "src/common/decorators/public.decorator";
+import { GetWithVideosDto } from "src/services/dto/video-with-dto";
 
 @ApiTags("Products")
 @ApiBearerAuth("jwt")
 @UseGuards(JwtAuthGuard)
 @Controller("products")
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService) { }
 
   @Post(":entityId/:type")
   @UseInterceptors(
@@ -162,25 +163,16 @@ export class ProductsController {
   @Get("with-videos/all")
   @Public()
   @ApiOperation({ summary: "Get all products with videos (paginated)" })
-  @ApiQuery({
-    name: "page",
-    required: false,
-    description: "Page number (default: 1)",
-  })
-  @ApiQuery({
-    name: "limit",
-    required: false,
-    description: "Items per page (default: 10)",
-  })
+
   @ApiResponse({
     status: 200,
     description: "Paginated list of products with videos",
   })
   async getProductsWithVideos(
-    @Query() paginationDto: PaginationDto,
+    @Query() query: GetWithVideosDto,
     @CurrentUser("sub") userId: string,
   ): Promise<PaginatedResponseDto<Product>> {
-    return this.productsService.getProductsWithVideos(paginationDto, userId);
+    return this.productsService.getProductsWithVideos(query, userId, query.category);
   }
 
   @Get("detail/:id")

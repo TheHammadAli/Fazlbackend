@@ -313,7 +313,12 @@ let ServicesService = class ServicesService {
         });
         const results = await request.save();
         this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime }, { serviceName: service.title, customerName: customer?.name || "A customer" });
-        return results;
+        return {
+            data: results,
+            message: this.i18n.translate("auth.services.request_created_success", {
+                lang: this.lang,
+            }),
+        };
     }
     async updateRequestStatus(dto) {
         const { requestId, action, proposedDateTime } = dto;
@@ -483,12 +488,15 @@ let ServicesService = class ServicesService {
             }),
         };
     }
-    async getServicesWithVideos(paginationDto, userId) {
+    async getServicesWithVideos(paginationDto, userId, category) {
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
         const filter = {
             video: { $exists: true, $nin: ["", null] },
         };
+        if (category) {
+            filter.category = new mongoose_2.Types.ObjectId(category);
+        }
         const [items, total] = await Promise.all([
             this.serviceModel
                 .find(filter)

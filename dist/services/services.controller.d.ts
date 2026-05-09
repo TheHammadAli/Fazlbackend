@@ -6,13 +6,17 @@ import { Request } from "express";
 import { CreateRequestDto } from "./dto/create-request-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
+import { GetWithVideosDto } from "./dto/video-with-dto";
 export declare class ServicesController {
     private readonly servicesService;
     constructor(servicesService: ServicesService);
-    createRequest(dto: CreateRequestDto): Promise<import("mongoose").Document<unknown, {}, import("./schema/service_request.schema").ServiceRequestDocument, {}> & import("./schema/service_request.schema").ServiceRequest & Document & {
-        _id: import("mongoose").Types.ObjectId;
-    } & {
-        __v: number;
+    createRequest(dto: CreateRequestDto): Promise<{
+        data: import("mongoose").Document<unknown, {}, import("./schema/service_request.schema").ServiceRequestDocument, {}> & import("./schema/service_request.schema").ServiceRequest & Document & {
+            _id: import("mongoose").Types.ObjectId;
+        } & {
+            __v: number;
+        };
+        message: string;
     }>;
     updateStatus(dto: UpdateRequestStatusDto): Promise<{
         status: number;
@@ -58,10 +62,7 @@ export declare class ServicesController {
     getById(serviceId: string): Promise<import("./schema/services.schema").Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
     getServiceRequestsByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
-    getServicesWithVideos(paginationDto: {
-        page?: number;
-        limit?: number;
-    }, userId: string): Promise<PaginatedResponseDto<any>>;
+    getServicesWithVideos(query: GetWithVideosDto, userId: string): Promise<PaginatedResponseDto<any>>;
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;

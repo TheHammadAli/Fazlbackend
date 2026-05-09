@@ -25,6 +25,7 @@ const update_job_dto_1 = require("./dto/update-job-dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const public_decorator_1 = require("../common/decorators/public.decorator");
+const video_with_dto_1 = require("./dto/video-with-dto");
 let ServicesController = class ServicesController {
     servicesService;
     constructor(servicesService) {
@@ -73,9 +74,9 @@ let ServicesController = class ServicesController {
     async getServiceRequestsByUser(userId, page = 1, limit = 10) {
         return this.servicesService.getServiceRequestsByUser(userId, page, limit);
     }
-    async getServicesWithVideos(paginationDto, userId) {
-        console.log("Recieved pagination", paginationDto);
-        return this.servicesService.getServicesWithVideos(paginationDto, userId);
+    async getServicesWithVideos(query, userId) {
+        console.log("Recieved pagination", query);
+        return this.servicesService.getServicesWithVideos(query, userId, query.category);
     }
     async deleteProductMedia(serviceId, media) {
         if (!Array.isArray(media) || media.length === 0) {
@@ -202,16 +203,6 @@ __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)("with-videos/all"),
     (0, swagger_1.ApiOperation)({ summary: "Get all services with videos (paginated)" }),
-    (0, swagger_1.ApiQuery)({
-        name: "page",
-        required: false,
-        description: "Page number (default: 1)",
-    }),
-    (0, swagger_1.ApiQuery)({
-        name: "limit",
-        required: false,
-        description: "Items per page (default: 10)",
-    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: "Paginated list of services with videos",
@@ -219,7 +210,7 @@ __decorate([
     __param(0, (0, common_1.Query)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)("sub")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [video_with_dto_1.GetWithVideosDto, String]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getServicesWithVideos", null);
 __decorate([
