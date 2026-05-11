@@ -26,6 +26,7 @@ const platform_express_1 = require("@nestjs/platform-express");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("./dto/video-with-dto");
+const Get_paginated_dto_1 = require("../orders/dto/Get-paginated-dto");
 let ServicesController = class ServicesController {
     servicesService;
     constructor(servicesService) {
@@ -84,6 +85,9 @@ let ServicesController = class ServicesController {
         }
         await this.servicesService.deleteServiceMedia(serviceId, media);
         return { message: "Selected service media deleted successfully" };
+    }
+    async getServiceRequestsForCustomer(customerId, paginationDto) {
+        return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto);
     }
 };
 exports.ServicesController = ServicesController;
@@ -245,6 +249,22 @@ __decorate([
     __metadata("design:paramtypes", [String, Array]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "deleteProductMedia", null);
+__decorate([
+    (0, common_1.Get)("/customer/:customerId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated services for a customer" }),
+    (0, swagger_1.ApiParam)({ name: "customerId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of services for the customer",
+    }),
+    __param(0, (0, common_1.Param)("customerId")),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Get_paginated_dto_1.PaginationDto]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServiceRequestsForCustomer", null);
 exports.ServicesController = ServicesController = __decorate([
     (0, swagger_1.ApiTags)("Services"),
     (0, swagger_1.ApiBearerAuth)("jwt"),

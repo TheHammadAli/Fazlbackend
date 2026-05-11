@@ -98,4 +98,5 @@ export declare class ServicesService {
         message: string;
     }>;
     getServicesWithVideos(paginationDto: PaginationDto, userId: string, category?: string): Promise<PaginatedResponseDto<Service>>;
+    getServicesRequestsForCustomer(customerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<ServiceRequest>>;
 }

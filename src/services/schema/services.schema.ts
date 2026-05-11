@@ -54,6 +54,9 @@ export class Service {
 
   @Prop({ required: false, trim: true })
   video!: string;
+
+  @Prop({ type: Boolean, default: false })
+  isDeleted!: boolean;
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);

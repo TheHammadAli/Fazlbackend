@@ -24,6 +24,7 @@ let Product = class Product {
     video;
     location;
     parameters;
+    isDeleted;
 };
 exports.Product = Product;
 __decorate([
@@ -90,6 +91,10 @@ __decorate([
     }),
     __metadata("design:type", Array)
 ], Product.prototype, "parameters", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Product.prototype, "isDeleted", void 0);
 exports.Product = Product = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

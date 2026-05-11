@@ -118,7 +118,7 @@ let ServicesService = class ServicesService {
                 delete dto[key];
             }
         });
-        const existingService = await this.serviceModel.findById(serviceId);
+        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });
         if (!existingService) {
             throw new common_1.NotFoundException("Service not found");
         }
@@ -158,7 +158,7 @@ let ServicesService = class ServicesService {
         return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } };
     }
     async delete(serviceId) {
-        const existingService = await this.serviceModel.findById(serviceId);
+        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });
         if (!existingService) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
@@ -168,7 +168,7 @@ let ServicesService = class ServicesService {
         if (media && media.length > 0) {
             await this.fileUploadService.deleteFiles(media);
         }
-        const result = await this.serviceModel.findByIdAndDelete(serviceId);
+        const result = await this.serviceModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(serviceId), { isDeleted: true });
         if (!result) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
@@ -176,7 +176,7 @@ let ServicesService = class ServicesService {
         }
     }
     async deleteServiceMedia(serviceId, media) {
-        const existingService = await this.serviceModel.findById(serviceId);
+        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });
         if (!existingService) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
@@ -201,7 +201,7 @@ let ServicesService = class ServicesService {
     }
     async getById(serviceId) {
         const service = await this.serviceModel
-            .findById(serviceId)
+            .findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false })
             .populate("category");
         if (!service) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
@@ -214,12 +214,12 @@ let ServicesService = class ServicesService {
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.serviceModel
-                .find({ ownerId: new mongoose_2.Types.ObjectId(userId) })
+                .find({ ownerId: new mongoose_2.Types.ObjectId(userId), isDeleted: false })
                 .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.serviceModel.countDocuments({ ownerId: new mongoose_2.Types.ObjectId(userId) }),
+            this.serviceModel.countDocuments({ ownerId: new mongoose_2.Types.ObjectId(userId), isDeleted: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -240,6 +240,7 @@ let ServicesService = class ServicesService {
         if (query.category) {
             filter.category = new mongoose_2.Types.ObjectId(query.category);
         }
+        filter.isDeleted = false;
         const page = query.page && query.page > 0 ? query.page : 1;
         const limit = query.limit && query.limit > 0 ? query.limit : 10;
         const skip = (page - 1) * limit;
@@ -493,6 +494,7 @@ let ServicesService = class ServicesService {
         const skip = (page - 1) * limit;
         const filter = {
             video: { $exists: true, $nin: ["", null] },
+            isDeleted: false,
         };
         if (category) {
             filter.category = new mongoose_2.Types.ObjectId(category);
@@ -520,6 +522,38 @@ let ServicesService = class ServicesService {
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
             data: data,
+        };
+    }
+    async getServicesRequestsForCustomer(customerId, paginationDto) {
+        const { page = 1, limit = 10 } = paginationDto;
+        const skip = (page - 1) * limit;
+        const requests = await this.requestModel
+            .find({ customer: new mongoose_2.Types.ObjectId(customerId) })
+            .populate({
+            path: "provider",
+            select: "name email",
+        })
+            .populate({
+            path: "customer",
+            select: "name email",
+        })
+            .populate({
+            path: "service",
+            populate: {
+                path: "category",
+            },
+        })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean()
+            .exec();
+        const total = await this.requestModel.countDocuments({
+            customer: new mongoose_2.Types.ObjectId(customerId),
+        }).exec();
+        return {
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            data: requests,
         };
     }
 };

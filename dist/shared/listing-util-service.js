@@ -19,7 +19,7 @@ let ListingUtilsService = class ListingUtilsService {
                     near: { type: "Point", coordinates },
                     distanceField: "distance",
                     maxDistance: radius * 1000,
-                    query: { category: new mongoose_1.Types.ObjectId(category) },
+                    query: { category: new mongoose_1.Types.ObjectId(category), isDeleted: false },
                     spherical: true,
                 },
             },

@@ -17,6 +17,7 @@ export declare class Product {
         name: string;
         variants: string[];
     }>;
+    isDeleted: boolean;
 }
 export declare const ProductSchema: import("mongoose").Schema<Product, import("mongoose").Model<Product, any, any, any, Document<unknown, any, Product, any> & Product & {
     _id: Types.ObjectId;

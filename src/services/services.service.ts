@@ -149,7 +149,7 @@ export class ServicesService {
         delete dto[key]; // remove it from updateData
       }
     });
-    const existingService = await this.serviceModel.findById(serviceId);
+    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
     if (!existingService) {
       throw new NotFoundException("Service not found");
     }
@@ -207,7 +207,7 @@ export class ServicesService {
   }
 
   async delete(serviceId: string): Promise<void> {
-    const existingService = await this.serviceModel.findById(serviceId);
+    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
     if (!existingService) {
       throw new NotFoundException(
         this.i18n.translate("auth.services.service_not_found", {
@@ -220,7 +220,7 @@ export class ServicesService {
     if (media && media.length > 0) {
       await this.fileUploadService.deleteFiles(media); // Delete associated media files
     }
-    const result = await this.serviceModel.findByIdAndDelete(serviceId);
+    const result = await this.serviceModel.findByIdAndUpdate(new Types.ObjectId(serviceId), { isDeleted: true });
     if (!result) {
       throw new NotFoundException(
         this.i18n.translate("auth.services.service_not_found", {
@@ -231,7 +231,7 @@ export class ServicesService {
   }
 
   async deleteServiceMedia(serviceId: string, media: string[]) {
-    const existingService = await this.serviceModel.findById(serviceId);
+    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
     if (!existingService) {
       throw new NotFoundException(
         this.i18n.translate("auth.services.service_not_found", {
@@ -272,7 +272,7 @@ export class ServicesService {
 
   async getById(serviceId: string): Promise<Service> {
     const service = await this.serviceModel
-      .findById(serviceId)
+      .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false })
       .populate("category");
 
     if (!service) {
@@ -295,12 +295,12 @@ export class ServicesService {
 
     const [data, total] = await Promise.all([
       this.serviceModel
-        .find({ ownerId: new Types.ObjectId(userId) })
+        .find({ ownerId: new Types.ObjectId(userId), isDeleted: false })
         .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.serviceModel.countDocuments({ ownerId: new Types.ObjectId(userId) }),
+      this.serviceModel.countDocuments({ ownerId: new Types.ObjectId(userId), isDeleted: false }),
     ]);
 
     return {
@@ -340,6 +340,7 @@ export class ServicesService {
     if (query.category) {
       filter.category = new Types.ObjectId(query.category);
     }
+    filter.isDeleted = false;
 
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 10;
@@ -703,7 +704,7 @@ export class ServicesService {
   async getServicesWithVideos(
     paginationDto: PaginationDto,
     userId: string,
-      category?: string,
+    category?: string,
   ): Promise<PaginatedResponseDto<Service>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -711,6 +712,7 @@ export class ServicesService {
     // ✅ Robust filter (handles null, empty string, missing field)
     const filter: FilterQuery<Service> = {
       video: { $exists: true, $nin: ["", null] },
+      isDeleted: false, // Exclude deleted services
     };
 
 
@@ -753,4 +755,43 @@ export class ServicesService {
       data: data,
     };
   }
+
+  async getServicesRequestsForCustomer(
+    customerId: string,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<ServiceRequest>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+    const requests = await this.requestModel
+      .find({ customer: new Types.ObjectId(customerId) })
+      .populate({
+        path: "provider",
+        select: "name email",
+      })
+      .populate({
+        path: "customer",
+        select: "name email",
+      })
+      .populate({
+        path: "service",
+        populate: {
+          path: "category",
+        },
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .exec();
+    const total = await this.requestModel.countDocuments({
+      customer: new Types.ObjectId(customerId),
+    }).exec();
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: requests,
+    };
+  }
 }
+
+

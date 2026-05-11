@@ -7,6 +7,7 @@ import { CreateRequestDto } from "./dto/create-request-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { GetWithVideosDto } from "./dto/video-with-dto";
+import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
 export declare class ServicesController {
     private readonly servicesService;
     constructor(servicesService: ServicesService);
@@ -66,4 +67,5 @@ export declare class ServicesController {
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;
+    getServiceRequestsForCustomer(customerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<import("./schema/service_request.schema").ServiceRequest>>;
 }

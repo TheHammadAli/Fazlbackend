@@ -23,9 +23,10 @@ export class ListingUtilsService {
           near: { type: "Point", coordinates },
           distanceField: "distance",
           maxDistance: radius * 1000,
-          query: { category: new Types.ObjectId(category) },
+          query: { category: new Types.ObjectId(category), isDeleted: false },
           spherical: true,
         },
+
       },
       { $sort: { createdAt: -1 } }, // Optional: sort by creation date
       { $skip: skip },

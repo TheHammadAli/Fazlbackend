@@ -39,6 +39,7 @@ import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { Public } from "src/common/decorators/public.decorator";
 import { GetWithVideosDto } from "./dto/video-with-dto";
+import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
 
 @ApiTags("Services")
 @ApiBearerAuth("jwt")
@@ -137,14 +138,14 @@ export class ServicesController {
     return await this.servicesService.update(serviceId, dto);
   }
 
-  // @Delete(':serviceId')
-  // @ApiOperation({ summary: 'Delete a service' })
-  // @ApiParam({ name: 'serviceId', required: true })
-  // @ApiResponse({ status: 204, description: 'Service deleted successfully' })
-  // @HttpCode(HttpStatus.NO_CONTENT)
-  // async delete(@Param('serviceId') serviceId: string): Promise<void> {
-  //   return await this.servicesService.delete(serviceId);
-  // }
+  @Delete(':serviceId')
+  @ApiOperation({ summary: 'Delete a service' })
+  @ApiParam({ name: 'serviceId', required: true })
+  @ApiResponse({ status: 204, description: 'Service deleted successfully' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(@Param('serviceId') serviceId: string): Promise<void> {
+    return await this.servicesService.delete(serviceId);
+  }
   @Public()
   @Get(":serviceId")
   @ApiOperation({ summary: "Get service by ID" })
@@ -238,5 +239,21 @@ export class ServicesController {
     }
     await this.servicesService.deleteServiceMedia(serviceId, media);
     return { message: "Selected service media deleted successfully" };
+  }
+
+  @Get("/customer/:customerId")
+  @ApiOperation({ summary: "Get paginated services for a customer" })
+  @ApiParam({ name: "customerId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiResponse({
+    status: 200,
+    description: "Paginated list of services for the customer",
+  })
+  async getServiceRequestsForCustomer(
+    @Param("customerId") customerId: string,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto);
   }
 }

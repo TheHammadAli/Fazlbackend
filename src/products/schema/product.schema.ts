@@ -64,6 +64,9 @@ export class Product {
     name: string;
     variants: string[];
   }>;
+
+  @Prop({ type: Boolean, default: false })
+  isDeleted: boolean;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

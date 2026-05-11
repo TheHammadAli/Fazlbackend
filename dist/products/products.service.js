@@ -140,12 +140,12 @@ let ProductsService = class ProductsService {
         const skip = (page - 1) * limit;
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ shopId: new mongoose_2.Types.ObjectId(shopId) })
+                .find({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false })
                 .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ shopId }),
+            this.productModel.countDocuments({ shopId, isDeleted: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -158,12 +158,12 @@ let ProductsService = class ProductsService {
         console.log("Fetching products for user:", ownerId);
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId) })
+                .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId), isDeleted: false })
                 .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ ownerId }),
+            this.productModel.countDocuments({ ownerId, isDeleted: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -172,7 +172,7 @@ let ProductsService = class ProductsService {
     }
     async getById(id) {
         const product = await this.productModel
-            .findById(new mongoose_2.Types.ObjectId(id))
+            .findOne({ _id: new mongoose_2.Types.ObjectId(id), isDeleted: false })
             .populate("category");
         if (!product)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
@@ -196,7 +196,7 @@ let ProductsService = class ProductsService {
                 delete updateDto[key];
             }
         });
-        const existingProduct = await this.productModel.findById(productId);
+        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -214,7 +214,7 @@ let ProductsService = class ProductsService {
             updateDto.video = uploadedVideo[0].url;
         }
         const updated = await this.productModel
-            .findByIdAndUpdate(productId, updateDto, { new: true })
+            .findOneAndUpdate({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false }, updateDto, { new: true })
             .exec();
         if (!updated) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
@@ -231,7 +231,7 @@ let ProductsService = class ProductsService {
         };
     }
     async delete(productId, lang = "en") {
-        const existingProduct = await this.productModel.findById(productId);
+        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -242,14 +242,14 @@ let ProductsService = class ProductsService {
             ? existingProduct.shopId.toString()
             : existingProduct.ownerId.toString();
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
-        const result = await this.productModel.findByIdAndDelete(productId);
+        const result = await this.productModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(productId), { isDeleted: true });
         if (!result)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
             }));
     }
     async deleteProductMedia(productId, media) {
-        const existingProduct = await this.productModel.findById(productId);
+        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -295,6 +295,7 @@ let ProductsService = class ProductsService {
         if (query.category) {
             promotionFilter.category = new mongoose_2.Types.ObjectId(query.category);
         }
+        promotionFilter.isDeleted = false;
         const promotedProducts = await this.productModel
             .find({
             _id: { $in: allPromotedIds },
@@ -307,6 +308,7 @@ let ProductsService = class ProductsService {
         const filteredProductSearchFilter = {
             ...productSearchFilter,
             _id: { $nin: promotedProductIds },
+            isDeleted: false,
         };
         const [regularProducts, total] = await Promise.all([
             this.productModel

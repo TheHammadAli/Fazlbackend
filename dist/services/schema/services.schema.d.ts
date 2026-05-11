@@ -13,6 +13,7 @@ export declare class Service {
         coordinates: [number, number];
     };
     video: string;
+    isDeleted: boolean;
 }
 export declare const ServiceSchema: import("mongoose").Schema<Service, import("mongoose").Model<Service, any, any, any, Document<unknown, any, Service, any> & Service & {
     _id: Types.ObjectId;

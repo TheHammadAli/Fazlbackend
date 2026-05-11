@@ -171,12 +171,12 @@ export class ProductsService {
 
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ shopId: new Types.ObjectId(shopId) })
+        .find({ shopId: new Types.ObjectId(shopId), isDeleted: false })
         .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ shopId }),
+      this.productModel.countDocuments({ shopId, isDeleted: false }),
     ]);
 
     return {
@@ -195,12 +195,12 @@ export class ProductsService {
     console.log("Fetching products for user:", ownerId);
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ ownerId: new Types.ObjectId(ownerId) })
+        .find({ ownerId: new Types.ObjectId(ownerId) ,isDeleted: false })
         .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ ownerId }),
+      this.productModel.countDocuments({ ownerId, isDeleted: false }),
     ]);
 
     return {
@@ -211,7 +211,7 @@ export class ProductsService {
 
   async getById(id: string): Promise<Product> {
     const product = await this.productModel
-      .findById(new Types.ObjectId(id))
+      .findOne({ _id: new Types.ObjectId(id), isDeleted: false })
       .populate("category");
     if (!product)
       throw new NotFoundException(
@@ -243,7 +243,7 @@ export class ProductsService {
       }
     });
 
-    const existingProduct = await this.productModel.findById(productId);
+    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -278,7 +278,7 @@ export class ProductsService {
     }
 
     const updated = await this.productModel
-      .findByIdAndUpdate(productId, updateDto, { new: true })
+      .findOneAndUpdate({ _id: new Types.ObjectId(productId), isDeleted: false }, updateDto, { new: true })
       .exec();
 
     if (!updated) {
@@ -300,7 +300,7 @@ export class ProductsService {
   }
 
   async delete(productId: string, lang: string = "en"): Promise<void> {
-    const existingProduct = await this.productModel.findById(productId);
+    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -317,7 +317,7 @@ export class ProductsService {
       entityId,
       productId,
     );
-    const result = await this.productModel.findByIdAndDelete(productId);
+    const result = await this.productModel.findByIdAndUpdate(new Types.ObjectId(productId), { isDeleted: true });
     if (!result)
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -327,7 +327,7 @@ export class ProductsService {
   }
 
   async deleteProductMedia(productId: string, media: string[]) {
-    const existingProduct = await this.productModel.findById(productId);
+    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -414,6 +414,7 @@ export class ProductsService {
     if (query.category) {
       promotionFilter.category = new Types.ObjectId(query.category);
     }
+    promotionFilter.isDeleted = false; // Ensure we only get non-deleted products for promotions
 
     // Fetch promoted products (that match category if provided)
     const promotedProducts = await this.productModel
@@ -433,6 +434,7 @@ export class ProductsService {
     const filteredProductSearchFilter: FilterQuery<ProductDocument> = {
       ...productSearchFilter,
       _id: { $nin: promotedProductIds },
+      isDeleted: false,
     };
 
     const [regularProducts, total] = await Promise.all([
