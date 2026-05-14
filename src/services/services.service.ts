@@ -16,6 +16,7 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 import { ListingUtilsService } from "src/shared/listing-util-service";
 import { UsersService } from "src/users/users.service";
 import { HandleRequestDto } from "./dto/handle-request.do";
+
 import {
   ServiceRequest,
   ServiceRequestDocument,
@@ -73,6 +74,7 @@ export class ServicesService {
     }
     const existingService = await this.serviceModel.findOne({
       ownerId: user._id,
+      isDeleted: false
     });
     if (existingService) {
       throw new BadRequestException(
@@ -294,9 +296,13 @@ export class ServicesService {
   ): Promise<PaginatedResponseDto<Service>> {
     const skip = (page - 1) * limit;
 
+    const filter: FilterQuery<ServiceDocument> = {
+      ownerId: new Types.ObjectId(userId),
+      isDeleted: false,
+    };
     const [data, total] = await Promise.all([
       this.serviceModel
-        .find({ ownerId: new Types.ObjectId(userId), isDeleted: false })
+        .find(filter)
         .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)

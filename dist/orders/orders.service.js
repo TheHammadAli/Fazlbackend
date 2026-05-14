@@ -43,6 +43,23 @@ let OrdersService = class OrdersService {
     get lang() {
         return this.cls.get("lang") || "en";
     }
+    async createMultipleOrders(dto) {
+        const createdOrders = [];
+        const results = Promise.all(dto.map(async (orderDto) => {
+            try {
+                createdOrders.push(this.createOrder(orderDto));
+            }
+            catch (error) {
+                console.error(`Failed to create order for product ${orderDto.product}:`, error);
+            }
+        }));
+        const promiseResults = await results;
+        console.log("Bulk order creation results:", promiseResults);
+        return {
+            message: this.i18n.translate("auth.orders.created_success", { lang: this.lang }),
+            data: promiseResults,
+        };
+    }
     async createOrder(dto) {
         const buyer = await this.usersService.findUserById(dto.buyer);
         if (!buyer)

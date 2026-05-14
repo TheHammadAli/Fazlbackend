@@ -18,6 +18,10 @@ export declare class OrdersService {
     private readonly cls;
     constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService, notificationsService: NotificationsService, i18n: I18nService, cls: ClsService);
     private get lang();
+    createMultipleOrders(dto: CreateOrderDto[]): Promise<{
+        message: string;
+        data: void[];
+    }>;
     createOrder(dto: CreateOrderDto): Promise<{
         message: string;
         data: import("mongoose").Document<unknown, {}, OrderDocument, {}> & Order & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{

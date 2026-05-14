@@ -14,6 +14,10 @@ export declare class OrdersController {
             __v: number;
         };
     }>;
+    createMultipleOrders(dto: CreateOrderDto[]): Promise<{
+        message: string;
+        data: void[];
+    }>;
     getOrderById(id: string): Promise<Order>;
     getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", pagination: PaginationDto): Promise<{
         data: Order[];

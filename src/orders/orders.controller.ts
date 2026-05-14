@@ -18,6 +18,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiBody,
 } from "@nestjs/swagger";
 import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order-dto";
@@ -31,13 +32,24 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 @UseGuards(JwtAuthGuard)
 @Controller("orders")
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
 
   @Post()
   @ApiOperation({ summary: "Create a new order" })
   @ApiResponse({ status: 201, description: "Order created", type: Order })
   async createOrder(@Body() dto: CreateOrderDto) {
     return this.ordersService.createOrder(dto);
+  }
+
+  @Post("bulk/create")
+  @ApiOperation({ summary: "Create multiple orders" })
+  @ApiBody({
+  type: CreateOrderDto,
+  isArray: true,
+})
+  @ApiResponse({ status: 201, description: "Orders created", type: [Order] })
+  async createMultipleOrders(@Body() dto: CreateOrderDto[]) {
+    return this.ordersService.createMultipleOrders(dto);
   }
 
   @Get(":id")

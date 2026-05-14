@@ -29,6 +29,9 @@ let OrdersController = class OrdersController {
     async createOrder(dto) {
         return this.ordersService.createOrder(dto);
     }
+    async createMultipleOrders(dto) {
+        return this.ordersService.createMultipleOrders(dto);
+    }
     async getOrderById(id) {
         return this.ordersService.getOrderById(id);
     }
@@ -55,6 +58,19 @@ __decorate([
     __metadata("design:paramtypes", [create_order_dto_1.CreateOrderDto]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "createOrder", null);
+__decorate([
+    (0, common_1.Post)("bulk/create"),
+    (0, swagger_1.ApiOperation)({ summary: "Create multiple orders" }),
+    (0, swagger_1.ApiBody)({
+        type: create_order_dto_1.CreateOrderDto,
+        isArray: true,
+    }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "Orders created", type: [order_schema_1.Order] }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Array]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "createMultipleOrders", null);
 __decorate([
     (0, common_1.Get)(":id"),
     (0, swagger_1.ApiOperation)({ summary: "Get order by ID" }),

@@ -64,6 +64,7 @@ let ServicesService = class ServicesService {
         }
         const existingService = await this.serviceModel.findOne({
             ownerId: user._id,
+            isDeleted: false
         });
         if (existingService) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.services.user_duplicate_service", {
@@ -213,9 +214,13 @@ let ServicesService = class ServicesService {
     }
     async getByUser(userId, page = 1, limit = 10) {
         const skip = (page - 1) * limit;
+        const filter = {
+            ownerId: new mongoose_2.Types.ObjectId(userId),
+            isDeleted: false,
+        };
         const [data, total] = await Promise.all([
             this.serviceModel
-                .find({ ownerId: new mongoose_2.Types.ObjectId(userId), isDeleted: false })
+                .find(filter)
                 .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)

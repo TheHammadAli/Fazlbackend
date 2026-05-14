@@ -38,6 +38,30 @@ export class OrdersService {
     return this.cls.get("lang") || "en";
   }
 
+
+  async createMultipleOrders(dto: CreateOrderDto[]) {
+    const createdOrders: any[] = [];
+    const results = Promise.all(
+      dto.map(async (orderDto) => {
+        try {
+          createdOrders.push(this.createOrder(orderDto));
+        } catch (error) {
+          // Log the error and continue with the next order
+          console.error(`Failed to create order for product ${orderDto.product}:`, error);
+        }
+      }),
+    );
+
+    const promiseResults = await results;
+    console.log("Bulk order creation results:", promiseResults);
+
+    return {
+      message: this.i18n.translate("auth.orders.created_success", { lang: this.lang }),
+      data: promiseResults,
+    };
+
+  }
+
   // CREATE: Logic updated to include mandatory payloads and post-save notifications
   async createOrder(dto: CreateOrderDto) {
     // 1. Validation Logic
