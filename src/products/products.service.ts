@@ -30,6 +30,7 @@ export class ProductsService {
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    @Inject(forwardRef(() => ShopService))
     private readonly shopService: ShopService,
     private readonly listingUtils: ListingUtilsService,
     private readonly userService: UsersService,
@@ -176,7 +177,7 @@ export class ProductsService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ shopId, isDeleted: false }),
+      this.productModel.countDocuments({ shopId: new Types.ObjectId(shopId), isDeleted: false }),
     ]);
 
     return {
@@ -317,7 +318,7 @@ export class ProductsService {
       entityId,
       productId,
     );
-    const result = await this.productModel.findByIdAndUpdate(new Types.ObjectId(productId), { isDeleted: true });
+    const result = await this.productModel.findByIdAndUpdate(new Types.ObjectId(productId), { isDeleted: true, images: [], video: "" });
     if (!result)
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {

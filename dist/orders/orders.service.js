@@ -206,6 +206,9 @@ exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(order_schema_1.Order.name)),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => products_service_1.ProductsService))),
+    __param(3, (0, common_1.Inject)((0, common_1.forwardRef)(() => shop_service_1.ShopService))),
+    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => notifications_service_1.NotificationsService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         users_service_1.UsersService,
         products_service_1.ProductsService,

@@ -145,7 +145,7 @@ let ProductsService = class ProductsService {
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ shopId, isDeleted: false }),
+            this.productModel.countDocuments({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -242,7 +242,7 @@ let ProductsService = class ProductsService {
             ? existingProduct.shopId.toString()
             : existingProduct.ownerId.toString();
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
-        const result = await this.productModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(productId), { isDeleted: true });
+        const result = await this.productModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(productId), { isDeleted: true, images: [], video: "" });
         if (!result)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -402,6 +402,7 @@ exports.ProductsService = ProductsService;
 exports.ProductsService = ProductsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
+    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => shop_service_1.ShopService))),
     __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         shop_service_1.ShopService,

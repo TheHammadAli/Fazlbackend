@@ -52,7 +52,10 @@ export declare class ServicesService {
             category?: string;
         };
     }>;
-    delete(serviceId: string): Promise<void>;
+    delete(serviceId: string): Promise<{
+        status: number;
+        message: string;
+    }>;
     deleteServiceMedia(serviceId: string, media: string[]): Promise<boolean>;
     getById(serviceId: string): Promise<Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;

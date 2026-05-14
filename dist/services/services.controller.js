@@ -66,6 +66,11 @@ let ServicesController = class ServicesController {
         }
         return await this.servicesService.update(serviceId, dto);
     }
+    async delete(serviceId) {
+        const results = await this.servicesService.delete(serviceId);
+        console.log("Results", results);
+        return { message: results.message };
+    }
     async getById(serviceId) {
         return await this.servicesService.getById(serviceId);
     }
@@ -85,6 +90,10 @@ let ServicesController = class ServicesController {
         }
         await this.servicesService.deleteServiceMedia(serviceId, media);
         return { message: "Selected service media deleted successfully" };
+    }
+    async deleteService(serviceId) {
+        await this.servicesService.delete(serviceId);
+        return { message: "Selected service deleted successfully" };
     }
     async getServiceRequestsForCustomer(customerId, paginationDto) {
         return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto);
@@ -157,6 +166,17 @@ __decorate([
     __metadata("design:paramtypes", [String, update_service_dto_1.UpdateServiceDto, Object]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':serviceId'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a service' }),
+    (0, swagger_1.ApiParam)({ name: 'serviceId', required: true }),
+    (0, swagger_1.ApiResponse)({ status: 204, description: 'Service deleted successfully' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('serviceId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "delete", null);
 __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)(":serviceId"),
@@ -249,6 +269,33 @@ __decorate([
     __metadata("design:paramtypes", [String, Array]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "deleteProductMedia", null);
+__decorate([
+    (0, common_1.Delete)(":id/media"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete selected media files for a service" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Service ID" }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: {
+                media: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Array of media file URLs to delete",
+                },
+            },
+            required: ["media"],
+        },
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Selected service deleted successfully",
+    }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: "Service not found" }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)("id")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "deleteService", null);
 __decorate([
     (0, common_1.Get)("/customer/:customerId"),
     (0, swagger_1.ApiOperation)({ summary: "Get paginated services for a customer" }),

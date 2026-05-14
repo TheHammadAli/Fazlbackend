@@ -142,9 +142,11 @@ export class ServicesController {
   @ApiOperation({ summary: 'Delete a service' })
   @ApiParam({ name: 'serviceId', required: true })
   @ApiResponse({ status: 204, description: 'Service deleted successfully' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('serviceId') serviceId: string): Promise<void> {
-    return await this.servicesService.delete(serviceId);
+  @HttpCode(HttpStatus.OK)
+  async delete(@Param('serviceId') serviceId: string) {
+    const results = await this.servicesService.delete(serviceId);
+    console.log("Results", results)
+    return { message: results.message }
   }
   @Public()
   @Get(":serviceId")
@@ -239,6 +241,35 @@ export class ServicesController {
     }
     await this.servicesService.deleteServiceMedia(serviceId, media);
     return { message: "Selected service media deleted successfully" };
+  }
+
+  @Delete(":id/media")
+  @ApiOperation({ summary: "Delete selected media files for a service" })
+  @ApiParam({ name: "id", description: "Service ID" })
+  @ApiBody({
+    schema: {
+      properties: {
+        media: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of media file URLs to delete",
+        },
+      },
+      required: ["media"],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Selected service deleted successfully",
+  })
+  @ApiResponse({ status: 404, description: "Service not found" })
+
+  @HttpCode(HttpStatus.OK)
+  async deleteService(
+    @Param("id") serviceId: string,
+  ) {
+    await this.servicesService.delete(serviceId);
+    return { message: "Selected service deleted successfully" };
   }
 
   @Get("/customer/:customerId")

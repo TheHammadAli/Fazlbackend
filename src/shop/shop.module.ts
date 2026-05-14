@@ -7,6 +7,7 @@ import { SharedModule } from "src/shared/shared.module";
 import { ProductsModule } from "src/products/products.module";
 import { ServicesModule } from "src/services/services.module";
 import { UsersModule } from "src/users/users.module";
+import { OrdersModule } from "src/orders/orders.module";
 
 @Module({
   imports: [
@@ -15,9 +16,10 @@ import { UsersModule } from "src/users/users.module";
     forwardRef(() => ProductsModule),
     forwardRef(() => UsersModule),
     forwardRef(() => ServicesModule),
+  forwardRef(() => OrdersModule),
   ],
   providers: [ShopService],
   controllers: [ShopController],
   exports: [ShopService],
 })
-export class ShopModule {}
+export class ShopModule { }

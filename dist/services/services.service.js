@@ -168,12 +168,13 @@ let ServicesService = class ServicesService {
         if (media && media.length > 0) {
             await this.fileUploadService.deleteFiles(media);
         }
-        const result = await this.serviceModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(serviceId), { isDeleted: true });
+        const result = await this.serviceModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(serviceId), { isDeleted: true, imageUrls: [], video: "" });
         if (!result) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
             }));
         }
+        return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
     }
     async deleteServiceMedia(serviceId, media) {
         const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });

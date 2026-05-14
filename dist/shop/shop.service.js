@@ -19,24 +19,24 @@ const mongoose_2 = require("mongoose");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const shop_schema_1 = require("./schema/shop.schema");
 const products_service_1 = require("../products/products.service");
-const services_service_1 = require("../services/services.service");
 const users_service_1 = require("../users/users.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const nestjs_cls_1 = require("nestjs-cls");
+const orders_service_1 = require("../orders/orders.service");
 let ShopService = class ShopService {
     shopModel;
     productsService;
     usersService;
     fileUploadService;
-    servicesService;
+    ordersService;
     i18n;
     cls;
-    constructor(shopModel, productsService, usersService, fileUploadService, servicesService, i18n, cls) {
+    constructor(shopModel, productsService, usersService, fileUploadService, ordersService, i18n, cls) {
         this.shopModel = shopModel;
         this.productsService = productsService;
         this.usersService = usersService;
         this.fileUploadService = fileUploadService;
-        this.servicesService = servicesService;
+        this.ordersService = ordersService;
         this.i18n = i18n;
         this.cls = cls;
     }
@@ -98,7 +98,9 @@ let ShopService = class ShopService {
         if (!shop) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
-        return shop;
+        const productsCount = await this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 });
+        const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1);
+        return { ...shop.toJSON(), productsCount: productsCount.meta.total, ordersCount: ordersCount.total };
     }
     async getAllShopsByUser(userId) {
         return this.shopModel.find({ ownerId: new mongoose_2.Types.ObjectId(userId) }).exec();
@@ -122,12 +124,12 @@ exports.ShopService = ShopService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(shop_schema_1.Shop.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => products_service_1.ProductsService))),
-    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => services_service_1.ServicesService))),
+    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => orders_service_1.OrdersService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         products_service_1.ProductsService,
         users_service_1.UsersService,
         file_upload_service_1.FileUploadService,
-        services_service_1.ServicesService,
+        orders_service_1.OrdersService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService])
 ], ShopService);

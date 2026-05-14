@@ -14,6 +14,7 @@ import { ServicesService } from "src/services/services.service";
 import { UsersService } from "src/users/users.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
+import { OrdersService } from "src/orders/orders.service";
 
 @Injectable()
 export class ShopService {
@@ -23,11 +24,11 @@ export class ShopService {
     private readonly productsService: ProductsService,
     private readonly usersService: UsersService,
     private readonly fileUploadService: FileUploadService,
-    @Inject(forwardRef(() => ServicesService))
-    private readonly servicesService: ServicesService,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) {}
+  ) { }
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
   }
@@ -95,19 +96,24 @@ export class ShopService {
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
-    return {message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }), data: updated.toJSON() };
+    return { message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }), data: updated.toJSON() };
   }
 
-  async getShopById(shopId: string): Promise<ShopDocument> {
+  async getShopById(shopId: string) {
     const shop = await this.shopModel
       .findById(shopId)
       .populate("ownerId", "name email");
+
+
     if (!shop) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
-    return shop;
+    const productsCount = await this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 });
+    const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1);
+
+    return { ...shop.toJSON(), productsCount: productsCount.meta.total, ordersCount: ordersCount.total };
   }
   async getAllShopsByUser(userId: string): Promise<Shop[]> {
     return this.shopModel.find({ ownerId: new Types.ObjectId(userId) }).exec();

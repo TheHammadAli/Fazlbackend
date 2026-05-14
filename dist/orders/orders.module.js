@@ -23,10 +23,10 @@ exports.OrdersModule = OrdersModule = __decorate([
     (0, common_1.Module)({
         imports: [
             mongoose_1.MongooseModule.forFeature([{ name: order_schema_1.Order.name, schema: order_schema_1.OrderSchema }]),
-            users_module_1.UsersModule,
-            products_module_1.ProductsModule,
-            shop_module_1.ShopModule,
-            notifications_module_1.NotificationsModule,
+            (0, common_1.forwardRef)(() => users_module_1.UsersModule),
+            (0, common_1.forwardRef)(() => products_module_1.ProductsModule),
+            (0, common_1.forwardRef)(() => shop_module_1.ShopModule),
+            (0, common_1.forwardRef)(() => notifications_module_1.NotificationsModule),
         ],
         controllers: [orders_controller_1.OrdersController],
         providers: [orders_service_1.OrdersService],

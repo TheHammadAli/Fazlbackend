@@ -206,7 +206,7 @@ export class ServicesService {
     return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
 
-  async delete(serviceId: string): Promise<void> {
+  async delete(serviceId: string) {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
     if (!existingService) {
       throw new NotFoundException(
@@ -220,7 +220,7 @@ export class ServicesService {
     if (media && media.length > 0) {
       await this.fileUploadService.deleteFiles(media); // Delete associated media files
     }
-    const result = await this.serviceModel.findByIdAndUpdate(new Types.ObjectId(serviceId), { isDeleted: true });
+    const result = await this.serviceModel.findByIdAndUpdate(new Types.ObjectId(serviceId), { isDeleted: true, imageUrls: [], video: "" });
     if (!result) {
       throw new NotFoundException(
         this.i18n.translate("auth.services.service_not_found", {
@@ -228,6 +228,7 @@ export class ServicesService {
         }),
       );
     }
+    return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
   }
 
   async deleteServiceMedia(serviceId: string, media: string[]) {
