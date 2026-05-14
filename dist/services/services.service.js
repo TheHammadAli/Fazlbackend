@@ -165,7 +165,13 @@ let ServicesService = class ServicesService {
                 lang: this.lang,
             }));
         }
-        const media = [...existingService.images, existingService.video];
+        let media = [];
+        if (existingService.images.length != 0) {
+            media = [...existingService.images];
+        }
+        if (existingService.video) {
+            media.push(existingService.video);
+        }
         if (media && media.length > 0) {
             await this.fileUploadService.deleteFiles(media);
         }
@@ -428,16 +434,23 @@ let ServicesService = class ServicesService {
             },
         };
     }
-    async getServiceRequestsByUser(userId, page = 1, limit = 10) {
+    async getServiceRequestsByUser(userId, page = 1, limit = 10, jobStatus, status) {
         const skip = (page - 1) * limit;
+        const filter = {
+            $or: [
+                { customer: new mongoose_2.Types.ObjectId(userId) },
+                { provider: new mongoose_2.Types.ObjectId(userId) },
+            ],
+        };
+        if (jobStatus) {
+            filter.jobStatus = jobStatus;
+        }
+        if (status) {
+            filter.status = status;
+        }
         const [requests, total] = await Promise.all([
             this.requestModel
-                .find({
-                $or: [
-                    { customer: new mongoose_2.Types.ObjectId(userId) },
-                    { provider: new mongoose_2.Types.ObjectId(userId) },
-                ],
-            })
+                .find(filter)
                 .populate("service")
                 .populate("customer")
                 .populate("provider")
@@ -445,12 +458,7 @@ let ServicesService = class ServicesService {
                 .skip(skip)
                 .limit(limit)
                 .exec(),
-            this.requestModel.countDocuments({
-                $or: [
-                    { customer: new mongoose_2.Types.ObjectId(userId) },
-                    { provider: new mongoose_2.Types.ObjectId(userId) },
-                ],
-            }),
+            this.requestModel.countDocuments(filter),
         ]);
         if (!requests || requests.length === 0) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.no_requests_found", {

@@ -218,7 +218,14 @@ export class ServicesService {
       );
       // Ensure the service exists before attempting to delete
     }
-    const media = [...existingService.images, existingService.video];
+    let media: string[] = []
+    if (existingService.images.length != 0) {
+      media = [...existingService.images];
+    }
+    if (existingService.video) {
+      media.push(existingService.video);
+    }
+
     if (media && media.length > 0) {
       await this.fileUploadService.deleteFiles(media); // Delete associated media files
     }
@@ -621,17 +628,28 @@ export class ServicesService {
     userId: string,
     page = 1,
     limit = 10,
+    jobStatus?: string,
+    status?: string,
   ): Promise<PaginatedResponseDto<ServiceRequest>> {
     const skip = (page - 1) * limit;
+    const filter: FilterQuery<ServiceRequestDocument> = {
+      $or: [
+        { customer: new Types.ObjectId(userId) },
+        { provider: new Types.ObjectId(userId) },
+      ],
+    };
+
+    if (jobStatus) {
+      filter.jobStatus = jobStatus;
+    }
+
+    if (status) {
+      filter.status = status;
+    }
 
     const [requests, total] = await Promise.all([
       this.requestModel
-        .find({
-          $or: [
-            { customer: new Types.ObjectId(userId) },
-            { provider: new Types.ObjectId(userId) },
-          ],
-        })
+        .find(filter)
         .populate("service")
         .populate("customer")
         .populate("provider")
@@ -639,13 +657,10 @@ export class ServicesService {
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.requestModel.countDocuments({
-        $or: [
-          { customer: new Types.ObjectId(userId) },
-          { provider: new Types.ObjectId(userId) },
-        ],
-      }),
+      this.requestModel.countDocuments(filter),
     ]);
+
+
 
     if (!requests || requests.length === 0) {
       throw new NotFoundException(
