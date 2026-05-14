@@ -781,11 +781,37 @@ export class ServicesService {
   async getServicesRequestsForCustomer(
     customerId: string,
     paginationDto: PaginationDto,
+    jobStatus?: string,
+    status?: string,
   ): Promise<PaginatedResponseDto<ServiceRequest>> {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
+
+
+    const existingCustomer = await this.userService.findUserById(customerId);
+    if (!existingCustomer) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.users.user_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+    console.log("Existing customer", existingCustomer)
+
+    const filter: FilterQuery<ServiceRequestDocument> = {
+      customer: new Types.ObjectId(customerId),
+    };
+
+    if (jobStatus) {
+      filter.jobStatus = jobStatus;
+    }
+    if (status) {
+      filter.status = status;
+    }
+
+    console.log("Filter for customer requests:", filter);
     const requests = await this.requestModel
-      .find({ customer: new Types.ObjectId(customerId) })
+      .find(filter)
       .populate({
         path: "provider",
         select: "name email",
@@ -805,9 +831,7 @@ export class ServicesService {
       .limit(limit)
       .lean()
       .exec();
-    const total = await this.requestModel.countDocuments({
-      customer: new Types.ObjectId(customerId),
-    }).exec();
+    const total = await this.requestModel.countDocuments(filter).exec();
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },

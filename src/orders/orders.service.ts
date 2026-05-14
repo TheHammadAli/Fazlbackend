@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { Order, OrderDocument } from "./schema/order.schema";
 import { CreateOrderDto } from "./dto/create-order-dto";
@@ -181,12 +181,16 @@ export class OrdersService {
     ownerModel: "Shop" | "User",
     page = 1,
     limit = 10,
+    status?: string
   ): Promise<{
     data: Order[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+    meta: {
+
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }
   }> {
     if (!Types.ObjectId.isValid(ownerId))
       throw new BadRequestException(
@@ -203,25 +207,37 @@ export class OrdersService {
       );
 
     const skip = (page - 1) * limit;
+
+    const filter: FilterQuery<OrderDocument> = {
+      owner: new Types.ObjectId(ownerId),
+      ownerModel,
+    };
+
+    if (status) {
+      filter.status = status as any; // Cast to any to bypass strict typing, ensure status is valid in real implementation
+    }
+
     const [data, total] = await Promise.all([
       this.orderModel
-        .find({ owner: new Types.ObjectId(ownerId), ownerModel })
+        .find(filter)
         .populate("product")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.orderModel.countDocuments({
-        owner: new Types.ObjectId(ownerId),
-        ownerModel,
-      }),
+      this.orderModel.countDocuments(filter),
+
     ]);
+
+    console.log("Data, Total, Filter", { data, total, filter }); // Debug log
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
     };
   }
 
@@ -230,13 +246,18 @@ export class OrdersService {
     buyerId: string,
     page = 1,
     limit = 10,
+    status?: string,
   ): Promise<{
     data: Order[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+    meta: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }
   }> {
+
+
     if (!Types.ObjectId.isValid(buyerId))
       throw new BadRequestException(
         this.i18n.translate("auth.orders.invalid_buyer_id", {
@@ -244,25 +265,34 @@ export class OrdersService {
         }),
       );
 
+    const filter: FilterQuery<OrderDocument> = {
+      buyer: new Types.ObjectId(buyerId),
+    };
+
+    if (status) {
+      filter.status = status as any; // Cast to any to bypass strict typing, ensure status is valid in real implementation
+    }
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.orderModel
-        .find({ buyer: new Types.ObjectId(buyerId) })
+        .find(filter)
         .populate("product")
         .populate("owner")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.orderModel.countDocuments({ buyer: new Types.ObjectId(buyerId) }),
+      this.orderModel.countDocuments(filter),
     ]);
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
   }
 
   // UPDATE: Logic updated to notify on status changes

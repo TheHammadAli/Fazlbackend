@@ -96,10 +96,10 @@ export declare class ServicesService {
             jobStatus: import("./schema/service_request.schema").JobStatus;
         };
     }>;
-    getServiceRequestsByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<ServiceRequest>>;
+    getServiceRequestsByUser(userId: string, page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;
     getServicesWithVideos(paginationDto: PaginationDto, userId: string, category?: string): Promise<PaginatedResponseDto<Service>>;
-    getServicesRequestsForCustomer(customerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<ServiceRequest>>;
+    getServicesRequestsForCustomer(customerId: string, paginationDto: PaginationDto, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
 }

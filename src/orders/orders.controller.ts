@@ -44,9 +44,9 @@ export class OrdersController {
   @Post("bulk/create")
   @ApiOperation({ summary: "Create multiple orders" })
   @ApiBody({
-  type: CreateOrderDto,
-  isArray: true,
-})
+    type: CreateOrderDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 201, description: "Orders created", type: [Order] })
   async createMultipleOrders(@Body() dto: CreateOrderDto[]) {
     return this.ordersService.createMultipleOrders(dto);
@@ -65,6 +65,7 @@ export class OrdersController {
   @ApiParam({ name: "ownerId", description: "Owner ID (Shop or User)" })
   @ApiQuery({ name: "ownerModel", enum: ["Shop", "User"], required: true })
   @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "status", required: false, type: String })
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiResponse({
     status: 200,
@@ -83,13 +84,17 @@ export class OrdersController {
     @Param("ownerId") ownerId: string,
     @Query("ownerModel") ownerModel: "Shop" | "User",
     @Query() pagination: PaginationDto,
+    @Query("status") status?: string,
   ) {
-    return this.ordersService.getOrdersByOwner(
+    const results = await this.ordersService.getOrdersByOwner(
       ownerId,
       ownerModel,
       pagination.page,
       pagination.limit,
+      status
     );
+    console.log("getOrdersByOwner results", results);
+    return results;
   }
 
   @Get("buyer/:buyerId")
@@ -97,6 +102,7 @@ export class OrdersController {
   @ApiParam({ name: "buyerId", description: "Buyer User ID" })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "status", required: false, type: String })
   @ApiResponse({
     status: 200,
     description: "Paginated orders found",
@@ -113,11 +119,13 @@ export class OrdersController {
   async getOrdersByBuyer(
     @Param("buyerId") buyerId: string,
     @Query() pagination: PaginationDto,
+    @Query("status") status?: string,
   ) {
     return this.ordersService.getOrdersByBuyer(
       buyerId,
       pagination.page,
       pagination.limit,
+      status
     );
   }
 

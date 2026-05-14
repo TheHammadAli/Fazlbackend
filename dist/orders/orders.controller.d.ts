@@ -19,19 +19,23 @@ export declare class OrdersController {
         data: void[];
     }>;
     getOrderById(id: string): Promise<Order>;
-    getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", pagination: PaginationDto): Promise<{
+    getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", pagination: PaginationDto, status?: string): Promise<{
         data: Order[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }>;
-    getOrdersByBuyer(buyerId: string, pagination: PaginationDto): Promise<{
+    getOrdersByBuyer(buyerId: string, pagination: PaginationDto, status?: string): Promise<{
         data: Order[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }>;
     updateOrder(id: string, dto: UpdateOrderDto): Promise<Order>;
     deleteOrder(id: string): Promise<void>;

@@ -31,19 +31,23 @@ export declare class OrdersService {
         };
     }>;
     getOrderById(orderId: string): Promise<Order>;
-    getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", page?: number, limit?: number): Promise<{
+    getOrdersByOwner(ownerId: string, ownerModel: "Shop" | "User", page?: number, limit?: number, status?: string): Promise<{
         data: Order[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }>;
-    getOrdersByBuyer(buyerId: string, page?: number, limit?: number): Promise<{
+    getOrdersByBuyer(buyerId: string, page?: number, limit?: number, status?: string): Promise<{
         data: Order[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
     }>;
     updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order>;
     deleteOrder(orderId: string): Promise<void>;

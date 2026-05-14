@@ -128,7 +128,7 @@ let OrdersService = class OrdersService {
             throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_not_found", { lang: this.lang }));
         return order;
     }
-    async getOrdersByOwner(ownerId, ownerModel, page = 1, limit = 10) {
+    async getOrdersByOwner(ownerId, ownerModel, page = 1, limit = 10, status) {
         if (!mongoose_2.Types.ObjectId.isValid(ownerId))
             throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_owner_id", {
                 lang: this.lang,
@@ -138,50 +138,65 @@ let OrdersService = class OrdersService {
                 lang: this.lang,
             }));
         const skip = (page - 1) * limit;
+        const filter = {
+            owner: new mongoose_2.Types.ObjectId(ownerId),
+            ownerModel,
+        };
+        if (status) {
+            filter.status = status;
+        }
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ owner: new mongoose_2.Types.ObjectId(ownerId), ownerModel })
+                .find(filter)
                 .populate("product")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
                 .exec(),
-            this.orderModel.countDocuments({
-                owner: new mongoose_2.Types.ObjectId(ownerId),
-                ownerModel,
-            }),
+            this.orderModel.countDocuments(filter),
         ]);
+        console.log("Data, Total, Filter", { data, total, filter });
         return {
             data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         };
     }
-    async getOrdersByBuyer(buyerId, page = 1, limit = 10) {
+    async getOrdersByBuyer(buyerId, page = 1, limit = 10, status) {
         if (!mongoose_2.Types.ObjectId.isValid(buyerId))
             throw new common_1.BadRequestException(this.i18n.translate("auth.orders.invalid_buyer_id", {
                 lang: this.lang,
             }));
+        const filter = {
+            buyer: new mongoose_2.Types.ObjectId(buyerId),
+        };
+        if (status) {
+            filter.status = status;
+        }
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
             this.orderModel
-                .find({ buyer: new mongoose_2.Types.ObjectId(buyerId) })
+                .find(filter)
                 .populate("product")
                 .populate("owner")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
                 .exec(),
-            this.orderModel.countDocuments({ buyer: new mongoose_2.Types.ObjectId(buyerId) }),
+            this.orderModel.countDocuments(filter),
         ]);
         return {
             data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         };
     }
     async updateOrder(orderId, dto) {

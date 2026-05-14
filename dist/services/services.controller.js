@@ -77,8 +77,8 @@ let ServicesController = class ServicesController {
     async getByUser(userId, page = 1, limit = 10) {
         return this.servicesService.getByUser(userId, page, limit);
     }
-    async getServiceRequestsByUser(userId, page = 1, limit = 10) {
-        return this.servicesService.getServiceRequestsByUser(userId, page, limit);
+    async getServiceRequestsByUser(userId, page = 1, limit = 10, jobStatus, status) {
+        return this.servicesService.getServiceRequestsByUser(userId, page, limit, jobStatus, status);
     }
     async getServicesWithVideos(query, userId) {
         console.log("Recieved pagination", query);
@@ -95,8 +95,8 @@ let ServicesController = class ServicesController {
         await this.servicesService.delete(serviceId);
         return { message: "Selected service deleted successfully" };
     }
-    async getServiceRequestsForCustomer(customerId, paginationDto) {
-        return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto);
+    async getServiceRequestsForCustomer(customerId, paginationDto, jobStatus, status) {
+        return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto, jobStatus, status);
     }
 };
 exports.ServicesController = ServicesController;
@@ -212,6 +212,16 @@ __decorate([
     (0, swagger_1.ApiParam)({ name: "userId", required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({
+        name: "jobStatus",
+        required: false,
+        type: String,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "status",
+        required: false,
+        type: String,
+    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: "Paginated list of services",
@@ -219,8 +229,10 @@ __decorate([
     __param(0, (0, common_1.Param)("userId")),
     __param(1, (0, common_1.Query)("page")),
     __param(2, (0, common_1.Query)("limit")),
+    __param(3, (0, common_1.Query)("jobStatus")),
+    __param(4, (0, common_1.Query)("status")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:paramtypes", [String, Number, Number, String, String]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getServiceRequestsByUser", null);
 __decorate([
@@ -302,14 +314,26 @@ __decorate([
     (0, swagger_1.ApiParam)({ name: "customerId", required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({
+        name: "jobStatus",
+        required: false,
+        type: String,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "status",
+        required: false,
+        type: String,
+    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: "Paginated list of services for the customer",
     }),
     __param(0, (0, common_1.Param)("customerId")),
     __param(1, (0, common_1.Query)()),
+    __param(2, (0, common_1.Query)("jobStatus")),
+    __param(3, (0, common_1.Query)("status")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Get_paginated_dto_1.PaginationDto]),
+    __metadata("design:paramtypes", [String, Get_paginated_dto_1.PaginationDto, String, String]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getServiceRequestsForCustomer", null);
 exports.ServicesController = ServicesController = __decorate([

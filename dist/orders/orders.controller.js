@@ -35,11 +35,13 @@ let OrdersController = class OrdersController {
     async getOrderById(id) {
         return this.ordersService.getOrderById(id);
     }
-    async getOrdersByOwner(ownerId, ownerModel, pagination) {
-        return this.ordersService.getOrdersByOwner(ownerId, ownerModel, pagination.page, pagination.limit);
+    async getOrdersByOwner(ownerId, ownerModel, pagination, status) {
+        const results = await this.ordersService.getOrdersByOwner(ownerId, ownerModel, pagination.page, pagination.limit, status);
+        console.log("getOrdersByOwner results", results);
+        return results;
     }
-    async getOrdersByBuyer(buyerId, pagination) {
-        return this.ordersService.getOrdersByBuyer(buyerId, pagination.page, pagination.limit);
+    async getOrdersByBuyer(buyerId, pagination, status) {
+        return this.ordersService.getOrdersByBuyer(buyerId, pagination.page, pagination.limit, status);
     }
     async updateOrder(id, dto) {
         return this.ordersService.updateOrder(id, dto);
@@ -87,6 +89,7 @@ __decorate([
     (0, swagger_1.ApiParam)({ name: "ownerId", description: "Owner ID (Shop or User)" }),
     (0, swagger_1.ApiQuery)({ name: "ownerModel", enum: ["Shop", "User"], required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "status", required: false, type: String }),
     (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -104,8 +107,9 @@ __decorate([
     __param(0, (0, common_1.Param)("ownerId")),
     __param(1, (0, common_1.Query)("ownerModel")),
     __param(2, (0, common_1.Query)()),
+    __param(3, (0, common_1.Query)("status")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, pagination_dto_1.PaginationDto]),
+    __metadata("design:paramtypes", [String, String, pagination_dto_1.PaginationDto, String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getOrdersByOwner", null);
 __decorate([
@@ -114,6 +118,7 @@ __decorate([
     (0, swagger_1.ApiParam)({ name: "buyerId", description: "Buyer User ID" }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "status", required: false, type: String }),
     (0, swagger_1.ApiResponse)({
         status: 200,
         description: "Paginated orders found",
@@ -129,8 +134,9 @@ __decorate([
     }),
     __param(0, (0, common_1.Param)("buyerId")),
     __param(1, (0, common_1.Query)()),
+    __param(2, (0, common_1.Query)("status")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
+    __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto, String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getOrdersByBuyer", null);
 __decorate([

@@ -180,6 +180,16 @@ export class ServicesController {
   @ApiParam({ name: "userId", required: true })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({
+    name: "jobStatus",
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: "status",
+    required: false,
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: "Paginated list of services",
@@ -188,9 +198,13 @@ export class ServicesController {
     @Param("userId") userId: string,
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 10,
+    @Query("jobStatus") jobStatus?: string,
+    @Query("status") status?: string,
   ): Promise<PaginatedResponseDto<any>> {
-    return this.servicesService.getServiceRequestsByUser(userId, page, limit);
+    return this.servicesService.getServiceRequestsByUser(userId, page, limit, jobStatus, status);
   }
+
+
   @Public()
   @Get("with-videos/all")
   @ApiOperation({ summary: "Get all services with videos (paginated)" })
@@ -277,6 +291,16 @@ export class ServicesController {
   @ApiParam({ name: "customerId", required: true })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({
+    name: "jobStatus",
+    required: false,
+    type: String,
+  })
+  @ApiQuery({
+    name: "status",
+    required: false,
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: "Paginated list of services for the customer",
@@ -284,7 +308,9 @@ export class ServicesController {
   async getServiceRequestsForCustomer(
     @Param("customerId") customerId: string,
     @Query() paginationDto: PaginationDto,
+    @Query("jobStatus") jobStatus?: string,
+    @Query("status") status?: string,
   ) {
-    return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto);
+    return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto, jobStatus, status);
   }
 }

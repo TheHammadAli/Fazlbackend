@@ -538,11 +538,28 @@ let ServicesService = class ServicesService {
             data: data,
         };
     }
-    async getServicesRequestsForCustomer(customerId, paginationDto) {
+    async getServicesRequestsForCustomer(customerId, paginationDto, jobStatus, status) {
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
+        const existingCustomer = await this.userService.findUserById(customerId);
+        if (!existingCustomer) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", {
+                lang: this.lang,
+            }));
+        }
+        console.log("Existing customer", existingCustomer);
+        const filter = {
+            customer: new mongoose_2.Types.ObjectId(customerId),
+        };
+        if (jobStatus) {
+            filter.jobStatus = jobStatus;
+        }
+        if (status) {
+            filter.status = status;
+        }
+        console.log("Filter for customer requests:", filter);
         const requests = await this.requestModel
-            .find({ customer: new mongoose_2.Types.ObjectId(customerId) })
+            .find(filter)
             .populate({
             path: "provider",
             select: "name email",
@@ -562,9 +579,7 @@ let ServicesService = class ServicesService {
             .limit(limit)
             .lean()
             .exec();
-        const total = await this.requestModel.countDocuments({
-            customer: new mongoose_2.Types.ObjectId(customerId),
-        }).exec();
+        const total = await this.requestModel.countDocuments(filter).exec();
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
             data: requests,
