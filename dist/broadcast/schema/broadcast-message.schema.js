@@ -18,7 +18,7 @@ let BroadcastMessage = class BroadcastMessage {
     receiver;
     thread;
     message;
-    imageUrl;
+    imageUrls;
 };
 exports.BroadcastMessage = BroadcastMessage;
 __decorate([
@@ -44,7 +44,7 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({ required: false }),
     __metadata("design:type", Array)
-], BroadcastMessage.prototype, "imageUrl", void 0);
+], BroadcastMessage.prototype, "imageUrls", void 0);
 exports.BroadcastMessage = BroadcastMessage = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], BroadcastMessage);

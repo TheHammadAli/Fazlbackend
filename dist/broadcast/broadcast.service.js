@@ -138,6 +138,7 @@ let BroadcastService = class BroadcastService {
         console.log("Broadcast created:", broadcast);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
         const uniqueThreads = Array.from(new Map(threads.map((thread) => [thread._id.toString(), thread])).values());
+        console.log("Image Urls", imageUrls);
         const initialMessages = uniqueThreads.map((thread) => ({
             broadcast: broadcast._id,
             thread: thread._id,

@@ -225,6 +225,7 @@ export class BroadcastService {
       ).values(),
     );
 
+    console.log("Image Urls", imageUrls)
     // 2. CREATE INITIAL MESSAGES
     const initialMessages = uniqueThreads.map((thread: any) => ({
       broadcast: broadcast._id,
