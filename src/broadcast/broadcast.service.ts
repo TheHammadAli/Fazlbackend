@@ -337,7 +337,7 @@ export class BroadcastService {
       sender: new Types.ObjectId(senderId),
       receiver: new Types.ObjectId(receiverId),
       message,
-      imageUrl, // Save the S3 URL here
+      imageUrls: [imageUrl], // Save the S3 URL here
     });
 
     this.broadcastGateway.server

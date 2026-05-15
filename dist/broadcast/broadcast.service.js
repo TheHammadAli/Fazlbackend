@@ -204,7 +204,7 @@ let BroadcastService = class BroadcastService {
             sender: new mongoose_2.Types.ObjectId(senderId),
             receiver: new mongoose_2.Types.ObjectId(receiverId),
             message,
-            imageUrl,
+            imageUrls: [imageUrl],
         });
         this.broadcastGateway.server
             .to(threadId)
