@@ -16,12 +16,12 @@ export class Service {
   @Prop({ trim: true })
   description?: string;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   price!: number;
 
   @Prop({
     required: true,
-    enum: ["hourly", "fixed","call_for_price"],
+    enum: ["hourly", "fixed", "call_for_price"],
     default: "fixed",
   })
   paymentType!: "hourly" | "fixed" | "call_for_price";
