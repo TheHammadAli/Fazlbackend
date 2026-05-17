@@ -142,6 +142,7 @@ let ProductsService = class ProductsService {
             this.productModel
                 .find({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false })
                 .populate("category")
+                .populate("shopId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -160,6 +161,7 @@ let ProductsService = class ProductsService {
             this.productModel
                 .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId), isDeleted: false })
                 .populate("category")
+                .populate("ownerId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -172,8 +174,17 @@ let ProductsService = class ProductsService {
     }
     async getById(id) {
         const product = await this.productModel
-            .findOne({ _id: new mongoose_2.Types.ObjectId(id), isDeleted: false })
-            .populate("category");
+            .findOne({
+            _id: new mongoose_2.Types.ObjectId(id),
+            isDeleted: false,
+        })
+            .populate("category")
+            .populate({
+            path: "shopId",
+        })
+            .populate({
+            path: "ownerId",
+        });
         if (!product)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,

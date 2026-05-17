@@ -174,6 +174,7 @@ export class ProductsService {
       this.productModel
         .find({ shopId: new Types.ObjectId(shopId), isDeleted: false })
         .populate("category")
+        .populate("shopId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -196,8 +197,9 @@ export class ProductsService {
     console.log("Fetching products for user:", ownerId);
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ ownerId: new Types.ObjectId(ownerId) ,isDeleted: false })
+        .find({ ownerId: new Types.ObjectId(ownerId), isDeleted: false })
         .populate("category")
+        .populate("ownerId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
@@ -212,8 +214,18 @@ export class ProductsService {
 
   async getById(id: string): Promise<Product> {
     const product = await this.productModel
-      .findOne({ _id: new Types.ObjectId(id), isDeleted: false })
-      .populate("category");
+      .findOne({
+        _id: new Types.ObjectId(id),
+        isDeleted: false,
+      })
+      .populate("category")
+      .populate({
+        path: "shopId",
+      })
+      .populate({
+        path: "ownerId",
+      });
+
     if (!product)
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -512,7 +524,7 @@ export class ProductsService {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
-    const filter : FilterQuery<ProductDocument> = {
+    const filter: FilterQuery<ProductDocument> = {
       video: { $exists: true, $nin: ["", null] },
     };
     if (category) {

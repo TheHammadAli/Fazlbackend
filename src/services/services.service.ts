@@ -283,7 +283,8 @@ export class ServicesService {
   async getById(serviceId: string): Promise<Service> {
     const service = await this.serviceModel
       .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false })
-      .populate("category");
+      .populate("category")
+      .populate("ownerId");
 
     if (!service) {
       throw new NotFoundException(
@@ -310,7 +311,7 @@ export class ServicesService {
     const [data, total] = await Promise.all([
       this.serviceModel
         .find(filter)
-        .populate("category")
+        .populate("category").populate("ownerId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),

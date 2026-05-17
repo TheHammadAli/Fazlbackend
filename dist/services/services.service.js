@@ -210,7 +210,8 @@ let ServicesService = class ServicesService {
     async getById(serviceId) {
         const service = await this.serviceModel
             .findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false })
-            .populate("category");
+            .populate("category")
+            .populate("ownerId");
         if (!service) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
@@ -227,7 +228,7 @@ let ServicesService = class ServicesService {
         const [data, total] = await Promise.all([
             this.serviceModel
                 .find(filter)
-                .populate("category")
+                .populate("category").populate("ownerId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
