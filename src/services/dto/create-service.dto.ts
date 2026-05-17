@@ -26,9 +26,9 @@ export class CreateServiceDto {
   @IsNumber()
   price: number;
 
-  @ApiProperty({ enum: ["hourly", "fixed"], example: "hourly" })
-  @IsEnum(["hourly", "fixed"])
-  paymentType: "hourly" | "fixed";
+  @ApiProperty({ enum: ["hourly", "fixed", "call_for_price"], example: "hourly" })
+  @IsEnum(["hourly", "fixed", "call_for_price"])
+  paymentType: "hourly" | "fixed" | "call_for_price";
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

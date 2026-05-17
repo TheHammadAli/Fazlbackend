@@ -21,10 +21,10 @@ export class Service {
 
   @Prop({
     required: true,
-    enum: ["hourly", "fixed"],
+    enum: ["hourly", "fixed","call_for_price"],
     default: "fixed",
   })
-  paymentType!: "hourly" | "fixed";
+  paymentType!: "hourly" | "fixed" | "call_for_price";
 
   @Prop({ type: Boolean, default: true })
   requiresAppointment!: boolean;

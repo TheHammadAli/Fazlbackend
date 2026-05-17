@@ -44,8 +44,8 @@ __decorate([
     __metadata("design:type", Number)
 ], UpdateServiceDto.prototype, "price", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: ["hourly", "fixed"], example: "fixed" }),
-    (0, class_validator_1.IsEnum)(["hourly", "fixed"]),
+    (0, swagger_1.ApiPropertyOptional)({ enum: ["hourly", "fixed", "call_for_price"], example: "fixed" }),
+    (0, class_validator_1.IsEnum)(["hourly", "fixed", "call_for_price"]),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateServiceDto.prototype, "paymentType", void 0);

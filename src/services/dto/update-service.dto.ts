@@ -25,10 +25,10 @@ export class UpdateServiceDto {
   @IsOptional()
   price?: number;
 
-  @ApiPropertyOptional({ enum: ["hourly", "fixed"], example: "fixed" })
-  @IsEnum(["hourly", "fixed"])
+  @ApiPropertyOptional({ enum: ["hourly", "fixed", "call_for_price"], example: "fixed" })
+  @IsEnum(["hourly", "fixed", "call_for_price"])
   @IsOptional()
-  paymentType?: "hourly" | "fixed";
+  paymentType?: "hourly" | "fixed" | "call_for_price";
 
   @ApiPropertyOptional({ example: false })
   @IsOptional()

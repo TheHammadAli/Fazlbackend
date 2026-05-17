@@ -4,7 +4,7 @@ export declare class Service {
     title: string;
     description?: string;
     price: number;
-    paymentType: "hourly" | "fixed";
+    paymentType: "hourly" | "fixed" | "call_for_price";
     requiresAppointment: boolean;
     images: string[];
     category: Types.ObjectId;

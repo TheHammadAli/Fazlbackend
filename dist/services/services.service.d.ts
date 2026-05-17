@@ -47,7 +47,7 @@ export declare class ServicesService {
             title?: string;
             description?: string;
             price?: number;
-            paymentType?: "hourly" | "fixed";
+            paymentType?: "hourly" | "fixed" | "call_for_price";
             requiresAppointment?: boolean;
             category?: string;
         };

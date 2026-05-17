@@ -2,7 +2,7 @@ export declare class CreateServiceDto {
     title: string;
     description?: string;
     price: number;
-    paymentType: "hourly" | "fixed";
+    paymentType: "hourly" | "fixed" | "call_for_price";
     requiresAppointment?: boolean;
     images: any;
     video: any;

@@ -45,7 +45,7 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         required: true,
-        enum: ["hourly", "fixed"],
+        enum: ["hourly", "fixed", "call_for_price"],
         default: "fixed",
     }),
     __metadata("design:type", String)
