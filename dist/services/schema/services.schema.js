@@ -39,7 +39,7 @@ __decorate([
     __metadata("design:type", String)
 ], Service.prototype, "description", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true }),
+    (0, mongoose_1.Prop)({ required: false }),
     __metadata("design:type", Number)
 ], Service.prototype, "price", void 0);
 __decorate([

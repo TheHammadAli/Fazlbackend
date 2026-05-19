@@ -366,7 +366,7 @@ export class ServicesService {
         .find(filter)
         .skip(skip)
         .limit(limit)
-        .populate("category")
+        .populate("category").sort({ createdAt: -1 })
         .lean()
         .exec(),
       this.serviceModel.countDocuments(filter),
