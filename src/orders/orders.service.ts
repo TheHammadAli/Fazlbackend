@@ -90,6 +90,7 @@ export class OrdersService {
       ownerExists = !!owner;
     }
 
+
     if (!ownerExists)
       throw new NotFoundException(
         this.i18n.translate("auth.orders.order_owner_not_found", {
@@ -97,11 +98,12 @@ export class OrdersService {
         }),
       );
 
+    console.log("Owner found:", owner, dto.owner, product); // Debug log
     let isValidOwner = false;
     if (dto.ownerModel === "Shop") {
-      isValidOwner = dto.owner === product.shopId.toString();
+      isValidOwner = dto.owner === product.shopId._id.toString();
     } else if (dto.ownerModel === "User") {
-      isValidOwner = dto.owner === product.ownerId?.toString();
+      isValidOwner = dto.owner === product.ownerId?._id?.toString();
     }
 
     if (!isValidOwner) {
