@@ -111,7 +111,7 @@ export class ShopService {
       );
     }
     const productsCount = await this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 });
-    const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1);
+    const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1); 
 
     return { ...shop.toJSON(), productsCount: productsCount.meta.total, ordersCount: ordersCount.meta.total };
   }

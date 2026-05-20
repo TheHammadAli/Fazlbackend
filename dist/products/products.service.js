@@ -325,7 +325,7 @@ let ProductsService = class ProductsService {
             this.productModel
                 .find(filteredProductSearchFilter)
                 .skip(skip)
-                .limit(limit)
+                .limit(limit).sort({ createdAt: -1 })
                 .lean()
                 .exec(),
             this.productModel.countDocuments(filteredProductSearchFilter),
