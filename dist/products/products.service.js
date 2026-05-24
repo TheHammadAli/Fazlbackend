@@ -222,13 +222,13 @@ let ProductsService = class ProductsService {
             }));
         }
         if (updateDto.images && updateDto.images.length > 0) {
-            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId.toString(), productId, "images");
+            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId.toString(), productId, "images");
             console.log("Uploaded Images:", uploadedFiles);
             const newImages = uploadedFiles.map((file) => file.url);
             updateDto.images = [...(existingProduct.images || []), ...newImages];
         }
         if (updateDto.video) {
-            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], "shop", existingProduct.shopId.toString(), productId, "video");
+            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], "shop", existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId.toString(), productId, "video");
             console.log("Uploaded Video:", uploadedVideo);
             updateDto.video = uploadedVideo[0].url;
         }

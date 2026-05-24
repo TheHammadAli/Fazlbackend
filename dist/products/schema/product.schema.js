@@ -108,6 +108,36 @@ exports.Product = Product = __decorate([
     })
 ], Product);
 exports.ProductSchema = mongoose_1.SchemaFactory.createForClass(Product);
+function buildSearchableTags(parameters) {
+    if (!Array.isArray(parameters)) {
+        return [];
+    }
+    return [
+        ...new Set(parameters.flatMap((param) => [
+            param.name,
+            ...(Array.isArray(param.variants) ? param.variants : []),
+        ])),
+    ];
+}
+exports.ProductSchema.pre("save", function (next) {
+    this.searchableTags = buildSearchableTags(this.parameters);
+    next();
+});
+exports.ProductSchema.pre("findOneAndUpdate", function (next) {
+    const update = this.getUpdate();
+    if (!update) {
+        return next();
+    }
+    const parameters = update.parameters || update.$set?.parameters;
+    if (parameters) {
+        if (!update.$set) {
+            update.$set = {};
+        }
+        update.$set.searchableTags =
+            buildSearchableTags(parameters);
+    }
+    next();
+});
 exports.ProductSchema.index({ location: "2dsphere" });
 exports.ProductSchema.index({
     title: "text",

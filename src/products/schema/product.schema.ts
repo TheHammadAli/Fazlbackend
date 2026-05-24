@@ -78,6 +78,51 @@ export const ProductSchema = SchemaFactory.createForClass(Product);
 
 
 
+function buildSearchableTags(
+  parameters?: Array<{ name: string; variants: string[] }>
+) {
+  if (!Array.isArray(parameters)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      parameters.flatMap((param) => [
+        param.name,
+        ...(Array.isArray(param.variants) ? param.variants : []),
+      ])
+    ),
+  ];
+}
+
+ProductSchema.pre("save", function (next) {
+  this.searchableTags = buildSearchableTags(this.parameters);
+  next();
+});
+
+ProductSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate() as any;
+
+  if (!update) {
+    return next();
+  }
+
+  const parameters =
+    update.parameters || update.$set?.parameters;
+
+  if (parameters) {
+    if (!update.$set) {
+      update.$set = {};
+    }
+
+    update.$set.searchableTags =
+      buildSearchableTags(parameters);
+  }
+
+  next();
+});
+
+
 
 ProductSchema.index({ location: "2dsphere" });
 ProductSchema.index({

@@ -277,7 +277,7 @@ export class ProductsService {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
         updateDto.images,
         "shop",
-        existingProduct.shopId.toString(),
+        existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString(),
         productId,
         "images",
       );
@@ -289,7 +289,7 @@ export class ProductsService {
       const uploadedVideo = await this.fileUploadService.uploadProductFiles(
         [updateDto.video],
         "shop",
-        existingProduct.shopId.toString(),
+        existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString(),
         productId,
         "video",
       );

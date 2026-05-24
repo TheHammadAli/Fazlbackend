@@ -74,7 +74,6 @@ export class CreateProductDto {
     type: [ProductParameterDto],
     example: [
       { name: "Color", variants: ["Red", "Blue"] },
-      { name: "Size", variants: ["S", "M", "L"] },
     ],
     description: "Custom product parameters like size, color, etc.",
   })
