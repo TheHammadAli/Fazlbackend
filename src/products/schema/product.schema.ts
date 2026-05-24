@@ -67,10 +67,23 @@ export class Product {
 
   @Prop({ type: Boolean, default: false })
   isDeleted: boolean;
+
+
+  @Prop({ type: [String], default: [] })
+  searchableTags: string[];
 }
+// e.g. ["Color", "Red", "Blue", "Size", "S", "M", "L"]
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-ProductSchema.index({ location: "2dsphere" });
 
+
+
+ProductSchema.index({ location: "2dsphere" });
+ProductSchema.index({
+  title: "text",
+  description: "text",
+  searchableTags: "text",
+  // remove the old parameters.name / parameters.variants
+});
 export type ProductDocument = Product & Document;

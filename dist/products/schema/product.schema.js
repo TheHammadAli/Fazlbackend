@@ -25,6 +25,7 @@ let Product = class Product {
     location;
     parameters;
     isDeleted;
+    searchableTags;
 };
 exports.Product = Product;
 __decorate([
@@ -95,6 +96,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Boolean, default: false }),
     __metadata("design:type", Boolean)
 ], Product.prototype, "isDeleted", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [String], default: [] }),
+    __metadata("design:type", Array)
+], Product.prototype, "searchableTags", void 0);
 exports.Product = Product = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,
@@ -104,4 +109,9 @@ exports.Product = Product = __decorate([
 ], Product);
 exports.ProductSchema = mongoose_1.SchemaFactory.createForClass(Product);
 exports.ProductSchema.index({ location: "2dsphere" });
+exports.ProductSchema.index({
+    title: "text",
+    description: "text",
+    searchableTags: "text",
+});
 //# sourceMappingURL=product.schema.js.map

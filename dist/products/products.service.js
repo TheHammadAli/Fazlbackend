@@ -121,6 +121,14 @@ let ProductsService = class ProductsService {
                 console.log("Uploaded Video:", uploadedVideo);
                 createdProduct.video = uploadedVideo[0].url;
             }
+            if (createdProduct.parameters && createdProduct.parameters.length > 0) {
+                createdProduct.searchableTags = [
+                    ...createdProduct.parameters.flatMap(p => [p.name, ...p.variants])
+                ];
+            }
+            else {
+                createdProduct.searchableTags = [];
+            }
             const result = await createdProduct.save();
             return {
                 message: this.i18n.translate("auth.products.created_success", {
@@ -290,48 +298,52 @@ let ProductsService = class ProductsService {
         await this.productModel.updateMany({ shopId }, { $set: { location } });
     }
     async searchProducts(query) {
-        const productSearchFilter = {};
-        if (query.name) {
-            productSearchFilter.title = { $regex: query.name, $options: "i" };
-        }
-        if (query.category) {
-            productSearchFilter.category = new mongoose_2.Types.ObjectId(query.category);
-        }
-        const page = query.page && query.page > 0 ? query.page : 1;
-        const limit = query.limit && query.limit > 0 ? query.limit : 10;
+        const page = Math.max(1, query.page || 1);
+        const limit = Math.max(1, query.limit || 10);
         const skip = (page - 1) * limit;
         const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
-        console.log("Active Promotion Product IDs:", allPromotedIds);
-        const promotionFilter = {};
+        const baseFilter = {
+            isDeleted: false,
+        };
         if (query.category) {
-            promotionFilter.category = new mongoose_2.Types.ObjectId(query.category);
+            baseFilter.category = new mongoose_2.Types.ObjectId(query.category);
         }
-        promotionFilter.isDeleted = false;
+        const searchTerm = query.name?.trim();
         const promotedProducts = await this.productModel
             .find({
             _id: { $in: allPromotedIds },
-            ...promotionFilter,
+            ...baseFilter,
         })
             .sort({ createdAt: -1 })
             .lean()
             .exec();
         const promotedProductIds = promotedProducts.map((p) => new mongoose_2.Types.ObjectId(p._id).toString());
-        const filteredProductSearchFilter = {
-            ...productSearchFilter,
-            _id: { $nin: promotedProductIds },
-            isDeleted: false,
+        let regularFilter = {
+            ...baseFilter,
+            _id: { $nin: promotedProductIds.map((id) => new mongoose_2.Types.ObjectId(id)) },
         };
+        if (searchTerm) {
+            regularFilter.$or = [
+                { title: { $regex: searchTerm, $options: 'i' } },
+                { description: { $regex: searchTerm, $options: 'i' } },
+                { 'parameters.name': { $regex: searchTerm, $options: 'i' } },
+                { 'parameters.variants': { $regex: searchTerm, $options: 'i' } },
+            ];
+        }
         const [regularProducts, total] = await Promise.all([
             this.productModel
-                .find(filteredProductSearchFilter)
+                .find(regularFilter)
+                .sort({ createdAt: -1 })
                 .skip(skip)
-                .limit(limit).sort({ createdAt: -1 })
+                .limit(limit)
                 .lean()
                 .exec(),
-            this.productModel.countDocuments(filteredProductSearchFilter),
+            this.productModel.countDocuments(regularFilter),
         ]);
-        const enrichedPromotions = await this.enrichProductsWithReviewStats(promotedProducts);
-        const enrichedRegularProducts = await this.enrichProductsWithReviewStats(regularProducts);
+        const [enrichedPromotions, enrichedRegularProducts] = await Promise.all([
+            this.enrichProductsWithReviewStats(promotedProducts),
+            this.enrichProductsWithReviewStats(regularProducts),
+        ]);
         return {
             data: {
                 promotions: enrichedPromotions,

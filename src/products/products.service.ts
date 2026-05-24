@@ -148,6 +148,14 @@ export class ProductsService {
         console.log("Uploaded Video:", uploadedVideo);
         createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
       }
+      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
+
+        createdProduct.searchableTags = [
+          ...createdProduct.parameters.flatMap(p => [p.name, ...p.variants])
+        ];
+      } else {
+        createdProduct.searchableTags = [];
+      }
 
       const result = await createdProduct.save();
       return {
@@ -402,70 +410,68 @@ export class ProductsService {
   }
 
   async searchProducts(query: SearchAllProductsServiceDto) {
-    const productSearchFilter: FilterQuery<ProductDocument> = {};
-
-    // Apply full search filter for regular items
-    if (query.name) {
-      productSearchFilter.title = { $regex: query.name, $options: "i" };
-    }
-
-    if (query.category) {
-      productSearchFilter.category = new Types.ObjectId(query.category);
-    }
-
-    // Pagination
-    const page = query.page && query.page > 0 ? query.page : 1;
-    const limit = query.limit && query.limit > 0 ? query.limit : 10;
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.max(1, query.limit || 10);
     const skip = (page - 1) * limit;
 
-    // Query the database
-    const allPromotedIds =
-      await this.promotionService.getActivePromotionProductIds();
-    console.log("Active Promotion Product IDs:", allPromotedIds);
-    // Apply relaxed filter (e.g., only by category) for promotions
-    const promotionFilter: FilterQuery<ProductDocument> = {};
-    if (query.category) {
-      promotionFilter.category = new Types.ObjectId(query.category);
-    }
-    promotionFilter.isDeleted = false; // Ensure we only get non-deleted products for promotions
+    const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
 
-    // Fetch promoted products (that match category if provided)
+    const baseFilter: FilterQuery<ProductDocument> = {
+      isDeleted: false,
+    };
+
+    if (query.category) {
+      baseFilter.category = new Types.ObjectId(query.category);
+    }
+
+    const searchTerm = query.name?.trim();
+
+    // === Promoted Products ===
     const promotedProducts = await this.productModel
       .find({
         _id: { $in: allPromotedIds },
-        ...promotionFilter,
+        ...baseFilter,
       })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
     const promotedProductIds = promotedProducts.map((p: any) =>
-      new Types.ObjectId(p._id).toString(),
+      new Types.ObjectId(p._id).toString()
     );
 
-    // Regular products filter, excluding promoted ones
-    const filteredProductSearchFilter: FilterQuery<ProductDocument> = {
-      ...productSearchFilter,
-      _id: { $nin: promotedProductIds },
-      isDeleted: false,
+    // === Regular Products ===
+    let regularFilter: FilterQuery<ProductDocument> = {
+      ...baseFilter,
+      _id: { $nin: promotedProductIds.map((id) => new Types.ObjectId(id)) },
     };
+
+    if (searchTerm) {
+      regularFilter.$or = [
+        { title: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'parameters.name': { $regex: searchTerm, $options: 'i' } },
+        { 'parameters.variants': { $regex: searchTerm, $options: 'i' } },
+      ];
+    }
 
     const [regularProducts, total] = await Promise.all([
       this.productModel
-        .find(filteredProductSearchFilter)
+        .find(regularFilter)
+        // IMPORTANT: Do NOT select or sort by textScore when using $or + regex
+        .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit).sort({ createdAt: -1 })
+        .limit(limit)
         .lean()
         .exec(),
-      this.productModel.countDocuments(filteredProductSearchFilter),
+
+      this.productModel.countDocuments(regularFilter),
     ]);
 
-    const enrichedPromotions = await this.enrichProductsWithReviewStats(
-      promotedProducts,
-    );
-    const enrichedRegularProducts = await this.enrichProductsWithReviewStats(
-      regularProducts,
-    );
+    const [enrichedPromotions, enrichedRegularProducts] = await Promise.all([
+      this.enrichProductsWithReviewStats(promotedProducts),
+      this.enrichProductsWithReviewStats(regularProducts),
+    ]);
 
     return {
       data: {
@@ -480,7 +486,6 @@ export class ProductsService {
       },
     };
   }
-
   private async enrichProductsWithReviewStats(products: any[]) {
     if (!products || products.length === 0) {
       return products;
