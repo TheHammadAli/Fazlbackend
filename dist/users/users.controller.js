@@ -60,6 +60,12 @@ let UsersController = class UsersController {
     async registerFcmToken(user, token) {
         return this.usersService.saveFcmToken(user.sub, token);
     }
+    async disableAccount(userId) {
+        return this.usersService.disableAccount(userId);
+    }
+    async reactivateAccount(userId) {
+        return this.usersService.reactivateAccount(userId);
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -113,6 +119,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)("register-fcm-token"),
     (0, swagger_1.ApiOperation)({ summary: "Post acmToken against user" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "FCM token saved successfully" }),
     (0, swagger_1.ApiBody)({
         schema: { properties: { token: { type: "string" } } },
         required: true,
@@ -123,6 +130,26 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "registerFcmToken", null);
+__decorate([
+    (0, common_1.Delete)(":id/deactivate"),
+    (0, swagger_1.ApiOperation)({ summary: "Disable/Delete user account (protected)" }),
+    (0, swagger_1.ApiParam)({ name: "id", type: String }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Account has been disabled successfully" }),
+    __param(0, (0, common_1.Param)("id")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "disableAccount", null);
+__decorate([
+    (0, common_1.Post)(":id/reactivate"),
+    (0, swagger_1.ApiOperation)({ summary: "Reactivate disabled user account (protected)" }),
+    (0, swagger_1.ApiParam)({ name: "id", type: String }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Account has been reactivated successfully" }),
+    __param(0, (0, common_1.Param)("id")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "reactivateAccount", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)("Users"),
     (0, swagger_1.ApiBearerAuth)("jwt"),

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   InternalServerErrorException,
   Param,
@@ -23,6 +24,7 @@ import {
   ApiQuery,
   ApiBody,
   ApiConsumes,
+  ApiResponse,
 } from "@nestjs/swagger";
 import { Public } from "src/common/decorators/public.decorator";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
@@ -36,7 +38,7 @@ import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 @UseGuards(JwtAuthGuard)
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Public()
   @Post("createUser")
@@ -110,6 +112,7 @@ export class UsersController {
 
   @Post("register-fcm-token")
   @ApiOperation({ summary: "Post acmToken against user" })
+  @ApiResponse({ status: 200, description: "FCM token saved successfully" })
   @ApiBody({
     schema: { properties: { token: { type: "string" } } },
     required: true,
@@ -119,5 +122,25 @@ export class UsersController {
     @Body("token") token: string,
   ) {
     return this.usersService.saveFcmToken(user.sub, token);
+  }
+
+  @Delete(":id/deactivate")
+  @ApiOperation({ summary: "Disable/Delete user account (protected)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiResponse({ status: 200, description: "Account has been disabled successfully" })
+  async disableAccount(
+    @Param("id") userId: string,
+  ): Promise<{ message: string; data: User }> {
+    return this.usersService.disableAccount(userId);
+  }
+
+  @Post(":id/reactivate")
+  @ApiOperation({ summary: "Reactivate disabled user account (protected)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiResponse({ status: 200, description: "Account has been reactivated successfully" })
+  async reactivateAccount(
+    @Param("id") userId: string,
+  ): Promise<{ message: string; data: User }> {
+    return this.usersService.reactivateAccount(userId);
   }
 }

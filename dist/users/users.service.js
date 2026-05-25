@@ -181,6 +181,46 @@ let UsersService = class UsersService {
     async saveFcmToken(userId, token) {
         return this.userModel.findByIdAndUpdate(userId, { fcmToken: token }, { new: true });
     }
+    async disableAccount(userId) {
+        try {
+            const user = await this.userModel.findById(userId).exec();
+            if (!user) {
+                throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
+            }
+            await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: true } }, { new: true }).exec();
+            return {
+                message: this.i18n.translate("auth.users.account_disabled", {
+                    lang: this.lang,
+                }),
+                data: user,
+            };
+        }
+        catch (err) {
+            throw err instanceof common_1.HttpException
+                ? err
+                : new app_error_1.AppError(err);
+        }
+    }
+    async reactivateAccount(userId) {
+        try {
+            const user = await this.userModel.findById(userId).exec();
+            if (!user) {
+                throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
+            }
+            await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: false } }, { new: true }).exec();
+            return {
+                message: this.i18n.translate("auth.users.account_reactivated", {
+                    lang: this.lang,
+                }),
+                data: user,
+            };
+        }
+        catch (err) {
+            throw err instanceof common_1.HttpException
+                ? err
+                : new app_error_1.AppError(err?.message || "Internal server error");
+        }
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
