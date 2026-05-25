@@ -53,12 +53,18 @@ let AuthService = class AuthService {
                 lang: this.getLang(),
             }));
         }
+        if (user.isDisabled) {
+            throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.account_disabled", {
+                lang: this.getLang(),
+            }));
+        }
         const payload = {
             sub: user.id,
             email: user.email,
             roles: user.roles,
             location: user.location,
             image: user.image,
+            isDisabled: user.isDisabled,
         };
         const accessToken = this.jwtService.sign(payload, {
             expiresIn: "1h",
@@ -94,6 +100,7 @@ let AuthService = class AuthService {
                 roles: user.roles,
                 location: user.location,
                 image: user.image,
+                isDisabled: user.isDisabled,
             };
             const newAccessToken = this.jwtService.sign(newPayload, {
                 expiresIn: "1h",

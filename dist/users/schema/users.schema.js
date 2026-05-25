@@ -27,6 +27,7 @@ let User = class User {
     provider;
     address;
     fcmToken;
+    isDisabled;
 };
 exports.User = User;
 __decorate([
@@ -95,6 +96,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, required: false }),
     __metadata("design:type", String)
 ], User.prototype, "fcmToken", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "isDisabled", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

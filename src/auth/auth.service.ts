@@ -50,12 +50,21 @@ export class AuthService {
       );
     }
 
+    if (user.isDisabled) {
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.account_disabled", {
+          lang: this.getLang(),
+        }),
+      );
+    }
+
     const payload = {
       sub: user.id, // or user.id
       email: user.email,
       roles: user.roles, // if you have roles
       location: user.location,
       image: user.image,
+      isDisabled: user.isDisabled,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -101,6 +110,7 @@ export class AuthService {
         roles: user.roles,
         location: user.location,
         image: user.image,
+        isDisabled: user.isDisabled,
       };
 
       const newAccessToken = this.jwtService.sign(newPayload, {

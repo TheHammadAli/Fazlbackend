@@ -58,6 +58,9 @@ export class User {
 
   @Prop({ type: String, required: false })
   fcmToken?: string; // st
+
+  @Prop({ type: Boolean, default: false })
+  isDisabled: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
