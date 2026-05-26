@@ -335,6 +335,7 @@ export class OrdersService {
         {
           orderId: orderId, // This is our mandatory generic payload
           status: dto.status,
+          productId: updated.product._id.toString(), // Optional additional payload
         },
         {
           productTitle: productTitle,
