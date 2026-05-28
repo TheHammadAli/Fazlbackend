@@ -26,6 +26,11 @@ export class CreateBroadcastDto {
   @IsNotEmpty()
   type: "product" | "service";
 
+  @ApiProperty({ example: "Buying", enum: ["Buying", "Selling"] })
+  @IsEnum(["Buying", "Selling"])
+  @IsNotEmpty()
+  purpose: "Buying" | "Selling";
+
   @ApiPropertyOptional({
     type: "array",
     items: {

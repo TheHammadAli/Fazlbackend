@@ -68,6 +68,7 @@ export class BroadcastService {
     return this.broadcastModel.create({
       buyer: new Types.ObjectId(buyerId),
       message: dto.message,
+      purpose: dto.purpose,
       radius: dto.radius,
       category: new Types.ObjectId(dto.categoryId),
       type: dto.type,

@@ -11,6 +11,9 @@ export class Broadcast {
   @Prop({ type: String, required: true })
   message: string;
 
+  @Prop({ type: String, enum: ["Buying", "Selling"], required: true })
+  purpose: "Buying" | "Selling";
+
   @Prop({ type: Types.ObjectId, ref: "Category" })
   category: Types.ObjectId;
 
