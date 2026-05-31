@@ -1,5 +1,6 @@
 import { ShopService } from "./shop.service";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
+import { SearchNearbyShopDto } from "./dto/search-nearby-shop.dto";
 import { Request } from "express";
 import { Types } from "mongoose";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
@@ -315,4 +316,5 @@ export declare class ShopController {
         __v: number;
     }>;
     getMyShops(user: JwtPayload): Promise<import("./schema/shop.schema").Shop[]>;
+    searchNearbyShops(query: SearchNearbyShopDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/shop.schema").Shop>>;
 }

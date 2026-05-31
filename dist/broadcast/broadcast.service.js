@@ -62,6 +62,7 @@ let BroadcastService = class BroadcastService {
         return this.broadcastModel.create({
             buyer: new mongoose_2.Types.ObjectId(buyerId),
             message: dto.message,
+            purpose: dto.purpose,
             radius: dto.radius,
             category: new mongoose_2.Types.ObjectId(dto.categoryId),
             type: dto.type,

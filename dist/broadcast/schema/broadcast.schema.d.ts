@@ -3,6 +3,7 @@ export type BroadcastDocument = HydratedDocument<Broadcast>;
 export declare class Broadcast {
     buyer: Types.ObjectId;
     message: string;
+    purpose: "Buying" | "Selling";
     category: Types.ObjectId;
     radius: number;
     location: {

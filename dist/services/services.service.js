@@ -242,6 +242,70 @@ let ServicesService = class ServicesService {
     async searchNearbyWithCategory(category, coordinates, radius, pagination) {
         return this.listingUtils.findNearbyWithCategory(this.serviceModel, category, coordinates, radius, pagination);
     }
+    async searchNearbyServices(query) {
+        const coordinates = [query.lng, query.lat];
+        const radiusMeters = query.radius * 1000;
+        const page = query.page && query.page > 0 ? query.page : 1;
+        const limit = query.limit && query.limit > 0 ? query.limit : 10;
+        const skip = (page - 1) * limit;
+        const serviceQuery = { isDeleted: false };
+        if (query.category) {
+            serviceQuery.category = new mongoose_2.Types.ObjectId(query.category);
+        }
+        const [results, countAgg] = await Promise.all([
+            this.serviceModel.aggregate([
+                {
+                    $geoNear: {
+                        near: { type: "Point", coordinates },
+                        distanceField: "distance",
+                        maxDistance: radiusMeters,
+                        query: serviceQuery,
+                        spherical: true,
+                    },
+                },
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                    $lookup: {
+                        from: "categories",
+                        localField: "category",
+                        foreignField: "_id",
+                        as: "category",
+                    },
+                },
+                {
+                    $unwind: {
+                        path: "$category",
+                        preserveNullAndEmptyArrays: true,
+                    },
+                },
+            ]),
+            this.serviceModel.aggregate([
+                {
+                    $geoNear: {
+                        near: { type: "Point", coordinates },
+                        distanceField: "distance",
+                        maxDistance: radiusMeters,
+                        query: serviceQuery,
+                        spherical: true,
+                    },
+                },
+                { $count: "total" },
+            ]),
+        ]);
+        const total = countAgg[0]?.total || 0;
+        const enrichedResults = await this.enrichServicesWithReviewStats(results);
+        return {
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+            data: enrichedResults,
+        };
+    }
     async updateLocationByShopId(shopId, location) {
         await this.serviceModel.updateMany({ shopId }, { $set: { location } });
     }

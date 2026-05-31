@@ -9,6 +9,7 @@ import { ListingUtilsService } from "src/shared/listing-util-service";
 import { UsersService } from "src/users/users.service";
 import { ServiceRequest, ServiceRequestDocument } from "./schema/service_request.schema";
 import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
+import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { CreateRequestDto } from "./dto/create-request-dto";
@@ -60,6 +61,15 @@ export declare class ServicesService {
     getById(serviceId: string): Promise<Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ServiceDocument>>;
+    searchNearbyServices(query: SearchNearbyServiceDto): Promise<{
+        meta: {
+            total: any;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        data: any[];
+    }>;
     updateLocationByShopId(shopId: string, location: {
         type: "Point";
         coordinates: [number, number];

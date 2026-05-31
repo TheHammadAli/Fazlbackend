@@ -22,6 +22,7 @@ import {
   ServiceRequestDocument,
 } from "./schema/service_request.schema";
 import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
+import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { CreateRequestDto } from "./dto/create-request-dto";
@@ -338,6 +339,76 @@ export class ServicesService {
       pagination,
     );
   }
+
+  async searchNearbyServices(query: SearchNearbyServiceDto) {
+    const coordinates: [number, number] = [query.lng, query.lat];
+    const radiusMeters = query.radius * 1000;
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const limit = query.limit && query.limit > 0 ? query.limit : 10;
+    const skip = (page - 1) * limit;
+
+    const serviceQuery: Record<string, any> = { isDeleted: false };
+    if (query.category) {
+      serviceQuery.category = new Types.ObjectId(query.category);
+    }
+
+    const [results, countAgg] = await Promise.all([
+      this.serviceModel.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates },
+            distanceField: "distance",
+            maxDistance: radiusMeters,
+            query: serviceQuery,
+            spherical: true,
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        {
+          $unwind: {
+            path: "$category",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ]),
+      this.serviceModel.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates },
+            distanceField: "distance",
+            maxDistance: radiusMeters,
+            query: serviceQuery,
+            spherical: true,
+          },
+        },
+        { $count: "total" },
+      ]),
+    ]);
+
+    const total = countAgg[0]?.total || 0;
+    const enrichedResults = await this.enrichServicesWithReviewStats(results);
+
+    return {
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      data: enrichedResults,
+    };
+  }
+
   async updateLocationByShopId(
     shopId: string,
     location: { type: "Point"; coordinates: [number, number] },

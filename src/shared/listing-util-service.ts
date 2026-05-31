@@ -53,8 +53,8 @@ export class ListingUtilsService {
         $geoNear: {
           near: { type: "Point", coordinates },
           distanceField: "distance",
-          maxDistance: radius,
-          query: { category: new Types.ObjectId(category) },
+          maxDistance: radius * 1000,
+          query: { category: new Types.ObjectId(category), isDeleted: false },
           spherical: true,
         },
       },

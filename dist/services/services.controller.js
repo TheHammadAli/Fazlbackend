@@ -27,6 +27,7 @@ const current_user_decorator_1 = require("../common/decorators/current-user.deco
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("./dto/video-with-dto");
 const Get_paginated_dto_1 = require("../orders/dto/Get-paginated-dto");
+const search_nearby_service_dto_1 = require("./dto/search-nearby-service.dto");
 let ServicesController = class ServicesController {
     servicesService;
     constructor(servicesService) {
@@ -90,6 +91,9 @@ let ServicesController = class ServicesController {
         }
         await this.servicesService.deleteServiceMedia(serviceId, media);
         return { message: "Selected service media deleted successfully" };
+    }
+    async searchNearbyServices(query) {
+        return this.servicesService.searchNearbyServices(query);
     }
     async deleteService(serviceId) {
         await this.servicesService.delete(serviceId);
@@ -281,6 +285,21 @@ __decorate([
     __metadata("design:paramtypes", [String, Array]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "deleteProductMedia", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)("search/nearby"),
+    (0, swagger_1.ApiOperation)({ summary: "Search services near a coordinate within a radius" }),
+    (0, swagger_1.ApiQuery)({ name: "lat", required: true, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "lng", required: true, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "radius", required: true, type: Number, description: "Distance in kilometers" }),
+    (0, swagger_1.ApiQuery)({ name: "category", required: false, type: String, description: "Optional category id to filter services" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [search_nearby_service_dto_1.SearchNearbyServiceDto]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "searchNearbyServices", null);
 __decorate([
     (0, common_1.Delete)(":id/media"),
     (0, swagger_1.ApiOperation)({ summary: "Delete selected media files for a service" }),

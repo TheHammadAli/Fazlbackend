@@ -118,6 +118,44 @@ let ShopService = class ShopService {
             },
         });
     }
+    async findShopsNearLocationPaginated(location, radiusInMeters, pagination) {
+        const { page = 1, limit = 10 } = pagination || {};
+        const skip = (page - 1) * limit;
+        const query = { isDeleted: false };
+        const [data, countAgg] = await Promise.all([
+            this.shopModel.aggregate([
+                {
+                    $geoNear: {
+                        near: { type: "Point", coordinates: location },
+                        distanceField: "distance",
+                        maxDistance: radiusInMeters,
+                        query,
+                        spherical: true,
+                    },
+                },
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+            ]),
+            this.shopModel.aggregate([
+                {
+                    $geoNear: {
+                        near: { type: "Point", coordinates: location },
+                        distanceField: "distance",
+                        maxDistance: radiusInMeters,
+                        query,
+                        spherical: true,
+                    },
+                },
+                { $count: "total" },
+            ]),
+        ]);
+        const total = countAgg[0]?.total || 0;
+        return {
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            data,
+        };
+    }
 };
 exports.ShopService = ShopService;
 exports.ShopService = ShopService = __decorate([

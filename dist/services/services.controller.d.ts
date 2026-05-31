@@ -8,6 +8,7 @@ import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { GetWithVideosDto } from "./dto/video-with-dto";
 import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
+import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
 export declare class ServicesController {
     private readonly servicesService;
     constructor(servicesService: ServicesService);
@@ -69,6 +70,15 @@ export declare class ServicesController {
     getServicesWithVideos(query: GetWithVideosDto, userId: string): Promise<PaginatedResponseDto<any>>;
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;
+    }>;
+    searchNearbyServices(query: SearchNearbyServiceDto): Promise<{
+        meta: {
+            total: any;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        data: any[];
     }>;
     deleteService(serviceId: string): Promise<{
         message: string;

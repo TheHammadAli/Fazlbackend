@@ -218,6 +218,7 @@ let OrdersService = class OrdersService {
             this.notificationsService.createAndNotify(updated.buyer.toString(), "order_status_updated", "ORDER", {
                 orderId: orderId,
                 status: dto.status,
+                productId: updated.product._id.toString(),
             }, {
                 productTitle: productTitle,
                 status: dto.status,

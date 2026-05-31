@@ -46,8 +46,8 @@ let ListingUtilsService = class ListingUtilsService {
                 $geoNear: {
                     near: { type: "Point", coordinates },
                     distanceField: "distance",
-                    maxDistance: radius,
-                    query: { category: new mongoose_1.Types.ObjectId(category) },
+                    maxDistance: radius * 1000,
+                    query: { category: new mongoose_1.Types.ObjectId(category), isDeleted: false },
                     spherical: true,
                 },
             },

@@ -40,6 +40,7 @@ import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { Public } from "src/common/decorators/public.decorator";
 import { GetWithVideosDto } from "./dto/video-with-dto";
 import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
+import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
 
 @ApiTags("Services")
 @ApiBearerAuth("jwt")
@@ -255,6 +256,21 @@ export class ServicesController {
     }
     await this.servicesService.deleteServiceMedia(serviceId, media);
     return { message: "Selected service media deleted successfully" };
+  }
+
+  @Public()
+  @Get("search/nearby")
+  @ApiOperation({ summary: "Search services near a coordinate within a radius" })
+  @ApiQuery({ name: "lat", required: true, type: Number })
+  @ApiQuery({ name: "lng", required: true, type: Number })
+  @ApiQuery({ name: "radius", required: true, type: Number, description: "Distance in kilometers" })
+  @ApiQuery({ name: "category", required: false, type: String, description: "Optional category id to filter services" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async searchNearbyServices(
+    @Query() query: SearchNearbyServiceDto,
+  ) {
+    return this.servicesService.searchNearbyServices(query);
   }
 
   @Delete(":id/media")

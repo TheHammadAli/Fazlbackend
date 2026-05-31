@@ -17,6 +17,7 @@ class CreateBroadcastDto {
     radius;
     categoryId;
     type;
+    purpose;
     files;
 }
 exports.CreateBroadcastDto = CreateBroadcastDto;
@@ -43,6 +44,12 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateBroadcastDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "Buying", enum: ["Buying", "Selling"] }),
+    (0, class_validator_1.IsEnum)(["Buying", "Selling"]),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateBroadcastDto.prototype, "purpose", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: "array",

@@ -1,4 +1,6 @@
 import { Model, Types } from "mongoose";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { I18nService } from "nestjs-i18n";
 import { Shop, ShopDocument } from "./schema/shop.schema";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
@@ -323,4 +325,5 @@ export declare class ShopService {
     }>;
     getAllShopsByUser(userId: string): Promise<Shop[]>;
     findShopsNearLocation(location: [number, number], radiusInMeters: number): Promise<Shop[]>;
+    findShopsNearLocationPaginated(location: [number, number], radiusInMeters: number, pagination?: PaginationDto): Promise<PaginatedResponseDto<Shop>>;
 }

@@ -16,6 +16,7 @@ exports.ShopController = void 0;
 const common_1 = require("@nestjs/common");
 const shop_service_1 = require("./shop.service");
 const create_update_shop_dto_1 = require("./dto/create-update-shop.dto");
+const search_nearby_shop_dto_1 = require("./dto/search-nearby-shop.dto");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 const mongoose_1 = require("mongoose");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
@@ -51,6 +52,11 @@ let ShopController = class ShopController {
     }
     async getMyShops(user) {
         return this.shopService.getAllShopsByUser(user.sub);
+    }
+    async searchNearbyShops(query) {
+        const coordinates = [query.lng, query.lat];
+        const radiusMeters = query.radius * 1000;
+        return await this.shopService.findShopsNearLocationPaginated(coordinates, radiusMeters, { page: query.page, limit: query.limit });
     }
 };
 exports.ShopController = ShopController;
@@ -99,6 +105,21 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "getMyShops", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)("search/nearby"),
+    (0, swagger_1.ApiOperation)({ summary: "Search shops near a coordinate within a radius" }),
+    (0, swagger_1.ApiQuery)({ name: "lat", required: true, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "lng", required: true, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "radius", required: true, type: Number, description: "Distance in kilometers" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Paginated list of nearby shops" }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [search_nearby_shop_dto_1.SearchNearbyShopDto]),
+    __metadata("design:returntype", Promise)
+], ShopController.prototype, "searchNearbyShops", null);
 exports.ShopController = ShopController = __decorate([
     (0, swagger_1.ApiTags)("Shops"),
     (0, swagger_1.ApiBearerAuth)("jwt"),

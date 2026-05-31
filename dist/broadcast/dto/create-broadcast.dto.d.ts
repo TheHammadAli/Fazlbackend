@@ -3,5 +3,6 @@ export declare class CreateBroadcastDto {
     radius: number;
     categoryId: string;
     type: "product" | "service";
+    purpose: "Buying" | "Selling";
     files?: any[];
 }

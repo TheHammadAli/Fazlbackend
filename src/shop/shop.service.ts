@@ -6,6 +6,8 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { PaginationDto } from "src/common/dto/pagination.dto";
+import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { I18nService } from "nestjs-i18n";
 import { Shop, ShopDocument } from "./schema/shop.schema";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
@@ -111,13 +113,14 @@ export class ShopService {
       );
     }
     const productsCount = await this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 });
-    const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1); 
+    const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1);
 
     return { ...shop.toJSON(), productsCount: productsCount.meta.total, ordersCount: ordersCount.meta.total };
   }
   async getAllShopsByUser(userId: string): Promise<Shop[]> {
     return this.shopModel.find({ ownerId: new Types.ObjectId(userId) }).exec();
   }
+  // Original simple near-query kept for backward compatibility
   async findShopsNearLocation(
     location: [number, number],
     radiusInMeters: number,
@@ -133,5 +136,53 @@ export class ShopService {
         },
       },
     });
+  }
+
+  // New paginated geo search that returns meta and data
+  async findShopsNearLocationPaginated(
+    location: [number, number],
+    radiusInMeters: number,
+    pagination?: PaginationDto,
+  ): Promise<PaginatedResponseDto<Shop>> {
+    const { page = 1, limit = 10 } = pagination || {};
+    const skip = (page - 1) * limit;
+
+    const query: Record<string, any> = { isDeleted: false };
+
+    const [data, countAgg] = await Promise.all([
+      this.shopModel.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates: location },
+            distanceField: "distance",
+            maxDistance: radiusInMeters,
+            query,
+            spherical: true,
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ]),
+      this.shopModel.aggregate([
+        {
+          $geoNear: {
+            near: { type: "Point", coordinates: location },
+            distanceField: "distance",
+            maxDistance: radiusInMeters,
+            query,
+            spherical: true,
+          },
+        },
+        { $count: "total" },
+      ]),
+    ]);
+
+    const total = countAgg[0]?.total || 0;
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data,
+    };
   }
 }
