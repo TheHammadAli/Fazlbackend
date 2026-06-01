@@ -78,8 +78,8 @@ let ServicesController = class ServicesController {
     async getByUser(userId, page = 1, limit = 10) {
         return this.servicesService.getByUser(userId, page, limit);
     }
-    async getServiceRequestsByUser(userId, page = 1, limit = 10, jobStatus, status) {
-        return this.servicesService.getServiceRequestsByUser(userId, page, limit, jobStatus, status);
+    async getServiceRequestsByUser(userId, role, page = 1, limit = 10, jobStatus, status) {
+        return this.servicesService.getServiceRequestsByUser(userId, role, page, limit, jobStatus, status);
     }
     async getServicesWithVideos(query, userId) {
         console.log("Recieved pagination", query);
@@ -212,7 +212,7 @@ __decorate([
 ], ServicesController.prototype, "getByUser", null);
 __decorate([
     (0, common_1.Get)("/requests/:userId"),
-    (0, swagger_1.ApiOperation)({ summary: "Get paginated services by user ID" }),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated service requests for a user" }),
     (0, swagger_1.ApiParam)({ name: "userId", required: true }),
     (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
@@ -226,17 +226,24 @@ __decorate([
         required: false,
         type: String,
     }),
+    (0, swagger_1.ApiQuery)({
+        name: "role",
+        required: true,
+        enum: ["customer", "provider"],
+        description: "Return requests where the user is acting as the customer or provider",
+    }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: "Paginated list of services",
+        description: "Paginated list of service requests",
     }),
     __param(0, (0, common_1.Param)("userId")),
-    __param(1, (0, common_1.Query)("page")),
-    __param(2, (0, common_1.Query)("limit")),
-    __param(3, (0, common_1.Query)("jobStatus")),
-    __param(4, (0, common_1.Query)("status")),
+    __param(1, (0, common_1.Query)("role")),
+    __param(2, (0, common_1.Query)("page")),
+    __param(3, (0, common_1.Query)("limit")),
+    __param(4, (0, common_1.Query)("jobStatus")),
+    __param(5, (0, common_1.Query)("status")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number, Number, String, String]),
+    __metadata("design:paramtypes", [String, String, Number, Number, String, String]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getServiceRequestsByUser", null);
 __decorate([

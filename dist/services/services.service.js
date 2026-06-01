@@ -499,14 +499,18 @@ let ServicesService = class ServicesService {
             },
         };
     }
-    async getServiceRequestsByUser(userId, page = 1, limit = 10, jobStatus, status) {
+    async getServiceRequestsByUser(userId, role, page = 1, limit = 10, jobStatus, status) {
         const skip = (page - 1) * limit;
-        const filter = {
-            $or: [
-                { customer: new mongoose_2.Types.ObjectId(userId) },
-                { provider: new mongoose_2.Types.ObjectId(userId) },
-            ],
-        };
+        const filter = {};
+        if (role === "customer") {
+            filter.customer = new mongoose_2.Types.ObjectId(userId);
+        }
+        else if (role === "provider") {
+            filter.provider = new mongoose_2.Types.ObjectId(userId);
+        }
+        else {
+            throw new common_1.BadRequestException("Invalid role value. Expected 'customer' or 'provider'.");
+        }
         if (jobStatus) {
             filter.jobStatus = jobStatus;
         }

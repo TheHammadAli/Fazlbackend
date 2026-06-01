@@ -66,7 +66,7 @@ export declare class ServicesController {
     }>;
     getById(serviceId: string): Promise<import("./schema/services.schema").Service>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
-    getServiceRequestsByUser(userId: string, page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<any>>;
+    getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<any>>;
     getServicesWithVideos(query: GetWithVideosDto, userId: string): Promise<PaginatedResponseDto<any>>;
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;

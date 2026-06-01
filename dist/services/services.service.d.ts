@@ -106,7 +106,7 @@ export declare class ServicesService {
             jobStatus: import("./schema/service_request.schema").JobStatus;
         };
     }>;
-    getServiceRequestsByUser(userId: string, page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
+    getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;

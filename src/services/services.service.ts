@@ -698,18 +698,24 @@ export class ServicesService {
 
   async getServiceRequestsByUser(
     userId: string,
+    role: "customer" | "provider",
     page = 1,
     limit = 10,
     jobStatus?: string,
     status?: string,
   ): Promise<PaginatedResponseDto<ServiceRequest>> {
     const skip = (page - 1) * limit;
-    const filter: FilterQuery<ServiceRequestDocument> = {
-      $or: [
-        { customer: new Types.ObjectId(userId) },
-        { provider: new Types.ObjectId(userId) },
-      ],
-    };
+    const filter: FilterQuery<ServiceRequestDocument> = {};
+
+    if (role === "customer") {
+      filter.customer = new Types.ObjectId(userId);
+    } else if (role === "provider") {
+      filter.provider = new Types.ObjectId(userId);
+    } else {
+      throw new BadRequestException(
+        "Invalid role value. Expected 'customer' or 'provider'.",
+      );
+    }
 
     if (jobStatus) {
       filter.jobStatus = jobStatus;

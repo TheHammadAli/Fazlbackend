@@ -177,7 +177,7 @@ export class ServicesController {
   }
 
   @Get("/requests/:userId")
-  @ApiOperation({ summary: "Get paginated services by user ID" })
+  @ApiOperation({ summary: "Get paginated service requests for a user" })
   @ApiParam({ name: "userId", required: true })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
@@ -191,18 +191,25 @@ export class ServicesController {
     required: false,
     type: String,
   })
+  @ApiQuery({
+    name: "role",
+    required: true,
+    enum: ["customer", "provider"],
+    description: "Return requests where the user is acting as the customer or provider",
+  })
   @ApiResponse({
     status: 200,
-    description: "Paginated list of services",
+    description: "Paginated list of service requests",
   })
   async getServiceRequestsByUser(
     @Param("userId") userId: string,
+    @Query("role") role: "customer" | "provider",
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 10,
     @Query("jobStatus") jobStatus?: string,
     @Query("status") status?: string,
   ): Promise<PaginatedResponseDto<any>> {
-    return this.servicesService.getServiceRequestsByUser(userId, page, limit, jobStatus, status);
+    return this.servicesService.getServiceRequestsByUser(userId, role, page, limit, jobStatus, status);
   }
 
 
