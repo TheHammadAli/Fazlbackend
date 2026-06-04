@@ -187,4 +187,16 @@ export class ReviewService {
       },
     ]);
   }
+
+  async findOne(
+    userId: string,
+    itemId: string,
+    itemType: "product" | "service",
+  ): Promise<Review | null> {
+    return this.reviewModel.findOne({
+      userId: new Types.ObjectId(userId),
+      itemId: new Types.ObjectId(itemId),
+      itemType,
+    });
+  }
 }

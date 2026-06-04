@@ -6,22 +6,26 @@ import {
   Query,
   Param,
   Patch,
+  UseGuards,
 } from "@nestjs/common";
 import { ReviewService } from "./reviews.service";
 import { CreateReviewDto } from "./dto/create-review.dto";
 import { QueryReviewDto } from "./dto/query-review.dto";
+import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import {
   ApiTags,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiBearerAuth,
 } from "@nestjs/swagger";
 
 @ApiTags("Reviews")
 @Controller("reviews")
 export class ReviewController {
-  constructor(private readonly reviewService: ReviewService) {}
+  constructor(private readonly reviewService: ReviewService) { }
 
   /**
    * Create a review for a product or service
@@ -44,6 +48,24 @@ export class ReviewController {
   @ApiQuery({ name: "limit", required: false })
   async getReviewsByItem(@Query() query: QueryReviewDto) {
     return this.reviewService.getReviews(query);
+  }
+
+  @Get("/check")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth("jwt")
+  @ApiOperation({ summary: "Check if current user has reviewed an item" })
+  @ApiQuery({ name: "itemId", required: true })
+  @ApiQuery({ name: "itemType", enum: ["product", "service"], required: true })
+  async checkUserReview(
+    @CurrentUser("sub") userId: string,
+    @Query("itemId") itemId: string,
+    @Query("itemType") itemType: "product" | "service",
+  ) {
+    const review = await this.reviewService.findOne(userId, itemId, itemType);
+    if (!review) {
+      return { hasReviewed: false };
+    }
+    return { hasReviewed: true };
   }
 
   /**

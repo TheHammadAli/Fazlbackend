@@ -204,7 +204,7 @@ export class BroadcastService {
 
     if (!sellerIds.length) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.no_sellers_found", {
+        this.i18n.translate(dto.purpose === "Buying" ? "auth.broadcast.no_sellers_found" : "auth.broadcast.no_buyers_found", {
           lang: this.lang,
         }),
       );

@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const reviews_service_1 = require("./reviews.service");
 const create_review_dto_1 = require("./dto/create-review.dto");
 const query_review_dto_1 = require("./dto/query-review.dto");
+const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
+const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 const swagger_1 = require("@nestjs/swagger");
 let ReviewController = class ReviewController {
     reviewService;
@@ -28,6 +30,13 @@ let ReviewController = class ReviewController {
     }
     async getReviewsByItem(query) {
         return this.reviewService.getReviews(query);
+    }
+    async checkUserReview(userId, itemId, itemType) {
+        const review = await this.reviewService.findOne(userId, itemId, itemType);
+        if (!review) {
+            return { hasReviewed: false };
+        }
+        return { hasReviewed: true };
     }
     async getUserReviews(userId) {
         return this.reviewService.getUserReviews(userId);
@@ -61,6 +70,20 @@ __decorate([
     __metadata("design:paramtypes", [query_review_dto_1.QueryReviewDto]),
     __metadata("design:returntype", Promise)
 ], ReviewController.prototype, "getReviewsByItem", null);
+__decorate([
+    (0, common_1.Get)("/check"),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
+    (0, swagger_1.ApiOperation)({ summary: "Check if current user has reviewed an item" }),
+    (0, swagger_1.ApiQuery)({ name: "itemId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "itemType", enum: ["product", "service"], required: true }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)("sub")),
+    __param(1, (0, common_1.Query)("itemId")),
+    __param(2, (0, common_1.Query)("itemType")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], ReviewController.prototype, "checkUserReview", null);
 __decorate([
     (0, common_1.Get)("/user/:userId"),
     (0, swagger_1.ApiOperation)({ summary: "Get all reviews by a user" }),

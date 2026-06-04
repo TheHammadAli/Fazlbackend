@@ -153,6 +153,13 @@ let ReviewService = class ReviewService {
             },
         ]);
     }
+    async findOne(userId, itemId, itemType) {
+        return this.reviewModel.findOne({
+            userId: new mongoose_2.Types.ObjectId(userId),
+            itemId: new mongoose_2.Types.ObjectId(itemId),
+            itemType,
+        });
+    }
 };
 exports.ReviewService = ReviewService;
 exports.ReviewService = ReviewService = __decorate([

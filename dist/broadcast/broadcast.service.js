@@ -131,7 +131,7 @@ let BroadcastService = class BroadcastService {
         sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
         sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
         if (!sellerIds.length) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.no_sellers_found", {
+            throw new common_1.BadRequestException(this.i18n.translate(dto.purpose === "Buying" ? "auth.broadcast.no_sellers_found" : "auth.broadcast.no_buyers_found", {
                 lang: this.lang,
             }));
         }

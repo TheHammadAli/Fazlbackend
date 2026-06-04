@@ -45,4 +45,5 @@ export declare class ReviewService {
     flagReview(id: string): Promise<Review>;
     getAverageRating(itemId: string, itemType: "product" | "service"): Promise<any>;
     getAverageRatingsForItems(itemIds: Array<string | Types.ObjectId>, itemType: "product" | "service"): Promise<any[]>;
+    findOne(userId: string, itemId: string, itemType: "product" | "service"): Promise<Review | null>;
 }

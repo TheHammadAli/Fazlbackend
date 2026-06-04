@@ -23,6 +23,9 @@ export declare class ReviewController {
             totalPages: number;
         };
     }>;
+    checkUserReview(userId: string, itemId: string, itemType: "product" | "service"): Promise<{
+        hasReviewed: boolean;
+    }>;
     getUserReviews(userId: string): Promise<{
         data: {
             reviews: (import("mongoose").Document<unknown, {}, import("./schema/review.schema").ReviewDocument, {}> & import("./schema/review.schema").Review & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
