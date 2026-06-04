@@ -108,6 +108,9 @@ let ShopService = class ShopService {
     async setShopDisabled(shopId, disabled) {
         await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } });
     }
+    async setShopsDisabledBulk(shopIds, disabled) {
+        await this.shopModel.updateMany({ _id: { $in: shopIds } }, { $set: { isDisabled: disabled } });
+    }
     async findShopsNearLocation(location, radiusInMeters) {
         return this.shopModel.find({
             location: {

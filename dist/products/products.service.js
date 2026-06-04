@@ -301,6 +301,12 @@ let ProductsService = class ProductsService {
     async setDisabledByShop(shopId, disabled) {
         await this.productModel.updateMany({ shopId: new mongoose_2.Types.ObjectId(shopId) }, { $set: { isDisabled: disabled } });
     }
+    async setProductsDisabledByShopsBulk(shopIds, disabled) {
+        await this.productModel.updateMany({ shopId: { $in: shopIds } }, { $set: { isDisabled: disabled } });
+    }
+    async setProductsDisabledByUser(userId, disabled) {
+        await this.productModel.updateMany({ ownerId: new mongoose_2.Types.ObjectId(userId) }, { $set: { isDisabled: disabled } });
+    }
     async searchProducts(query) {
         const page = Math.max(1, query.page || 1);
         const limit = Math.max(1, query.limit || 10);

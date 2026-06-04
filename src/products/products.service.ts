@@ -418,6 +418,21 @@ export class ProductsService {
     );
   }
 
+  async setProductsDisabledByShopsBulk(shopIds: any[], disabled: boolean) {
+    await this.productModel.updateMany(
+      { shopId: { $in: shopIds } },
+      { $set: { isDisabled: disabled } },
+    );
+  }
+
+    async setProductsDisabledByUser(userId: string, disabled: boolean) {
+    await this.productModel.updateMany(
+      { ownerId: new Types.ObjectId(userId) },
+      { $set: { isDisabled: disabled } },
+    );
+  }
+
+
   async searchProducts(query: SearchAllProductsServiceDto) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.max(1, query.limit || 10);

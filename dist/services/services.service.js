@@ -312,6 +312,7 @@ let ServicesService = class ServicesService {
         await this.serviceModel.updateMany({ shopId }, { $set: { location } });
     }
     async setDisabledByOwner(ownerId, disabled) {
+        console.log("OwnerId", ownerId, "Disabled", disabled);
         await this.serviceModel.updateMany({ ownerId: new mongoose_2.Types.ObjectId(ownerId) }, { $set: { isDisabled: disabled } });
     }
     async searchServices(query) {

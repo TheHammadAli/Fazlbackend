@@ -125,6 +125,14 @@ export class ShopService {
   async setShopDisabled(shopId: string, disabled: boolean) {
     await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } });
   }
+
+  async setShopsDisabledBulk(shopIds: any[], disabled: boolean) {
+    await this.shopModel.updateMany(
+      { _id: { $in: shopIds } },
+      { $set: { isDisabled: disabled } },
+    );
+  }
+
   // Original simple near-query kept for backward compatibility
   async findShopsNearLocation(
     location: [number, number],

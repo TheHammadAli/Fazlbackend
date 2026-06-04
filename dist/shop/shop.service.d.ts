@@ -326,6 +326,7 @@ export declare class ShopService {
     }>;
     getAllShopsByUser(userId: string): Promise<Shop[]>;
     setShopDisabled(shopId: string, disabled: boolean): Promise<void>;
+    setShopsDisabledBulk(shopIds: any[], disabled: boolean): Promise<void>;
     findShopsNearLocation(location: [number, number], radiusInMeters: number): Promise<Shop[]>;
     findShopsNearLocationPaginated(location: [number, number], radiusInMeters: number, pagination?: PaginationDto): Promise<PaginatedResponseDto<Shop>>;
 }

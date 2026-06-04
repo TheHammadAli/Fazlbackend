@@ -272,12 +272,18 @@ export class UsersService {
 
       // fetch all shops for user and disable them and their products
       const shops = await this.shopService.getAllShopsByUser(userId);
-      await Promise.all(
-        shops.map(async (shop: any) => {
-          await this.shopService.setShopDisabled(shop._id.toString(), true);
-          await this.productsService.setDisabledByShop(shop._id.toString(), true);
-        }),
-      );
+
+      if (shops.length > 0) {
+        const shopIds = shops.map(shop => (shop as any)._id ?? (shop as any).id);
+
+        // Bulk disable shops and products in parallel
+        await Promise.all([
+          this.shopService.setShopsDisabledBulk(shopIds, true),
+          this.productsService.setProductsDisabledByShopsBulk(shopIds, true),
+        ]);
+      }
+
+      await this.productsService.setProductsDisabledByUser(userId, true);
 
       // disable services owned by user
       await this.servicesService.setDisabledByOwner(userId, true);
@@ -303,20 +309,27 @@ export class UsersService {
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
+
       // reactivate user
       await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: false } }, { new: true }).exec();
 
       // fetch all shops for user and enable them and their products
       const shops = await this.shopService.getAllShopsByUser(userId);
-      await Promise.all(
-        shops.map(async (shop: any) => {
-          await this.shopService.setShopDisabled(shop._id.toString(), false);
-          await this.productsService.setDisabledByShop(shop._id.toString(), false);
-        }),
-      );
+
+      if (shops.length > 0) {
+        const shopIds = shops.map(shop => (shop as any)._id ?? (shop as any).id);
+
+        // Bulk enable shops and products in parallel
+        await Promise.all([
+          this.shopService.setShopsDisabledBulk(shopIds, false),
+          this.productsService.setProductsDisabledByShopsBulk(shopIds, false),
+        ]);
+      }
 
       // enable services owned by user
       await this.servicesService.setDisabledByOwner(userId, false);
+
+      await this.productsService.setProductsDisabledByUser(userId, false);
 
       return {
         message: this.i18n.translate("auth.users.account_reactivated", {

@@ -199,10 +199,14 @@ let UsersService = class UsersService {
             }
             await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: true } }, { new: true }).exec();
             const shops = await this.shopService.getAllShopsByUser(userId);
-            await Promise.all(shops.map(async (shop) => {
-                await this.shopService.setShopDisabled(shop._id.toString(), true);
-                await this.productsService.setDisabledByShop(shop._id.toString(), true);
-            }));
+            if (shops.length > 0) {
+                const shopIds = shops.map(shop => shop._id ?? shop.id);
+                await Promise.all([
+                    this.shopService.setShopsDisabledBulk(shopIds, true),
+                    this.productsService.setProductsDisabledByShopsBulk(shopIds, true),
+                ]);
+            }
+            await this.productsService.setProductsDisabledByUser(userId, true);
             await this.servicesService.setDisabledByOwner(userId, true);
             return {
                 message: this.i18n.translate("auth.users.account_disabled", {
@@ -225,11 +229,15 @@ let UsersService = class UsersService {
             }
             await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: false } }, { new: true }).exec();
             const shops = await this.shopService.getAllShopsByUser(userId);
-            await Promise.all(shops.map(async (shop) => {
-                await this.shopService.setShopDisabled(shop._id.toString(), false);
-                await this.productsService.setDisabledByShop(shop._id.toString(), false);
-            }));
+            if (shops.length > 0) {
+                const shopIds = shops.map(shop => shop._id ?? shop.id);
+                await Promise.all([
+                    this.shopService.setShopsDisabledBulk(shopIds, false),
+                    this.productsService.setProductsDisabledByShopsBulk(shopIds, false),
+                ]);
+            }
             await this.servicesService.setDisabledByOwner(userId, false);
+            await this.productsService.setProductsDisabledByUser(userId, false);
             return {
                 message: this.i18n.translate("auth.users.account_reactivated", {
                     lang: this.lang,

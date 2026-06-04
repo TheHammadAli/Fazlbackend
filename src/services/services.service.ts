@@ -419,6 +419,7 @@ export class ServicesService {
   }
 
   async setDisabledByOwner(ownerId: string, disabled: boolean) {
+    console.log("OwnerId", ownerId, "Disabled", disabled);
     await this.serviceModel.updateMany(
       { ownerId: new Types.ObjectId(ownerId) },
       { $set: { isDisabled: disabled } },

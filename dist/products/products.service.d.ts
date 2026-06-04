@@ -45,6 +45,8 @@ export declare class ProductsService {
         coordinates: [number, number];
     }): Promise<void>;
     setDisabledByShop(shopId: string, disabled: boolean): Promise<void>;
+    setProductsDisabledByShopsBulk(shopIds: any[], disabled: boolean): Promise<void>;
+    setProductsDisabledByUser(userId: string, disabled: boolean): Promise<void>;
     searchProducts(query: SearchAllProductsServiceDto): Promise<{
         data: {
             promotions: any[];
