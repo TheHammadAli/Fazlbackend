@@ -6,6 +6,7 @@ export declare class Shop {
     image: string;
     address: string;
     description: string;
+    isDisabled?: boolean;
     location: {
         type: "Point";
         coordinates: [number, number];

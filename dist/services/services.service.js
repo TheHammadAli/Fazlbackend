@@ -64,7 +64,8 @@ let ServicesService = class ServicesService {
         }
         const existingService = await this.serviceModel.findOne({
             ownerId: user._id,
-            isDeleted: false
+            isDeleted: false,
+            isDisabled: false
         });
         if (existingService) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.services.user_duplicate_service", {
@@ -119,7 +120,7 @@ let ServicesService = class ServicesService {
                 delete dto[key];
             }
         });
-        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });
+        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
         if (!existingService) {
             throw new common_1.NotFoundException("Service not found");
         }
@@ -159,7 +160,7 @@ let ServicesService = class ServicesService {
         return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } };
     }
     async delete(serviceId) {
-        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });
+        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
         if (!existingService) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
@@ -184,7 +185,7 @@ let ServicesService = class ServicesService {
         return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
     }
     async deleteServiceMedia(serviceId, media) {
-        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false });
+        const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
         if (!existingService) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
@@ -209,7 +210,7 @@ let ServicesService = class ServicesService {
     }
     async getById(serviceId) {
         const service = await this.serviceModel
-            .findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false })
+            .findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
             .populate("category")
             .populate("ownerId");
         if (!service) {
@@ -224,6 +225,7 @@ let ServicesService = class ServicesService {
         const filter = {
             ownerId: new mongoose_2.Types.ObjectId(userId),
             isDeleted: false,
+            isDisabled: false,
         };
         const [data, total] = await Promise.all([
             this.serviceModel
@@ -232,7 +234,7 @@ let ServicesService = class ServicesService {
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.serviceModel.countDocuments({ ownerId: new mongoose_2.Types.ObjectId(userId), isDeleted: false }),
+            this.serviceModel.countDocuments({ ownerId: new mongoose_2.Types.ObjectId(userId), isDeleted: false, isDisabled: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -248,7 +250,7 @@ let ServicesService = class ServicesService {
         const page = query.page && query.page > 0 ? query.page : 1;
         const limit = query.limit && query.limit > 0 ? query.limit : 10;
         const skip = (page - 1) * limit;
-        const serviceQuery = { isDeleted: false };
+        const serviceQuery = { isDeleted: false, isDisabled: false };
         if (query.category) {
             serviceQuery.category = new mongoose_2.Types.ObjectId(query.category);
         }
@@ -309,6 +311,9 @@ let ServicesService = class ServicesService {
     async updateLocationByShopId(shopId, location) {
         await this.serviceModel.updateMany({ shopId }, { $set: { location } });
     }
+    async setDisabledByOwner(ownerId, disabled) {
+        await this.serviceModel.updateMany({ ownerId: new mongoose_2.Types.ObjectId(ownerId) }, { $set: { isDisabled: disabled } });
+    }
     async searchServices(query) {
         const filter = {};
         if (query.name) {
@@ -318,6 +323,7 @@ let ServicesService = class ServicesService {
             filter.category = new mongoose_2.Types.ObjectId(query.category);
         }
         filter.isDeleted = false;
+        filter.isDisabled = false;
         const page = query.page && query.page > 0 ? query.page : 1;
         const limit = query.limit && query.limit > 0 ? query.limit : 10;
         const skip = (page - 1) * limit;
@@ -578,6 +584,7 @@ let ServicesService = class ServicesService {
         const filter = {
             video: { $exists: true, $nin: ["", null] },
             isDeleted: false,
+            isDisabled: false,
         };
         if (category) {
             filter.category = new mongoose_2.Types.ObjectId(category);

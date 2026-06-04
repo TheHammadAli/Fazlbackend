@@ -33,6 +33,7 @@ export class ProductsService {
     @Inject(forwardRef(() => ShopService))
     private readonly shopService: ShopService,
     private readonly listingUtils: ListingUtilsService,
+    @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
     private readonly fileUploadService: FileUploadService,
     private promotionService: PromotionService,
@@ -180,13 +181,13 @@ export class ProductsService {
 
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ shopId: new Types.ObjectId(shopId), isDeleted: false })
+        .find({ shopId: new Types.ObjectId(shopId), isDeleted: false, isDisabled: false })
         .populate("category")
         .populate("shopId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ shopId: new Types.ObjectId(shopId), isDeleted: false }),
+      this.productModel.countDocuments({ shopId: new Types.ObjectId(shopId), isDeleted: false, isDisabled: false }),
     ]);
 
     return {
@@ -205,13 +206,13 @@ export class ProductsService {
     console.log("Fetching products for user:", ownerId);
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ ownerId: new Types.ObjectId(ownerId), isDeleted: false })
+        .find({ ownerId: new Types.ObjectId(ownerId), isDeleted: false, isDisabled: false })
         .populate("category")
         .populate("ownerId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ ownerId, isDeleted: false }),
+      this.productModel.countDocuments({ ownerId, isDeleted: false, isDisabled: false }),
     ]);
 
     return {
@@ -225,6 +226,7 @@ export class ProductsService {
       .findOne({
         _id: new Types.ObjectId(id),
         isDeleted: false,
+        isDisabled: false,
       })
       .populate("category")
       .populate({
@@ -264,7 +266,7 @@ export class ProductsService {
       }
     });
 
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false });
+    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -299,7 +301,7 @@ export class ProductsService {
     }
 
     const updated = await this.productModel
-      .findOneAndUpdate({ _id: new Types.ObjectId(productId), isDeleted: false }, updateDto, { new: true })
+      .findOneAndUpdate({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false }, updateDto, { new: true })
       .exec();
 
     if (!updated) {
@@ -321,7 +323,7 @@ export class ProductsService {
   }
 
   async delete(productId: string, lang: string = "en"): Promise<void> {
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false });
+    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -348,7 +350,7 @@ export class ProductsService {
   }
 
   async deleteProductMedia(productId: string, media: string[]) {
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false });
+    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -409,6 +411,13 @@ export class ProductsService {
     await this.productModel.updateMany({ shopId }, { $set: { location } });
   }
 
+  async setDisabledByShop(shopId: string, disabled: boolean) {
+    await this.productModel.updateMany(
+      { shopId: new Types.ObjectId(shopId) },
+      { $set: { isDisabled: disabled } },
+    );
+  }
+
   async searchProducts(query: SearchAllProductsServiceDto) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.max(1, query.limit || 10);
@@ -418,6 +427,7 @@ export class ProductsService {
 
     const baseFilter: FilterQuery<ProductDocument> = {
       isDeleted: false,
+      isDisabled: false,
     };
 
     if (query.category) {
@@ -531,6 +541,8 @@ export class ProductsService {
 
     const filter: FilterQuery<ProductDocument> = {
       video: { $exists: true, $nin: ["", null] },
+      isDeleted: false,
+      isDisabled: false,
     };
     if (category) {
       filter.category = new Types.ObjectId(category)

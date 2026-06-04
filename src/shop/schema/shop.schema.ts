@@ -24,6 +24,9 @@ export class Shop {
   @Prop({ required: true, trim: true })
   description: string;
 
+  @Prop({ type: Boolean, default: false })
+  isDisabled?: boolean;
+
   @Prop({
     type: {
       type: String,

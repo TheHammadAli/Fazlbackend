@@ -18,6 +18,7 @@ let Shop = class Shop {
     image;
     address;
     description;
+    isDisabled;
     location;
 };
 exports.Shop = Shop;
@@ -41,6 +42,10 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, trim: true }),
     __metadata("design:type", String)
 ], Shop.prototype, "description", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Shop.prototype, "isDisabled", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: {

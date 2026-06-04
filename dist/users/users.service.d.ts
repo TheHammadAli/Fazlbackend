@@ -7,12 +7,18 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { ClsService } from "nestjs-cls";
+import { ShopService } from "src/shop/shop.service";
+import { ProductsService } from "src/products/products.service";
+import { ServicesService } from "src/services/services.service";
 export declare class UsersService {
     private userModel;
     private readonly fileUploadService;
     private readonly i18n;
     private readonly cls;
-    constructor(userModel: Model<UserDocument>, fileUploadService: FileUploadService, i18n: I18nService, cls: ClsService);
+    private readonly shopService;
+    private readonly productsService;
+    private readonly servicesService;
+    constructor(userModel: Model<UserDocument>, fileUploadService: FileUploadService, i18n: I18nService, cls: ClsService, shopService: ShopService, productsService: ProductsService, servicesService: ServicesService);
     private get lang();
     createUser(createUserDto: CreateUpdateUserDto): Promise<{
         message: string;

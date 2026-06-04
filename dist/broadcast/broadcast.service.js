@@ -89,6 +89,8 @@ let BroadcastService = class BroadcastService {
                 },
             },
             category: new mongoose_2.Types.ObjectId(categoryId),
+            isDeleted: false,
+            isDisabled: false,
         })
             .lean()
             .exec();

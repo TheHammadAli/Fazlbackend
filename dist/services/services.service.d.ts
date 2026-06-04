@@ -74,6 +74,7 @@ export declare class ServicesService {
         type: "Point";
         coordinates: [number, number];
     }): Promise<void>;
+    setDisabledByOwner(ownerId: string, disabled: boolean): Promise<void>;
     searchServices(query: SearchAllProductsServiceDto): Promise<{
         meta: {
             total: number;

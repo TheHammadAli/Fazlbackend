@@ -57,6 +57,9 @@ export class Service {
 
   @Prop({ type: Boolean, default: false })
   isDeleted!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isDisabled?: boolean;
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);

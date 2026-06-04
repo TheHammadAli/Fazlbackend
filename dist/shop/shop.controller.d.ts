@@ -31,6 +31,7 @@ export declare class ShopController {
         image: string;
         address: string;
         description: string;
+        isDisabled?: boolean | undefined;
         location: import("mongoose").FlattenMaps<{
             type: "Point";
             coordinates: [number, number];

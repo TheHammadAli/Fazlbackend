@@ -4,13 +4,19 @@ import { UsersService } from "./users.service";
 import { User, UserSchema } from "./schema/users.schema";
 import { MongooseModule } from "@nestjs/mongoose";
 import { SharedModule } from "src/shared/shared.module";
+import { ShopModule } from "src/shop/shop.module";
+import { ProductsModule } from "src/products/products.module";
+import { ServicesModule } from "src/services/services.module";
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     forwardRef(() => SharedModule),
+    forwardRef(() => ShopModule),
+    forwardRef(() => ProductsModule),
+    forwardRef(() => ServicesModule),
   ],
   controllers: [UsersController],
   exports: [UsersService],
   providers: [UsersService],
 })
-export class UsersModule {}
+export class UsersModule { }

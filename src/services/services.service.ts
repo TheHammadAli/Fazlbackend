@@ -75,7 +75,8 @@ export class ServicesService {
     }
     const existingService = await this.serviceModel.findOne({
       ownerId: user._id,
-      isDeleted: false
+      isDeleted: false,
+      isDisabled: false
     });
     if (existingService) {
       throw new BadRequestException(
@@ -152,7 +153,7 @@ export class ServicesService {
         delete dto[key]; // remove it from updateData
       }
     });
-    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
+    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException("Service not found");
     }
@@ -210,7 +211,7 @@ export class ServicesService {
   }
 
   async delete(serviceId: string) {
-    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
+    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException(
         this.i18n.translate("auth.services.service_not_found", {
@@ -242,7 +243,7 @@ export class ServicesService {
   }
 
   async deleteServiceMedia(serviceId: string, media: string[]) {
-    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false });
+    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException(
         this.i18n.translate("auth.services.service_not_found", {
@@ -283,7 +284,7 @@ export class ServicesService {
 
   async getById(serviceId: string): Promise<Service> {
     const service = await this.serviceModel
-      .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false })
+      .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
       .populate("category")
       .populate("ownerId");
 
@@ -308,6 +309,7 @@ export class ServicesService {
     const filter: FilterQuery<ServiceDocument> = {
       ownerId: new Types.ObjectId(userId),
       isDeleted: false,
+      isDisabled: false,
     };
     const [data, total] = await Promise.all([
       this.serviceModel
@@ -316,7 +318,7 @@ export class ServicesService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.serviceModel.countDocuments({ ownerId: new Types.ObjectId(userId), isDeleted: false }),
+      this.serviceModel.countDocuments({ ownerId: new Types.ObjectId(userId), isDeleted: false, isDisabled: false }),
     ]);
 
     return {
@@ -347,7 +349,7 @@ export class ServicesService {
     const limit = query.limit && query.limit > 0 ? query.limit : 10;
     const skip = (page - 1) * limit;
 
-    const serviceQuery: Record<string, any> = { isDeleted: false };
+    const serviceQuery: Record<string, any> = { isDeleted: false, isDisabled: false };
     if (query.category) {
       serviceQuery.category = new Types.ObjectId(query.category);
     }
@@ -416,6 +418,13 @@ export class ServicesService {
     await this.serviceModel.updateMany({ shopId }, { $set: { location } });
   }
 
+  async setDisabledByOwner(ownerId: string, disabled: boolean) {
+    await this.serviceModel.updateMany(
+      { ownerId: new Types.ObjectId(ownerId) },
+      { $set: { isDisabled: disabled } },
+    );
+  }
+
   async searchServices(query: SearchAllProductsServiceDto) {
     // Build filter only with present fields
     const filter: Record<string, any> = {};
@@ -427,6 +436,7 @@ export class ServicesService {
       filter.category = new Types.ObjectId(query.category);
     }
     filter.isDeleted = false;
+    filter.isDisabled = false;
 
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 10;
@@ -813,6 +823,7 @@ export class ServicesService {
     const filter: FilterQuery<Service> = {
       video: { $exists: true, $nin: ["", null] },
       isDeleted: false, // Exclude deleted services
+      isDisabled: false,
     };
 
 

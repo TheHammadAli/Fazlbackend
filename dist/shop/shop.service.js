@@ -105,6 +105,9 @@ let ShopService = class ShopService {
     async getAllShopsByUser(userId) {
         return this.shopModel.find({ ownerId: new mongoose_2.Types.ObjectId(userId) }).exec();
     }
+    async setShopDisabled(shopId, disabled) {
+        await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } });
+    }
     async findShopsNearLocation(location, radiusInMeters) {
         return this.shopModel.find({
             location: {
@@ -116,6 +119,7 @@ let ShopService = class ShopService {
                     $maxDistance: radiusInMeters,
                 },
             },
+            isDisabled: false,
         });
     }
     async findShopsNearLocationPaginated(location, radiusInMeters, pagination) {
@@ -162,6 +166,7 @@ exports.ShopService = ShopService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(shop_schema_1.Shop.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => products_service_1.ProductsService))),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
     __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => orders_service_1.OrdersService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         products_service_1.ProductsService,

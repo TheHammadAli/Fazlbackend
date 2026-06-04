@@ -39,6 +39,7 @@ export declare class ShopService {
         image: string;
         address: string;
         description: string;
+        isDisabled?: boolean | undefined;
         location: import("mongoose").FlattenMaps<{
             type: "Point";
             coordinates: [number, number];
@@ -324,6 +325,7 @@ export declare class ShopService {
         __v: number;
     }>;
     getAllShopsByUser(userId: string): Promise<Shop[]>;
+    setShopDisabled(shopId: string, disabled: boolean): Promise<void>;
     findShopsNearLocation(location: [number, number], radiusInMeters: number): Promise<Shop[]>;
     findShopsNearLocationPaginated(location: [number, number], radiusInMeters: number, pagination?: PaginationDto): Promise<PaginatedResponseDto<Shop>>;
 }

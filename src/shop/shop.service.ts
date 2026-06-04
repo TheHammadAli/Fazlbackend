@@ -24,6 +24,7 @@ export class ShopService {
     @InjectModel(Shop.name) private shopModel: Model<ShopDocument>,
     @Inject(forwardRef(() => ProductsService))
     private readonly productsService: ProductsService,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly fileUploadService: FileUploadService,
     @Inject(forwardRef(() => OrdersService))
@@ -120,6 +121,10 @@ export class ShopService {
   async getAllShopsByUser(userId: string): Promise<Shop[]> {
     return this.shopModel.find({ ownerId: new Types.ObjectId(userId) }).exec();
   }
+
+  async setShopDisabled(shopId: string, disabled: boolean) {
+    await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } });
+  }
   // Original simple near-query kept for backward compatibility
   async findShopsNearLocation(
     location: [number, number],
@@ -135,6 +140,7 @@ export class ShopService {
           $maxDistance: radiusInMeters,
         },
       },
+      isDisabled: false,
     });
   }
 

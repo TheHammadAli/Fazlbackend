@@ -116,6 +116,8 @@ export class BroadcastService {
           },
         },
         category: new Types.ObjectId(categoryId),
+        isDeleted: false,
+        isDisabled: false,
       })
       .lean()
       .exec();

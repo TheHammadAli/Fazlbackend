@@ -23,7 +23,7 @@ export class ListingUtilsService {
           near: { type: "Point", coordinates },
           distanceField: "distance",
           maxDistance: radius * 1000,
-          query: { category: new Types.ObjectId(category), isDeleted: false },
+          query: { category: new Types.ObjectId(category), isDeleted: false, isDisabled: false },
           spherical: true,
         },
 
@@ -54,7 +54,7 @@ export class ListingUtilsService {
           near: { type: "Point", coordinates },
           distanceField: "distance",
           maxDistance: radius * 1000,
-          query: { category: new Types.ObjectId(category), isDeleted: false },
+          query: { category: new Types.ObjectId(category), isDeleted: false, isDisabled: false },
           spherical: true,
         },
       },

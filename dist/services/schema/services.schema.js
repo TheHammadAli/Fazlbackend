@@ -24,6 +24,7 @@ let Service = class Service {
     location;
     video;
     isDeleted;
+    isDisabled;
 };
 exports.Service = Service;
 __decorate([
@@ -85,6 +86,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Boolean, default: false }),
     __metadata("design:type", Boolean)
 ], Service.prototype, "isDeleted", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Service.prototype, "isDisabled", void 0);
 exports.Service = Service = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,

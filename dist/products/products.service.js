@@ -148,13 +148,13 @@ let ProductsService = class ProductsService {
         const skip = (page - 1) * limit;
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false })
+                .find({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false, isDisabled: false })
                 .populate("category")
                 .populate("shopId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false }),
+            this.productModel.countDocuments({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false, isDisabled: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -167,13 +167,13 @@ let ProductsService = class ProductsService {
         console.log("Fetching products for user:", ownerId);
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId), isDeleted: false })
+                .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId), isDeleted: false, isDisabled: false })
                 .populate("category")
                 .populate("ownerId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ ownerId, isDeleted: false }),
+            this.productModel.countDocuments({ ownerId, isDeleted: false, isDisabled: false }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -185,6 +185,7 @@ let ProductsService = class ProductsService {
             .findOne({
             _id: new mongoose_2.Types.ObjectId(id),
             isDeleted: false,
+            isDisabled: false,
         })
             .populate("category")
             .populate({
@@ -215,7 +216,7 @@ let ProductsService = class ProductsService {
                 delete updateDto[key];
             }
         });
-        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false });
+        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -233,7 +234,7 @@ let ProductsService = class ProductsService {
             updateDto.video = uploadedVideo[0].url;
         }
         const updated = await this.productModel
-            .findOneAndUpdate({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false }, updateDto, { new: true })
+            .findOneAndUpdate({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false }, updateDto, { new: true })
             .exec();
         if (!updated) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
@@ -250,7 +251,7 @@ let ProductsService = class ProductsService {
         };
     }
     async delete(productId, lang = "en") {
-        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false });
+        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -268,7 +269,7 @@ let ProductsService = class ProductsService {
             }));
     }
     async deleteProductMedia(productId, media) {
-        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false });
+        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -297,6 +298,9 @@ let ProductsService = class ProductsService {
     async updateLocationByShopId(shopId, location) {
         await this.productModel.updateMany({ shopId }, { $set: { location } });
     }
+    async setDisabledByShop(shopId, disabled) {
+        await this.productModel.updateMany({ shopId: new mongoose_2.Types.ObjectId(shopId) }, { $set: { isDisabled: disabled } });
+    }
     async searchProducts(query) {
         const page = Math.max(1, query.page || 1);
         const limit = Math.max(1, query.limit || 10);
@@ -304,6 +308,7 @@ let ProductsService = class ProductsService {
         const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
         const baseFilter = {
             isDeleted: false,
+            isDisabled: false,
         };
         if (query.category) {
             baseFilter.category = new mongoose_2.Types.ObjectId(query.category);
@@ -386,6 +391,8 @@ let ProductsService = class ProductsService {
         const skip = (page - 1) * limit;
         const filter = {
             video: { $exists: true, $nin: ["", null] },
+            isDeleted: false,
+            isDisabled: false,
         };
         if (category) {
             filter.category = new mongoose_2.Types.ObjectId(category);
@@ -426,6 +433,7 @@ exports.ProductsService = ProductsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => shop_service_1.ShopService))),
+    __param(3, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
     __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         shop_service_1.ShopService,

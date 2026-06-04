@@ -21,17 +21,27 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
+const common_2 = require("@nestjs/common");
 const nestjs_cls_1 = require("nestjs-cls");
+const shop_service_1 = require("../shop/shop.service");
+const products_service_1 = require("../products/products.service");
+const services_service_1 = require("../services/services.service");
 let UsersService = class UsersService {
     userModel;
     fileUploadService;
     i18n;
     cls;
-    constructor(userModel, fileUploadService, i18n, cls) {
+    shopService;
+    productsService;
+    servicesService;
+    constructor(userModel, fileUploadService, i18n, cls, shopService, productsService, servicesService) {
         this.userModel = userModel;
         this.fileUploadService = fileUploadService;
         this.i18n = i18n;
         this.cls = cls;
+        this.shopService = shopService;
+        this.productsService = productsService;
+        this.servicesService = servicesService;
     }
     get lang() {
         return this.cls?.get("lang") ?? "en";
@@ -188,6 +198,12 @@ let UsersService = class UsersService {
                 throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
             }
             await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: true } }, { new: true }).exec();
+            const shops = await this.shopService.getAllShopsByUser(userId);
+            await Promise.all(shops.map(async (shop) => {
+                await this.shopService.setShopDisabled(shop._id.toString(), true);
+                await this.productsService.setDisabledByShop(shop._id.toString(), true);
+            }));
+            await this.servicesService.setDisabledByOwner(userId, true);
             return {
                 message: this.i18n.translate("auth.users.account_disabled", {
                     lang: this.lang,
@@ -208,6 +224,12 @@ let UsersService = class UsersService {
                 throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
             }
             await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: false } }, { new: true }).exec();
+            const shops = await this.shopService.getAllShopsByUser(userId);
+            await Promise.all(shops.map(async (shop) => {
+                await this.shopService.setShopDisabled(shop._id.toString(), false);
+                await this.productsService.setDisabledByShop(shop._id.toString(), false);
+            }));
+            await this.servicesService.setDisabledByOwner(userId, false);
             return {
                 message: this.i18n.translate("auth.users.account_reactivated", {
                     lang: this.lang,
@@ -226,9 +248,15 @@ exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(users_schema_1.User.name)),
+    __param(4, (0, common_2.Inject)((0, common_2.forwardRef)(() => shop_service_1.ShopService))),
+    __param(5, (0, common_2.Inject)((0, common_2.forwardRef)(() => products_service_1.ProductsService))),
+    __param(6, (0, common_2.Inject)((0, common_2.forwardRef)(() => services_service_1.ServicesService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         file_upload_service_1.FileUploadService,
         nestjs_i18n_1.I18nService,
-        nestjs_cls_1.ClsService])
+        nestjs_cls_1.ClsService,
+        shop_service_1.ShopService,
+        products_service_1.ProductsService,
+        services_service_1.ServicesService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

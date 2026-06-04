@@ -15,8 +15,12 @@ import { I18nService } from "nestjs-i18n";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { Inject, forwardRef } from "@nestjs/common";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { ClsService } from "nestjs-cls";
+import { ShopService } from "src/shop/shop.service";
+import { ProductsService } from "src/products/products.service";
+import { ServicesService } from "src/services/services.service";
 
 @Injectable()
 export class UsersService {
@@ -25,6 +29,12 @@ export class UsersService {
     private readonly fileUploadService: FileUploadService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService, //
+    @Inject(forwardRef(() => ShopService))
+    private readonly shopService: ShopService,
+    @Inject(forwardRef(() => ProductsService))
+    private readonly productsService: ProductsService,
+    @Inject(forwardRef(() => ServicesService))
+    private readonly servicesService: ServicesService,
   ) { }
 
   private get lang(): string {
@@ -257,11 +267,20 @@ export class UsersService {
         );
       }
 
-      await this.userModel.findByIdAndUpdate(
-        userId,
-        { $set: { isDisabled: true } },
-        { new: true },
-      ).exec();
+      // disable user
+      await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: true } }, { new: true }).exec();
+
+      // fetch all shops for user and disable them and their products
+      const shops = await this.shopService.getAllShopsByUser(userId);
+      await Promise.all(
+        shops.map(async (shop: any) => {
+          await this.shopService.setShopDisabled(shop._id.toString(), true);
+          await this.productsService.setDisabledByShop(shop._id.toString(), true);
+        }),
+      );
+
+      // disable services owned by user
+      await this.servicesService.setDisabledByOwner(userId, true);
 
       return {
         message: this.i18n.translate("auth.users.account_disabled", {
@@ -284,11 +303,20 @@ export class UsersService {
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
-      await this.userModel.findByIdAndUpdate(
-        userId,
-        { $set: { isDisabled: false } },
-        { new: true },
-      ).exec();
+      // reactivate user
+      await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: false } }, { new: true }).exec();
+
+      // fetch all shops for user and enable them and their products
+      const shops = await this.shopService.getAllShopsByUser(userId);
+      await Promise.all(
+        shops.map(async (shop: any) => {
+          await this.shopService.setShopDisabled(shop._id.toString(), false);
+          await this.productsService.setDisabledByShop(shop._id.toString(), false);
+        }),
+      );
+
+      // enable services owned by user
+      await this.servicesService.setDisabledByOwner(userId, false);
 
       return {
         message: this.i18n.translate("auth.users.account_reactivated", {
