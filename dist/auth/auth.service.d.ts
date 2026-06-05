@@ -30,9 +30,11 @@ export declare class AuthService {
     }>;
     refreshTokens(refreshToken: RefreshTokenDto): Promise<{
         message: string;
-        accessToken: string;
-        user: UserDocument;
-        refreshToken: string;
+        data: {
+            accessToken: string;
+            user: UserDocument;
+            refreshToken: string;
+        };
     }>;
     logout(refreshToken: string): Promise<{
         message: string;

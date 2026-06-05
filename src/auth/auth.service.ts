@@ -129,9 +129,11 @@ export class AuthService {
         message: this.i18n.translate("auth.auth.refresh_token_success", {
           lang: this.getLang(),
         }),
-        accessToken: newAccessToken,
-        user,
-        refreshToken: refreshToken.token,
+        data: {
+          accessToken: newAccessToken,
+          user,
+          refreshToken: refreshToken.token
+        }
       };
     } catch (err) {
       throw new UnauthorizedException(
@@ -230,7 +232,7 @@ export class AuthService {
       (record.expiresAt && record.expiresAt < new Date()) ||
       (record.createdAt &&
         new Date().getTime() - new Date(record.createdAt).getTime() >
-          24 * 60 * 60 * 1000);
+        24 * 60 * 60 * 1000);
     if (isExpired) {
       await this.otpModel.deleteOne({
         code: token,

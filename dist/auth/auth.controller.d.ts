@@ -20,9 +20,11 @@ export declare class AuthController {
     }>;
     refreshToken(token: RefreshTokenDto): Promise<{
         message: string;
-        accessToken: string;
-        user: import("../users/schema/users.schema").UserDocument;
-        refreshToken: string;
+        data: {
+            accessToken: string;
+            user: import("../users/schema/users.schema").UserDocument;
+            refreshToken: string;
+        };
     }>;
     sendOtp(phoneNumber: string): Promise<{
         message: string;

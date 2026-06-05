@@ -115,9 +115,11 @@ let AuthService = class AuthService {
                 message: this.i18n.translate("auth.auth.refresh_token_success", {
                     lang: this.getLang(),
                 }),
-                accessToken: newAccessToken,
-                user,
-                refreshToken: refreshToken.token,
+                data: {
+                    accessToken: newAccessToken,
+                    user,
+                    refreshToken: refreshToken.token
+                }
             };
         }
         catch (err) {
