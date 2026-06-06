@@ -18,6 +18,7 @@ var CategoryType;
 })(CategoryType || (exports.CategoryType = CategoryType = {}));
 let Category = class Category {
     name;
+    description;
     isDisabled;
     type;
 };
@@ -30,6 +31,14 @@ __decorate([
     }),
     __metadata("design:type", Map)
 ], Category.prototype, "name", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: Map,
+        of: String,
+        required: false,
+    }),
+    __metadata("design:type", Map)
+], Category.prototype, "description", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)

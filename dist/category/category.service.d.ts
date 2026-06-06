@@ -18,6 +18,7 @@ export declare class CategoryService {
     findAll(): Promise<{
         data: {
             name: string;
+            description: string;
             isDisabled: boolean;
             type: import("./schema/category.schema").CategoryType;
             _id: unknown;

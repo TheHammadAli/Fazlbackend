@@ -38,9 +38,6 @@ let CategoryController = class CategoryController {
     update(id, dto) {
         return this.categoryService.update(id, dto);
     }
-    delete(id) {
-        return this.categoryService.delete(id);
-    }
     async createRequest(dto, user) {
         return this.categoryService.createRequest(dto, user.sub);
     }
@@ -102,14 +99,6 @@ __decorate([
     __metadata("design:paramtypes", [String, category_create_update_dto_1.CreateUpdateCategoryDto]),
     __metadata("design:returntype", void 0)
 ], CategoryController.prototype, "update", null);
-__decorate([
-    (0, common_1.Delete)(":id"),
-    (0, swagger_1.ApiOperation)({ summary: "Delete a category by ID (admin only)" }),
-    __param(0, (0, common_1.Param)("id")),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], CategoryController.prototype, "delete", null);
 __decorate([
     (0, common_1.Post)("request"),
     (0, swagger_1.ApiOperation)({ summary: "Request a new category (user)" }),

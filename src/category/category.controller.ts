@@ -29,7 +29,7 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller("categories")
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) {}
+  constructor(private readonly categoryService: CategoryService) { }
 
   @Post()
   @ApiOperation({ summary: "Create a new category (admin only)" })
@@ -73,11 +73,11 @@ export class CategoryController {
     return this.categoryService.update(id, dto);
   }
 
-  @Delete(":id")
-  @ApiOperation({ summary: "Delete a category by ID (admin only)" })
-  delete(@Param("id") id: string) {
-    return this.categoryService.delete(id);
-  }
+  // @Delete(":id")
+  // @ApiOperation({ summary: "Delete a category by ID (admin only)" })
+  // delete(@Param("id") id: string) {
+  //   return this.categoryService.delete(id);
+  // }
 
   @Post("request")
   @ApiOperation({ summary: "Request a new category (user)" })

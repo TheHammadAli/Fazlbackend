@@ -16,16 +16,23 @@ export class Category {
     of: String,
     required: true,
   })
-  name: Map<string, string>;
+  name!: Map<string, string>;
+
+  @Prop({
+    type: Map,
+    of: String,
+    required: false,
+  })
+  description?: Map<string, string>;
 
   @Prop({ default: false })
-  isDisabled: boolean;
+  isDisabled!: boolean;
 
   @Prop({
     required: true,
     enum: CategoryType,
   })
-  type: CategoryType;
+  type!: CategoryType;
 }
 export type CategoryDocument = Category & Document;
 export const CategorySchema = SchemaFactory.createForClass(Category);

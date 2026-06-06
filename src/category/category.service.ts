@@ -24,7 +24,7 @@ export class CategoryService {
     private readonly cls: ClsService,
   ) { }
   private getLocalizedValue = (
-    field: Map<string, string>,
+    field: Map<string, string> | undefined,
     lang = "en",
   ) => {
     return field?.get(lang) || field?.get("en") || "";
@@ -41,10 +41,14 @@ export class CategoryService {
   async findAll() {
     const categories = await this.categoryModel.find({ isDisabled: false }).exec();
     console.log(categories)
-    return {data:categories.map((cat) => ({
-      ...cat.toObject(),
-      name: this.getLocalizedValue(cat.name, this.lang),
-    })), message: this.i18n.translate("category.fetched_success", { lang: this.lang })};
+    return {
+      data: categories.map((cat) => ({
+        ...cat.toObject(),
+        name: this.getLocalizedValue(cat.name, this.lang),
+        description: this.getLocalizedValue(cat?.description, this.lang),
+      })),
+      message: this.i18n.translate("category.fetched_success", { lang: this.lang }),
+    };
   }
 
   async findById(id: string, lang: string = "en"): Promise<Category> {

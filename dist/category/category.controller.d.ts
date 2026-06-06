@@ -10,6 +10,7 @@ export declare class CategoryController {
     findAll(): Promise<{
         data: {
             name: string;
+            description: string;
             isDisabled: boolean;
             type: import("./schema/category.schema").CategoryType;
             _id: unknown;
@@ -29,7 +30,6 @@ export declare class CategoryController {
     }>;
     findById(id: string): Promise<import("./schema/category.schema").Category>;
     update(id: string, dto: CreateUpdateCategoryDto): Promise<import("./schema/category.schema").Category>;
-    delete(id: string): Promise<void>;
     createRequest(dto: CreateCategoryRequestDto, user: JwtPayload): Promise<import("mongoose").Document<unknown, {}, import("./schema/category-request.schema").CategoryRequestDocument, {}> & import("./schema/category-request.schema").CategoryRequest & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;
     }> & {

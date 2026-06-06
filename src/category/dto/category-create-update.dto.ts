@@ -20,14 +20,24 @@ export class CreateUpdateCategoryDto {
     },
   })
   @IsObject()
-  name: Record<string, string>;
+  name!: Record<string, string>;
+
+  @ApiPropertyOptional({
+    example: {
+      en: "Home cleaning and sanitization services",
+      ur: "گھر کی صفائی اور جراثیم کش خدمات",
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  description?: Record<string, string>;
 
   @ApiProperty({
     enum: CategoryType,
     example: CategoryType.SERVICE,
   })
   @IsEnum(CategoryType)
-  type: CategoryType;
+  type!: CategoryType;
 
   @ApiPropertyOptional({
     example: false,

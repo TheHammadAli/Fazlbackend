@@ -43,10 +43,14 @@ let CategoryService = class CategoryService {
     async findAll() {
         const categories = await this.categoryModel.find({ isDisabled: false }).exec();
         console.log(categories);
-        return { data: categories.map((cat) => ({
+        return {
+            data: categories.map((cat) => ({
                 ...cat.toObject(),
                 name: this.getLocalizedValue(cat.name, this.lang),
-            })), message: this.i18n.translate("category.fetched_success", { lang: this.lang }) };
+                description: this.getLocalizedValue(cat?.description, this.lang),
+            })),
+            message: this.i18n.translate("category.fetched_success", { lang: this.lang }),
+        };
     }
     async findById(id, lang = "en") {
         const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).exec();

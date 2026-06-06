@@ -5,6 +5,7 @@ export declare enum CategoryType {
 }
 export declare class Category {
     name: Map<string, string>;
+    description?: Map<string, string>;
     isDisabled: boolean;
     type: CategoryType;
 }
