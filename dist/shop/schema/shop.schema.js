@@ -16,6 +16,7 @@ let Shop = class Shop {
     ownerId;
     title;
     image;
+    banner;
     address;
     description;
     isDisabled;
@@ -34,6 +35,10 @@ __decorate([
     (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)
 ], Shop.prototype, "image", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "banner", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)

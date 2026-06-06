@@ -19,6 +19,9 @@ export class Shop {
   image: string;
 
   @Prop({ required: false, trim: true })
+  banner: string;
+
+  @Prop({ required: false, trim: true })
   address: string;
 
   @Prop({ required: true, trim: true })

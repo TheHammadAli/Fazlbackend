@@ -4,6 +4,7 @@ export declare class Shop {
     ownerId: Types.ObjectId;
     title: string;
     image: string;
+    banner: string;
     address: string;
     description: string;
     isDisabled?: boolean;

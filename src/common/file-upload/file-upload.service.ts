@@ -135,6 +135,32 @@ export class FileUploadService {
       throw new InternalServerErrorException("One or more file uploads failed");
     }
   }
+
+  async uploadShopBanner(shopId: string, file: Express.Multer.File) {
+    const key = `shop/${shopId}/images/banner`;
+
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      });
+
+      console.log(`Uploading file to S3 with key: ${key}`);
+      await this.s3.send(command);
+
+      const url = `https://${this.bucketName}.s3.${this.configService.get(
+        "AWS_REGION",
+      )}.amazonaws.com/${key}`;
+
+      console.log(`File uploaded successfully: ${url}`);
+      return url;
+    } catch (err) {
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("One or more file uploads failed");
+    }
+  }
   async uploadServiceFile(
     userId: string,
     serviceId: string,
@@ -195,7 +221,7 @@ export class FileUploadService {
       console.log(`Deleting files from S3 with prefix: ${prefix}`);
       await this.s3.send(command);
       console.log(`Files deleted successfully from S3 with prefix: ${prefix}`);
-    } catch (err) {}
+    } catch (err) { }
   }
 
   async deleteFiles(media: string[]): Promise<void> {

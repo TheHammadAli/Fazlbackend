@@ -48,26 +48,28 @@ let ShopService = class ShopService {
         if (!existingUser) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }));
         }
-        let image = {};
-        if (dto.image) {
-            image = dto.image;
-            dto.image = "default-shop.png";
-        }
+        const { image: imageFile, banner: bannerFile, ...shopDto } = dto;
         const shop = new this.shopModel({
-            ...dto,
+            ...shopDto,
             ownerId,
         });
         const results = await shop.save();
-        if (dto.image) {
-            const imageUrl = await this.fileUploadService.uploadShopImage(results._id, image);
-            results.image = imageUrl;
+        const updatePayload = {};
+        if (imageFile) {
+            updatePayload.image = await this.fileUploadService.uploadShopImage(results._id, imageFile);
         }
-        const shopResult = await results.save();
+        if (bannerFile) {
+            updatePayload.banner = await this.fileUploadService.uploadShopBanner(results._id, bannerFile);
+        }
+        if (Object.keys(updatePayload).length > 0) {
+            Object.assign(results, updatePayload);
+            await results.save();
+        }
         return {
             message: this.i18n.translate("auth.shop.created_success", {
                 lang: this.lang,
             }),
-            data: shopResult,
+            data: results,
         };
     }
     async updateShop(shopId, dto) {
@@ -77,12 +79,14 @@ let ShopService = class ShopService {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
         if (dto.image) {
-            const imageUrl = await this.fileUploadService.uploadShopImage(shopId, dto.image);
-            safeDto.image = imageUrl;
+            safeDto.image = await this.fileUploadService.uploadShopImage(shopId, dto.image);
+        }
+        if (dto.banner) {
+            safeDto.banner = await this.fileUploadService.uploadShopBanner(shopId, dto.banner);
         }
         const updated = await this.shopModel.findByIdAndUpdate(shopId, {
             ...safeDto,
-        });
+        }, { new: true });
         if (dto.location) {
             this.productsService.updateLocationByShopId(shopId, dto.location);
         }

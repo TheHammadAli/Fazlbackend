@@ -42,7 +42,10 @@ export class ShopController {
   @Post("create")
   @ApiOperation({ summary: "Create a new shop" })
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileFieldsInterceptor([{ name: "image", maxCount: 1 }]))
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: "image", maxCount: 1 },
+    { name: "banner", maxCount: 1 },
+  ]))
   @ApiBody({ type: CreateUpdateShopDto })
   async createShop(
     @Body() dto: CreateUpdateShopDto,
@@ -50,14 +53,18 @@ export class ShopController {
     @UploadedFiles()
     files: {
       image?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
     },
   ) {
     const user = req.user as { sub: string };
     if (files?.image && files.image.length > 0) {
-      dto.image = files.image[0]; // Assuming the image is stored as a file object
+      dto.image = files.image[0];
     }
-    if (dto.location) {
-      dto.location = JSON.parse(dto.location?.toString() || "{}");
+    if (files?.banner && files.banner.length > 0) {
+      dto.banner = files.banner[0];
+    }
+    if (dto.location && typeof dto.location === "string") {
+      dto.location = JSON.parse(dto.location);
     }
     return this.shopService.createShop(new Types.ObjectId(user.sub), dto);
   }
@@ -66,7 +73,10 @@ export class ShopController {
   @ApiOperation({ summary: "Update existing shop by ID" })
   @ApiParam({ name: "id", type: String })
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileFieldsInterceptor([{ name: "image", maxCount: 1 }]))
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: "image", maxCount: 1 },
+    { name: "banner", maxCount: 1 },
+  ]))
   @ApiBody({ type: CreateUpdateShopDto })
   async updateShop(
     @Param("id") id: string,
@@ -74,13 +84,17 @@ export class ShopController {
     @UploadedFiles()
     files: {
       image?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
     },
   ) {
     if (files?.image && files.image.length > 0) {
-      dto.image = files.image[0]; // Assuming the image is stored as a file object
+      dto.image = files.image[0];
     }
-    if (dto.location) {
-      dto.location = JSON.parse(dto.location?.toString() || "{}");
+    if (files?.banner && files.banner.length > 0) {
+      dto.banner = files.banner[0];
+    }
+    if (dto.location && typeof dto.location === "string") {
+      dto.location = JSON.parse(dto.location);
     }
     return this.shopService.updateShop(id, dto);
   }

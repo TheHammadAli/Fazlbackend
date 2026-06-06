@@ -44,30 +44,39 @@ export class ShopService {
         this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }),
       );
     }
-    let image: Express.Multer.File = {} as Express.Multer.File;
-    if (dto.image) {
-      image = dto.image;
-      dto.image = "default-shop.png"; // Default image if none provided
-    }
+    const { image: imageFile, banner: bannerFile, ...shopDto } = dto as any;
     const shop = new this.shopModel({
-      ...dto,
+      ...shopDto,
       ownerId,
     });
 
     const results = await shop.save();
-    if (dto.image) {
-      const imageUrl = await this.fileUploadService.uploadShopImage(
+    const updatePayload: Partial<Shop> = {};
+
+    if (imageFile) {
+      updatePayload.image = await this.fileUploadService.uploadShopImage(
         results._id as string,
-        image,
+        imageFile,
       );
-      results.image = imageUrl; // Ensure the image is stored as a filename
     }
-    const shopResult = await results.save(); // Save the shop again to update the image field
+
+    if (bannerFile) {
+      updatePayload.banner = await this.fileUploadService.uploadShopBanner(
+        results._id as string,
+        bannerFile,
+      );
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      Object.assign(results, updatePayload);
+      await results.save();
+    }
+
     return {
       message: this.i18n.translate("auth.shop.created_success", {
         lang: this.lang,
       }),
-      data: shopResult,
+      data: results,
     };
   }
 
@@ -81,15 +90,20 @@ export class ShopService {
     }
 
     if (dto.image) {
-      const imageUrl = await this.fileUploadService.uploadShopImage(
+      safeDto.image = await this.fileUploadService.uploadShopImage(
         shopId,
         dto.image,
       );
-      safeDto.image = imageUrl; // Ensure the image is stored as a filename}
+    }
+    if (dto.banner) {
+      safeDto.banner = await this.fileUploadService.uploadShopBanner(
+        shopId,
+        dto.banner,
+      );
     }
     const updated = await this.shopModel.findByIdAndUpdate(shopId, {
       ...safeDto,
-    });
+    }, { new: true });
 
     if (dto.location) {
       this.productsService.updateLocationByShopId(shopId, dto.location);

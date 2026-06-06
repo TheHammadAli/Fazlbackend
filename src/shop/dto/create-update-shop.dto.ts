@@ -6,6 +6,7 @@ import {
   ArrayMinSize,
   ArrayMaxSize,
   IsNumber,
+  IsOptional,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -43,13 +44,21 @@ export class CreateUpdateShopDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: "string",
     format: "binary",
-    isArray: true,
-    description: "Upload One image",
+    description: "Upload shop logo image",
   })
-  image: any;
+  @IsOptional()
+  image?: any;
+
+  @ApiPropertyOptional({
+    type: "string",
+    format: "binary",
+    description: "Upload shop banner image",
+  })
+  @IsOptional()
+  banner?: any;
 
   @ApiProperty({ type: LocationDto })
   @ValidateNested()

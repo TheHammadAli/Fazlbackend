@@ -6,7 +6,8 @@ export declare class CreateUpdateShopDto {
     title: string;
     address: string;
     description: string;
-    image: any;
+    image?: any;
+    banner?: any;
     location: LocationDto;
 }
 export {};

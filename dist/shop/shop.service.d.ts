@@ -37,6 +37,7 @@ export declare class ShopService {
         ownerId: Types.ObjectId;
         title: string;
         image: string;
+        banner: string;
         address: string;
         description: string;
         isDisabled?: boolean | undefined;

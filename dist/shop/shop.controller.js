@@ -33,8 +33,11 @@ let ShopController = class ShopController {
         if (files?.image && files.image.length > 0) {
             dto.image = files.image[0];
         }
-        if (dto.location) {
-            dto.location = JSON.parse(dto.location?.toString() || "{}");
+        if (files?.banner && files.banner.length > 0) {
+            dto.banner = files.banner[0];
+        }
+        if (dto.location && typeof dto.location === "string") {
+            dto.location = JSON.parse(dto.location);
         }
         return this.shopService.createShop(new mongoose_1.Types.ObjectId(user.sub), dto);
     }
@@ -42,8 +45,11 @@ let ShopController = class ShopController {
         if (files?.image && files.image.length > 0) {
             dto.image = files.image[0];
         }
-        if (dto.location) {
-            dto.location = JSON.parse(dto.location?.toString() || "{}");
+        if (files?.banner && files.banner.length > 0) {
+            dto.banner = files.banner[0];
+        }
+        if (dto.location && typeof dto.location === "string") {
+            dto.location = JSON.parse(dto.location);
         }
         return this.shopService.updateShop(id, dto);
     }
@@ -64,7 +70,10 @@ __decorate([
     (0, common_1.Post)("create"),
     (0, swagger_1.ApiOperation)({ summary: "Create a new shop" }),
     (0, swagger_1.ApiConsumes)("multipart/form-data"),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: "image", maxCount: 1 }])),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: "image", maxCount: 1 },
+        { name: "banner", maxCount: 1 },
+    ])),
     (0, swagger_1.ApiBody)({ type: create_update_shop_dto_1.CreateUpdateShopDto }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -78,7 +87,10 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: "Update existing shop by ID" }),
     (0, swagger_1.ApiParam)({ name: "id", type: String }),
     (0, swagger_1.ApiConsumes)("multipart/form-data"),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([{ name: "image", maxCount: 1 }])),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: "image", maxCount: 1 },
+        { name: "banner", maxCount: 1 },
+    ])),
     (0, swagger_1.ApiBody)({ type: create_update_shop_dto_1.CreateUpdateShopDto }),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),

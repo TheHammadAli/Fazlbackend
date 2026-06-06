@@ -9,6 +9,7 @@ export declare class ShopController {
     constructor(shopService: ShopService);
     createShop(dto: CreateUpdateShopDto, req: Request, files: {
         image?: Express.Multer.File[];
+        banner?: Express.Multer.File[];
     }): Promise<{
         message: string;
         data: import("mongoose").Document<unknown, {}, import("./schema/shop.schema").ShopDocument, {}> & import("./schema/shop.schema").Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
@@ -19,6 +20,7 @@ export declare class ShopController {
     }>;
     updateShop(id: string, dto: CreateUpdateShopDto, files: {
         image?: Express.Multer.File[];
+        banner?: Express.Multer.File[];
     }): Promise<{
         message: string;
         data: import("./schema/shop.schema").Shop;
@@ -29,6 +31,7 @@ export declare class ShopController {
         ownerId: Types.ObjectId;
         title: string;
         image: string;
+        banner: string;
         address: string;
         description: string;
         isDisabled?: boolean | undefined;
