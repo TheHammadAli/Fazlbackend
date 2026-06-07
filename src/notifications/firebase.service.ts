@@ -76,7 +76,7 @@ export class FirebaseService {
     if (!projectId || !privateKey || !clientEmail) {
       return undefined;
     }
-
+//
     return {
       type: process.env.TYPE || "service_account",
       project_id: projectId,
