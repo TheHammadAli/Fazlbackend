@@ -15,25 +15,29 @@ export class FirebaseService {
   private initFirebase() {
     try {
       if (admin.apps.length || this.initialized) return;
-
-      const projectId = this.configService.get<string>("FIREBASE_PROJECT_ID");
-      const privateKey = this.configService
-        .get<string>("FIREBASE_PRIVATE_KEY")
-        ?.replace(/\\n/g, "\n");
-
-      const clientEmail = this.configService.get<string>(
-        "FIREBASE_CLIENT_EMAIL",
+      const serviceAccountPath = this.configService.get<string>(
+        "FIREBASE_SERVICE_ACCOUNT_PATH",
       );
 
-      if (!projectId || !privateKey || !clientEmail) {
-        throw new Error("Missing Firebase environment variables");
+      if (!serviceAccountPath) {
+        throw new Error("FIREBASE_SERVICE_ACCOUNT_PATH is not set");
       }
+      // const projectId = this.configService.get<string>("FIREBASE_PROJECT_ID");
+      // const privateKey = this.configService
+      //   .get<string>("FIREBASE_PRIVATE_KEY")
+      //   ?.replace(/\\n/g, "\n");
+
+      // const clientEmail = this.configService.get<string>(
+      //   "FIREBASE_CLIENT_EMAIL",
+      // );
+
+      // if (!projectId || !privateKey || !clientEmail) {
+      //   throw new Error("Missing Firebase environment variables");
+      // }
 
       admin.initializeApp({
         credential: admin.credential.cert({
-          projectId,
-          privateKey,
-          clientEmail,
+          serviceAccountPath,
         } as admin.ServiceAccount),
       });
 
