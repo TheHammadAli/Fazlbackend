@@ -1,44 +1,37 @@
 // src/notifications/firebase.service.ts
 import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import * as admin from "firebase-admin";
+import * as fs from "fs";
+import * as path from "path";
 
 @Injectable()
 export class FirebaseService {
   private readonly logger = new Logger(FirebaseService.name);
   private initialized = false;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor() {
     this.initFirebase();
   }
 
   private initFirebase() {
     try {
       if (admin.apps.length || this.initialized) return;
-      const serviceAccountPath = this.configService.get<string>(
-        "FIREBASE_SERVICE_ACCOUNT_PATH",
-      );
 
-      if (!serviceAccountPath) {
-        throw new Error("FIREBASE_SERVICE_ACCOUNT_PATH is not set");
+      const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
+      let serviceAccount: admin.ServiceAccount | undefined;
+  
+      if (serviceAccountEnv) {
+        serviceAccount = this.parseServiceAccountEnv(serviceAccountEnv);
       }
-      // const projectId = this.configService.get<string>("FIREBASE_PROJECT_ID");
-      // const privateKey = this.configService
-      //   .get<string>("FIREBASE_PRIVATE_KEY")
-      //   ?.replace(/\\n/g, "\n");
 
-      // const clientEmail = this.configService.get<string>(
-      //   "FIREBASE_CLIENT_EMAIL",
-      // );
 
-      // if (!projectId || !privateKey || !clientEmail) {
-      //   throw new Error("Missing Firebase environment variables");
-      // }
+
+      if (!serviceAccount) {
+        throw new Error("Firebase service account could not be loaded.");
+      }
 
       admin.initializeApp({
-        credential: admin.credential.cert({
-          serviceAccountPath,
-        } as admin.ServiceAccount),
+        credential: admin.credential.cert(serviceAccount),
       });
 
       this.initialized = true;
@@ -46,6 +39,69 @@ export class FirebaseService {
     } catch (err) {
       this.logger.error("Firebase initialization failed", err);
     }
+  }
+
+  private parseServiceAccountEnv(value: string): admin.ServiceAccount | undefined {
+    const normalized = this.stripOuterQuotes(value);
+
+    try {
+      return JSON.parse(normalized) as admin.ServiceAccount;
+    } catch (error) {
+      this.logger.warn(
+        "FIREBASE_SERVICE_ACCOUNT json parsing failed, trying individual Firebase env vars.",
+      );
+      return undefined;
+    }
+  }
+
+  private stripOuterQuotes(value: string): string {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      return value.slice(1, -1);
+    }
+
+    return value;
+  }
+
+  private buildServiceAccountFromEnv(): admin.ServiceAccount | undefined {
+    const privateKey = this.normalizePrivateKey(
+      process.env.FIREBASE_PRIVATE_KEY || process.env.PRIVATE_KEY,
+    );
+    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || process.env.CLIENT_EMAIL;
+    const clientId = process.env.FIREBASE_CLIENT_ID || process.env.CLIENT_ID;
+
+    if (!projectId || !privateKey || !clientEmail) {
+      return undefined;
+    }
+
+    return {
+      type: process.env.TYPE || "service_account",
+      project_id: projectId,
+      private_key_id: process.env.PRIVATE_KEY_ID,
+      private_key: privateKey,
+      client_email: clientEmail,
+      client_id: clientId,
+      auth_uri: process.env.AUTH_URI,
+      token_uri: process.env.TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.AUTH_PROVIDER_X509_CERT_URL,
+      client_x509_cert_url: process.env.CLIENT_X509_CERT_URL,
+      universe_domain: process.env.UNIVERSE_DOMAIN,
+    } as admin.ServiceAccount;
+  }
+
+  private normalizePrivateKey(key?: string): string | undefined {
+    if (!key) return undefined;
+
+    const trimmed = key.trim();
+    const withoutQuotes =
+      trimmed.startsWith('"') && trimmed.endsWith('"')
+        ? trimmed.slice(1, -1)
+        : trimmed;
+
+    return withoutQuotes.replace(/\\n/g, "\n");
   }
 
   /**
