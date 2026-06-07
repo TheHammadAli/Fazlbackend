@@ -78,7 +78,7 @@ export class FirebaseService {
         data: sanitizedData, // The logic payload
         // Optional: High priority for instant delivery
         android: { priority: "high" },
-        apns: { payload: { aps: { contentAvailable: true } } },
+        apns: { payload: { aps: { contentAvailable: true, sound: "default", badge: 1 } } },
       });
     } catch (err) {
       this.logger.error("FCM error (notification skipped)", err);
