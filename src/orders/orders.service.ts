@@ -34,6 +34,17 @@ export class OrdersService {
     private readonly cls: ClsService,
   ) { }
 
+
+  private readonly constants = {
+    orders: {
+      placed: "placed",
+      confirmed: "confirmed",
+      shipped: "shipped",
+      delivered: "delivered",
+      cancelled: "cancelled",
+      received: "received",
+    },
+  };
   /** Dynamic getter for the current request language */
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -85,12 +96,10 @@ export class OrdersService {
 
     if (dto.ownerModel === "Shop") {
       owner = await this.shopService.getShopById(dto.owner);
-      ownerExists = !!owner;
     } else if (dto.ownerModel === "User") {
       owner = await this.usersService.findUserById(dto.owner);
-      ownerExists = !!owner;
     }
-
+    ownerExists = !!owner;
 
     if (!ownerExists)
       throw new NotFoundException(
@@ -128,6 +137,7 @@ export class OrdersService {
       orderId: (savedOrder as any)._id.toString(),
       productId: dto.product,
       ownerModel: dto.ownerModel,
+      actionType:this.constants.orders.placed, 
     };
 
     console.log("Product.Ownerid", product.ownerId);
@@ -148,7 +158,7 @@ export class OrdersService {
         : owner._id?.toString() || dto.owner,
       "order_created_seller",
       "ORDER",
-      notificationPayload,
+      {...notificationPayload,actionType:this.constants.orders.received},
       { productTitle: product.title },
     );
 
@@ -337,6 +347,7 @@ export class OrdersService {
           orderId: orderId, // This is our mandatory generic payload
           status: dto.status,
           productId: updated.product._id.toString(), // Optional additional payload
+          actionType: updated.status,
         },
         {
           productTitle: productTitle,

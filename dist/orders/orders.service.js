@@ -40,6 +40,16 @@ let OrdersService = class OrdersService {
         this.i18n = i18n;
         this.cls = cls;
     }
+    constants = {
+        orders: {
+            placed: "placed",
+            confirmed: "confirmed",
+            shipped: "shipped",
+            delivered: "delivered",
+            cancelled: "cancelled",
+            received: "received",
+        },
+    };
     get lang() {
         return this.cls.get("lang") || "en";
     }
@@ -73,12 +83,11 @@ let OrdersService = class OrdersService {
         let owner = null;
         if (dto.ownerModel === "Shop") {
             owner = await this.shopService.getShopById(dto.owner);
-            ownerExists = !!owner;
         }
         else if (dto.ownerModel === "User") {
             owner = await this.usersService.findUserById(dto.owner);
-            ownerExists = !!owner;
         }
+        ownerExists = !!owner;
         if (!ownerExists)
             throw new common_1.NotFoundException(this.i18n.translate("auth.orders.order_owner_not_found", {
                 lang: this.lang,
@@ -105,13 +114,14 @@ let OrdersService = class OrdersService {
             orderId: savedOrder._id.toString(),
             productId: dto.product,
             ownerModel: dto.ownerModel,
+            actionType: this.constants.orders.placed,
         };
         console.log("Product.Ownerid", product.ownerId);
         this.notificationsService.createAndNotify(dto.buyer, "order_created_buyer", "ORDER", notificationPayload, { productTitle: product.title });
         console.log("Owner for notification:", owner);
         this.notificationsService.createAndNotify(dto.ownerModel === "Shop"
             ? owner.ownerId._id?.toString()
-            : owner._id?.toString() || dto.owner, "order_created_seller", "ORDER", notificationPayload, { productTitle: product.title });
+            : owner._id?.toString() || dto.owner, "order_created_seller", "ORDER", { ...notificationPayload, actionType: this.constants.orders.received }, { productTitle: product.title });
         return { message: this.i18n.translate("auth.orders.created_success", { lang: this.lang }), data: savedOrder };
     }
     async getOrderById(orderId) {
@@ -219,6 +229,7 @@ let OrdersService = class OrdersService {
                 orderId: orderId,
                 status: dto.status,
                 productId: updated.product._id.toString(),
+                actionType: updated.status,
             }, {
                 productTitle: productTitle,
                 status: dto.status,

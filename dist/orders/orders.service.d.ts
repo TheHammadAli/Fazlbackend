@@ -17,6 +17,7 @@ export declare class OrdersService {
     private readonly i18n;
     private readonly cls;
     constructor(orderModel: Model<OrderDocument>, usersService: UsersService, productsService: ProductsService, shopService: ShopService, notificationsService: NotificationsService, i18n: I18nService, cls: ClsService);
+    private readonly constants;
     private get lang();
     createMultipleOrders(dto: CreateOrderDto[]): Promise<{
         message: string;

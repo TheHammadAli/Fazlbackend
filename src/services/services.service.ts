@@ -545,7 +545,7 @@ export class ServicesService {
       service.ownerId._id.toString(),
       "request_created",
       "SERVICE_REQUEST",
-      { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime },
+      { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" },
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
@@ -578,7 +578,7 @@ export class ServicesService {
     // 1. Prepare variables at the top
     let notificationKey: string | null = null;
     let recipientId: string = request.customer._id.toString();
-    const notificationPayload = { requestId: request._id, action, request };
+    const notificationPayload = { requestId: request._id, action, request, actionType: "recieved" };
 
     // 2. The Switch logic (ONLY updates status and picks the message key)
     switch (action) {

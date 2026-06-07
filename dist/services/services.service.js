@@ -397,7 +397,7 @@ let ServicesService = class ServicesService {
             message,
         });
         const results = await request.save();
-        this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime }, { serviceName: service.title, customerName: customer?.name || "A customer" });
+        this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" }, { serviceName: service.title, customerName: customer?.name || "A customer" });
         return {
             data: results,
             message: this.i18n.translate("auth.services.request_created_success", {
@@ -419,7 +419,7 @@ let ServicesService = class ServicesService {
         const serviceName = request.service?.title || "service";
         let notificationKey = null;
         let recipientId = request.customer._id.toString();
-        const notificationPayload = { requestId: request._id, action, request };
+        const notificationPayload = { requestId: request._id, action, request, actionType: "recieved" };
         switch (action) {
             case "accept":
                 request.status = "accepted";
