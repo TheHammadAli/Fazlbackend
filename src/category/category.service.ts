@@ -2,7 +2,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Category, CategoryDocument } from "./schema/category.schema";
-import { Model, Types } from "mongoose";
+import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
 import {
@@ -38,8 +38,13 @@ export class CategoryService {
     return new this.categoryModel(dto).save();
   }
 
-  async findAll() {
-    const categories = await this.categoryModel.find({ isDisabled: false }).exec();
+  async findAll(type?:string) {
+
+    const filter: FilterQuery<CategoryDocument> = { isDisabled: false };
+    if (type) {
+      filter.type = type;
+    }
+    const categories = await this.categoryModel.find(filter).exec();
     console.log(categories)
     return {
       data: categories.map((cat) => ({

@@ -28,6 +28,9 @@ export class Category {
   @Prop({ default: false })
   isDisabled!: boolean;
 
+  @Prop({ type: String, required: false })
+  icon?: string;
+
   @Prop({
     required: true,
     enum: CategoryType,

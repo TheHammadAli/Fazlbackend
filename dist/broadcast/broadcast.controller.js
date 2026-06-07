@@ -32,7 +32,12 @@ let BroadcastController = class BroadcastController {
     async createBroadcast(dto, req, files) {
         const user = req.user;
         const buyerId = user.sub;
-        const location = user.location;
+        let location = user.location;
+        if (dto.location) {
+            location = typeof dto.location === "string"
+                ? JSON.parse(dto.location)
+                : dto.location;
+        }
         let imageUrls = [];
         console.log("Received files for broadcast:", files);
         if (files?.length) {
@@ -71,6 +76,7 @@ __decorate([
     (0, common_1.Post)("/create"),
     (0, swagger_1.ApiOperation)({ summary: "Create broadcast and dispatch sellers" }),
     (0, swagger_1.ApiConsumes)("application/json", "multipart/form-data"),
+    (0, swagger_1.ApiBody)({ type: create_broadcast_dto_1.CreateBroadcastDto }),
     (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)("files", 5)),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),

@@ -8,6 +8,7 @@ import {
   CategoryRequest,
   CategoryRequestSchema,
 } from "./schema/category-request.schema";
+import { SharedModule } from "src/shared/shared.module";
 
 @Module({
   imports: [
@@ -15,9 +16,10 @@ import {
       { name: Category.name, schema: CategorySchema },
       { name: CategoryRequest.name, schema: CategoryRequestSchema },
     ]),
+    SharedModule,
   ],
   providers: [CategoryService],
   controllers: [CategoryController],
   exports: [CategoryService],
 })
-export class CategoryModule {}
+export class CategoryModule { }

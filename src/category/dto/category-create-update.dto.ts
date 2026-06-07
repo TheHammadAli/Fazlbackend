@@ -32,6 +32,10 @@ export class CreateUpdateCategoryDto {
   @IsObject()
   description?: Record<string, string>;
 
+  @ApiPropertyOptional({ type: "string", format: "binary" })
+  @IsOptional()
+  icon?: any;
+
   @ApiProperty({
     enum: CategoryType,
     example: CategoryType.SERVICE,

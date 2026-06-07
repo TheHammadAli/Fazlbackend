@@ -13,6 +13,7 @@ const category_schema_1 = require("./schema/category.schema");
 const category_service_1 = require("./category.service");
 const category_controller_1 = require("./category.controller");
 const category_request_schema_1 = require("./schema/category-request.schema");
+const shared_module_1 = require("../shared/shared.module");
 let CategoryModule = class CategoryModule {
 };
 exports.CategoryModule = CategoryModule;
@@ -23,6 +24,7 @@ exports.CategoryModule = CategoryModule = __decorate([
                 { name: category_schema_1.Category.name, schema: category_schema_1.CategorySchema },
                 { name: category_request_schema_1.CategoryRequest.name, schema: category_request_schema_1.CategoryRequestSchema },
             ]),
+            shared_module_1.SharedModule,
         ],
         providers: [category_service_1.CategoryService],
         controllers: [category_controller_1.CategoryController],

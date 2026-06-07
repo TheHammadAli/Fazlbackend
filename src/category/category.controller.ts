@@ -7,7 +7,11 @@ import {
   Post,
   Put,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
+  Query,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { CategoryService } from "./category.service";
 import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
@@ -15,6 +19,7 @@ import { CreateCategoryRequestDto } from "./dto/category-request.dto";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { ReviewCategoryRequestDto } from "./dto/review-category.dto";
+import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import {
   ApiTags,
   ApiBearerAuth,
@@ -22,6 +27,8 @@ import {
   ApiResponse,
   ApiBody,
   ApiHeader,
+  ApiQuery,
+  ApiConsumes,
 } from "@nestjs/swagger";
 
 @ApiTags("Categories")
@@ -29,13 +36,30 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller("categories")
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) { }
+  constructor(
+    private readonly categoryService: CategoryService,
+    private readonly fileUploadService: FileUploadService,
+  ) { }
 
   @Post()
   @ApiOperation({ summary: "Create a new category (admin only)" })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FileInterceptor("icon"))
   @ApiBody({ type: CreateUpdateCategoryDto })
   @ApiResponse({ status: 201, description: "Category created successfully" })
-  create(@Body() dto: CreateUpdateCategoryDto) {
+  async create(
+    @Body() dto: CreateUpdateCategoryDto,
+    @UploadedFile() icon?: any,
+  ) {
+    if (typeof dto.name === "string") {
+      dto.name = JSON.parse(dto.name);
+    }
+    if (dto.description && typeof dto.description === "string") {
+      dto.description = JSON.parse(dto.description);
+    }
+    if (icon) {
+      dto.icon = await this.fileUploadService.uploadCategoryIcon(icon);
+    }
     return this.categoryService.create(dto);
   }
 
@@ -47,9 +71,10 @@ export class CategoryController {
     example: "en",
   })
   @ApiOperation({ summary: "Get all categories" })
+  @ApiQuery({ name: "type", required: false, description: "Filter by category type", enum: ["product", "service"] })
   @ApiResponse({ status: 200, description: "List of categories" })
-  findAll() {
-    return this.categoryService.findAll();
+  findAll(@Query("type") type?: string) {
+    return this.categoryService.findAll(type);
   }
 
   @Get("detail/:id")
@@ -68,8 +93,23 @@ export class CategoryController {
 
   @Put(":id")
   @ApiOperation({ summary: "Update an existing category (admin only)" })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FileInterceptor("icon"))
   @ApiBody({ type: CreateUpdateCategoryDto })
-  update(@Param("id") id: string, @Body() dto: CreateUpdateCategoryDto) {
+  async update(
+    @Param("id") id: string,
+    @Body() dto: CreateUpdateCategoryDto,
+    @UploadedFile() icon?: any,
+  ) {
+    if (typeof dto.name === "string") {
+      dto.name = JSON.parse(dto.name);
+    }
+    if (dto.description && typeof dto.description === "string") {
+      dto.description = JSON.parse(dto.description);
+    }
+    if (icon) {
+      dto.icon = await this.fileUploadService.uploadCategoryIcon(icon);
+    }
     return this.categoryService.update(id, dto);
   }
 

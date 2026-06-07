@@ -12,12 +12,31 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateBroadcastDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+class LocationDto {
+    type;
+    coordinates;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ enum: ["Point"], example: "Point" }),
+    (0, class_validator_1.IsEnum)(["Point"], { message: 'Location type must be "Point"' }),
+    __metadata("design:type", String)
+], LocationDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: [73.0479, 33.6844], description: "[lng, lat]" }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(2),
+    (0, class_validator_1.ArrayMaxSize)(2),
+    (0, class_validator_1.IsNumber)({}, { each: true }),
+    __metadata("design:type", Array)
+], LocationDto.prototype, "coordinates", void 0);
 class CreateBroadcastDto {
     message;
     radius;
     categoryId;
     type;
     purpose;
+    location;
     files;
 }
 exports.CreateBroadcastDto = CreateBroadcastDto;
@@ -50,6 +69,13 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateBroadcastDto.prototype, "purpose", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: LocationDto }),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => LocationDto),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", LocationDto)
+], CreateBroadcastDto.prototype, "location", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: "array",

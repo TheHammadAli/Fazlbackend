@@ -15,11 +15,12 @@ export declare class CategoryService {
     private getLocalizedValue;
     private get lang();
     create(dto: CreateUpdateCategoryDto): Promise<Category>;
-    findAll(): Promise<{
+    findAll(type?: string): Promise<{
         data: {
             name: string;
             description: string;
             isDisabled: boolean;
+            icon?: string;
             type: import("./schema/category.schema").CategoryType;
             _id: unknown;
             $locals: Record<string, unknown>;

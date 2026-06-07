@@ -109,6 +109,27 @@ let FileUploadService = class FileUploadService {
             throw new common_1.InternalServerErrorException("One or more file uploads failed");
         }
     }
+    async uploadCategoryIcon(file) {
+        const fileExt = (0, path_1.extname)(file.originalname);
+        const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
+        const key = `categories/icons/${uniqueName}`;
+        try {
+            const command = new client_s3_1.PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            });
+            await this.s3.send(command);
+            const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
+            console.log(`File uploaded successfully: ${url}`);
+            return url;
+        }
+        catch (err) {
+            console.error("S3 upload error:", err);
+            throw new common_1.InternalServerErrorException("Category icon upload failed");
+        }
+    }
     async uploadShopBanner(shopId, file) {
         const key = `shop/${shopId}/images/banner`;
         try {

@@ -7,6 +7,7 @@ export declare class Category {
     name: Map<string, string>;
     description?: Map<string, string>;
     isDisabled: boolean;
+    icon?: string;
     type: CategoryType;
 }
 export type CategoryDocument = Category & Document;

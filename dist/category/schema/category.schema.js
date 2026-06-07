@@ -20,6 +20,7 @@ let Category = class Category {
     name;
     description;
     isDisabled;
+    icon;
     type;
 };
 exports.Category = Category;
@@ -43,6 +44,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
 ], Category.prototype, "isDisabled", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, required: false }),
+    __metadata("design:type", String)
+], Category.prototype, "icon", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         required: true,

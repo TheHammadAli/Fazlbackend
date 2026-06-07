@@ -16,6 +16,7 @@ const category_schema_1 = require("../schema/category.schema");
 class CreateUpdateCategoryDto {
     name;
     description;
+    icon;
     type;
     isDisabled;
 }
@@ -41,6 +42,11 @@ __decorate([
     (0, class_validator_1.IsObject)(),
     __metadata("design:type", Object)
 ], CreateUpdateCategoryDto.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: "string", format: "binary" }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateUpdateCategoryDto.prototype, "icon", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         enum: category_schema_1.CategoryType,

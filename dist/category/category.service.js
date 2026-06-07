@@ -40,8 +40,12 @@ let CategoryService = class CategoryService {
     async create(dto) {
         return new this.categoryModel(dto).save();
     }
-    async findAll() {
-        const categories = await this.categoryModel.find({ isDisabled: false }).exec();
+    async findAll(type) {
+        const filter = { isDisabled: false };
+        if (type) {
+            filter.type = type;
+        }
+        const categories = await this.categoryModel.find(filter).exec();
         console.log(categories);
         return {
             data: categories.map((cat) => ({

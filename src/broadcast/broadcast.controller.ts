@@ -19,6 +19,7 @@ import {
   ApiQuery,
   ApiResponse,
   ApiConsumes,
+  ApiBody,
 } from "@nestjs/swagger";
 import { Request } from "express";
 
@@ -46,6 +47,7 @@ export class BroadcastController {
   @Post("/create")
   @ApiOperation({ summary: "Create broadcast and dispatch sellers" })
   @ApiConsumes("application/json", "multipart/form-data")
+  @ApiBody({ type: CreateBroadcastDto })
   @UseInterceptors(FilesInterceptor("files", 5))
   async createBroadcast(
     @Body() dto: CreateBroadcastDto,
@@ -58,7 +60,12 @@ export class BroadcastController {
     };
 
     const buyerId = user.sub;
-    const location = user.location;
+    let location = user.location;
+    if (dto.location) {
+      location = typeof dto.location === "string"
+        ? JSON.parse(dto.location)
+        : dto.location;
+    }
 
 
     let imageUrls: string[] = [];

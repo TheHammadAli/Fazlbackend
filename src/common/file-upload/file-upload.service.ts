@@ -136,6 +136,33 @@ export class FileUploadService {
     }
   }
 
+  async uploadCategoryIcon(file: any) {
+    const fileExt = extname(file.originalname);
+    const uniqueName = `${uuidv4()}${fileExt}`;
+    const key = `categories/icons/${uniqueName}`;
+
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      });
+
+      await this.s3.send(command);
+
+      const url = `https://${this.bucketName}.s3.${this.configService.get(
+        "AWS_REGION",
+      )}.amazonaws.com/${key}`;
+
+      console.log(`File uploaded successfully: ${url}`);
+      return url;
+    } catch (err) {
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Category icon upload failed");
+    }
+  }
+
   async uploadShopBanner(shopId: string, file: Express.Multer.File) {
     const key = `shop/${shopId}/images/banner`;
 
