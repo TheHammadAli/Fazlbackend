@@ -417,17 +417,31 @@ let ServicesService = class ServicesService {
                 lang: this.lang,
             }));
         const serviceName = request.service?.title || "service";
+        const currentRequestStatus = request.status;
         let notificationKey = null;
         let recipientId = request.customer._id.toString();
         const notificationPayload = { requestId: request._id, action, request, actionType: "recieved" };
         switch (action) {
             case "accept":
-                request.status = "accepted";
-                notificationKey = "request_accepted";
+                if (currentRequestStatus === "proposed") {
+                    request.status = "confirmed";
+                    recipientId = request.provider._id.toString();
+                    notificationKey = "request_confirmed";
+                    Object.assign(notificationPayload, {
+                        proposedDate: request.proposedDateTime?.toISOString() || proposedDateTime,
+                    });
+                }
+                else {
+                    request.status = "accepted";
+                    notificationKey = "request_accepted";
+                }
                 break;
             case "reject":
                 request.status = "rejected";
                 notificationKey = "request_rejected";
+                if (currentRequestStatus === "proposed") {
+                    recipientId = request.provider._id.toString();
+                }
                 break;
             case "cancel":
                 request.status = "cancelled";
@@ -442,12 +456,27 @@ let ServicesService = class ServicesService {
                 notificationKey = "request_proposed";
                 Object.assign(notificationPayload, { proposedDate: proposedDateTime });
                 break;
+            case "confirm":
+                if (currentRequestStatus !== "proposed") {
+                    throw new common_1.BadRequestException(this.i18n.translate("auth.services.invalid_confirm_action"));
+                }
+                request.status = "confirmed";
+                recipientId = request.provider._id.toString();
+                notificationKey = "request_confirmed";
+                Object.assign(notificationPayload, {
+                    proposedDate: request.proposedDateTime?.toISOString() || proposedDateTime,
+                });
+                break;
             default:
                 throw new common_1.BadRequestException(this.i18n.translate("auth.services.unsupported_action"));
         }
         await request.save();
         if (notificationKey) {
-            await this.notificationsService.createAndNotify(recipientId, notificationKey, "SERVICE_REQUEST", notificationPayload, { serviceName, proposedDate: proposedDateTime });
+            const i18nArgs = {
+                serviceName,
+                proposedDate: request.proposedDateTime?.toISOString() || proposedDateTime,
+            };
+            await this.notificationsService.createAndNotify(recipientId, notificationKey, "SERVICE_REQUEST", notificationPayload, i18nArgs);
         }
         return {
             status: 201,

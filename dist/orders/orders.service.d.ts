@@ -50,6 +50,13 @@ export declare class OrdersService {
             totalPages: number;
         };
     }>;
-    updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order>;
+    updateOrder(orderId: string, dto: UpdateOrderDto): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, OrderDocument, {}> & Order & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
     deleteOrder(orderId: string): Promise<void>;
 }

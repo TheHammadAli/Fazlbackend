@@ -575,6 +575,8 @@ export class ServicesService {
     // ✅ Safely extract service name (avoid using full object)
     const serviceName = (request.service as any)?.title || "service";
 
+    const currentRequestStatus = request.status;
+
     // 1. Prepare variables at the top
     let notificationKey: string | null = null;
     let recipientId: string = request.customer._id.toString();
@@ -583,13 +585,26 @@ export class ServicesService {
     // 2. The Switch logic (ONLY updates status and picks the message key)
     switch (action) {
       case "accept":
-        request.status = "accepted";
-        notificationKey = "request_accepted";
+        if (currentRequestStatus === "proposed") {
+          request.status = "confirmed";
+          recipientId = request.provider._id.toString();
+          notificationKey = "request_confirmed";
+          Object.assign(notificationPayload, {
+            proposedDate:
+              request.proposedDateTime?.toISOString() || proposedDateTime,
+          });
+        } else {
+          request.status = "accepted";
+          notificationKey = "request_accepted";
+        }
         break;
 
       case "reject":
         request.status = "rejected";
         notificationKey = "request_rejected";
+        if (currentRequestStatus === "proposed") {
+          recipientId = request.provider._id.toString();
+        }
         break;
 
       case "cancel":
@@ -608,6 +623,22 @@ export class ServicesService {
         Object.assign(notificationPayload, { proposedDate: proposedDateTime });
         break;
 
+      case "confirm":
+        if (currentRequestStatus !== "proposed") {
+          throw new BadRequestException(
+            this.i18n.translate("auth.services.invalid_confirm_action"),
+          );
+        }
+
+        request.status = "confirmed";
+        recipientId = request.provider._id.toString();
+        notificationKey = "request_confirmed";
+        Object.assign(notificationPayload, {
+          proposedDate:
+            request.proposedDateTime?.toISOString() || proposedDateTime,
+        });
+        break;
+
       default:
         throw new BadRequestException(
           this.i18n.translate("auth.services.unsupported_action"),
@@ -619,14 +650,18 @@ export class ServicesService {
 
     // 4. Dispatch Notification (Only if save succeeded and we have a key)
     if (notificationKey) {
-      // We don't 'await' this if we don't want to make the user wait for FCM/Sockets,
-      // OR we await it to ensure the user knows it was sent.
+      const i18nArgs = {
+        serviceName,
+        proposedDate:
+          request.proposedDateTime?.toISOString() || proposedDateTime,
+      };
+
       await this.notificationsService.createAndNotify(
         recipientId,
         notificationKey, // Use the translation key decided in the switch
         "SERVICE_REQUEST",
         notificationPayload, // Mandatory Payload
-        { serviceName, proposedDate: proposedDateTime }, // i18n Args
+        i18nArgs, // i18n Args
       );
     }
 

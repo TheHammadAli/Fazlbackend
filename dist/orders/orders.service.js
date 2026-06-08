@@ -235,7 +235,12 @@ let OrdersService = class OrdersService {
                 status: dto.status,
             });
         }
-        return updated;
+        return {
+            message: this.i18n.translate("auth.orders.updated_success", {
+                lang: this.lang,
+            }),
+            data: updated,
+        };
     }
     async deleteOrder(orderId) {
         if (!mongoose_2.Types.ObjectId.isValid(orderId))

@@ -24,12 +24,19 @@ __decorate([
     __metadata("design:type", String)
 ], UpdateRequestStatusDto.prototype, "requestId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ["accept", "reject", "cancel", "propose", "confirm"] }),
+    (0, swagger_1.ApiProperty)({
+        enum: ["accept", "reject", "cancel", "propose", "confirm"],
+        description: "Action to perform on the request. Use 'confirm' when the buyer accepts a provider-proposed time.",
+        example: "confirm",
+    }),
     (0, class_validator_1.IsEnum)(["accept", "reject", "cancel", "propose", "confirm"]),
     __metadata("design:type", String)
 ], UpdateRequestStatusDto.prototype, "action", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: "2025-07-01T18:00:00Z" }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "2025-07-01T18:00:00Z",
+        description: "Required when proposing a new date/time. Optional for confirm if the proposed time should be included.",
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)

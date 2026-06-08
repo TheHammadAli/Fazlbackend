@@ -37,6 +37,13 @@ export declare class OrdersController {
             totalPages: number;
         };
     }>;
-    updateOrder(id: string, dto: UpdateOrderDto): Promise<Order>;
+    updateOrder(id: string, dto: UpdateOrderDto): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("./schema/order.schema").OrderDocument, {}> & Order & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
     deleteOrder(id: string): Promise<void>;
 }

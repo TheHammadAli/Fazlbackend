@@ -137,7 +137,7 @@ export class OrdersService {
       orderId: (savedOrder as any)._id.toString(),
       productId: dto.product,
       ownerModel: dto.ownerModel,
-      actionType:this.constants.orders.placed, 
+      actionType: this.constants.orders.placed,
     };
 
     console.log("Product.Ownerid", product.ownerId);
@@ -158,7 +158,7 @@ export class OrdersService {
         : owner._id?.toString() || dto.owner,
       "order_created_seller",
       "ORDER",
-      {...notificationPayload,actionType:this.constants.orders.received},
+      { ...notificationPayload, actionType: this.constants.orders.received },
       { productTitle: product.title },
     );
 
@@ -309,7 +309,7 @@ export class OrdersService {
   }
 
   // UPDATE: Logic updated to notify on status changes
-  async updateOrder(orderId: string, dto: UpdateOrderDto): Promise<Order> {
+  async updateOrder(orderId: string, dto: UpdateOrderDto) {
     if (!Types.ObjectId.isValid(orderId))
       throw new BadRequestException(
         this.i18n.translate("auth.orders.invalid_order_id", {
@@ -328,17 +328,13 @@ export class OrdersService {
 
     // If the order status was updated, notify the buyer with the new status
     if (dto.status) {
-      // 1. Safely extract the ID as a string
       const orderId =
         updated._id instanceof Types.ObjectId
           ? updated._id.toHexString()
           : String(updated._id);
 
-      // 2. Safely extract the product title
-      // Since you populated 'product', we cast to any to access the title property
       const productTitle = (updated.product as any)?.title || "Product";
 
-      // 3. Dispatch
       this.notificationsService.createAndNotify(
         updated.buyer.toString(),
         "order_status_updated",
@@ -356,7 +352,12 @@ export class OrdersService {
       );
     }
 
-    return updated;
+    return {
+      message: this.i18n.translate("auth.orders.updated_success", {
+        lang: this.lang,
+      }),
+      data: updated,
+    };
   }
 
   // DELETE

@@ -34,7 +34,14 @@ export class ServiceRequest {
 
   @Prop({
     required: true,
-    enum: ["pending", "accepted", "rejected", "proposed", "cancelled"],
+    enum: [
+      "pending",
+      "accepted",
+      "rejected",
+      "proposed",
+      "cancelled",
+      "confirmed",
+    ],
     default: "pending",
   })
   status!: RequestStatus;

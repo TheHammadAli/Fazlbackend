@@ -136,7 +136,7 @@ export class OrdersController {
   async updateOrder(
     @Param("id") id: string,
     @Body() dto: UpdateOrderDto,
-  ): Promise<Order> {
+  ) {
     return this.ordersService.updateOrder(id, dto);
   }
 
