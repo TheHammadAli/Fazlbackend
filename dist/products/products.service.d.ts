@@ -40,6 +40,7 @@ export declare class ProductsService {
     delete(productId: string, lang?: string): Promise<void>;
     deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;
+    findNearbyProductShopOwnerIds(categoryId: string, coordinates: [number, number], radiusInMeters: number): Promise<string[]>;
     updateLocationByShopId(shopId: string, location: {
         type: "Point";
         coordinates: [number, number];

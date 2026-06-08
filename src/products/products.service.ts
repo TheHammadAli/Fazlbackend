@@ -404,6 +404,63 @@ export class ProductsService {
     );
   }
 
+  async findNearbyProductShopOwnerIds(
+    categoryId: string,
+    coordinates: [number, number],
+    radiusInMeters: number,
+  ): Promise<string[]> {
+    const results = await this.productModel.aggregate([
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates },
+          distanceField: "distance",
+          maxDistance: radiusInMeters,
+          query: {
+            category: new Types.ObjectId(categoryId),
+            isDeleted: false,
+            isDisabled: false,
+          },
+          spherical: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "shops",
+          localField: "shopId",
+          foreignField: "_id",
+          as: "shop",
+        },
+      },
+      {
+        $unwind: {
+          path: "$shop",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          ownerId: {
+            $ifNull: ["$shop.ownerId", "$ownerId"],
+          },
+        },
+      },
+      {
+        $match: {
+          ownerId: { $exists: true, $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$ownerId",
+        },
+      },
+    ]);
+
+    return results
+      .map((result) => result._id?.toString())
+      .filter(Boolean);
+  }
+
   async updateLocationByShopId(
     shopId: string,
     location: { type: "Point"; coordinates: [number, number] },
@@ -425,7 +482,7 @@ export class ProductsService {
     );
   }
 
-    async setProductsDisabledByUser(userId: string, disabled: boolean) {
+  async setProductsDisabledByUser(userId: string, disabled: boolean) {
     await this.productModel.updateMany(
       { ownerId: new Types.ObjectId(userId) },
       { $set: { isDisabled: disabled } },

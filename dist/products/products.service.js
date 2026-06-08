@@ -295,6 +295,57 @@ let ProductsService = class ProductsService {
     async searchNearbyWithCategory(category, coordinates, radius, pagination) {
         return this.listingUtils.findNearbyWithCategory(this.productModel, category, coordinates, radius, pagination);
     }
+    async findNearbyProductShopOwnerIds(categoryId, coordinates, radiusInMeters) {
+        const results = await this.productModel.aggregate([
+            {
+                $geoNear: {
+                    near: { type: "Point", coordinates },
+                    distanceField: "distance",
+                    maxDistance: radiusInMeters,
+                    query: {
+                        category: new mongoose_2.Types.ObjectId(categoryId),
+                        isDeleted: false,
+                        isDisabled: false,
+                    },
+                    spherical: true,
+                },
+            },
+            {
+                $lookup: {
+                    from: "shops",
+                    localField: "shopId",
+                    foreignField: "_id",
+                    as: "shop",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$shop",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $project: {
+                    ownerId: {
+                        $ifNull: ["$shop.ownerId", "$ownerId"],
+                    },
+                },
+            },
+            {
+                $match: {
+                    ownerId: { $exists: true, $ne: null },
+                },
+            },
+            {
+                $group: {
+                    _id: "$ownerId",
+                },
+            },
+        ]);
+        return results
+            .map((result) => result._id?.toString())
+            .filter(Boolean);
+    }
     async updateLocationByShopId(shopId, location) {
         await this.productModel.updateMany({ shopId }, { $set: { location } });
     }

@@ -18,6 +18,7 @@ import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
 import { ServicesService } from "src/services/services.service";
+import { ProductsService } from "src/products/products.service";
 import { ClsService } from "nestjs-cls";
 import { BroadcastGateway } from "./broadcast.gateway";
 
@@ -37,6 +38,7 @@ export class BroadcastService {
     private readonly categoryService: CategoryService,
     private readonly userService: UsersService,
     private readonly servicesService: ServicesService,
+    private readonly productsService: ProductsService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly broadcastGateway: BroadcastGateway,
@@ -82,15 +84,15 @@ export class BroadcastService {
   private async findNearbySellers(
     location: { type: string; coordinates: [number, number] },
     radiusKm: number,
+    categoryId: string,
   ) {
     const radiusMeters = radiusKm * 1000;
 
-    const shops = await this.shopService.findShopsNearLocation(
+    return this.productsService.findNearbyProductShopOwnerIds(
+      categoryId,
       location.coordinates,
       radiusMeters,
     );
-
-    return shops.map((s) => s.ownerId.toString());
   }
 
   // -----------------------------
@@ -192,7 +194,11 @@ export class BroadcastService {
 
     // Determine recipient IDs based on broadcast type
     if (dto.type === "product") {
-      sellerIds = await this.findNearbySellers(location, dto.radius);
+      sellerIds = await this.findNearbySellers(
+        location,
+        dto.radius,
+        dto.categoryId,
+      );
     } else if (dto.type === "service") {
       sellerIds = await this.findNearbyServiceProviders(
         location,

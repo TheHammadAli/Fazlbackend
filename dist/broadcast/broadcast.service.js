@@ -24,6 +24,7 @@ const shop_service_1 = require("../shop/shop.service");
 const users_service_1 = require("../users/users.service");
 const category_service_1 = require("../category/category.service");
 const services_service_1 = require("../services/services.service");
+const products_service_1 = require("../products/products.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const broadcast_gateway_1 = require("./broadcast.gateway");
 let BroadcastService = class BroadcastService {
@@ -34,10 +35,11 @@ let BroadcastService = class BroadcastService {
     categoryService;
     userService;
     servicesService;
+    productsService;
     i18n;
     cls;
     broadcastGateway;
-    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, i18n, cls, broadcastGateway) {
+    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, productsService, i18n, cls, broadcastGateway) {
         this.broadcastModel = broadcastModel;
         this.messageModel = messageModel;
         this.threadModel = threadModel;
@@ -45,6 +47,7 @@ let BroadcastService = class BroadcastService {
         this.categoryService = categoryService;
         this.userService = userService;
         this.servicesService = servicesService;
+        this.productsService = productsService;
         this.i18n = i18n;
         this.cls = cls;
         this.broadcastGateway = broadcastGateway;
@@ -69,10 +72,9 @@ let BroadcastService = class BroadcastService {
             location,
         });
     }
-    async findNearbySellers(location, radiusKm) {
+    async findNearbySellers(location, radiusKm, categoryId) {
         const radiusMeters = radiusKm * 1000;
-        const shops = await this.shopService.findShopsNearLocation(location.coordinates, radiusMeters);
-        return shops.map((s) => s.ownerId.toString());
+        return this.productsService.findNearbyProductShopOwnerIds(categoryId, location.coordinates, radiusMeters);
     }
     async findNearbyServiceProviders(location, radiusKm, categoryId) {
         const radiusMeters = radiusKm * 1000;
@@ -125,7 +127,7 @@ let BroadcastService = class BroadcastService {
         }
         let sellerIds = [];
         if (dto.type === "product") {
-            sellerIds = await this.findNearbySellers(location, dto.radius);
+            sellerIds = await this.findNearbySellers(location, dto.radius, dto.categoryId);
         }
         else if (dto.type === "service") {
             sellerIds = await this.findNearbyServiceProviders(location, dto.radius, dto.categoryId);
@@ -417,6 +419,7 @@ exports.BroadcastService = BroadcastService = __decorate([
         category_service_1.CategoryService,
         users_service_1.UsersService,
         services_service_1.ServicesService,
+        products_service_1.ProductsService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
         broadcast_gateway_1.BroadcastGateway])
