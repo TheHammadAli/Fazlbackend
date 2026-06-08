@@ -74,7 +74,9 @@ let BroadcastService = class BroadcastService {
     }
     async findNearbySellers(location, radiusKm, categoryId) {
         const radiusMeters = radiusKm * 1000;
-        return this.productsService.findNearbyProductShopOwnerIds(categoryId, location.coordinates, radiusMeters);
+        const sellerIds = await this.productsService.findNearbyProductShopOwnerIds(categoryId, location.coordinates, radiusMeters);
+        console.log("Nearby sellers found:", sellerIds);
+        return sellerIds;
     }
     async findNearbyServiceProviders(location, radiusKm, categoryId) {
         const radiusMeters = radiusKm * 1000;
@@ -116,6 +118,7 @@ let BroadcastService = class BroadcastService {
         return threads;
     }
     async createBroadcastAndDispatch(dto, buyerId, location, imageUrls) {
+        console.log("Creating broadcast with DTO:", dto);
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.category_invalid", {

@@ -88,11 +88,13 @@ export class BroadcastService {
   ) {
     const radiusMeters = radiusKm * 1000;
 
-    return this.productsService.findNearbyProductShopOwnerIds(
+    const sellerIds = await this.productsService.findNearbyProductShopOwnerIds(
       categoryId,
       location.coordinates,
       radiusMeters,
     );
+    console.log("Nearby sellers found:", sellerIds);
+    return sellerIds;
   }
 
   // -----------------------------
@@ -174,6 +176,7 @@ export class BroadcastService {
     location: { type: string; coordinates: [number, number] },
     imageUrls?: string[],
   ) {
+    console.log("Creating broadcast with DTO:", dto);
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
     if (!isCategoryValid) {
