@@ -652,8 +652,6 @@ export class ServicesService {
     if (notificationKey) {
       const i18nArgs = {
         serviceName,
-        proposedDate:
-          request.proposedDateTime?.toISOString() || proposedDateTime,
       };
 
       await this.notificationsService.createAndNotify(
