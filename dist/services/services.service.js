@@ -245,10 +245,10 @@ let ServicesService = class ServicesService {
         return this.listingUtils.findNearbyWithCategory(this.serviceModel, category, coordinates, radius, pagination);
     }
     async searchNearbyServices(query) {
-        const coordinates = [query.lng, query.lat];
-        const radiusMeters = query.radius * 1000;
-        const page = query.page && query.page > 0 ? query.page : 1;
-        const limit = query.limit && query.limit > 0 ? query.limit : 10;
+        const coordinates = [Number(query.lng), Number(query.lat)];
+        const radiusMeters = Number(query.radius) * 1000;
+        const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+        const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 10;
         const skip = (page - 1) * limit;
         const serviceQuery = { isDeleted: false, isDisabled: false };
         if (query.category) {
@@ -325,8 +325,8 @@ let ServicesService = class ServicesService {
         }
         filter.isDeleted = false;
         filter.isDisabled = false;
-        const page = query.page && query.page > 0 ? query.page : 1;
-        const limit = query.limit && query.limit > 0 ? query.limit : 10;
+        const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+        const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 10;
         const skip = (page - 1) * limit;
         const [results, total] = await Promise.all([
             this.serviceModel
@@ -474,7 +474,6 @@ let ServicesService = class ServicesService {
         if (notificationKey) {
             const i18nArgs = {
                 serviceName,
-                proposedDate: request.proposedDateTime?.toISOString() || proposedDateTime,
             };
             await this.notificationsService.createAndNotify(recipientId, notificationKey, "SERVICE_REQUEST", notificationPayload, i18nArgs);
         }

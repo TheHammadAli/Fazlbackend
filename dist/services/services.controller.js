@@ -93,6 +93,7 @@ let ServicesController = class ServicesController {
         return { message: "Selected service media deleted successfully" };
     }
     async searchNearbyServices(query) {
+        console.log("Searching nearby services with query:", query);
         return this.servicesService.searchNearbyServices(query);
     }
     async deleteService(serviceId) {

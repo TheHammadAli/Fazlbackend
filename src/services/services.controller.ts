@@ -277,6 +277,7 @@ export class ServicesController {
   async searchNearbyServices(
     @Query() query: SearchNearbyServiceDto,
   ) {
+    console.log("Searching nearby services with query:", query);
     return this.servicesService.searchNearbyServices(query);
   }
 

@@ -343,10 +343,10 @@ export class ServicesService {
   }
 
   async searchNearbyServices(query: SearchNearbyServiceDto) {
-    const coordinates: [number, number] = [query.lng, query.lat];
-    const radiusMeters = query.radius * 1000;
-    const page = query.page && query.page > 0 ? query.page : 1;
-    const limit = query.limit && query.limit > 0 ? query.limit : 10;
+    const coordinates: [number, number] = [Number(query.lng), Number(query.lat)];
+    const radiusMeters = Number(query.radius) * 1000;
+    const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+    const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 10;
     const skip = (page - 1) * limit;
 
     const serviceQuery: Record<string, any> = { isDeleted: false, isDisabled: false };
@@ -439,8 +439,8 @@ export class ServicesService {
     filter.isDeleted = false;
     filter.isDisabled = false;
 
-    const page = query.page && query.page > 0 ? query.page : 1;
-    const limit = query.limit && query.limit > 0 ? query.limit : 10;
+    const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+    const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 10;
     const skip = (page - 1) * limit;
 
     const [results, total] = await Promise.all([
