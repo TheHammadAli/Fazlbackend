@@ -17,4 +17,10 @@ export class GetWithVideosDto {
     description: "Which category to filter by",
   })
   category?: string;
+
+  
+  @ApiPropertyOptional({
+    description: "User ID to filter by",
+  })
+  userId?: string;
 }

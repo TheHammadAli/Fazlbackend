@@ -282,7 +282,7 @@ export class ServicesService {
     return true;
   }
 
-  async getById(serviceId: string): Promise<Service> {
+  async getById(serviceId: string, userId?: string): Promise<any> {
     const service = await this.serviceModel
       .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
       .populate("category")
@@ -296,7 +296,19 @@ export class ServicesService {
       );
     }
 
-    return service;
+    if (!userId) return service;
+
+    const [isLiked, userReview] = await Promise.all([
+      this.likeService.isLiked(userId, serviceId, "service"),
+      this.reviewService.findOne(userId, serviceId, "service"),
+    ]);
+
+    const plain = service.toObject ? service.toObject() : service;
+    return {
+      ...plain,
+      isLiked: !!isLiked,
+      userReview: userReview || null,
+    } as any;
   }
 
   async getByUser(
@@ -847,7 +859,7 @@ export class ServicesService {
 
   async getServicesWithVideos(
     paginationDto: PaginationDto,
-    userId: string,
+    userId?: string,
     category?: string,
   ): Promise<PaginatedResponseDto<Service>> {
     const { page = 1, limit = 10 } = paginationDto;
@@ -877,6 +889,22 @@ export class ServicesService {
       this.serviceModel.countDocuments(filter).exec(),
     ]);
     const productIds = items.map((item: any) => new Types.ObjectId(item._id));
+
+    if (!userId) {
+      return {
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        data: items,
+      };
+    }
+
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.users.user_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
 
     const likes = await this.likeService.getLikesByUser(
       userId,

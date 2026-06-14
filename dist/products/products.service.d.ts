@@ -35,7 +35,7 @@ export declare class ProductsService {
     }>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
     getAllProductsByUser(ownerId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
-    getById(id: string): Promise<Product>;
+    getById(id: string, userId?: string): Promise<any>;
     update(productId: string, updateDto: UpdateProductDto): Promise<any>;
     delete(productId: string, lang?: string): Promise<void>;
     deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
@@ -61,5 +61,5 @@ export declare class ProductsService {
         };
     }>;
     private enrichProductsWithReviewStats;
-    getProductsWithVideos(paginationDto: PaginationDto, userId: string, category?: string): Promise<PaginatedResponseDto<any>>;
+    getProductsWithVideos(paginationDto: PaginationDto, userId?: string, category?: string): Promise<PaginatedResponseDto<any>>;
 }

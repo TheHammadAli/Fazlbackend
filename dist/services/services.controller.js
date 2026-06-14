@@ -23,7 +23,6 @@ const create_request_dto_1 = require("./dto/create-request-dto");
 const update_request_dto_1 = require("./dto/update-request-dto");
 const update_job_dto_1 = require("./dto/update-job-dto");
 const platform_express_1 = require("@nestjs/platform-express");
-const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("./dto/video-with-dto");
 const Get_paginated_dto_1 = require("../orders/dto/Get-paginated-dto");
@@ -72,8 +71,8 @@ let ServicesController = class ServicesController {
         console.log("Results", results);
         return { message: results.message };
     }
-    async getById(serviceId) {
-        return await this.servicesService.getById(serviceId);
+    async getById(serviceId, userId) {
+        return await this.servicesService.getById(serviceId, userId);
     }
     async getByUser(userId, page = 1, limit = 10) {
         return this.servicesService.getByUser(userId, page, limit);
@@ -187,10 +186,12 @@ __decorate([
     (0, common_1.Get)(":serviceId"),
     (0, swagger_1.ApiOperation)({ summary: "Get service by ID" }),
     (0, swagger_1.ApiParam)({ name: "serviceId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "userId", required: false }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Service found" }),
     __param(0, (0, common_1.Param)("serviceId")),
+    __param(1, (0, common_1.Query)("userId")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getById", null);
 __decorate([
@@ -256,7 +257,7 @@ __decorate([
         description: "Paginated list of services with videos",
     }),
     __param(0, (0, common_1.Query)()),
-    __param(1, (0, current_user_decorator_1.CurrentUser)("sub")),
+    __param(1, (0, common_1.Query)("userId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [video_with_dto_1.GetWithVideosDto, String]),
     __metadata("design:returntype", Promise)

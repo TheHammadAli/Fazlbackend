@@ -163,24 +163,26 @@ export class ProductsController {
   @Get("with-videos/all")
   @Public()
   @ApiOperation({ summary: "Get all products with videos (paginated)" })
-
   @ApiResponse({
     status: 200,
     description: "Paginated list of products with videos",
   })
   async getProductsWithVideos(
     @Query() query: GetWithVideosDto,
-    @CurrentUser("sub") userId: string,
   ): Promise<PaginatedResponseDto<Product>> {
-    return this.productsService.getProductsWithVideos(query, userId, query.category);
+    return this.productsService.getProductsWithVideos(query, query?.userId, query.category);
   }
 
   @Get("detail/:id")
   @Public()
   @ApiOperation({ summary: "Get product details by ID" })
   @ApiParam({ name: "id", required: true })
-  async getById(@Param("id") id: string): Promise<Product> {
-    return this.productsService.getById(id);
+  @ApiQuery({ name: "userId", required: false })
+  async getById(
+    @Param("id") id: string,
+    @Query("userId") userId?: string,
+  ): Promise<any> {
+    return this.productsService.getById(id, userId);
   }
 
   @Put(":id")

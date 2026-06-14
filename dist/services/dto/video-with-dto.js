@@ -15,6 +15,7 @@ class GetWithVideosDto {
     page;
     limit;
     category;
+    userId;
 }
 exports.GetWithVideosDto = GetWithVideosDto;
 __decorate([
@@ -37,4 +38,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], GetWithVideosDto.prototype, "category", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: "User ID to filter by",
+    }),
+    __metadata("design:type", String)
+], GetWithVideosDto.prototype, "userId", void 0);
 //# sourceMappingURL=video-with-dto.js.map

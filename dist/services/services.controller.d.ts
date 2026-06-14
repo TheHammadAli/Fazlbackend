@@ -64,10 +64,10 @@ export declare class ServicesController {
     delete(serviceId: string): Promise<{
         message: string;
     }>;
-    getById(serviceId: string): Promise<import("./schema/services.schema").Service>;
+    getById(serviceId: string, userId?: string): Promise<any>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
     getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<any>>;
-    getServicesWithVideos(query: GetWithVideosDto, userId: string): Promise<PaginatedResponseDto<any>>;
+    getServicesWithVideos(query: GetWithVideosDto, userId?: string): Promise<PaginatedResponseDto<any>>;
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;

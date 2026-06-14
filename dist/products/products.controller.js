@@ -21,7 +21,6 @@ const pagination_dto_1 = require("../common/dto/pagination.dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 const swagger_1 = require("@nestjs/swagger");
-const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("../services/dto/video-with-dto");
 let ProductsController = class ProductsController {
@@ -58,11 +57,11 @@ let ProductsController = class ProductsController {
     async getAllProductsByUser(userId, paginationDto) {
         return this.productsService.getAllProductsByUser(userId, paginationDto);
     }
-    async getProductsWithVideos(query, userId) {
-        return this.productsService.getProductsWithVideos(query, userId, query.category);
+    async getProductsWithVideos(query) {
+        return this.productsService.getProductsWithVideos(query, query?.userId, query.category);
     }
-    async getById(id) {
-        return this.productsService.getById(id);
+    async getById(id, userId) {
+        return this.productsService.getById(id, userId);
     }
     async update(id, updateProductDto, files) {
         if (files?.images && files.images.length > 0) {
@@ -179,9 +178,8 @@ __decorate([
         description: "Paginated list of products with videos",
     }),
     __param(0, (0, common_1.Query)()),
-    __param(1, (0, current_user_decorator_1.CurrentUser)("sub")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [video_with_dto_1.GetWithVideosDto, String]),
+    __metadata("design:paramtypes", [video_with_dto_1.GetWithVideosDto]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getProductsWithVideos", null);
 __decorate([
@@ -189,9 +187,11 @@ __decorate([
     (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: "Get product details by ID" }),
     (0, swagger_1.ApiParam)({ name: "id", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "userId", required: false }),
     __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Query)("userId")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "getById", null);
 __decorate([

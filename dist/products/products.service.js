@@ -180,7 +180,7 @@ let ProductsService = class ProductsService {
             data: items,
         };
     }
-    async getById(id) {
+    async getById(id, userId) {
         const product = await this.productModel
             .findOne({
             _id: new mongoose_2.Types.ObjectId(id),
@@ -198,7 +198,22 @@ let ProductsService = class ProductsService {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
             }));
-        return product;
+        console.log("userId", userId);
+        if (!userId)
+            return product;
+        const [isLiked, userReview] = await Promise.all([
+            this.likeService.isLiked(userId, id, "product"),
+            this.reviewService.findOne(userId, id, "product"),
+        ]);
+        const plain = product.toObject ? product.toObject() : product;
+        console.log("Product Details:", plain);
+        console.log("Is Liked by User:", isLiked);
+        console.log("User's Review:", userReview);
+        return {
+            ...plain,
+            isLiked: !!isLiked,
+            isReviewed: userReview || null,
+        };
     }
     async update(productId, updateDto) {
         if ("shopId" in updateDto) {
@@ -465,6 +480,18 @@ let ProductsService = class ProductsService {
                 .exec(),
             this.productModel.countDocuments(filter).exec(),
         ]);
+        if (!userId) {
+            return {
+                meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+                data: items,
+            };
+        }
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", {
+                lang: this.lang,
+            }));
+        }
         const productIds = items.map((item) => new mongoose_2.Types.ObjectId(item._id));
         const likes = await this.likeService.getLikesByUser(userId, "product", productIds);
         console.log("Products with Likes:", likes);

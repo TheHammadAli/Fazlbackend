@@ -208,7 +208,7 @@ let ServicesService = class ServicesService {
         await existingService.save();
         return true;
     }
-    async getById(serviceId) {
+    async getById(serviceId, userId) {
         const service = await this.serviceModel
             .findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
             .populate("category")
@@ -218,7 +218,18 @@ let ServicesService = class ServicesService {
                 lang: this.lang,
             }));
         }
-        return service;
+        if (!userId)
+            return service;
+        const [isLiked, userReview] = await Promise.all([
+            this.likeService.isLiked(userId, serviceId, "service"),
+            this.reviewService.findOne(userId, serviceId, "service"),
+        ]);
+        const plain = service.toObject ? service.toObject() : service;
+        return {
+            ...plain,
+            isLiked: !!isLiked,
+            userReview: userReview || null,
+        };
     }
     async getByUser(userId, page = 1, limit = 10) {
         const skip = (page - 1) * limit;
@@ -630,6 +641,18 @@ let ServicesService = class ServicesService {
             this.serviceModel.countDocuments(filter).exec(),
         ]);
         const productIds = items.map((item) => new mongoose_2.Types.ObjectId(item._id));
+        if (!userId) {
+            return {
+                meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+                data: items,
+            };
+        }
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", {
+                lang: this.lang,
+            }));
+        }
         const likes = await this.likeService.getLikesByUser(userId, "service", productIds);
         console.log("Services with Likes:", likes);
         const likedServiceIds = new Set(likes.map((like) => like.itemId.toString()));

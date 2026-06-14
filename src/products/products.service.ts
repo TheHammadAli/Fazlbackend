@@ -221,7 +221,7 @@ export class ProductsService {
     };
   }
 
-  async getById(id: string): Promise<Product> {
+  async getById(id: string, userId?: string): Promise<any> {
     const product = await this.productModel
       .findOne({
         _id: new Types.ObjectId(id),
@@ -242,7 +242,26 @@ export class ProductsService {
           lang: this.lang,
         }),
       );
-    return product;
+    console.log("userId", userId)
+    // If there's no logged-in user, return product as-is
+    if (!userId) return product;
+
+    // Otherwise include whether the user liked / reviewed this product
+    const [isLiked, userReview] = await Promise.all([
+      this.likeService.isLiked(userId, id, "product"),
+      this.reviewService.findOne(userId, id, "product"),
+    ]);
+
+    const plain = product.toObject ? product.toObject() : product;
+
+    console.log("Product Details:", plain);
+    console.log("Is Liked by User:", isLiked);
+    console.log("User's Review:", userReview);
+    return {
+      ...plain,
+      isLiked: !!isLiked,
+      isReviewed: userReview || null,
+    } as any;
   }
 
   async update(productId: string, updateDto: UpdateProductDto): Promise<any> {
@@ -605,7 +624,7 @@ export class ProductsService {
 
   async getProductsWithVideos(
     paginationDto: PaginationDto,
-    userId: string,
+    userId?: string,
     category?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const { page = 1, limit = 10 } = paginationDto;
@@ -633,8 +652,24 @@ export class ProductsService {
       this.productModel.countDocuments(filter).exec(),
     ]);
 
-    const productIds = items.map((item: any) => new Types.ObjectId(item._id));
+    if (!userId) {
+      return {
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        data: items,
+      };
+    }
 
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.users.user_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+
+    const productIds = items.map((item: any) => new Types.ObjectId(item._id));
     const likes = await this.likeService.getLikesByUser(
       userId,
       "product",

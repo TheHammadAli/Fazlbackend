@@ -58,7 +58,7 @@ export declare class ServicesService {
         message: string;
     }>;
     deleteServiceMedia(serviceId: string, media: string[]): Promise<boolean>;
-    getById(serviceId: string): Promise<Service>;
+    getById(serviceId: string, userId?: string): Promise<any>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ServiceDocument>>;
     searchNearbyServices(query: SearchNearbyServiceDto): Promise<{
@@ -111,6 +111,6 @@ export declare class ServicesService {
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;
-    getServicesWithVideos(paginationDto: PaginationDto, userId: string, category?: string): Promise<PaginatedResponseDto<Service>>;
+    getServicesWithVideos(paginationDto: PaginationDto, userId?: string, category?: string): Promise<PaginatedResponseDto<Service>>;
     getServicesRequestsForCustomer(customerId: string, paginationDto: PaginationDto, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
 }

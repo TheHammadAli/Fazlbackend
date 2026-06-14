@@ -153,9 +153,10 @@ export class ServicesController {
   @Get(":serviceId")
   @ApiOperation({ summary: "Get service by ID" })
   @ApiParam({ name: "serviceId", required: true })
+  @ApiQuery({ name: "userId", required: false })
   @ApiResponse({ status: 200, description: "Service found" })
-  async getById(@Param("serviceId") serviceId: string) {
-    return await this.servicesService.getById(serviceId);
+  async getById(@Param("serviceId") serviceId: string, @Query("userId") userId?: string): Promise<any> {
+    return await this.servicesService.getById(serviceId, userId);
   }
 
   @Get("/user/:userId")
@@ -223,7 +224,7 @@ export class ServicesController {
   })
   async getServicesWithVideos(
     @Query() query: GetWithVideosDto,
-    @CurrentUser("sub") userId: string,
+    @Query("userId") userId?: string,
   ): Promise<PaginatedResponseDto<any>> {
     console.log("Recieved pagination", query);
     return this.servicesService.getServicesWithVideos(query, userId, query.category);

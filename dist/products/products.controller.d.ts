@@ -23,8 +23,8 @@ export declare class ProductsController {
         message: string;
     }>;
     getAllProductsByUser(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
-    getProductsWithVideos(query: GetWithVideosDto, userId: string): Promise<PaginatedResponseDto<Product>>;
-    getById(id: string): Promise<Product>;
+    getProductsWithVideos(query: GetWithVideosDto): Promise<PaginatedResponseDto<Product>>;
+    getById(id: string, userId?: string): Promise<any>;
     update(id: string, updateProductDto: UpdateProductDto, files: {
         images?: Express.Multer.File[];
         video?: Express.Multer.File[];
