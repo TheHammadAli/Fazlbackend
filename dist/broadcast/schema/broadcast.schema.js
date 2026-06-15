@@ -15,6 +15,7 @@ const mongoose_2 = require("mongoose");
 let Broadcast = class Broadcast {
     buyer;
     message;
+    address;
     purpose;
     category;
     radius;
@@ -32,6 +33,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: String, required: true }),
     __metadata("design:type", String)
 ], Broadcast.prototype, "message", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String }),
+    __metadata("design:type", String)
+], Broadcast.prototype, "address", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: String, enum: ["Buying", "Selling"], required: true }),
     __metadata("design:type", String)

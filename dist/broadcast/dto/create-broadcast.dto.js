@@ -32,6 +32,7 @@ __decorate([
 ], LocationDto.prototype, "coordinates", void 0);
 class CreateBroadcastDto {
     message;
+    address;
     radius;
     categoryId;
     type;
@@ -46,6 +47,12 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateBroadcastDto.prototype, "message", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "123 Main St, Downtown City" }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateBroadcastDto.prototype, "address", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 10 }),
     (0, class_validator_1.IsNumber)(),

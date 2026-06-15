@@ -32,6 +32,11 @@ export class CreateBroadcastDto {
   @IsNotEmpty()
   message!: string;
 
+  @ApiPropertyOptional({ example: "123 Main St, Downtown City" })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
   @ApiProperty({ example: 10 })
   @IsNumber()
   radius!: number;

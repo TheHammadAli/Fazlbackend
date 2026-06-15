@@ -5,6 +5,7 @@ declare class LocationDto implements Location {
 }
 export declare class CreateBroadcastDto {
     message: string;
+    address?: string;
     radius: number;
     categoryId: string;
     type: "product" | "service";
