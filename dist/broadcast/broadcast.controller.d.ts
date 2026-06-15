@@ -34,6 +34,14 @@ export declare class BroadcastController {
     } & {
         __v: number;
     })[]>;
-    getMyBroadcasts(req: Request, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/broadcast.schema").Broadcast>>;
+    getMyBroadcasts(req: Request, paginationDto: PaginationDto): Promise<{
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        data: any;
+    }>;
     getReceivedBroadcasts(req: Request, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<any>>;
 }

@@ -358,6 +358,16 @@ let BroadcastService = class BroadcastService {
                 .exec(),
             this.broadcastModel.countDocuments(filter),
         ]);
+        const images = await this.messageModel.findOne({
+            broadcast: new mongoose_2.Types.ObjectId(data[0]._id),
+        });
+        let dataWithImages = [];
+        if (images) {
+            dataWithImages = [{
+                    ...data[0].toObject(),
+                    imageUrls: images.imageUrls || [],
+                }];
+        }
         return {
             meta: {
                 total,
@@ -365,7 +375,7 @@ let BroadcastService = class BroadcastService {
                 limit,
                 totalPages: Math.ceil(total / limit),
             },
-            data,
+            data: dataWithImages.length ? dataWithImages : data,
         };
     }
     async getBroadcastsForSeller(userId, page = 1, limit = 10) {

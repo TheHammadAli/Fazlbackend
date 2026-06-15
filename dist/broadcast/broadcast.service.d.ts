@@ -60,6 +60,14 @@ export declare class BroadcastService {
     } & {
         __v: number;
     })[]>;
-    getBroadcastsByBuyer(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Broadcast>>;
+    getBroadcastsByBuyer(userId: string, page?: number, limit?: number): Promise<{
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        data: any;
+    }>;
     getBroadcastsForSeller(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
 }

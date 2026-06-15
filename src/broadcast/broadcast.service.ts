@@ -506,7 +506,7 @@ export class BroadcastService {
     userId: string,
     page = 1,
     limit = 10,
-  ): Promise<PaginatedResponseDto<Broadcast>> {
+  ) {
     const skip = (page - 1) * limit;
     const filter = { buyer: new Types.ObjectId(userId) };
 
@@ -521,6 +521,19 @@ export class BroadcastService {
       this.broadcastModel.countDocuments(filter),
     ]);
 
+    const images = await this.messageModel.findOne({
+      broadcast: new Types.ObjectId(data[0]._id),
+    })
+    let dataWithImages: any = []
+    if (images) {
+      dataWithImages = [{
+        ...data[0].toObject(),
+        imageUrls: images.imageUrls || [],
+      }];
+    }
+
+
+
     return {
       meta: {
         total,
@@ -528,7 +541,7 @@ export class BroadcastService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data,
+      data: dataWithImages.length ? dataWithImages : data,
     };
   }
 
