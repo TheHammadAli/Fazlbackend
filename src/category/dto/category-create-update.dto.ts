@@ -1,9 +1,13 @@
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsObject,
   IsOptional,
+  IsString,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 
 import {
   ApiProperty,
@@ -11,6 +15,18 @@ import {
 } from "@nestjs/swagger";
 
 import { CategoryType } from "../schema/category.schema";
+
+class CategoryParametersDto {
+  @ApiProperty({ example: ["Size", "Color"] })
+  @IsArray()
+  @IsString({ each: true })
+  en!: string[];
+
+  @ApiProperty({ example: ["سائز", "رنگ"] })
+  @IsArray()
+  @IsString({ each: true })
+  ur!: string[];
+}
 
 export class CreateUpdateCategoryDto {
   @ApiProperty({
@@ -31,6 +47,18 @@ export class CreateUpdateCategoryDto {
   @IsOptional()
   @IsObject()
   description?: Record<string, string>;
+
+  @ApiPropertyOptional({
+    example: {
+      en: ["Size", "Color"],
+      ur: ["سائز", "رنگ"],
+    },
+    type: CategoryParametersDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CategoryParametersDto)
+  parameters?: CategoryParametersDto;
 
   @ApiPropertyOptional({ type: "string", format: "binary" })
   @IsOptional()

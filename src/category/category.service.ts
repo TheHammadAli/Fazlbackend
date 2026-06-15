@@ -35,10 +35,10 @@ export class CategoryService {
   }
 
   async create(dto: CreateUpdateCategoryDto): Promise<Category> {
-    return new this.categoryModel(dto).save();
+    return new this.categoryModel({ ...dto }).save();
   }
 
-  async findAll(type?:string) {
+  async findAll(type?: string) {
 
     const filter: FilterQuery<CategoryDocument> = { isDisabled: false };
     if (type) {
@@ -70,7 +70,7 @@ export class CategoryService {
     dto: CreateUpdateCategoryDto,
 
   ): Promise<Category> {
-    const updated = await this.categoryModel.findByIdAndUpdate(id, dto, {
+    const updated = await this.categoryModel.findByIdAndUpdate(id, { ...dto }, {
       new: true,
     });
     if (!updated)

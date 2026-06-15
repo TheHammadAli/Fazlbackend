@@ -25,6 +25,18 @@ export class Category {
   })
   description?: Map<string, string>;
 
+  @Prop({
+    type: {
+      en: [{ type: String }],
+      ur: [{ type: String }],
+    },
+    default: { en: [], ur: [] },
+  })
+  parameters?: {
+    en: string[];
+    ur: string[];
+  };
+
   @Prop({ default: false })
   isDisabled!: boolean;
 
