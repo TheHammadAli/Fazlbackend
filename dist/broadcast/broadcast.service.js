@@ -351,7 +351,7 @@ let BroadcastService = class BroadcastService {
         const [data, total] = await Promise.all([
             this.broadcastModel
                 .find(filter)
-                .populate("category", "name")
+                .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -398,7 +398,7 @@ let BroadcastService = class BroadcastService {
         ]));
         const data = await this.broadcastModel
             .find({ _id: { $in: broadcastIds } })
-            .populate("category", "name")
+            .populate("category")
             .exec();
         const broadcastIdOrder = threads.map((thread) => thread.broadcast.toString());
         const dataMap = new Map(data.map((b) => [b._id.toString(), b]));

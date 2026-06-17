@@ -19,6 +19,10 @@ export declare class CategoryService {
         data: {
             name: string;
             description: string;
+            parameters?: {
+                en: string[];
+                ur: string[];
+            };
             isDisabled: boolean;
             icon?: string;
             type: import("./schema/category.schema").CategoryType;

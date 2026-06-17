@@ -286,7 +286,7 @@ export class ServicesService {
     const service = await this.serviceModel
       .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
       .populate("category")
-      .populate("ownerId");
+      .populate("ownerId").lean();
 
     if (!service) {
       throw new NotFoundException(

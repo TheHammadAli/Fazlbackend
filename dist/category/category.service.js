@@ -38,7 +38,7 @@ let CategoryService = class CategoryService {
         return this.cls?.get("lang") ?? "en";
     }
     async create(dto) {
-        return new this.categoryModel(dto).save();
+        return new this.categoryModel({ ...dto }).save();
     }
     async findAll(type) {
         const filter = { isDisabled: false };
@@ -63,7 +63,7 @@ let CategoryService = class CategoryService {
         return category;
     }
     async update(id, dto) {
-        const updated = await this.categoryModel.findByIdAndUpdate(id, dto, {
+        const updated = await this.categoryModel.findByIdAndUpdate(id, { ...dto }, {
             new: true,
         });
         if (!updated)

@@ -212,7 +212,7 @@ let ServicesService = class ServicesService {
         const service = await this.serviceModel
             .findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
             .populate("category")
-            .populate("ownerId");
+            .populate("ownerId").lean();
         if (!service) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,

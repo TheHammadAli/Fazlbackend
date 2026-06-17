@@ -234,7 +234,7 @@ export class ProductsService {
       })
       .populate({
         path: "ownerId",
-      });
+      }).lean();
 
     if (!product)
       throw new NotFoundException(

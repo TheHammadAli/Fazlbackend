@@ -19,6 +19,7 @@ var CategoryType;
 let Category = class Category {
     name;
     description;
+    parameters;
     isDisabled;
     icon;
     type;
@@ -40,6 +41,16 @@ __decorate([
     }),
     __metadata("design:type", Map)
 ], Category.prototype, "description", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: {
+            en: [{ type: String }],
+            ur: [{ type: String }],
+        },
+        default: { en: [], ur: [] },
+    }),
+    __metadata("design:type", Object)
+], Category.prototype, "parameters", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)

@@ -6,6 +6,10 @@ export declare enum CategoryType {
 export declare class Category {
     name: Map<string, string>;
     description?: Map<string, string>;
+    parameters?: {
+        en: string[];
+        ur: string[];
+    };
     isDisabled: boolean;
     icon?: string;
     type: CategoryType;

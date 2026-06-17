@@ -11,11 +11,29 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateUpdateCategoryDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 const category_schema_1 = require("../schema/category.schema");
+class CategoryParametersDto {
+    en;
+    ur;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: ["Size", "Color"] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CategoryParametersDto.prototype, "en", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: ["سائز", "رنگ"] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CategoryParametersDto.prototype, "ur", void 0);
 class CreateUpdateCategoryDto {
     name;
     description;
+    parameters;
     icon;
     type;
     isDisabled;
@@ -42,6 +60,19 @@ __decorate([
     (0, class_validator_1.IsObject)(),
     __metadata("design:type", Object)
 ], CreateUpdateCategoryDto.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: {
+            en: ["Size", "Color"],
+            ur: ["سائز", "رنگ"],
+        },
+        type: CategoryParametersDto,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => CategoryParametersDto),
+    __metadata("design:type", CategoryParametersDto)
+], CreateUpdateCategoryDto.prototype, "parameters", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ type: "string", format: "binary" }),
     (0, class_validator_1.IsOptional)(),

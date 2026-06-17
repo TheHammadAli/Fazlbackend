@@ -50,4 +50,6 @@ export class Category {
   type!: CategoryType;
 }
 export type CategoryDocument = Category & Document;
+
+
 export const CategorySchema = SchemaFactory.createForClass(Category);
