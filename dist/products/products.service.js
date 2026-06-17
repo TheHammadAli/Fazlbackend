@@ -190,10 +190,14 @@ let ProductsService = class ProductsService {
             .populate("category")
             .populate({
             path: "shopId",
+            populate: {
+                path: "ownerId",
+                select: "_id name phone"
+            },
         })
             .populate({
             path: "ownerId",
-        });
+        }).lean();
         if (!product)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
