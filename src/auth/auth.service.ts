@@ -114,7 +114,7 @@ export class AuthService {
       };
 
       const newAccessToken = this.jwtService.sign(newPayload, {
-        expiresIn: "1h",
+        expiresIn: "2d",
       });
 
       const newRefreshToken = this.jwtService.sign(newPayload, {
