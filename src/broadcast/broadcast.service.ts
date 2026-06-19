@@ -508,16 +508,17 @@ export class BroadcastService {
   // -----------------------------
   // GET BROADCASTS CREATED BY BUYER (Fixed)
   // -----------------------------
+  // -----------------------------
+  // GET BROADCASTS CREATED BY BUYER (With Multilingual Category)
+  // -----------------------------
   async getBroadcastsByBuyer(
     userId: string,
     page = 1,
     limit = 10,
   ) {
-    // ✅ IMPORTANT: Convert to numbers
     const pageNum = Number(page);
     const limitNum = Number(limit);
 
-    // Validate numbers
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
       throw new BadRequestException(
         this.i18n.translate("common.invalid_pagination", { lang: this.lang }),
@@ -530,7 +531,7 @@ export class BroadcastService {
     const broadcasts = await this.broadcastModel.aggregate([
       { $match: { buyer: buyerObjectId } },
 
-      // Lookup threads (recipients count)
+      // 1. Threads → threadCount
       {
         $lookup: {
           from: "broadcastthreads",
@@ -545,7 +546,23 @@ export class BroadcastService {
         },
       },
 
-      // Get initial message for images
+      // 2. Category Lookup (Multilingual)
+      {
+        $lookup: {
+          from: "categories",           // Confirm this matches your collection name
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
+        $unwind: {
+          path: "$category",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // 3. Initial Message (Images)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -571,7 +588,7 @@ export class BroadcastService {
         },
       },
 
-      // Optional: Latest message
+      // 4. Latest Message (Optional)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -603,6 +620,7 @@ export class BroadcastService {
       { $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true } },
       { $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true } },
 
+      // Final Projection with Language-aware Category Name
       {
         $project: {
           _id: 1,
@@ -611,18 +629,30 @@ export class BroadcastService {
           purpose: 1,
           radius: 1,
           type: 1,
-          category: 1,
-          location: 1,
           createdAt: 1,
           updatedAt: 1,
           threadCount: 1,
           imageUrls: 1,
           latestMessage: 1,
+
+          category: {
+            _id: "$category._id",
+            name: {
+              $ifNull: [
+                { $getField: { field: this.lang, input: "$category.name" } },
+                { $getField: { field: "en", input: "$category.name" } }, // fallback to English
+              ],
+            },
+            // You can also return full name map if frontend needs it
+            // fullName: "$category.name",
+            icon: "$category.icon",
+            type: "$category.type",
+          },
         },
       },
       { $sort: { createdAt: -1 } },
       { $skip: skip },
-      { $limit: limitNum },        // ← Now guaranteed to be a number
+      { $limit: limitNum },
     ]);
 
     const total = await this.broadcastModel.countDocuments({ buyer: buyerObjectId });
