@@ -511,6 +511,9 @@ export class BroadcastService {
   // -----------------------------
   // GET BROADCASTS CREATED BY BUYER (With Multilingual Category)
   // -----------------------------
+  // -----------------------------
+  // GET BROADCASTS CREATED BY BUYER (Full Category Object)
+  // -----------------------------
   async getBroadcastsByBuyer(
     userId: string,
     page = 1,
@@ -546,10 +549,10 @@ export class BroadcastService {
         },
       },
 
-      // 2. Category Lookup (Multilingual)
+      // 2. Category Lookup - Full Object
       {
         $lookup: {
-          from: "categories",           // Confirm this matches your collection name
+          from: "categories",
           localField: "category",
           foreignField: "_id",
           as: "category",
@@ -562,7 +565,7 @@ export class BroadcastService {
         },
       },
 
-      // 3. Initial Message (Images)
+      // 3. Initial Message (for images)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -620,7 +623,7 @@ export class BroadcastService {
       { $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true } },
       { $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true } },
 
-      // Final Projection with Language-aware Category Name
+      // Final Projection
       {
         $project: {
           _id: 1,
@@ -635,19 +638,8 @@ export class BroadcastService {
           imageUrls: 1,
           latestMessage: 1,
 
-          category: {
-            _id: "$category._id",
-            name: {
-              $ifNull: [
-                { $getField: { field: this.lang, input: "$category.name" } },
-                { $getField: { field: "en", input: "$category.name" } }, // fallback to English
-              ],
-            },
-            // You can also return full name map if frontend needs it
-            // fullName: "$category.name",
-            icon: "$category.icon",
-            type: "$category.type",
-          },
+          // ✅ Full Category Object
+          category: 1,
         },
       },
       { $sort: { createdAt: -1 } },

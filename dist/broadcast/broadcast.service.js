@@ -370,6 +370,20 @@ let BroadcastService = class BroadcastService {
             },
             {
                 $lookup: {
+                    from: "categories",
+                    localField: "category",
+                    foreignField: "_id",
+                    as: "category",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$category",
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            {
+                $lookup: {
                     from: "broadcastmessages",
                     let: { broadcastId: "$_id" },
                     pipeline: [
@@ -430,13 +444,12 @@ let BroadcastService = class BroadcastService {
                     purpose: 1,
                     radius: 1,
                     type: 1,
-                    category: 1,
-                    location: 1,
                     createdAt: 1,
                     updatedAt: 1,
                     threadCount: 1,
                     imageUrls: 1,
                     latestMessage: 1,
+                    category: 1,
                 },
             },
             { $sort: { createdAt: -1 } },
