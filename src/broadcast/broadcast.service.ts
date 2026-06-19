@@ -516,7 +516,7 @@ export class BroadcastService {
         .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit)
+        .limit(limit).lean()
         .exec(),
       this.broadcastModel.countDocuments(filter),
     ]);
@@ -527,7 +527,7 @@ export class BroadcastService {
     let dataWithImages: any = []
     if (images) {
       dataWithImages = [{
-        ...data[0].toObject(),
+        ...data[0],
         imageUrls: images.imageUrls || [],
       }];
     }
@@ -562,7 +562,7 @@ export class BroadcastService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("broadcast")
+        .select("broadcast").lean()
         .exec(),
       this.threadModel.countDocuments({ seller: userObjectId }),
     ]);
