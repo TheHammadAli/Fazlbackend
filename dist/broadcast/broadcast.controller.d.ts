@@ -41,7 +41,7 @@ export declare class BroadcastController {
             limit: number;
             totalPages: number;
         };
-        data: any;
+        data: any[];
     }>;
     getReceivedBroadcasts(req: Request, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<any>>;
 }

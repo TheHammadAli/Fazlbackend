@@ -346,36 +346,112 @@ let BroadcastService = class BroadcastService {
             .sort({ createdAt: 1 });
     }
     async getBroadcastsByBuyer(userId, page = 1, limit = 10) {
-        const skip = (page - 1) * limit;
-        const filter = { buyer: new mongoose_2.Types.ObjectId(userId) };
-        const [data, total] = await Promise.all([
-            this.broadcastModel
-                .find(filter)
-                .populate("category")
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit).lean()
-                .exec(),
-            this.broadcastModel.countDocuments(filter),
-        ]);
-        const images = await this.messageModel.findOne({
-            broadcast: new mongoose_2.Types.ObjectId(data[0]._id),
-        });
-        let dataWithImages = [];
-        if (images) {
-            dataWithImages = [{
-                    ...data[0],
-                    imageUrls: images.imageUrls || [],
-                }];
+        const pageNum = Number(page);
+        const limitNum = Number(limit);
+        if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+            throw new common_1.BadRequestException(this.i18n.translate("common.invalid_pagination", { lang: this.lang }));
         }
+        const skip = (pageNum - 1) * limitNum;
+        const buyerObjectId = new mongoose_2.Types.ObjectId(userId);
+        const broadcasts = await this.broadcastModel.aggregate([
+            { $match: { buyer: buyerObjectId } },
+            {
+                $lookup: {
+                    from: "broadcastthreads",
+                    localField: "_id",
+                    foreignField: "broadcast",
+                    as: "threads",
+                },
+            },
+            {
+                $addFields: {
+                    threadCount: { $size: "$threads" },
+                },
+            },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { broadcastId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
+                                type: "SYSTEM",
+                            },
+                        },
+                        { $sort: { createdAt: 1 } },
+                        { $limit: 1 },
+                    ],
+                    as: "initialMessage",
+                },
+            },
+            {
+                $addFields: {
+                    imageUrls: {
+                        $ifNull: [{ $arrayElemAt: ["$initialMessage.imageUrls", 0] }, []],
+                    },
+                },
+            },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { broadcastId: "$_id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$broadcast", "$$broadcastId"] } } },
+                        { $sort: { createdAt: -1 } },
+                        { $limit: 1 },
+                        {
+                            $lookup: {
+                                from: "users",
+                                localField: "sender",
+                                foreignField: "_id",
+                                as: "sender",
+                            },
+                        },
+                        { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+                        {
+                            $project: {
+                                message: 1,
+                                createdAt: 1,
+                                sender: { _id: 1, name: 1, image: 1 },
+                            },
+                        },
+                    ],
+                    as: "latestMessage",
+                },
+            },
+            { $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    _id: 1,
+                    message: 1,
+                    address: 1,
+                    purpose: 1,
+                    radius: 1,
+                    type: 1,
+                    category: 1,
+                    location: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    threadCount: 1,
+                    imageUrls: 1,
+                    latestMessage: 1,
+                },
+            },
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limitNum },
+        ]);
+        const total = await this.broadcastModel.countDocuments({ buyer: buyerObjectId });
         return {
             meta: {
                 total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum),
             },
-            data: dataWithImages.length ? dataWithImages : data,
+            data: broadcasts,
         };
     }
     async getBroadcastsForSeller(userId, page = 1, limit = 10) {

@@ -67,7 +67,7 @@ export declare class BroadcastService {
             limit: number;
             totalPages: number;
         };
-        data: any;
+        data: any[];
     }>;
     getBroadcastsForSeller(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
 }

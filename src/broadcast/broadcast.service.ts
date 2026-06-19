@@ -502,49 +502,141 @@ export class BroadcastService {
   // -----------------------------
   // GET BROADCASTS CREATED BY BUYER
   // -----------------------------
+  // -----------------------------
+  // GET BROADCASTS CREATED BY BUYER (Improved)
+  // -----------------------------
+  // -----------------------------
+  // GET BROADCASTS CREATED BY BUYER (Fixed)
+  // -----------------------------
   async getBroadcastsByBuyer(
     userId: string,
     page = 1,
     limit = 10,
   ) {
-    const skip = (page - 1) * limit;
-    const filter = { buyer: new Types.ObjectId(userId) };
+    // ✅ IMPORTANT: Convert to numbers
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
 
-    const [data, total] = await Promise.all([
-      this.broadcastModel
-        .find(filter)
-        .populate("category")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit).lean()
-        .exec(),
-      this.broadcastModel.countDocuments(filter),
-    ]);
-
-    const images = await this.messageModel.findOne({
-      broadcast: new Types.ObjectId(data[0]._id),
-    })
-    let dataWithImages: any = []
-    if (images) {
-      dataWithImages = [{
-        ...data[0],
-        imageUrls: images.imageUrls || [],
-      }];
+    // Validate numbers
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestException(
+        this.i18n.translate("common.invalid_pagination", { lang: this.lang }),
+      );
     }
 
+    const skip = (pageNum - 1) * limitNum;
+    const buyerObjectId = new Types.ObjectId(userId);
 
+    const broadcasts = await this.broadcastModel.aggregate([
+      { $match: { buyer: buyerObjectId } },
+
+      // Lookup threads (recipients count)
+      {
+        $lookup: {
+          from: "broadcastthreads",
+          localField: "_id",
+          foreignField: "broadcast",
+          as: "threads",
+        },
+      },
+      {
+        $addFields: {
+          threadCount: { $size: "$threads" },
+        },
+      },
+
+      // Get initial message for images
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { broadcastId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
+                type: "SYSTEM",
+              },
+            },
+            { $sort: { createdAt: 1 } },
+            { $limit: 1 },
+          ],
+          as: "initialMessage",
+        },
+      },
+      {
+        $addFields: {
+          imageUrls: {
+            $ifNull: [{ $arrayElemAt: ["$initialMessage.imageUrls", 0] }, []],
+          },
+        },
+      },
+
+      // Optional: Latest message
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { broadcastId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$broadcast", "$$broadcastId"] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+              $lookup: {
+                from: "users",
+                localField: "sender",
+                foreignField: "_id",
+                as: "sender",
+              },
+            },
+            { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                message: 1,
+                createdAt: 1,
+                sender: { _id: 1, name: 1, image: 1 },
+              },
+            },
+          ],
+          as: "latestMessage",
+        },
+      },
+      { $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true } },
+
+      {
+        $project: {
+          _id: 1,
+          message: 1,
+          address: 1,
+          purpose: 1,
+          radius: 1,
+          type: 1,
+          category: 1,
+          location: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          threadCount: 1,
+          imageUrls: 1,
+          latestMessage: 1,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limitNum },        // ← Now guaranteed to be a number
+    ]);
+
+    const total = await this.broadcastModel.countDocuments({ buyer: buyerObjectId });
 
     return {
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
       },
-      data: dataWithImages.length ? dataWithImages : data,
+      data: broadcasts,
     };
   }
-
   // -----------------------------
   // GET BROADCASTS WHERE USER IS SELLER
   // -----------------------------
