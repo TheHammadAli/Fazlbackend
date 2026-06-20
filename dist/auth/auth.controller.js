@@ -48,7 +48,7 @@ let AuthController = class AuthController {
     }
     async verifyOtp(body) {
         const valid = await this.authService.verifyOtp(body.phoneNumber, body.code);
-        return { valid };
+        return valid;
     }
     async sendEmailVerification(email, lang) {
         const result = await this.authService.sendEmailVerificationLink(email, lang);

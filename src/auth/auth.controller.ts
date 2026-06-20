@@ -42,7 +42,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @ApiBearerAuth("jwt")
   @UseGuards(JwtAuthGuard)
@@ -106,7 +106,7 @@ export class AuthController {
   })
   async verifyOtp(@Body() body: { phoneNumber: string; code: string }) {
     const valid = await this.authService.verifyOtp(body.phoneNumber, body.code);
-    return { valid };
+    return valid;
   }
 
   @Post("send-email-verification")
@@ -182,7 +182,7 @@ export class AuthController {
 
   @Get("google")
   @UseGuards(AuthGuard("google"))
-  googleAuth() {}
+  googleAuth() { }
 
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
