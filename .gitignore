@@ -1,5 +1,6 @@
 node_modules
 # Ignore TypeScript build info
 dist/tsconfig.tsbuildinfo
+dist
 tsconfig.tsbuildinfo
 .env

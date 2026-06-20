@@ -534,7 +534,7 @@ export class BroadcastService {
     const broadcasts = await this.broadcastModel.aggregate([
       { $match: { buyer: buyerObjectId } },
 
-      // 1. Threads → threadCount
+      // 1. Threads count
       {
         $lookup: {
           from: "broadcastthreads",
@@ -543,13 +543,9 @@ export class BroadcastService {
           as: "threads",
         },
       },
-      {
-        $addFields: {
-          threadCount: { $size: "$threads" },
-        },
-      },
+      { $addFields: { threadCount: { $size: "$threads" } } },
 
-      // 2. Category Lookup - Full Object
+      // 2. Category
       {
         $lookup: {
           from: "categories",
@@ -559,39 +555,10 @@ export class BroadcastService {
         },
       },
       {
-        $unwind: {
-          path: "$category",
-          preserveNullAndEmptyArrays: true,
-        },
+        $unwind: { path: "$category", preserveNullAndEmptyArrays: true },
       },
 
-      // 3. Initial Message (for images)
-      {
-        $lookup: {
-          from: "broadcastmessages",
-          let: { broadcastId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
-                type: "SYSTEM",
-              },
-            },
-            { $sort: { createdAt: 1 } },
-            { $limit: 1 },
-          ],
-          as: "initialMessage",
-        },
-      },
-      {
-        $addFields: {
-          imageUrls: {
-            $ifNull: [{ $arrayElemAt: ["$initialMessage.imageUrls", 0] }, []],
-          },
-        },
-      },
-
-      // 4. Latest Message (Optional)
+      // 3. Latest Message (with imageUrls)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -613,6 +580,8 @@ export class BroadcastService {
               $project: {
                 message: 1,
                 createdAt: 1,
+                imageUrls: 1,           // ← ADD THIS
+                type: 1,                // optional
                 sender: { _id: 1, name: 1, image: 1 },
               },
             },
@@ -620,8 +589,41 @@ export class BroadcastService {
           as: "latestMessage",
         },
       },
-      { $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true } },
-      { $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true },
+      },
+
+      // 4. Extract imageUrls from latest message (fallback to empty array)
+      {
+        $addFields: {
+          imageUrls: {
+            $ifNull: ["$latestMessage.imageUrls", []],
+          },
+        },
+      },
+
+      // Optional: Keep initial SYSTEM message if you still need it for something else
+      // (you can remove this block if not needed)
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { broadcastId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
+                type: "SYSTEM",
+              },
+            },
+            { $sort: { createdAt: 1 } },
+            { $limit: 1 },
+          ],
+          as: "initialMessage",
+        },
+      },
+      {
+        $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true },
+      },
 
       // Final Projection
       {
@@ -637,9 +639,8 @@ export class BroadcastService {
           threadCount: 1,
           imageUrls: 1,
           latestMessage: 1,
-
-          // ✅ Full Category Object
           category: 1,
+          // initialMessage: 1, // remove if not needed
         },
       },
       { $sort: { createdAt: -1 } },

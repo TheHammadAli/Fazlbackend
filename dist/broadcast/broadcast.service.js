@@ -363,11 +363,7 @@ let BroadcastService = class BroadcastService {
                     as: "threads",
                 },
             },
-            {
-                $addFields: {
-                    threadCount: { $size: "$threads" },
-                },
-            },
+            { $addFields: { threadCount: { $size: "$threads" } } },
             {
                 $lookup: {
                     from: "categories",
@@ -377,34 +373,7 @@ let BroadcastService = class BroadcastService {
                 },
             },
             {
-                $unwind: {
-                    path: "$category",
-                    preserveNullAndEmptyArrays: true,
-                },
-            },
-            {
-                $lookup: {
-                    from: "broadcastmessages",
-                    let: { broadcastId: "$_id" },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
-                                type: "SYSTEM",
-                            },
-                        },
-                        { $sort: { createdAt: 1 } },
-                        { $limit: 1 },
-                    ],
-                    as: "initialMessage",
-                },
-            },
-            {
-                $addFields: {
-                    imageUrls: {
-                        $ifNull: [{ $arrayElemAt: ["$initialMessage.imageUrls", 0] }, []],
-                    },
-                },
+                $unwind: { path: "$category", preserveNullAndEmptyArrays: true },
             },
             {
                 $lookup: {
@@ -427,6 +396,8 @@ let BroadcastService = class BroadcastService {
                             $project: {
                                 message: 1,
                                 createdAt: 1,
+                                imageUrls: 1,
+                                type: 1,
                                 sender: { _id: 1, name: 1, image: 1 },
                             },
                         },
@@ -434,8 +405,36 @@ let BroadcastService = class BroadcastService {
                     as: "latestMessage",
                 },
             },
-            { $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true },
+            },
+            {
+                $addFields: {
+                    imageUrls: {
+                        $ifNull: ["$latestMessage.imageUrls", []],
+                    },
+                },
+            },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { broadcastId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
+                                type: "SYSTEM",
+                            },
+                        },
+                        { $sort: { createdAt: 1 } },
+                        { $limit: 1 },
+                    ],
+                    as: "initialMessage",
+                },
+            },
+            {
+                $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true },
+            },
             {
                 $project: {
                     _id: 1,

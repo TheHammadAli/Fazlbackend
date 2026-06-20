@@ -22,6 +22,7 @@ export class Broadcast {
 
   @Prop({ type: Number, required: true })
   radius: number;
+  
 
   @Prop({
     type: {
