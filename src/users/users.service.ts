@@ -228,28 +228,42 @@ export class UsersService {
     return user;
   }
 
-  async getAllUsers(
-    paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<User>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
+async getAllUsers(
+  paginationDto: PaginationDto,
+): Promise<PaginatedResponseDto<User>> {
+  const { page = 1, limit = 10, search } = paginationDto;
+  const skip = (page - 1) * limit;
 
-    const [users, total] = await Promise.all([
-      this.userModel.find().skip(skip).limit(limit).lean().exec(),
-      this.userModel.countDocuments(),
-    ]);
+  // Build query
+  const query: any = {};
 
-    return {
-      data: users,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+  if (search?.trim()) {
+    query.name = { 
+      $regex: search.trim(), 
+      $options: 'i'   // case-insensitive
     };
   }
 
+  const [users, total] = await Promise.all([
+    this.userModel
+      .find(query)
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .exec(),
+    this.userModel.countDocuments(query),
+  ]);
+
+  return {
+    data: users,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
   async saveFcmToken(userId: string, token: string) {
     return this.userModel.findByIdAndUpdate(
       userId,

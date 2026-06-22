@@ -24,17 +24,17 @@ export class CategoryService {
     private readonly cls: ClsService,
   ) { }
   private getLocalizedValue = (
-    field: Map<string, string> | undefined,
+    field: Record<string, string> | undefined,
     lang = "en",
   ) => {
-    return field?.get(lang) || field?.get("en") || "";
+    return field?.[lang] || field?.["en"] || "";
   };
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
   }
 
-  async create(dto: CreateUpdateCategoryDto): Promise<Category> {
+  async create(dto: CreateUpdateCategoryDto) {
     return new this.categoryModel({ ...dto }).save();
   }
 
@@ -44,20 +44,20 @@ export class CategoryService {
     if (type) {
       filter.type = type;
     }
-    const categories = await this.categoryModel.find(filter).exec();
-    console.log(categories)
+    const categories = await this.categoryModel.find(filter).lean().exec();
+
     return {
       data: categories.map((cat) => ({
-        ...cat.toObject(),
-        name: this.getLocalizedValue(cat.name, this.lang),
+        ...cat,
+        name: this.getLocalizedValue(cat?.name, this.lang),
         description: this.getLocalizedValue(cat?.description, this.lang),
       })),
       message: this.i18n.translate("category.fetched_success", { lang: this.lang }),
     };
   }
 
-  async findById(id: string, lang: string = "en"): Promise<Category> {
-    const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).exec();
+  async findById(id: string, lang: string = "en") {
+    const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).lean().exec();
     if (!category)
       throw new NotFoundException(
         this.i18n.translate("auth.category.category_not_found", { lang }),

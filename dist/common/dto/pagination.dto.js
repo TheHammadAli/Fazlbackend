@@ -14,6 +14,7 @@ const swagger_1 = require("@nestjs/swagger");
 class PaginationDto {
     page;
     limit;
+    search;
 }
 exports.PaginationDto = PaginationDto;
 __decorate([
@@ -24,4 +25,8 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 10 }),
     __metadata("design:type", Number)
 ], PaginationDto.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "name" }),
+    __metadata("design:type", String)
+], PaginationDto.prototype, "search", void 0);
 //# sourceMappingURL=pagination.dto.js.map

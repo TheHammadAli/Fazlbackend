@@ -101,13 +101,17 @@ export class UsersController {
   async getUser(@Param("id") userId: string): Promise<User> {
     return this.usersService.findUserById(userId);
   }
-
   @Get("allUsers")
-  @ApiOperation({ summary: "Get paginated list of all users (protected)" })
-  @ApiQuery({ name: "page", required: false })
-  @ApiQuery({ name: "limit", required: false })
-  async getAllUsers(@Query("page") page = 1, @Query("limit") limit = 10) {
-    return this.usersService.getAllUsers({ page, limit });
+  @ApiOperation({ summary: "Get paginated list of all users with optional name search (protected)" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String, description: "Search by user name (partial, case-insensitive)" })
+  async getAllUsers(
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('search') search?: string,
+  ) {
+    return this.usersService.getAllUsers({ page, limit, search });
   }
 
   @Post("register-fcm-token")

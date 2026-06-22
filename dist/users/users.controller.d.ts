@@ -23,7 +23,7 @@ export declare class UsersController {
         data: User;
     }>;
     getUser(userId: string): Promise<User>;
-    getAllUsers(page?: number, limit?: number): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<User>>;
+    getAllUsers(page?: number, limit?: number, search?: string): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<User>>;
     registerFcmToken(user: JwtPayload, token: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/users.schema").UserDocument, {}> & User & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;
     }> & {

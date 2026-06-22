@@ -6,4 +6,7 @@ export class PaginationDto {
 
   @ApiPropertyOptional({ example: 10 })
   limit?: number;
+
+  @ApiPropertyOptional({ example: "name" })
+  search?: string;
 }

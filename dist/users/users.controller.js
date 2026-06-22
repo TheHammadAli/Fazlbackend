@@ -54,8 +54,8 @@ let UsersController = class UsersController {
     async getUser(userId) {
         return this.usersService.findUserById(userId);
     }
-    async getAllUsers(page = 1, limit = 10) {
-        return this.usersService.getAllUsers({ page, limit });
+    async getAllUsers(page = 1, limit = 10, search) {
+        return this.usersService.getAllUsers({ page, limit, search });
     }
     async registerFcmToken(user, token) {
         return this.usersService.saveFcmToken(user.sub, token);
@@ -107,13 +107,15 @@ __decorate([
 ], UsersController.prototype, "getUser", null);
 __decorate([
     (0, common_1.Get)("allUsers"),
-    (0, swagger_1.ApiOperation)({ summary: "Get paginated list of all users (protected)" }),
-    (0, swagger_1.ApiQuery)({ name: "page", required: false }),
-    (0, swagger_1.ApiQuery)({ name: "limit", required: false }),
-    __param(0, (0, common_1.Query)("page")),
-    __param(1, (0, common_1.Query)("limit")),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated list of all users with optional name search (protected)" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "search", required: false, type: String, description: "Search by user name (partial, case-insensitive)" }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getAllUsers", null);
 __decorate([

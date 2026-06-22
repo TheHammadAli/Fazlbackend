@@ -32,7 +32,7 @@ let CategoryService = class CategoryService {
         this.cls = cls;
     }
     getLocalizedValue = (field, lang = "en") => {
-        return field?.get(lang) || field?.get("en") || "";
+        return field?.[lang] || field?.["en"] || "";
     };
     get lang() {
         return this.cls?.get("lang") ?? "en";
@@ -45,19 +45,18 @@ let CategoryService = class CategoryService {
         if (type) {
             filter.type = type;
         }
-        const categories = await this.categoryModel.find(filter).exec();
-        console.log(categories);
+        const categories = await this.categoryModel.find(filter).lean().exec();
         return {
             data: categories.map((cat) => ({
-                ...cat.toObject(),
-                name: this.getLocalizedValue(cat.name, this.lang),
+                ...cat,
+                name: this.getLocalizedValue(cat?.name, this.lang),
                 description: this.getLocalizedValue(cat?.description, this.lang),
             })),
             message: this.i18n.translate("category.fetched_success", { lang: this.lang }),
         };
     }
     async findById(id, lang = "en") {
-        const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).exec();
+        const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).lean().exec();
         if (!category)
             throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang }));
         return category;

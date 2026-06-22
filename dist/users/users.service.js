@@ -172,11 +172,23 @@ let UsersService = class UsersService {
         return user;
     }
     async getAllUsers(paginationDto) {
-        const { page = 1, limit = 10 } = paginationDto;
+        const { page = 1, limit = 10, search } = paginationDto;
         const skip = (page - 1) * limit;
+        const query = {};
+        if (search?.trim()) {
+            query.name = {
+                $regex: search.trim(),
+                $options: 'i'
+            };
+        }
         const [users, total] = await Promise.all([
-            this.userModel.find().skip(skip).limit(limit).lean().exec(),
-            this.userModel.countDocuments(),
+            this.userModel
+                .find(query)
+                .skip(skip)
+                .limit(limit)
+                .lean()
+                .exec(),
+            this.userModel.countDocuments(query),
         ]);
         return {
             data: users,
