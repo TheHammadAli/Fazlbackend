@@ -19,6 +19,11 @@ export declare class CategoryService {
     }> & {
         __v: number;
     }>;
+    findAllForAdmin(): Promise<(import("mongoose").FlattenMaps<CategoryDocument> & Required<{
+        _id: import("mongoose").FlattenMaps<unknown>;
+    }> & {
+        __v: number;
+    })[]>;
     findAll(type?: string): Promise<{
         data: {
             name: string;

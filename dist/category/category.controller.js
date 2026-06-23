@@ -45,6 +45,9 @@ let CategoryController = class CategoryController {
     findAll(type) {
         return this.categoryService.findAll(type);
     }
+    findAllAdmin() {
+        return this.categoryService.findAllForAdmin();
+    }
     findById(id) {
         return this.categoryService.findById(id);
     }
@@ -100,6 +103,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CategoryController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)("admin"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all categories for admin" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "List of categories" }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], CategoryController.prototype, "findAllAdmin", null);
 __decorate([
     (0, common_1.Get)("detail/:id"),
     (0, swagger_1.ApiHeader)({

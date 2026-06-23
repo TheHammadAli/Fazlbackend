@@ -77,6 +77,15 @@ export class CategoryController {
     return this.categoryService.findAll(type);
   }
 
+
+  @Get("admin")
+
+  @ApiOperation({ summary: "Get all categories for admin" })
+  @ApiResponse({ status: 200, description: "List of categories" })
+  findAllAdmin() {
+    return this.categoryService.findAllForAdmin();
+  }
+
   @Get("detail/:id")
   @ApiHeader({
     name: "Accept-Language",

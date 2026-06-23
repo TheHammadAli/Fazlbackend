@@ -38,6 +38,10 @@ export class CategoryService {
     return new this.categoryModel({ ...dto }).save();
   }
 
+  async findAllForAdmin(){
+    return this.categoryModel.find().lean().exec();
+  }
+
   async findAll(type?: string) {
 
     const filter: FilterQuery<CategoryDocument> = { isDisabled: false };

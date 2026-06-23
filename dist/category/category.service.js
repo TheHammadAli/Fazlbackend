@@ -40,6 +40,9 @@ let CategoryService = class CategoryService {
     async create(dto) {
         return new this.categoryModel({ ...dto }).save();
     }
+    async findAllForAdmin() {
+        return this.categoryModel.find().lean().exec();
+    }
     async findAll(type) {
         const filter = { isDisabled: false };
         if (type) {

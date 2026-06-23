@@ -214,6 +214,11 @@ export declare class CategoryController {
         }[];
         message: string;
     }>;
+    findAllAdmin(): Promise<(import("mongoose").FlattenMaps<import("./schema/category.schema").CategoryDocument> & Required<{
+        _id: import("mongoose").FlattenMaps<unknown>;
+    }> & {
+        __v: number;
+    })[]>;
     findById(id: string): Promise<import("mongoose").FlattenMaps<import("./schema/category.schema").CategoryDocument> & Required<{
         _id: import("mongoose").FlattenMaps<unknown>;
     }> & {
