@@ -37,8 +37,101 @@ let CategoryService = class CategoryService {
     get lang() {
         return this.cls?.get("lang") ?? "en";
     }
+    normalizeParameters(parameters) {
+        if (!parameters)
+            return {};
+        if (typeof parameters === "object" && parameters !== null && !Array.isArray(parameters)) {
+            return parameters;
+        }
+        if (typeof parameters === "string") {
+            try {
+                const parsed = JSON.parse(parameters);
+                if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+                    return parsed;
+                }
+            }
+            catch (e) {
+                throw new common_1.BadRequestException(this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }));
+            }
+        }
+        throw new common_1.BadRequestException(this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }));
+    }
+    async checkDuplicateName(nameInput, excludeId) {
+        let nameEn;
+        let nameUr;
+        if (typeof nameInput === "object" && nameInput !== null) {
+            nameEn = nameInput.en?.trim();
+            nameUr = nameInput.ur?.trim();
+        }
+        else if (typeof nameInput === "string") {
+            nameEn = nameInput.trim();
+        }
+        if (!nameEn && !nameUr)
+            return;
+        const query = { isDisabled: false };
+        if (excludeId) {
+            query._id = { $ne: excludeId };
+        }
+        if (nameEn) {
+            const existingEn = await this.categoryModel.findOne({
+                ...query,
+                "name.en": nameEn,
+            });
+            if (existingEn) {
+                throw new common_1.ConflictException(this.i18n.translate("auth.category.name_already_exists", { lang: this.lang }));
+            }
+        }
+        if (nameUr) {
+            const existingUr = await this.categoryModel.findOne({
+                ...query,
+                "name.ur": nameUr,
+            });
+            if (existingUr) {
+                throw new common_1.ConflictException(this.i18n.translate("auth.category.urdu_name_already_exists", { lang: this.lang }));
+            }
+        }
+    }
     async create(dto) {
-        return new this.categoryModel({ ...dto }).save();
+        try {
+            await this.checkDuplicateName(dto.name);
+            const normalizedDto = {
+                ...dto,
+                parameters: this.normalizeParameters(dto.parameters),
+            };
+            return await this.categoryModel.create(normalizedDto);
+        }
+        catch (error) {
+            if (error.code === 11000 || error instanceof common_1.ConflictException) {
+                throw error;
+            }
+            if (error.name === "ValidationError") {
+                throw new common_1.BadRequestException(this.i18n.translate("category.validation_failed", { lang: this.lang }));
+            }
+            throw error;
+        }
+    }
+    async update(id, dto) {
+        try {
+            await this.checkDuplicateName(dto.name, id);
+            const normalizedDto = {
+                ...dto,
+                parameters: this.normalizeParameters(dto.parameters),
+            };
+            const updated = await this.categoryModel.findByIdAndUpdate(id, normalizedDto, { new: true, runValidators: true });
+            if (!updated) {
+                throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang: this.lang }));
+            }
+            return updated;
+        }
+        catch (error) {
+            if (error.code === 11000 || error instanceof common_1.ConflictException) {
+                throw error;
+            }
+            if (error.name === "ValidationError") {
+                throw new common_1.BadRequestException(this.i18n.translate("auth.category.validation_failed", { lang: this.lang }));
+            }
+            throw error;
+        }
     }
     async findAllForAdmin() {
         return this.categoryModel.find().lean().exec();
@@ -59,23 +152,18 @@ let CategoryService = class CategoryService {
         };
     }
     async findById(id, lang = "en") {
-        const category = await this.categoryModel.findOne({ _id: id, isDisabled: false }).lean().exec();
+        const category = await this.categoryModel
+            .findOne({ _id: id, isDisabled: false })
+            .lean()
+            .exec();
         if (!category)
             throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang }));
         return category;
     }
-    async update(id, dto) {
-        const updated = await this.categoryModel.findByIdAndUpdate(id, { ...dto }, {
-            new: true,
-        });
-        if (!updated)
-            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang: this.lang }));
-        return updated;
-    }
     async delete(id) {
         const result = await this.categoryModel.findById(id);
         if (!result)
-            throw new common_1.NotFoundException(this.i18n.translate("category.category_not_found", { lang: this.lang }));
+            throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang: this.lang }));
         await this.categoryModel.updateOne({ _id: id }, { isDisabled: true }).exec();
     }
     async createRequest(createDto, userId) {
@@ -99,13 +187,14 @@ let CategoryService = class CategoryService {
     async reviewRequestById(id, reviewDto, adminId) {
         const request = await this.categoryRequestModel.findById(id);
         if (!request)
-            throw new common_1.NotFoundException("Request not found");
+            throw new common_1.NotFoundException(this.i18n.translate("auth.category.request_not_found", { lang: this.lang }));
         request.status = reviewDto.status;
         request.adminComment = reviewDto.adminComment || "";
         request.reviewedBy = new mongoose_2.Types.ObjectId(adminId);
         request.reviewedAt = new Date();
         await request.save();
         if (reviewDto.status === "approved") {
+            await this.checkDuplicateName(request.name);
             await this.categoryModel.create({
                 name: request.name,
                 description: request.description,

@@ -14,11 +14,14 @@ export declare class CategoryService {
     constructor(categoryModel: Model<CategoryDocument>, categoryRequestModel: Model<CategoryRequestDocument>, i18n: I18nService, cls: ClsService);
     private getLocalizedValue;
     private get lang();
+    private normalizeParameters;
+    private checkDuplicateName;
     create(dto: CreateUpdateCategoryDto): Promise<import("mongoose").Document<unknown, {}, CategoryDocument, {}> & Category & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>;
+    update(id: string, dto: CreateUpdateCategoryDto): Promise<Category>;
     findAllForAdmin(): Promise<(import("mongoose").FlattenMaps<CategoryDocument> & Required<{
         _id: import("mongoose").FlattenMaps<unknown>;
     }> & {
@@ -230,7 +233,6 @@ export declare class CategoryService {
     }> & {
         __v: number;
     }>;
-    update(id: string, dto: CreateUpdateCategoryDto): Promise<Category>;
     delete(id: string): Promise<void>;
     createRequest(createDto: CreateCategoryRequestDto, userId: string): Promise<import("mongoose").Document<unknown, {}, CategoryRequestDocument, {}> & CategoryRequest & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;

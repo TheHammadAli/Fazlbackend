@@ -562,7 +562,7 @@ export class ProductsService {
 
     const [regularProducts, total] = await Promise.all([
       this.productModel
-        .find(regularFilter)
+        .find(regularFilter).populate("category")
         // IMPORTANT: Do NOT select or sort by textScore when using $or + regex
         .sort({ createdAt: -1 })
         .skip(skip)

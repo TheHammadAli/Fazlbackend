@@ -413,7 +413,7 @@ let ProductsService = class ProductsService {
         }
         const [regularProducts, total] = await Promise.all([
             this.productModel
-                .find(regularFilter)
+                .find(regularFilter).populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
