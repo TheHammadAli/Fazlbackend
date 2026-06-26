@@ -30,6 +30,7 @@ import {
   ApiQuery,
   ApiConsumes,
 } from "@nestjs/swagger";
+import { Public } from "src/common/decorators/public.decorator";
 
 @ApiTags("Categories")
 @ApiBearerAuth("jwt")
@@ -64,6 +65,7 @@ export class CategoryController {
   }
 
   @Get()
+  @Public()
   @ApiHeader({
     name: "Accept-Language",
     required: false,
