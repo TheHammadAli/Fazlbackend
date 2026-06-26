@@ -23,6 +23,7 @@ const current_user_decorator_1 = require("../common/decorators/current-user.deco
 const review_category_dto_1 = require("./dto/review-category.dto");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const swagger_1 = require("@nestjs/swagger");
+const public_decorator_1 = require("../common/decorators/public.decorator");
 let CategoryController = class CategoryController {
     categoryService;
     fileUploadService;
@@ -89,6 +90,7 @@ __decorate([
 ], CategoryController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiHeader)({
         name: "Accept-Language",
         required: false,
