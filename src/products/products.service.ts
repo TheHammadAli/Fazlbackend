@@ -646,7 +646,17 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.productModel
         .find(filter)
-        .populate("category") // you can also populate shopId or ownerId if needed
+        .populate("category")
+        .populate({
+          path: "shopId",
+          populate: {
+            path: "ownerId",
+            select: "_id name phone"
+          },
+        })
+        .populate({
+          path: "ownerId",
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
