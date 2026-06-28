@@ -649,14 +649,16 @@ export class ProductsService {
         .populate("category")
         .populate({
           path: "shopId",
+          select: "title image address description ownerId banner", // be explicit
         })
         .populate({
           path: "ownerId",
+          select: "name image address phone", // be explicit
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        // .lean() // ← This is the key fix
+        .lean()                    // keep it for performance
         .exec(),
 
       this.productModel.countDocuments(filter).exec(),

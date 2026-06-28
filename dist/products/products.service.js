@@ -479,13 +479,16 @@ let ProductsService = class ProductsService {
                 .populate("category")
                 .populate({
                 path: "shopId",
+                select: "title image address description ownerId banner",
             })
                 .populate({
                 path: "ownerId",
+                select: "name image address phone",
             })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
+                .lean()
                 .exec(),
             this.productModel.countDocuments(filter).exec(),
         ]);
