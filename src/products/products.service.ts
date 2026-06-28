@@ -649,11 +649,11 @@ export class ProductsService {
         .populate("category")
         .populate({
           path: "shopId",
-          select: "title image address description ownerId banner", // be explicit
+          select: "_id title image address description ownerId banner", // be explicit
         })
         .populate({
           path: "ownerId",
-          select: "name image address phone", // be explicit
+          select: "_id name image address phone", // be explicit
         })
         .sort({ createdAt: -1 })
         .skip(skip)
