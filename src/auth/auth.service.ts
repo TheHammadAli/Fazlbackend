@@ -68,7 +68,7 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: "1h",
+      expiresIn: "1d",
     });
 
     const refreshToken = this.jwtService.sign(payload, {
@@ -95,7 +95,7 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken.token); // Verifies expiration and signature
 
       const user = await this.userService.findByIdWithToken(payload.sub);
-     
+
       if (!user || user.refreshToken !== refreshToken.token) {
         throw new UnauthorizedException(
           this.i18n.translate("auth.auth.refresh_token_invalid", {
@@ -114,7 +114,7 @@ export class AuthService {
       };
 
       const newAccessToken = this.jwtService.sign(newPayload, {
-        expiresIn: "2d",
+        expiresIn: "1d",
       });
 
       const newRefreshToken = this.jwtService.sign(newPayload, {
