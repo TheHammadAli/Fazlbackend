@@ -5,6 +5,7 @@ import { SuccessResponseInterceptor } from "./common/interceptors/success-respon
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
+import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,7 +15,7 @@ async function bootstrap() {
   });
 
   app.useGlobalInterceptors(app.get(LanguageInterceptor));
-
+  app.useGlobalInterceptors(new TimeoutInterceptor(60000));
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new SuccessResponseInterceptor());
   app.useWebSocketAdapter(new IoAdapter(app));

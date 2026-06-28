@@ -7,6 +7,7 @@ const success_response_interceptor_1 = require("./common/interceptors/success-re
 const platform_socket_io_1 = require("@nestjs/platform-socket.io");
 const swagger_1 = require("@nestjs/swagger");
 const language_interceptor_1 = require("./common/interceptors/language.interceptor");
+const timeout_interceptor_1 = require("./common/interceptors/timeout.interceptor");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors({
@@ -14,6 +15,7 @@ async function bootstrap() {
         credentials: false,
     });
     app.useGlobalInterceptors(app.get(language_interceptor_1.LanguageInterceptor));
+    app.useGlobalInterceptors(new timeout_interceptor_1.TimeoutInterceptor(60000));
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
     app.useGlobalInterceptors(new success_response_interceptor_1.SuccessResponseInterceptor());
     app.useWebSocketAdapter(new platform_socket_io_1.IoAdapter(app));
