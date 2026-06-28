@@ -649,10 +649,6 @@ export class ProductsService {
         .populate("category")
         .populate({
           path: "shopId",
-          populate: {
-            path: "ownerId",
-            select: "_id name phone"
-          },
         })
         .populate({
           path: "ownerId",
