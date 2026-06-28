@@ -879,7 +879,7 @@ export class ServicesService {
     const [items, total] = await Promise.all([
       this.serviceModel
         .find(filter)
-        .populate("category")
+        .populate("category").populate("ownerId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
