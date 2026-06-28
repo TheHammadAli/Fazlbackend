@@ -34,7 +34,6 @@ const path = require("path");
 const language_interceptor_1 = require("./common/interceptors/language.interceptor");
 const like_module_1 = require("./like/like.module");
 const isProduction = process.env.NODE_ENV === "production";
-console.log(path.join(process.cwd(), "src/i18n/"), "isProduction:", isProduction);
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;

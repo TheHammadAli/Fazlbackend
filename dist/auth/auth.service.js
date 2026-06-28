@@ -88,7 +88,6 @@ let AuthService = class AuthService {
         try {
             const payload = this.jwtService.verify(refreshToken.token);
             const user = await this.userService.findByIdWithToken(payload.sub);
-            console.log("User", user);
             if (!user || user.refreshToken !== refreshToken.token) {
                 throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.refresh_token_invalid", {
                     lang: this.getLang(),

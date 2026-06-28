@@ -27,11 +27,7 @@ import { LanguageInterceptor } from "./common/interceptors/language.interceptor"
 import { LikeModule } from "./like/like.module";
 
 const isProduction = process.env.NODE_ENV === "production";
-console.log(
-  path.join(process.cwd(), "src/i18n/"),
-  "isProduction:",
-  isProduction,
-);
+
 @Module({
   imports: [
     ConfigModule.forRoot(),

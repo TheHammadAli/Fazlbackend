@@ -95,7 +95,7 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken.token); // Verifies expiration and signature
 
       const user = await this.userService.findByIdWithToken(payload.sub);
-      console.log("User", user);
+     
       if (!user || user.refreshToken !== refreshToken.token) {
         throw new UnauthorizedException(
           this.i18n.translate("auth.auth.refresh_token_invalid", {
