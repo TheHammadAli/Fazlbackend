@@ -879,14 +879,15 @@ export class ServicesService {
     const [items, total] = await Promise.all([
       this.serviceModel
         .find(filter)
-        .populate("category").populate({
+        .populate("category")
+        .populate({
           path: "ownerId",
-          select: "_id name image address phone", // be explicit
+          select: "_id name image address phone location", // ← more fields
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean() // optional but good for performance
+        .lean({ virtuals: true })   // ← Important change
         .exec(),
 
       this.serviceModel.countDocuments(filter).exec(),
