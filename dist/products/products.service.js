@@ -477,10 +477,15 @@ let ProductsService = class ProductsService {
             this.productModel
                 .find(filter)
                 .populate("category")
+                .populate({
+                path: "shopId",
+            })
+                .populate({
+                path: "ownerId",
+            })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
-                .lean()
                 .exec(),
             this.productModel.countDocuments(filter).exec(),
         ]);

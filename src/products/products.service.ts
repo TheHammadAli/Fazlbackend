@@ -656,7 +656,7 @@ export class ProductsService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean() // ← This is the key fix
+        // .lean() // ← This is the key fix
         .exec(),
 
       this.productModel.countDocuments(filter).exec(),
