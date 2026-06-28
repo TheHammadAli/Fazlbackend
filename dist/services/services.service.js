@@ -633,10 +633,15 @@ let ServicesService = class ServicesService {
             this.serviceModel
                 .find(filter)
                 .populate("category")
+                .populate({
+                path: "ownerId",
+                model: "User",
+                select: "_id name image address phone location",
+            })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
-                .lean()
+                .lean({ virtuals: true })
                 .exec(),
             this.serviceModel.countDocuments(filter).exec(),
         ]);

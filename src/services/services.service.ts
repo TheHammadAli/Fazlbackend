@@ -882,7 +882,8 @@ export class ServicesService {
         .populate("category")
         .populate({
           path: "ownerId",
-          select: "_id name image address phone location", // ← more fields
+          model: "User",                    // ← explicitly tell Mongoose
+          select: "_id name image address phone location",
         })
         .sort({ createdAt: -1 })
         .skip(skip)

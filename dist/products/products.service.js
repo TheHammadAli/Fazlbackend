@@ -479,11 +479,11 @@ let ProductsService = class ProductsService {
                 .populate("category")
                 .populate({
                 path: "shopId",
-                select: "title image address description ownerId banner",
+                select: "_id title image address description ownerId banner",
             })
                 .populate({
                 path: "ownerId",
-                select: "name image address phone",
+                select: "_id name image address phone",
             })
                 .sort({ createdAt: -1 })
                 .skip(skip)
