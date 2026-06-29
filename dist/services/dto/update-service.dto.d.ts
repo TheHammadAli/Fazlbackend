@@ -1,3 +1,4 @@
+import { ServiceParameterDto } from "./create-service.dto";
 export declare class UpdateServiceDto {
     title?: string;
     description?: string;
@@ -7,4 +8,5 @@ export declare class UpdateServiceDto {
     images: any;
     video: any;
     category?: string;
+    parameters?: ServiceParameterDto[];
 }

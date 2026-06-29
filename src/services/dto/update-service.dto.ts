@@ -4,9 +4,11 @@ import {
   IsNumber,
   IsEnum,
   IsArray,
+  ValidateNested,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-
+import { ServiceParameterDto } from "./create-service.dto";
+import { Type } from "class-transformer";
 export class UpdateServiceDto {
   @ApiPropertyOptional({ example: "Home Cleaning Deluxe" })
   @IsString()
@@ -57,4 +59,17 @@ export class UpdateServiceDto {
   @IsString()
   @IsOptional()
   category?: string;
+
+  @ApiPropertyOptional({
+    type: [ServiceParameterDto],
+    example: [
+      { name: "Color", variants: ["Red", "Blue"] },
+    ],
+    description: "Custom service parameters like size, color, etc.",
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ServiceParameterDto)
+  parameters?: ServiceParameterDto[];
 }

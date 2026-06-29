@@ -106,6 +106,11 @@ export class ServicesController {
     } else {
       dto.video = []; // Ensure video is always an array
     }
+
+     dto.parameters = JSON.parse(
+      dto.parameters?.toString() || "{}",
+    );
+
     return await this.servicesService.create(user.sub, dto);
   }
 
@@ -136,6 +141,11 @@ export class ServicesController {
     if (files?.video && files.video.length > 0) {
       dto.video = files.video; // Assuming video is stored as a file object
     }
+
+     dto.parameters = JSON.parse(
+      dto.parameters?.toString() || "{}",
+    );
+
     return await this.servicesService.update(serviceId, dto);
   }
 

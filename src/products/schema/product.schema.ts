@@ -70,7 +70,7 @@ export class Product {
 
   @Prop({ type: Boolean, default: false })
   isDisabled?: boolean;
-
+ 
 
   @Prop({ type: [String], default: [] })
   searchableTags: string[];

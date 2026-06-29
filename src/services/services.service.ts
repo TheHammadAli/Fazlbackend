@@ -120,7 +120,10 @@ export class ServicesService {
       location: user.location,
       images: [],
       video: "",
+      parameters: dto.parameters || [],
     });
+
+
 
     if (imageFiles && imageFiles.length > 0) {
       images = await this.fileUploadService.uploadServiceFile(
@@ -194,6 +197,7 @@ export class ServicesService {
           ...(dto.category && { category: new Types.ObjectId(dto.category) }),
           images: images,
           video: video,
+          parameters: dto.parameters || existingService.parameters || [],
         },
         { new: true },
       )

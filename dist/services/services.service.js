@@ -100,6 +100,7 @@ let ServicesService = class ServicesService {
             location: user.location,
             images: [],
             video: "",
+            parameters: dto.parameters || [],
         });
         if (imageFiles && imageFiles.length > 0) {
             images = await this.fileUploadService.uploadServiceFile(userId, created._id.toString(), imageFiles);
@@ -149,6 +150,7 @@ let ServicesService = class ServicesService {
             ...(dto.category && { category: new mongoose_2.Types.ObjectId(dto.category) }),
             images: images,
             video: video,
+            parameters: dto.parameters || existingService.parameters || [],
         }, { new: true })
             .populate("category");
         if (!updated) {

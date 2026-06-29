@@ -9,9 +9,26 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateServiceDto = void 0;
+exports.CreateServiceDto = exports.ServiceParameterDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const class_transformer_1 = require("class-transformer");
+class ServiceParameterDto {
+    name;
+    variants;
+}
+exports.ServiceParameterDto = ServiceParameterDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "Color" }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ServiceParameterDto.prototype, "name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: ["Red", "Blue"], type: [String] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], ServiceParameterDto.prototype, "variants", void 0);
 class CreateServiceDto {
     title;
     description;
@@ -21,6 +38,7 @@ class CreateServiceDto {
     images;
     video;
     category;
+    parameters;
 }
 exports.CreateServiceDto = CreateServiceDto;
 __decorate([
@@ -78,4 +96,18 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateServiceDto.prototype, "category", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        type: [ServiceParameterDto],
+        example: [
+            { name: "Color", variants: ["Red", "Blue"] },
+        ],
+        description: "Custom service parameters like size, color, etc.",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => ServiceParameterDto),
+    __metadata("design:type", Array)
+], CreateServiceDto.prototype, "parameters", void 0);
 //# sourceMappingURL=create-service.dto.js.map

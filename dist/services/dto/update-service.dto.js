@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateServiceDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const create_service_dto_1 = require("./create-service.dto");
+const class_transformer_1 = require("class-transformer");
 class UpdateServiceDto {
     title;
     description;
@@ -21,6 +23,7 @@ class UpdateServiceDto {
     images;
     video;
     category;
+    parameters;
 }
 exports.UpdateServiceDto = UpdateServiceDto;
 __decorate([
@@ -81,4 +84,18 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], UpdateServiceDto.prototype, "category", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        type: [create_service_dto_1.ServiceParameterDto],
+        example: [
+            { name: "Color", variants: ["Red", "Blue"] },
+        ],
+        description: "Custom service parameters like size, color, etc.",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => create_service_dto_1.ServiceParameterDto),
+    __metadata("design:type", Array)
+], UpdateServiceDto.prototype, "parameters", void 0);
 //# sourceMappingURL=update-service.dto.js.map

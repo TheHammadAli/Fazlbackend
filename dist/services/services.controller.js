@@ -55,6 +55,7 @@ let ServicesController = class ServicesController {
         else {
             dto.video = [];
         }
+        dto.parameters = JSON.parse(dto.parameters?.toString() || "{}");
         return await this.servicesService.create(user.sub, dto);
     }
     async update(serviceId, dto, files) {
@@ -64,6 +65,7 @@ let ServicesController = class ServicesController {
         if (files?.video && files.video.length > 0) {
             dto.video = files.video;
         }
+        dto.parameters = JSON.parse(dto.parameters?.toString() || "{}");
         return await this.servicesService.update(serviceId, dto);
     }
     async delete(serviceId) {

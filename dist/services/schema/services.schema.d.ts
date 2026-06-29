@@ -15,6 +15,10 @@ export declare class Service {
     video: string;
     isDeleted: boolean;
     isDisabled?: boolean;
+    parameters?: Array<{
+        name: string;
+        variants: string[];
+    }>;
 }
 export declare const ServiceSchema: import("mongoose").Schema<Service, import("mongoose").Model<Service, any, any, any, Document<unknown, any, Service, any> & Service & {
     _id: Types.ObjectId;

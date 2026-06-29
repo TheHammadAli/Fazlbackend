@@ -59,6 +59,7 @@ export declare class ServicesController {
             paymentType?: "hourly" | "fixed" | "call_for_price";
             requiresAppointment?: boolean;
             category?: string;
+            parameters?: import("./dto/create-service.dto").ServiceParameterDto[];
         };
     }>;
     delete(serviceId: string): Promise<{

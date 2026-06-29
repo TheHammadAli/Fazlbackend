@@ -67,7 +67,7 @@ let AuthService = class AuthService {
             isDisabled: user.isDisabled,
         };
         const accessToken = this.jwtService.sign(payload, {
-            expiresIn: "1h",
+            expiresIn: "1d",
         });
         const refreshToken = this.jwtService.sign(payload, {
             expiresIn: "3d",
@@ -102,7 +102,7 @@ let AuthService = class AuthService {
                 isDisabled: user.isDisabled,
             };
             const newAccessToken = this.jwtService.sign(newPayload, {
-                expiresIn: "2d",
+                expiresIn: "1d",
             });
             const newRefreshToken = this.jwtService.sign(newPayload, {
                 expiresIn: "3d",

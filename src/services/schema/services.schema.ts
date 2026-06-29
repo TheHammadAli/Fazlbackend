@@ -60,6 +60,22 @@ export class Service {
 
   @Prop({ type: Boolean, default: false })
   isDisabled?: boolean;
+
+
+  @Prop({
+    type: [
+      {
+        name: { type: String, required: true },
+        variants: { type: [String], default: [] },
+      },
+    ],
+    default: [],
+    required: false,
+  })
+  parameters?: Array<{
+    name: string;
+    variants: string[];
+  }>;
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);

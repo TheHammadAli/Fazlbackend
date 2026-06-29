@@ -1,3 +1,7 @@
+export declare class ServiceParameterDto {
+    name: string;
+    variants: string[];
+}
 export declare class CreateServiceDto {
     title: string;
     description?: string;
@@ -7,4 +11,5 @@ export declare class CreateServiceDto {
     images: any;
     video: any;
     category: string;
+    parameters?: ServiceParameterDto[];
 }

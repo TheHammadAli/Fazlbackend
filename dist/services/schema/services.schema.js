@@ -25,6 +25,7 @@ let Service = class Service {
     video;
     isDeleted;
     isDisabled;
+    parameters;
 };
 exports.Service = Service;
 __decorate([
@@ -90,6 +91,19 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Boolean, default: false }),
     __metadata("design:type", Boolean)
 ], Service.prototype, "isDisabled", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: [
+            {
+                name: { type: String, required: true },
+                variants: { type: [String], default: [] },
+            },
+        ],
+        default: [],
+        required: false,
+    }),
+    __metadata("design:type", Array)
+], Service.prototype, "parameters", void 0);
 exports.Service = Service = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true,
