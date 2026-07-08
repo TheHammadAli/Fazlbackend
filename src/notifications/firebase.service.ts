@@ -108,70 +108,72 @@ export class FirebaseService {
    * Sends a notification with an optional data payload
    * @param payload Optional Record for deep-linking or custom logic
    */
-  async sendNotification(
+ async sendNotification(
     token: string,
     title: string,
     body: string,
-    payload: Record<string, any> = {}, // Added payload parameter
+    payload: Record<string, any> = {},
   ): Promise<string | null> {
     const isChatNotification = payload.type === "MESSAGE";
     const androidChannelId = isChatNotification
       ? "chat_message"
       : "marketing_service_channel";
     const soundName = isChatNotification ? "message" : "service_request";
+    const iosSoundName = isChatNotification ? "message.wav" : "service_request.wav";
+
     try {
       if (!admin.apps.length) {
         this.logger.warn("Firebase not initialized. Skipping notification.");
         return null;
       }
 
-      // 1️⃣ Sanitize payload: FCM 'data' values MUST be strings.
+      // 1️⃣ Sanitize custom application payload: FCM 'data' values MUST be strings.
       const sanitizedData: Record<string, string> = {};
       Object.entries(payload).forEach(([key, value]) => {
         sanitizedData[key] =
           typeof value === "object" ? JSON.stringify(value) : String(value);
       });
 
-      sanitizedData.notificationChannel = androidChannelId;
-      sanitizedData.notificationSoundAndroid = soundName;
-      sanitizedData.notificationSoundIos = isChatNotification ? "message.wav" : "service_request.wav";
-      sanitizedData.notificationMutableContent = "true";
-      sanitizedData.platformAndroidChannelId = androidChannelId;
-      sanitizedData.platformAndroidSound = soundName;
-      sanitizedData.platformIosSound = isChatNotification ? "message.wav" : "service_request.wav";
-      sanitizedData.android = JSON.stringify({
+      // 2️⃣ Explicitly bundle configurations for the frontend to read inside 'data'
+      const androidConfigForFrontend = {
         notification: {
           channelId: androidChannelId,
           sound: soundName,
         },
-      });
-      sanitizedData.apns = JSON.stringify({
+      };
+
+      const apnsConfigForFrontend = {
         payload: {
           aps: {
-            sound: isChatNotification ? "message.wav" : "service_request.wav",
+            sound: iosSoundName,
             mutableContent: true,
           },
         },
-      });
-      sanitizedData.platformIosMutableContent = "true";
+      };
 
-      // 2️⃣ Send message
+      // Add them directly to the data object so the frontend receives them
+      sanitizedData.android = JSON.stringify(androidConfigForFrontend);
+      sanitizedData.apns = JSON.stringify(apnsConfigForFrontend);
+      
+      // Keep legacy flat keys if your frontend is already expecting them
+      sanitizedData.notificationChannel = androidChannelId;
+      sanitizedData.notificationSoundAndroid = soundName;
+      sanitizedData.notificationSoundIos = iosSoundName;
+
+      // 3️⃣ Send message (FCM reads top-level android/apns; Frontend reads data)
       return await admin.messaging().send({
         token,
-        notification: { title, body }, // The visual alert
-        data: sanitizedData, // The logic payload
+        notification: { title, body }, 
+        data: sanitizedData, // 👈 Frontend receives everything in here
         android: {
           priority: "high",
-          notification: {
-            channelId: androidChannelId,
-            sound: soundName,
-          },
+          notification: androidConfigForFrontend.notification, // Native OS config
         },
         apns: {
           payload: {
             aps: {
               contentAvailable: true,
-              sound: isChatNotification ? "message.wav" : "default",
+              sound: isChatNotification ? iosSoundName : "default",
               mutableContent: true,
               badge: 1,
             },
