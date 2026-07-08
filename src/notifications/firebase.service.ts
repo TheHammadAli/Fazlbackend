@@ -117,8 +117,8 @@ export class FirebaseService {
     const isChatNotification = payload.type === "MESSAGE";
     const androidChannelId = isChatNotification
       ? "chat_message"
-      : "service_request_channel";
-    const soundName = isChatNotification ? "message" : "default";
+      : "marketing_service_channel";
+    const soundName = isChatNotification ? "message" : "service_request";
     try {
       if (!admin.apps.length) {
         this.logger.warn("Firebase not initialized. Skipping notification.");
@@ -132,12 +132,20 @@ export class FirebaseService {
           typeof value === "object" ? JSON.stringify(value) : String(value);
       });
 
+      sanitizedData.notificationChannel = androidChannelId;
+      sanitizedData.notificationSoundAndroid = soundName;
+      sanitizedData.notificationSoundIos = isChatNotification ? "message.wav" : "service_request.wav";
+      sanitizedData.notificationMutableContent = "true";
+      sanitizedData.platformAndroidChannelId = androidChannelId;
+      sanitizedData.platformAndroidSound = soundName;
+      sanitizedData.platformIosSound = isChatNotification ? "message.wav" : "service_request.wav";
+      sanitizedData.platformIosMutableContent = "true";
+
       // 2️⃣ Send message
       return await admin.messaging().send({
         token,
         notification: { title, body }, // The visual alert
         data: sanitizedData, // The logic payload
-        // Optional: High priority for instant delivery
         android: {
           priority: "high",
           notification: {
