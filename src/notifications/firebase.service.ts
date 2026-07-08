@@ -139,6 +139,20 @@ export class FirebaseService {
       sanitizedData.platformAndroidChannelId = androidChannelId;
       sanitizedData.platformAndroidSound = soundName;
       sanitizedData.platformIosSound = isChatNotification ? "message.wav" : "service_request.wav";
+      sanitizedData.android = JSON.stringify({
+        notification: {
+          channelId: androidChannelId,
+          sound: soundName,
+        },
+      });
+      sanitizedData.apns = JSON.stringify({
+        payload: {
+          aps: {
+            sound: isChatNotification ? "message.wav" : "service_request.wav",
+            mutableContent: true,
+          },
+        },
+      });
       sanitizedData.platformIosMutableContent = "true";
 
       // 2️⃣ Send message
