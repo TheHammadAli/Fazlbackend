@@ -19,7 +19,7 @@ export class FirebaseService {
 
       const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
       let serviceAccount: admin.ServiceAccount | undefined;
-  
+
       if (serviceAccountEnv) {
         serviceAccount = this.parseServiceAccountEnv(serviceAccountEnv);
       }
@@ -76,7 +76,7 @@ export class FirebaseService {
     if (!projectId || !privateKey || !clientEmail) {
       return undefined;
     }
-//
+    //
     return {
       type: process.env.TYPE || "service_account",
       project_id: projectId,
@@ -114,6 +114,11 @@ export class FirebaseService {
     body: string,
     payload: Record<string, any> = {}, // Added payload parameter
   ): Promise<string | null> {
+    const isChatNotification = payload.type === "MESSAGE";
+    const androidChannelId = isChatNotification
+      ? "chat_message"
+      : "service_request_channel";
+    const soundName = isChatNotification ? "message" : "default";
     try {
       if (!admin.apps.length) {
         this.logger.warn("Firebase not initialized. Skipping notification.");
@@ -133,8 +138,23 @@ export class FirebaseService {
         notification: { title, body }, // The visual alert
         data: sanitizedData, // The logic payload
         // Optional: High priority for instant delivery
-        android: { priority: "high" },
-        apns: { payload: { aps: { contentAvailable: true, sound: "default", badge: 1 } } },
+        android: {
+          priority: "high",
+          notification: {
+            channelId: androidChannelId,
+            sound: soundName,
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              contentAvailable: true,
+              sound: isChatNotification ? "message.wav" : "default",
+              mutableContent: true,
+              badge: 1,
+            },
+          },
+        },
       });
     } catch (err) {
       this.logger.error("FCM error (notification skipped)", err);
