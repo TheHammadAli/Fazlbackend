@@ -10,6 +10,7 @@ export declare class Category {
         en: string[];
         ur: string[];
     };
+    sortNumber: number;
     isDisabled: boolean;
     icon?: string;
     type: CategoryType;

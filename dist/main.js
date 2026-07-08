@@ -8,12 +8,15 @@ const platform_socket_io_1 = require("@nestjs/platform-socket.io");
 const swagger_1 = require("@nestjs/swagger");
 const language_interceptor_1 = require("./common/interceptors/language.interceptor");
 const timeout_interceptor_1 = require("./common/interceptors/timeout.interceptor");
+const express = require("express");
+const path_1 = require("path");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors({
         origin: "*",
         credentials: false,
     });
+    app.use("/media", express.static((0, path_1.join)(process.cwd(), "media")));
     app.useGlobalInterceptors(app.get(language_interceptor_1.LanguageInterceptor));
     app.useGlobalInterceptors(new timeout_interceptor_1.TimeoutInterceptor(60000));
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());

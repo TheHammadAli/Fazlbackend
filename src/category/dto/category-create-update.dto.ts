@@ -2,6 +2,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -70,6 +71,14 @@ export class CreateUpdateCategoryDto {
   })
   @IsEnum(CategoryType)
   type!: CategoryType;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: "Used to control display ordering of categories",
+  })
+  @IsOptional()
+  @IsNumber()
+  sortNumber?: number;
 
   @ApiPropertyOptional({
     example: false,

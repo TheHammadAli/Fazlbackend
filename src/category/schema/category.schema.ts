@@ -37,6 +37,9 @@ export class Category {
     ur: string[];
   };
 
+  @Prop({ default: 0 })
+  sortNumber!: number;
+
   @Prop({ default: false })
   isDisabled!: boolean;
 

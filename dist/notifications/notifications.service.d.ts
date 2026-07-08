@@ -12,9 +12,11 @@ export declare class NotificationsService {
     private readonly i18n;
     private readonly cls;
     private server;
+    private readonly defaultSoundPaths;
     constructor(notificationModel: Model<Notification>, usersService: UsersService, firebaseService: FirebaseService, i18n: I18nService, cls: ClsService);
     private get lang();
     setServer(server: Server): void;
+    private buildNotificationPayload;
     create<T = Record<string, any>>(userId: string | Types.ObjectId, message: string, type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | undefined, payload: T): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {

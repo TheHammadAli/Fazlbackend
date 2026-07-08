@@ -35,6 +35,7 @@ export declare class CategoryService {
                 en: string[];
                 ur: string[];
             }> | undefined;
+            sortNumber: number;
             isDisabled: boolean;
             icon?: string | undefined;
             type: import("./schema/category.schema").CategoryType;

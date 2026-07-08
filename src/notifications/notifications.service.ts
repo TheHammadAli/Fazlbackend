@@ -18,6 +18,10 @@ import { ClsService } from "nestjs-cls";
 @Injectable()
 export class NotificationsService {
   private server!: Server;
+  private readonly defaultSoundPaths = {
+    sound1: "/media/AUD-20260708-WA0029.mp3",
+    sound2: "/media/AUD-20260708-WA0030.mp3",
+  };
 
   constructor(
     @InjectModel(Notification.name)
@@ -37,6 +41,14 @@ export class NotificationsService {
     this.server = server;
   }
 
+  private buildNotificationPayload<T = Record<string, any>>(payload: T) {
+    return {
+      ...(payload as Record<string, any>),
+      sound1: this.defaultSoundPaths.sound1,
+      sound2: this.defaultSoundPaths.sound2,
+    } as Record<string, any>;
+  }
+
   async create<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     message: string,
@@ -52,11 +64,13 @@ export class NotificationsService {
       );
     }
 
+    const notifPayload = this.buildNotificationPayload(payload);
+
     const notif = new this.notificationModel({
       userId: new Types.ObjectId(userId),
       message,
       type,
-      payload,
+      payload: notifPayload,
       read: false,
     });
 
@@ -99,11 +113,13 @@ export class NotificationsService {
       type,
       payload,)
 
+    const notifPayload = this.buildNotificationPayload(payload);
+
     const notif = await this.create<T>(
       userId,
       translatedMessage,
       type,
-      payload,
+      notifPayload as T,
     );
 
     if (this.server) {
@@ -123,7 +139,7 @@ export class NotificationsService {
         translatedMessage,
         {
           type,
-          ...payload,
+          ...notifPayload,
           notificationId,
         },
       );

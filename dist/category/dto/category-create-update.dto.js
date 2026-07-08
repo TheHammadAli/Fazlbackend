@@ -36,6 +36,7 @@ class CreateUpdateCategoryDto {
     parameters;
     icon;
     type;
+    sortNumber;
     isDisabled;
 }
 exports.CreateUpdateCategoryDto = CreateUpdateCategoryDto;
@@ -86,6 +87,15 @@ __decorate([
     (0, class_validator_1.IsEnum)(category_schema_1.CategoryType),
     __metadata("design:type", String)
 ], CreateUpdateCategoryDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 1,
+        description: "Used to control display ordering of categories",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateUpdateCategoryDto.prototype, "sortNumber", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: false,

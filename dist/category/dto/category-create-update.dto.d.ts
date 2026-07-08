@@ -9,6 +9,7 @@ export declare class CreateUpdateCategoryDto {
     parameters?: CategoryParametersDto;
     icon?: any;
     type: CategoryType;
+    sortNumber?: number;
     isDisabled?: boolean;
 }
 export {};

@@ -6,6 +6,8 @@ import { IoAdapter } from "@nestjs/platform-socket.io";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+import * as express from "express";
+import { join } from "path";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +15,8 @@ async function bootstrap() {
     origin: "*", // allow all origins
     credentials: false, // no cookies / sessions
   });
+
+  app.use("/media", express.static(join(process.cwd(), "media")));
 
   app.useGlobalInterceptors(app.get(LanguageInterceptor));
   app.useGlobalInterceptors(new TimeoutInterceptor(60000));

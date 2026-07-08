@@ -28,6 +28,10 @@ let NotificationsService = class NotificationsService {
     i18n;
     cls;
     server;
+    defaultSoundPaths = {
+        sound1: "/media/AUD-20260708-WA0029.mp3",
+        sound2: "/media/AUD-20260708-WA0030.mp3",
+    };
     constructor(notificationModel, usersService, firebaseService, i18n, cls) {
         this.notificationModel = notificationModel;
         this.usersService = usersService;
@@ -41,6 +45,13 @@ let NotificationsService = class NotificationsService {
     setServer(server) {
         this.server = server;
     }
+    buildNotificationPayload(payload) {
+        return {
+            ...payload,
+            sound1: this.defaultSoundPaths.sound1,
+            sound2: this.defaultSoundPaths.sound2,
+        };
+    }
     async create(userId, message, type = "MESSAGE", payload) {
         const user = await this.usersService.findUserById(userId.toString());
         if (!user) {
@@ -48,11 +59,12 @@ let NotificationsService = class NotificationsService {
                 lang: this.lang,
             }));
         }
+        const notifPayload = this.buildNotificationPayload(payload);
         const notif = new this.notificationModel({
             userId: new mongoose_2.Types.ObjectId(userId),
             message,
             type,
-            payload,
+            payload: notifPayload,
             read: false,
         });
         return notif.save();
@@ -75,7 +87,8 @@ let NotificationsService = class NotificationsService {
         });
         ;
         console.log("Does it reach here", userId, translatedMessage, type, payload);
-        const notif = await this.create(userId, translatedMessage, type, payload);
+        const notifPayload = this.buildNotificationPayload(payload);
+        const notif = await this.create(userId, translatedMessage, type, notifPayload);
         if (this.server) {
             this.server.to(userId.toString()).emit("notification", notif);
         }
@@ -86,7 +99,7 @@ let NotificationsService = class NotificationsService {
                 lang: this.lang,
             }), translatedMessage, {
                 type,
-                ...payload,
+                ...notifPayload,
                 notificationId,
             });
         }

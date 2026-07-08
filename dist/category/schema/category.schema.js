@@ -20,6 +20,7 @@ let Category = class Category {
     name;
     description;
     parameters;
+    sortNumber;
     isDisabled;
     icon;
     type;
@@ -51,6 +52,10 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], Category.prototype, "parameters", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 0 }),
+    __metadata("design:type", Number)
+], Category.prototype, "sortNumber", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
