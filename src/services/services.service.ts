@@ -478,7 +478,7 @@ export class ServicesService {
     };
   }
 
-  private async enrichServicesWithReviewStats(services: any[]) {
+  private async enrichServicesWithReviewStats(services: any[]) { 
     if (!services || services.length === 0) {
       return services;
     }
