@@ -55,6 +55,10 @@ export class ServicesService {
     return this.cls?.get("lang") ?? "en";
   }
 
+  private async delayResponse(ms = 2000): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   // Expose service model for use in other services (e.g., broadcast)
   getServiceModel(): Model<ServiceDocument> {
     return this.serviceModel;
@@ -565,8 +569,7 @@ export class ServicesService {
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
-    // Add 2 seconds delay before returning response
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await this.delayResponse();
 
     return {
       data: results,
@@ -667,7 +670,7 @@ export class ServicesService {
           this.i18n.translate("auth.services.unsupported_action"),
         );
     }
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     // 3. Perform the DB Operation (The Source of Truth)
     await request.save();
 
@@ -677,7 +680,7 @@ export class ServicesService {
         serviceName,
       };
 
-      await this.notificationsService.createAndNotify(
+     this.notificationsService.createAndNotify(
         recipientId,
         notificationKey, // Use the translation key decided in the switch
         "SERVICE_REQUEST",
@@ -685,7 +688,8 @@ export class ServicesService {
         i18nArgs, // i18n Args
       );
     }
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Give Android a brief window to settle the connection before the response completes.
+    await this.delayResponse();
 
     return {
       status: 201,
@@ -750,6 +754,9 @@ export class ServicesService {
     }
 
     const result = await request.save();
+    // Give Android a brief window to settle the connection before the response completes.
+    await this.delayResponse();
+
     return {
       message: this.i18n.translate("auth.services.job_status_updated", {
         lang: this.lang,
