@@ -94,6 +94,14 @@ export declare class ServicesService {
         };
         message: string;
     }>;
+    createServiceRequesttest(dto: CreateRequestDto): Promise<{
+        data: import("mongoose").Document<unknown, {}, ServiceRequestDocument, {}> & ServiceRequest & Document & {
+            _id: Types.ObjectId;
+        } & {
+            __v: number;
+        };
+        message: string;
+    }>;
     updateRequestStatus(dto: UpdateRequestStatusDto): Promise<{
         status: number;
         message: string;

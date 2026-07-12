@@ -56,6 +56,13 @@ export class ServicesController {
     return this.servicesService.createServiceRequest(dto);
   }
 
+  @Post("create-request-test")
+  @ApiOperation({ summary: "Create a new service request for testing purposes" })
+  @ApiBody({ type: CreateRequestDto })
+  createRequestTest(@Body() dto: CreateRequestDto) {
+    return this.servicesService.createServiceRequesttest(dto);
+  }
+
   @Patch("status")
   @ApiOperation({
     summary:
@@ -107,7 +114,7 @@ export class ServicesController {
       dto.video = []; // Ensure video is always an array
     }
 
-     dto.parameters = JSON.parse(
+    dto.parameters = JSON.parse(
       dto.parameters?.toString() || "{}",
     );
 
@@ -142,7 +149,7 @@ export class ServicesController {
       dto.video = files.video; // Assuming video is stored as a file object
     }
 
-     dto.parameters = JSON.parse(
+    dto.parameters = JSON.parse(
       dto.parameters?.toString() || "{}",
     );
 
