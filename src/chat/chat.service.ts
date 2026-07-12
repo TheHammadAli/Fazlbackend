@@ -68,9 +68,12 @@ export class ChatService {
         },
       );
 
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       return convo;
     } catch (err: any) {
       if (err.code === 11000) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         return this.conversationModel.findOne({
           buyer: buyerObjectId,
           seller: sellerObjectId,

@@ -56,6 +56,7 @@ let LikeService = class LikeService {
             ownerModel: dto.ownerModel,
         });
         const results = await like.save();
+        await new Promise(resolve => setTimeout(resolve, 2000));
         return {
             message: this.i18n.translate("auth.like.created_success", {
                 lang: this.lang,
@@ -72,6 +73,7 @@ let LikeService = class LikeService {
         if (!result) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.like.not_found", { lang: this.lang }));
         }
+        await new Promise(resolve => setTimeout(resolve, 2000));
         return {
             message: this.i18n.translate("auth.like.removed", { lang: this.lang }),
         };

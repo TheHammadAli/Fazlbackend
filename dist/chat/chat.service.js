@@ -70,10 +70,12 @@ let ChatService = class ChatService {
                 upsert: true,
                 new: true,
             });
+            await new Promise(resolve => setTimeout(resolve, 2000));
             return convo;
         }
         catch (err) {
             if (err.code === 11000) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 return this.conversationModel.findOne({
                     buyer: buyerObjectId,
                     seller: sellerObjectId,
