@@ -19,6 +19,7 @@ import {
 } from "./schema/broadcast-thread.schema";
 import { ServicesModule } from "src/services/services.module";
 import { ProductsModule } from "src/products/products.module";
+import { NotificationsModule } from "src/notifications/notifications.module";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ConfigService } from "@nestjs/config";
 
@@ -40,6 +41,7 @@ import { ConfigService } from "@nestjs/config";
     UsersModule,
     ServicesModule,
     ProductsModule,
+    NotificationsModule,
   ],
   controllers: [BroadcastController],
   providers: [
