@@ -478,7 +478,7 @@ export class ServicesService {
     };
   }
 
-  private async enrichServicesWithReviewStats(services: any[]) { 
+  private async enrichServicesWithReviewStats(services: any[]) {
     if (!services || services.length === 0) {
       return services;
     }
@@ -565,66 +565,8 @@ export class ServicesService {
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
-    return {
-      data: results,
-      message: this.i18n.translate("auth.services.request_created_success", {
-        lang: this.lang,
-      }),
-    }
-  }
-
-
-  async createServiceRequesttest(dto: CreateRequestDto) {
-    const { serviceId, customerId, requestedDateTime, message } = dto;
-
-    // --- Validation: User Existence ---
-    const customer = customerId
-      ? await this.userService.findUserById(customerId)
-      : null;
-
-    if (customerId && !customer)
-      throw new NotFoundException(
-        this.i18n.translate("auth.services.customer_not_found", {
-          lang: this.lang,
-        }),
-      );
-
-    // --- Creation Flow ---
-
-    if (!serviceId || !requestedDateTime || !customerId) {
-      throw new BadRequestException(
-        "Missing required fields for request creation",
-      );
-    }
-
-    const service = await this.serviceModel
-      .findById(serviceId)
-      .populate("ownerId");
-    if (!service)
-      throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
-      );
-
-    const request = new this.requestModel({
-      service: new Types.ObjectId(serviceId),
-      customer: new Types.ObjectId(customerId),
-      provider: service.ownerId,
-      requestedDateTime: new Date(requestedDateTime),
-      status: "pending",
-      jobStatus: "not_started",
-      message,
-    });
-
-    const results = await request.save();
-    this.notificationsService.createAndNotify(
-      service.ownerId._id.toString(),
-      "request_created",
-      "SERVICE_REQUEST",
-      { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" },
-      { serviceName: service.title, customerName: customer?.name || "A customer" },
-    );
+    // Add 2 seconds delay before returning response
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     return {
       data: results,
@@ -633,6 +575,9 @@ export class ServicesService {
       }),
     }
   }
+
+
+
 
   async updateRequestStatus(dto: UpdateRequestStatusDto) {
     const { requestId, action, proposedDateTime } = dto;

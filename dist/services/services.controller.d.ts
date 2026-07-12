@@ -20,14 +20,6 @@ export declare class ServicesController {
         };
         message: string;
     }>;
-    createRequestTest(dto: CreateRequestDto): Promise<{
-        data: import("mongoose").Document<unknown, {}, import("./schema/service_request.schema").ServiceRequestDocument, {}> & import("./schema/service_request.schema").ServiceRequest & Document & {
-            _id: import("mongoose").Types.ObjectId;
-        } & {
-            __v: number;
-        };
-        message: string;
-    }>;
     updateStatus(dto: UpdateRequestStatusDto): Promise<{
         status: number;
         message: string;

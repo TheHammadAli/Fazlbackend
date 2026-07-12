@@ -411,43 +411,7 @@ let ServicesService = class ServicesService {
         });
         const results = await request.save();
         this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" }, { serviceName: service.title, customerName: customer?.name || "A customer" });
-        return {
-            data: results,
-            message: this.i18n.translate("auth.services.request_created_success", {
-                lang: this.lang,
-            }),
-        };
-    }
-    async createServiceRequesttest(dto) {
-        const { serviceId, customerId, requestedDateTime, message } = dto;
-        const customer = customerId
-            ? await this.userService.findUserById(customerId)
-            : null;
-        if (customerId && !customer)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.customer_not_found", {
-                lang: this.lang,
-            }));
-        if (!serviceId || !requestedDateTime || !customerId) {
-            throw new common_1.BadRequestException("Missing required fields for request creation");
-        }
-        const service = await this.serviceModel
-            .findById(serviceId)
-            .populate("ownerId");
-        if (!service)
-            throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
-                lang: this.lang,
-            }));
-        const request = new this.requestModel({
-            service: new mongoose_2.Types.ObjectId(serviceId),
-            customer: new mongoose_2.Types.ObjectId(customerId),
-            provider: service.ownerId,
-            requestedDateTime: new Date(requestedDateTime),
-            status: "pending",
-            jobStatus: "not_started",
-            message,
-        });
-        const results = await request.save();
-        this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" }, { serviceName: service.title, customerName: customer?.name || "A customer" });
+        await new Promise(resolve => setTimeout(resolve, 2000));
         return {
             data: results,
             message: this.i18n.translate("auth.services.request_created_success", {

@@ -35,9 +35,6 @@ let ServicesController = class ServicesController {
     createRequest(dto) {
         return this.servicesService.createServiceRequest(dto);
     }
-    createRequestTest(dto) {
-        return this.servicesService.createServiceRequesttest(dto);
-    }
     updateStatus(dto) {
         return this.servicesService.updateRequestStatus(dto);
     }
@@ -118,15 +115,6 @@ __decorate([
     __metadata("design:paramtypes", [create_request_dto_1.CreateRequestDto]),
     __metadata("design:returntype", void 0)
 ], ServicesController.prototype, "createRequest", null);
-__decorate([
-    (0, common_1.Post)("create-request-test"),
-    (0, swagger_1.ApiOperation)({ summary: "Create a new service request for testing purposes" }),
-    (0, swagger_1.ApiBody)({ type: create_request_dto_1.CreateRequestDto }),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_request_dto_1.CreateRequestDto]),
-    __metadata("design:returntype", void 0)
-], ServicesController.prototype, "createRequestTest", null);
 __decorate([
     (0, common_1.Patch)("status"),
     (0, swagger_1.ApiOperation)({
