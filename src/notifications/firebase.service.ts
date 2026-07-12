@@ -161,22 +161,26 @@ export class FirebaseService {
       sanitizedData.notificationSoundIos = iosSoundName;
 
       // 3️⃣ Send message (FCM reads top-level android/apns; Frontend reads data)
+      // Send message (FCM reads top-level android/apns; Frontend reads data)
       return await admin.messaging().send({
         token,
-        notification: { title, body },
-        data: sanitizedData, // 👈 Frontend receives everything in here
+        notification: { title, body }, // 👈 Handled globally; FCM maps this to iOS 'alert' automatically
+        data: sanitizedData,
         android: {
           priority: "high",
-          notification: androidConfigForFrontend.notification, // Native OS config
+          notification: androidConfigForFrontend.notification,
         },
         apns: {
+          headers: {
+            "apns-priority": "10", // 10 = High priority (Delivers immediately)
+          },
           payload: {
             aps: {
-              contentAvailable: true,
-              notification: apnsConfigForFrontend.payload.aps, // Native OS config
               sound: isChatNotification ? iosSoundName : "default",
-              mutableContent: true,
               badge: 1,
+              // Crucial for React Native background handlers / extension triggers
+              mutableContent: true,
+              contentAvailable: true,
             },
           },
         },

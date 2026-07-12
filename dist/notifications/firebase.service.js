@@ -134,13 +134,15 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
                     notification: androidConfigForFrontend.notification,
                 },
                 apns: {
+                    headers: {
+                        "apns-priority": "10",
+                    },
                     payload: {
                         aps: {
-                            contentAvailable: true,
-                            notification: apnsConfigForFrontend.payload.aps,
                             sound: isChatNotification ? iosSoundName : "default",
-                            mutableContent: true,
                             badge: 1,
+                            mutableContent: true,
+                            contentAvailable: true,
                         },
                     },
                 },
