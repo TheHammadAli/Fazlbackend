@@ -126,8 +126,8 @@ export class NotificationsService {
       this.server.to(userId.toString()).emit("notification", notif);
     }
     console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
-
-    if (user?.fcmToken && type !== "SERVICE_REQUEST") {
+    //&& type !== "SERVICE_REQUEST"
+    if (user?.fcmToken) {
       const notificationId =
         (notif as any)._id?.toString() || String((notif as any).id);
 
