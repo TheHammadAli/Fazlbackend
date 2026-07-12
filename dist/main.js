@@ -37,8 +37,9 @@ async function bootstrap() {
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup("api/docs", app, document);
     const server = await app.listen(process.env.PORT ?? 3000, '::');
-    server.keepAliveTimeout = 65000;
-    server.headersTimeout = 66000;
+    server.keepAliveTimeout = 120000;
+    server.headersTimeout = 121000;
+    server.timeout = 120000;
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

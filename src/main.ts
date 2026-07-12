@@ -43,7 +43,8 @@ async function bootstrap() {
   SwaggerModule.setup("api/docs", app, document);
 
   const server = await app.listen(process.env.PORT ?? 3000, '::');
-  server.keepAliveTimeout = 65000;
-  server.headersTimeout = 66000;
+  server.keepAliveTimeout = 120000; // 2 minutes
+  server.headersTimeout = 121000;   // Must be slightly higher than keepAliveTimeout
+  server.timeout = 120000;
 }
 bootstrap();
