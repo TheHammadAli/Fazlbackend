@@ -139,10 +139,13 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
                     },
                     payload: {
                         aps: {
+                            alert: {
+                                title: title,
+                                body: body,
+                            },
                             sound: isChatNotification ? iosSoundName : "default",
                             badge: 1,
                             mutableContent: true,
-                            contentAvailable: true,
                         },
                     },
                 },

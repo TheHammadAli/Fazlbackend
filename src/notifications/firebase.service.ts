@@ -164,7 +164,7 @@ export class FirebaseService {
       // Send message (FCM reads top-level android/apns; Frontend reads data)
       return await admin.messaging().send({
         token,
-        notification: { title, body }, // 👈 Handled globally; FCM maps this to iOS 'alert' automatically
+        notification: { title, body },
         data: sanitizedData,
         android: {
           priority: "high",
@@ -172,15 +172,19 @@ export class FirebaseService {
         },
         apns: {
           headers: {
-            "apns-priority": "10", // 10 = High priority (Delivers immediately)
+            "apns-priority": "10", // 10 = Deliver immediately
           },
           payload: {
             aps: {
+              // Explicit alert block ensures iOS matches the Firebase Console layout
+              alert: {
+                title: title,
+                body: body,
+              },
               sound: isChatNotification ? iosSoundName : "default",
               badge: 1,
-              // Crucial for React Native background handlers / extension triggers
               mutableContent: true,
-              contentAvailable: true,
+              // ❌ REMOVED contentAvailable: true to prevent iOS from treating it as a silent background event
             },
           },
         },
