@@ -146,14 +146,6 @@ let BroadcastService = class BroadcastService {
         const broadcast = await this.createBroadcast(dto, buyerId, location);
         console.log("Broadcast created:", broadcast);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
-        return {
-            message: this.i18n.translate("auth.broadcast.created_success", {
-                lang: this.lang,
-            }),
-            data: {
-                id: Math.random().toString(36).substring(2, 15),
-            }
-        };
         const uniqueThreads = Array.from(new Map(threads.map((thread) => [thread._id.toString(), thread])).values());
         console.log("Image Urls", imageUrls);
         const initialMessages = uniqueThreads.map((thread) => ({
@@ -165,8 +157,8 @@ let BroadcastService = class BroadcastService {
             type: "SYSTEM",
             imageUrls,
         }));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await this.messageModel.insertMany(initialMessages);
-        await new Promise(resolve => setTimeout(resolve, 4000));
         return {
             message: this.i18n.translate("auth.broadcast.created_success", {
                 lang: this.lang,

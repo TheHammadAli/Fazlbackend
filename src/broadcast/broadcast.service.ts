@@ -242,14 +242,7 @@ export class BroadcastService {
     );
 
 
-    return {
-      message: this.i18n.translate("auth.broadcast.created_success", {
-        lang: this.lang,
-      }),
-      data: {
-        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
-      }
-    };
+    
     const uniqueThreads = Array.from(
       new Map(
         threads.map((thread: any) => [thread._id.toString(), thread]),
@@ -268,10 +261,9 @@ export class BroadcastService {
       imageUrls, // Include image URL if provided
     }));
 
+     await new Promise(resolve => setTimeout(resolve, 2000));
+
     await this.messageModel.insertMany(initialMessages);
-
-    await new Promise(resolve => setTimeout(resolve, 4000));
-
 
     return {
       message: this.i18n.translate("auth.broadcast.created_success", {
