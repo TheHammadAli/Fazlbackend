@@ -216,14 +216,6 @@ export class BroadcastService {
       );
     }
 
-    return {
-      message: this.i18n.translate("auth.broadcast.created_success", {
-        lang: this.lang,
-      }),
-      data: {
-        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
-      }
-    };
 
     sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
     sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
@@ -236,6 +228,9 @@ export class BroadcastService {
       );
     }
 
+
+
+
     const broadcast = await this.createBroadcast(dto, buyerId, location);
     console.log("Broadcast created:", broadcast);
 
@@ -246,6 +241,15 @@ export class BroadcastService {
       buyerId,
     );
 
+
+    return {
+      message: this.i18n.translate("auth.broadcast.created_success", {
+        lang: this.lang,
+      }),
+      data: {
+        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
+      }
+    };
     const uniqueThreads = Array.from(
       new Map(
         threads.map((thread: any) => [thread._id.toString(), thread]),

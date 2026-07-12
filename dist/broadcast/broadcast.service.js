@@ -136,14 +136,6 @@ let BroadcastService = class BroadcastService {
         else if (dto.type === "service") {
             sellerIds = await this.findNearbyServiceProviders(location, dto.radius, dto.categoryId);
         }
-        return {
-            message: this.i18n.translate("auth.broadcast.created_success", {
-                lang: this.lang,
-            }),
-            data: {
-                id: Math.random().toString(36).substring(2, 15),
-            }
-        };
         sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
         sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
         if (!sellerIds.length) {
@@ -154,6 +146,14 @@ let BroadcastService = class BroadcastService {
         const broadcast = await this.createBroadcast(dto, buyerId, location);
         console.log("Broadcast created:", broadcast);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
+        return {
+            message: this.i18n.translate("auth.broadcast.created_success", {
+                lang: this.lang,
+            }),
+            data: {
+                id: Math.random().toString(36).substring(2, 15),
+            }
+        };
         const uniqueThreads = Array.from(new Map(threads.map((thread) => [thread._id.toString(), thread])).values());
         console.log("Image Urls", imageUrls);
         const initialMessages = uniqueThreads.map((thread) => ({
