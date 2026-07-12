@@ -667,7 +667,7 @@ export class ServicesService {
           this.i18n.translate("auth.services.unsupported_action"),
         );
     }
-
+    await new Promise(resolve => setTimeout(resolve, 2000));
     // 3. Perform the DB Operation (The Source of Truth)
     await request.save();
 
