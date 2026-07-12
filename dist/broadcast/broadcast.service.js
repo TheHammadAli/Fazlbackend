@@ -119,6 +119,14 @@ let BroadcastService = class BroadcastService {
         return threads;
     }
     async createBroadcastAndDispatch(dto, buyerId, location, imageUrls) {
+        return {
+            message: this.i18n.translate("auth.broadcast.created_success", {
+                lang: this.lang,
+            }),
+            data: {
+                id: Math.random().toString(36).substring(2, 15),
+            }
+        };
         console.log("Creating broadcast with DTO:", dto);
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {

@@ -177,6 +177,16 @@ export class BroadcastService {
     location: { type: string; coordinates: [number, number] },
     imageUrls?: string[],
   ) {
+
+
+    return {
+      message: this.i18n.translate("auth.broadcast.created_success", {
+        lang: this.lang,
+      }),
+      data: {
+        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
+      }
+    };
     console.log("Creating broadcast with DTO:", dto);
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
