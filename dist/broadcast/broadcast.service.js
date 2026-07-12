@@ -158,7 +158,7 @@ let BroadcastService = class BroadcastService {
             imageUrls,
         }));
         await this.messageModel.insertMany(initialMessages);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 4000));
         return {
             message: this.i18n.translate("auth.broadcast.created_success", {
                 lang: this.lang,
