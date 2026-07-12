@@ -108,7 +108,7 @@ export class FirebaseService {
    * Sends a notification with an optional data payload
    * @param payload Optional Record for deep-linking or custom logic
    */
- async sendNotification(
+  async sendNotification(
     token: string,
     title: string,
     body: string,
@@ -154,7 +154,7 @@ export class FirebaseService {
       // Add them directly to the data object so the frontend receives them
       sanitizedData.android = JSON.stringify(androidConfigForFrontend);
       sanitizedData.apns = JSON.stringify(apnsConfigForFrontend);
-      
+
       // Keep legacy flat keys if your frontend is already expecting them
       sanitizedData.notificationChannel = androidChannelId;
       sanitizedData.notificationSoundAndroid = soundName;
@@ -163,7 +163,7 @@ export class FirebaseService {
       // 3️⃣ Send message (FCM reads top-level android/apns; Frontend reads data)
       return await admin.messaging().send({
         token,
-        notification: { title, body }, 
+        notification: { title, body },
         data: sanitizedData, // 👈 Frontend receives everything in here
         android: {
           priority: "high",
@@ -173,6 +173,7 @@ export class FirebaseService {
           payload: {
             aps: {
               contentAvailable: true,
+              notification: apnsConfigForFrontend.payload.aps, // Native OS config
               sound: isChatNotification ? iosSoundName : "default",
               mutableContent: true,
               badge: 1,
@@ -180,6 +181,23 @@ export class FirebaseService {
           },
         },
       });
+
+      //  {
+      //   "messageId": "1783857377129001",
+      //   "from": "1042475957024",
+      //   "data": {},
+      //   "sentTime": "1783857376",
+      //   "mutableContent": true,
+      //   "notification": {
+      //     "body": "test",
+      //     "title": "test"
+      //   }
+      // }
+
+
+
+
+
     } catch (err) {
       this.logger.error("FCM error (notification skipped)", err);
       return null;
