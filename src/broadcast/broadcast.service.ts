@@ -19,6 +19,7 @@ import { UsersService } from "src/users/users.service";
 import { CategoryService } from "src/category/category.service";
 import { ServicesService } from "src/services/services.service";
 import { ProductsService } from "src/products/products.service";
+import { NotificationsService } from "src/notifications/notifications.service";
 import { ClsService } from "nestjs-cls";
 import { BroadcastGateway } from "./broadcast.gateway";
 
@@ -39,6 +40,7 @@ export class BroadcastService {
     private readonly userService: UsersService,
     private readonly servicesService: ServicesService,
     private readonly productsService: ProductsService,
+    private readonly notificationsService: NotificationsService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly broadcastGateway: BroadcastGateway,
@@ -242,7 +244,7 @@ export class BroadcastService {
     );
 
 
-    
+
     const uniqueThreads = Array.from(
       new Map(
         threads.map((thread: any) => [thread._id.toString(), thread]),
@@ -261,9 +263,41 @@ export class BroadcastService {
       imageUrls, // Include image URL if provided
     }));
 
-     await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     await this.messageModel.insertMany(initialMessages);
+
+    // 3. GET BUYER AND CATEGORY INFO FOR NOTIFICATIONS
+    const buyer = await this.userService.findUserById(buyerId);
+    const category = await this.findCategorybyId(dto.categoryId);
+
+    // 4. SEND NOTIFICATIONS TO ALL SELLERS
+    const notificationPromises = sellerIds.map((sellerId) =>
+      this.notificationsService.createAndNotify(
+        sellerId,
+        "broadcast_created",
+        "PROMOTION",
+        {
+          broadcastId: broadcast._id.toString(),
+          buyerId,
+          message: dto.message || "📢 New broadcast request",
+          purpose: dto.purpose,
+          broadcastType: dto.type,
+          category: dto.categoryId,
+          radius: dto.radius,
+          address: dto.address,
+          imageUrls: imageUrls || [],
+        },
+        {
+          buyerName: buyer?.name || "A buyer",
+          categoryName: (category as any)?.name || "Product",
+          message: dto.message || "📢 New broadcast request",
+          purpose: dto.purpose,
+        },
+      ),
+    );
+
+    await Promise.allSettled(notificationPromises);
 
     return {
       message: this.i18n.translate("auth.broadcast.created_success", {

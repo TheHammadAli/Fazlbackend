@@ -25,6 +25,7 @@ const users_service_1 = require("../users/users.service");
 const category_service_1 = require("../category/category.service");
 const services_service_1 = require("../services/services.service");
 const products_service_1 = require("../products/products.service");
+const notifications_service_1 = require("../notifications/notifications.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const broadcast_gateway_1 = require("./broadcast.gateway");
 let BroadcastService = class BroadcastService {
@@ -36,10 +37,11 @@ let BroadcastService = class BroadcastService {
     userService;
     servicesService;
     productsService;
+    notificationsService;
     i18n;
     cls;
     broadcastGateway;
-    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, productsService, i18n, cls, broadcastGateway) {
+    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, productsService, notificationsService, i18n, cls, broadcastGateway) {
         this.broadcastModel = broadcastModel;
         this.messageModel = messageModel;
         this.threadModel = threadModel;
@@ -48,6 +50,7 @@ let BroadcastService = class BroadcastService {
         this.userService = userService;
         this.servicesService = servicesService;
         this.productsService = productsService;
+        this.notificationsService = notificationsService;
         this.i18n = i18n;
         this.cls = cls;
         this.broadcastGateway = broadcastGateway;
@@ -159,6 +162,25 @@ let BroadcastService = class BroadcastService {
         }));
         await new Promise(resolve => setTimeout(resolve, 2000));
         await this.messageModel.insertMany(initialMessages);
+        const buyer = await this.userService.findUserById(buyerId);
+        const category = await this.findCategorybyId(dto.categoryId);
+        const notificationPromises = sellerIds.map((sellerId) => this.notificationsService.createAndNotify(sellerId, "broadcast_created", "PROMOTION", {
+            broadcastId: broadcast._id.toString(),
+            buyerId,
+            message: dto.message || "📢 New broadcast request",
+            purpose: dto.purpose,
+            broadcastType: dto.type,
+            category: dto.categoryId,
+            radius: dto.radius,
+            address: dto.address,
+            imageUrls: imageUrls || [],
+        }, {
+            buyerName: buyer?.name || "A buyer",
+            categoryName: category?.name || "Product",
+            message: dto.message || "📢 New broadcast request",
+            purpose: dto.purpose,
+        }));
+        await Promise.allSettled(notificationPromises);
         return {
             message: this.i18n.translate("auth.broadcast.created_success", {
                 lang: this.lang,
@@ -525,6 +547,7 @@ exports.BroadcastService = BroadcastService = __decorate([
         users_service_1.UsersService,
         services_service_1.ServicesService,
         products_service_1.ProductsService,
+        notifications_service_1.NotificationsService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
         broadcast_gateway_1.BroadcastGateway])
