@@ -119,14 +119,6 @@ let BroadcastService = class BroadcastService {
         return threads;
     }
     async createBroadcastAndDispatch(dto, buyerId, location, imageUrls) {
-        return {
-            message: this.i18n.translate("auth.broadcast.created_success", {
-                lang: this.lang,
-            }),
-            data: {
-                id: Math.random().toString(36).substring(2, 15),
-            }
-        };
         console.log("Creating broadcast with DTO:", dto);
         const isCategoryValid = await this.findCategorybyId(dto.categoryId);
         if (!isCategoryValid) {
@@ -137,6 +129,14 @@ let BroadcastService = class BroadcastService {
         if (dto.type !== "product" && dto.type !== "service") {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.type_invalid", { lang: this.lang }));
         }
+        return {
+            message: this.i18n.translate("auth.broadcast.created_success", {
+                lang: this.lang,
+            }),
+            data: {
+                id: Math.random().toString(36).substring(2, 15),
+            }
+        };
         let sellerIds = [];
         if (dto.type === "product") {
             sellerIds = await this.findNearbySellers(location, dto.radius, dto.categoryId);

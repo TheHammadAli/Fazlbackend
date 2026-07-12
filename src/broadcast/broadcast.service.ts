@@ -179,14 +179,7 @@ export class BroadcastService {
   ) {
 
 
-    return {
-      message: this.i18n.translate("auth.broadcast.created_success", {
-        lang: this.lang,
-      }),
-      data: {
-        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
-      }
-    };
+ 
     console.log("Creating broadcast with DTO:", dto);
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
@@ -203,6 +196,15 @@ export class BroadcastService {
         this.i18n.translate("auth.broadcast.type_invalid", { lang: this.lang }),
       );
     }
+
+       return {
+      message: this.i18n.translate("auth.broadcast.created_success", {
+        lang: this.lang,
+      }),
+      data: {
+        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
+      }
+    };
 
     let sellerIds: string[] = [];
 
