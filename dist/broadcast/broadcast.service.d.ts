@@ -36,7 +36,9 @@ export declare class BroadcastService {
         coordinates: [number, number];
     }, imageUrls?: string[]): Promise<{
         message: string;
-        data: string;
+        data: {
+            id: string;
+        };
     }>;
     sendBroadcastMessage(broadcastId: string, senderId: string, receiverId: string, threadId: string, message: string, imageUrl?: string): Promise<{
         data: {

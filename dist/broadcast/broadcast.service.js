@@ -163,7 +163,9 @@ let BroadcastService = class BroadcastService {
             message: this.i18n.translate("auth.broadcast.created_success", {
                 lang: this.lang,
             }),
-            data: broadcast._id.toString(),
+            data: {
+                id: broadcast._id.toString(),
+            }
         };
     }
     async sendBroadcastMessage(broadcastId, senderId, receiverId, threadId, message, imageUrl) {

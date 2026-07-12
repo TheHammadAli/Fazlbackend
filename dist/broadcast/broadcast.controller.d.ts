@@ -10,7 +10,9 @@ export declare class BroadcastController {
     constructor(broadcastService: BroadcastService, fileUploadService: FileUploadService);
     createBroadcast(dto: CreateBroadcastDto, req: Request, files?: Express.Multer.File[]): Promise<{
         message: string;
-        data: string;
+        data: {
+            id: string;
+        };
     }>;
     sendMessage(broadcastId: string, dto: SendBroadcastMessageDto, req: Request, file?: Express.Multer.File): Promise<{
         data: {
