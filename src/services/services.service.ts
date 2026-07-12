@@ -561,7 +561,7 @@ export class ServicesService {
     });
 
     const results = await request.save();
-    this.notificationsService.createAndNotify(
+    await this.notificationsService.createAndNotify(
       service.ownerId._id.toString(),
       "request_created",
       "SERVICE_REQUEST",
@@ -670,7 +670,7 @@ export class ServicesService {
           this.i18n.translate("auth.services.unsupported_action"),
         );
     }
-    
+
     // 3. Perform the DB Operation (The Source of Truth)
     await request.save();
 
@@ -680,7 +680,7 @@ export class ServicesService {
         serviceName,
       };
 
-     this.notificationsService.createAndNotify(
+      await this.notificationsService.createAndNotify(
         recipientId,
         notificationKey, // Use the translation key decided in the switch
         "SERVICE_REQUEST",
@@ -689,7 +689,7 @@ export class ServicesService {
       );
     }
     // Give Android a brief window to settle the connection before the response completes.
-    await this.delayResponse();
+    await this.delayResponse(3000);
 
     return {
       status: 201,
@@ -758,6 +758,7 @@ export class ServicesService {
     await this.delayResponse();
 
     return {
+      status: 201,
       message: this.i18n.translate("auth.services.job_status_updated", {
         lang: this.lang,
         args: {
