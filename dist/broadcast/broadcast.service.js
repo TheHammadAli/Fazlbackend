@@ -163,7 +163,7 @@ let BroadcastService = class BroadcastService {
         await new Promise(resolve => setTimeout(resolve, 2000));
         await this.messageModel.insertMany(initialMessages);
         const buyer = await this.userService.findUserById(buyerId);
-        const category = await this.findCategorybyId(dto.categoryId);
+        console.log("Buyer info for notifications:", buyer, isCategoryValid);
         const notificationPromises = sellerIds.map((sellerId) => this.notificationsService.createAndNotify(sellerId, "broadcast_created", "PROMOTION", {
             broadcastId: broadcast._id.toString(),
             buyerId,
@@ -175,9 +175,9 @@ let BroadcastService = class BroadcastService {
             address: dto.address,
             imageUrls: imageUrls || [],
         }, {
-            buyerName: buyer?.name || "A buyer",
-            categoryName: category?.name || "Product",
-            message: dto.message || "📢 New broadcast request",
+            broadcastType: dto.type === "product" ? "Product" : "Service",
+            buyer: buyer?.name,
+            categoryName: isCategoryValid?.name?.[this.lang] || "Unknown Category",
             purpose: dto.purpose,
         }));
         await Promise.allSettled(notificationPromises);

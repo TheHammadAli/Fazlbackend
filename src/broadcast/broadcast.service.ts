@@ -269,8 +269,8 @@ export class BroadcastService {
 
     // 3. GET BUYER AND CATEGORY INFO FOR NOTIFICATIONS
     const buyer = await this.userService.findUserById(buyerId);
-    const category = await this.findCategorybyId(dto.categoryId);
 
+    console.log("Buyer info for notifications:", buyer, isCategoryValid);
     // 4. SEND NOTIFICATIONS TO ALL SELLERS
     const notificationPromises = sellerIds.map((sellerId) =>
       this.notificationsService.createAndNotify(
@@ -289,9 +289,9 @@ export class BroadcastService {
           imageUrls: imageUrls || [],
         },
         {
-          buyerName: buyer?.name || "A buyer",
-          categoryName: (category as any)?.name || "Product",
-          message: dto.message || "📢 New broadcast request",
+          broadcastType: dto.type === "product" ? "Product" : "Service",
+          buyer: buyer?.name,
+          categoryName: isCategoryValid?.name?.[this.lang] || "Unknown Category",
           purpose: dto.purpose,
         },
       ),
