@@ -179,7 +179,7 @@ export class BroadcastService {
   ) {
 
 
- 
+
     console.log("Creating broadcast with DTO:", dto);
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
@@ -197,14 +197,7 @@ export class BroadcastService {
       );
     }
 
-       return {
-      message: this.i18n.translate("auth.broadcast.created_success", {
-        lang: this.lang,
-      }),
-      data: {
-        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
-      }
-    };
+
 
     let sellerIds: string[] = [];
 
@@ -222,6 +215,15 @@ export class BroadcastService {
         dto.categoryId,
       );
     }
+
+    return {
+      message: this.i18n.translate("auth.broadcast.created_success", {
+        lang: this.lang,
+      }),
+      data: {
+        id: Math.random().toString(36).substring(2, 15), // Temporary ID for testing
+      }
+    };
 
     sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
     sellerIds = sellerIds.filter((id) => id !== buyerId.toString());

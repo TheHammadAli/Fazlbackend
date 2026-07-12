@@ -129,6 +129,13 @@ let BroadcastService = class BroadcastService {
         if (dto.type !== "product" && dto.type !== "service") {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.type_invalid", { lang: this.lang }));
         }
+        let sellerIds = [];
+        if (dto.type === "product") {
+            sellerIds = await this.findNearbySellers(location, dto.radius, dto.categoryId);
+        }
+        else if (dto.type === "service") {
+            sellerIds = await this.findNearbyServiceProviders(location, dto.radius, dto.categoryId);
+        }
         return {
             message: this.i18n.translate("auth.broadcast.created_success", {
                 lang: this.lang,
@@ -137,13 +144,6 @@ let BroadcastService = class BroadcastService {
                 id: Math.random().toString(36).substring(2, 15),
             }
         };
-        let sellerIds = [];
-        if (dto.type === "product") {
-            sellerIds = await this.findNearbySellers(location, dto.radius, dto.categoryId);
-        }
-        else if (dto.type === "service") {
-            sellerIds = await this.findNearbyServiceProviders(location, dto.radius, dto.categoryId);
-        }
         sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
         sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
         if (!sellerIds.length) {
