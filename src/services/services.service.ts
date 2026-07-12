@@ -557,13 +557,13 @@ export class ServicesService {
     });
 
     const results = await request.save();
-    this.notificationsService.createAndNotify(
-      service.ownerId._id.toString(),
-      "request_created",
-      "SERVICE_REQUEST",
-      { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" },
-      { serviceName: service.title, customerName: customer?.name || "A customer" },
-    );
+    // this.notificationsService.createAndNotify(
+    //   service.ownerId._id.toString(),
+    //   "request_created",
+    //   "SERVICE_REQUEST",
+    //   { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" },
+    //   { serviceName: service.title, customerName: customer?.name || "A customer" },
+    // );
 
     return {
       data: results,

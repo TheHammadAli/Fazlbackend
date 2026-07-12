@@ -90,6 +90,12 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
         return withoutQuotes.replace(/\\n/g, "\n");
     }
     async sendNotification(token, title, body, payload = {}) {
+        const isChatNotification = payload.type === "MESSAGE";
+        const androidChannelId = isChatNotification
+            ? "chat_message"
+            : "marketing_service_channel";
+        const soundName = isChatNotification ? "message" : "service_request";
+        const iosSoundName = isChatNotification ? "message.wav" : "service_request.wav";
         try {
             if (!admin.apps.length) {
                 this.logger.warn("Firebase not initialized. Skipping notification.");
@@ -100,12 +106,43 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
                 sanitizedData[key] =
                     typeof value === "object" ? JSON.stringify(value) : String(value);
             });
+            const androidConfigForFrontend = {
+                notification: {
+                    channelId: androidChannelId,
+                    sound: soundName,
+                },
+            };
+            const apnsConfigForFrontend = {
+                payload: {
+                    aps: {
+                        sound: iosSoundName,
+                        mutableContent: true,
+                    },
+                },
+            };
+            sanitizedData.android = JSON.stringify(androidConfigForFrontend);
+            sanitizedData.apns = JSON.stringify(apnsConfigForFrontend);
+            sanitizedData.notificationChannel = androidChannelId;
+            sanitizedData.notificationSoundAndroid = soundName;
+            sanitizedData.notificationSoundIos = iosSoundName;
             return await admin.messaging().send({
                 token,
                 notification: { title, body },
                 data: sanitizedData,
-                android: { priority: "high" },
-                apns: { payload: { aps: { contentAvailable: true, sound: "default", badge: 1 } } },
+                android: {
+                    priority: "high",
+                    notification: androidConfigForFrontend.notification,
+                },
+                apns: {
+                    payload: {
+                        aps: {
+                            contentAvailable: true,
+                            sound: isChatNotification ? iosSoundName : "default",
+                            mutableContent: true,
+                            badge: 1,
+                        },
+                    },
+                },
             });
         }
         catch (err) {

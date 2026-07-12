@@ -93,7 +93,7 @@ let NotificationsService = class NotificationsService {
             this.server.to(userId.toString()).emit("notification", notif);
         }
         console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
-        if (user?.fcmToken) {
+        if (user?.fcmToken && type !== "SERVICE_REQUEST") {
             const notificationId = notif._id?.toString() || String(notif.id);
             await this.firebaseService.sendNotification(user.fcmToken, this.i18n.translate("auth.notifications.new_title", {
                 lang: this.lang,

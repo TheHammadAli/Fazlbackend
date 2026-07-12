@@ -410,7 +410,6 @@ let ServicesService = class ServicesService {
             message,
         });
         const results = await request.save();
-        this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" }, { serviceName: service.title, customerName: customer?.name || "A customer" });
         return {
             data: results,
             message: this.i18n.translate("auth.services.request_created_success", {
