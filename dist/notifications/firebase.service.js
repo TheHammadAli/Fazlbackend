@@ -143,7 +143,7 @@ let FirebaseService = FirebaseService_1 = class FirebaseService {
                                 title: title,
                                 body: body,
                             },
-                            sound: isChatNotification ? iosSoundName : "default",
+                            sound: iosSoundName,
                             badge: 1,
                             mutableContent: true,
                         },
