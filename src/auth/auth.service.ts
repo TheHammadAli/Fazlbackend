@@ -355,7 +355,7 @@ export class AuthService {
     firstName?: string;
     lastName?: string;
     name?: string;
-  }) {
+  }): Promise<{ accessToken: string; returnPayload: any }> {
     console.log("Finding or creating user with payload:", payload);
     // Check if user exists
     const user = await this.userService.findUserByEmail(payload.email);
@@ -384,12 +384,16 @@ export class AuthService {
         image: null,
       })) as unknown as UserDocument;
 
+      const refreshToken = this.jwtService.sign(returnPayload, {
+        expiresIn: "3d",
+      });
       returnPayload = {
         sub: newUser._id,
         email: newUser.email,
         roles: newUser.roles,
         location: newUser.location,
         image: newUser.image,
+        refreshToken: refreshToken,
       };
     } else {
       returnPayload = { ...user.toObject(), sub: user._id };
@@ -399,13 +403,8 @@ export class AuthService {
       expiresIn: "1d",
     });
 
-    const refreshToken = this.jwtService.sign(returnPayload, {
-      expiresIn: "3d",
-    });
-
     return {
       accessToken,
-      refreshToken,
       ...returnPayload,
     };
   }
@@ -436,7 +435,7 @@ export class AuthService {
 
       const payload = ticket.getPayload();
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      new Promise((resolve) => setTimeout(resolve, 2000));
       if (!payload) {
         throw new UnauthorizedException("Invalid Google token");
       }
@@ -452,7 +451,7 @@ export class AuthService {
       });
 
 
-      return { user, accessToken: user.accessToken, refreshToken: user.refreshToken };
+      return { user, accessToken: user.accessToken };
     } catch (err) {
       console.error("Error verifying Google ID token:", err);
       throw new UnauthorizedException(
