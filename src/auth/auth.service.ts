@@ -399,8 +399,12 @@ export class AuthService {
       expiresIn: "1d",
     });
 
+    const refreshToken = this.jwtService.sign(returnPayload, {
+      expiresIn: "3d",
+    });
     return {
       accessToken,
+      refreshToken,
       ...returnPayload,
     };
   }
