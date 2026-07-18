@@ -422,7 +422,7 @@ export class AuthService {
     );
     try {
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+  
 
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
@@ -435,7 +435,7 @@ export class AuthService {
 
       const payload = ticket.getPayload();
 
-      new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       if (!payload) {
         throw new UnauthorizedException("Invalid Google token");
       }
