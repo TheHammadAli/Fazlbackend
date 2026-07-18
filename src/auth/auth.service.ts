@@ -355,7 +355,7 @@ export class AuthService {
     firstName?: string;
     lastName?: string;
     name?: string;
-  }): Promise<{ accessToken: string; returnPayload: any; refreshToken: string }> {
+  }) {
     console.log("Finding or creating user with payload:", payload);
     // Check if user exists
     const user = await this.userService.findUserByEmail(payload.email);
