@@ -28,6 +28,7 @@ export declare class ServicesController {
         };
     }>;
     updateJobStatus(dto: UpdateJobStatusDto): Promise<{
+        status: number;
         message: string;
         data: {
             requestId: import("mongoose").Types.ObjectId;

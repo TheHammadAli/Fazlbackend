@@ -115,21 +115,20 @@ export class NotificationsService {
 
     const notifPayload = this.buildNotificationPayload(payload);
 
-    const notif = await this.create<T>(
-      userId,
-      translatedMessage,
-      type,
-      notifPayload as T,
-    );
+    const notif =
+      type !== "MESSAGE"
+        ? await this.create<T>(userId, translatedMessage, type, notifPayload as T)
+        : null;
 
-    if (this.server) {
+    if (type !== "MESSAGE" && this.server && notif) {
       this.server.to(userId.toString()).emit("notification", notif);
     }
+
     console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
-    //&& type !== "SERVICE_REQUEST"
+
     if (user?.fcmToken) {
       const notificationId =
-        (notif as any)._id?.toString() || String((notif as any).id);
+        notif?.['_id']?.toString() || String((notif as any)?.id || "");
 
       await this.firebaseService.sendNotification(
         user.fcmToken,
@@ -140,7 +139,7 @@ export class NotificationsService {
         {
           type,
           ...notifPayload,
-          notificationId,
+          ...(notificationId ? { notificationId } : {}),
         },
       );
     }
@@ -164,7 +163,7 @@ export class NotificationsService {
     const total = await this.notificationModel
       .countDocuments({ userId: new Types.ObjectId(userId) })
       .exec();
-
+ 
     const data = await this.notificationModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 })

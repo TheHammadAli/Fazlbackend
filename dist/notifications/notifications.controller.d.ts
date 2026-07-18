@@ -30,9 +30,9 @@ export declare class NotificationsController {
     testNotification(body: {
         userId: string;
         message: string;
-    }): Promise<import("mongoose").Document<unknown, {}, import("./schema/notifications.schema").Notification, {}> & import("./schema/notifications.schema").Notification & Required<{
+    }): Promise<(import("mongoose").Document<unknown, {}, import("./schema/notifications.schema").Notification, {}> & import("./schema/notifications.schema").Notification & Required<{
         _id: unknown;
     }> & {
         __v: number;
-    }>;
+    }) | null>;
 }

@@ -120,6 +120,25 @@ let ChatService = class ChatService {
         await this.conversationModel.findByIdAndUpdate(conversationId, {
             lastMessageAt: new Date(),
         });
+        await this.notificationsService.createAndNotify(receiverId, "chat.new_message", "MESSAGE", {
+            conversation: {
+                id: conversation._id,
+                buyer: conversation.buyer,
+                seller: conversation.seller,
+                status: conversation.status,
+            },
+            message: {
+                id: message._id,
+                text: message.text,
+                imageUrl: message.imageUrl,
+                createdAt: message.createdAt,
+            },
+            sender: {
+                id: sender._id,
+                name: sender.name,
+                image: sender.image,
+            },
+        }, { senderName: sender.name });
         this.chatGateway.server
             .to(conversationId)
             .emit("receiveMessage", {

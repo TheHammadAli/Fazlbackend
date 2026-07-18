@@ -88,19 +88,21 @@ let NotificationsService = class NotificationsService {
         ;
         console.log("Does it reach here", userId, translatedMessage, type, payload);
         const notifPayload = this.buildNotificationPayload(payload);
-        const notif = await this.create(userId, translatedMessage, type, notifPayload);
-        if (this.server) {
+        const notif = type !== "MESSAGE"
+            ? await this.create(userId, translatedMessage, type, notifPayload)
+            : null;
+        if (type !== "MESSAGE" && this.server && notif) {
             this.server.to(userId.toString()).emit("notification", notif);
         }
         console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
         if (user?.fcmToken) {
-            const notificationId = notif._id?.toString() || String(notif.id);
+            const notificationId = notif?.['_id']?.toString() || String(notif?.id || "");
             await this.firebaseService.sendNotification(user.fcmToken, this.i18n.translate("auth.notifications.new_title", {
                 lang: this.lang,
             }), translatedMessage, {
                 type,
                 ...notifPayload,
-                notificationId,
+                ...(notificationId ? { notificationId } : {}),
             });
         }
         return notif;

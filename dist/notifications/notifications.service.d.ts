@@ -22,11 +22,11 @@ export declare class NotificationsService {
     }> & {
         __v: number;
     }>;
-    createAndNotify<T = Record<string, any>>(userId: string | Types.ObjectId, messageKey: string, type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST", payload: T, i18nArgs?: Record<string, any>): Promise<import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
+    createAndNotify<T = Record<string, any>>(userId: string | Types.ObjectId, messageKey: string, type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST", payload: T, i18nArgs?: Record<string, any>): Promise<(import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
         _id: unknown;
     }> & {
         __v: number;
-    }>;
+    }) | null>;
     findByUser(userId: string, page?: number, limit?: number): Promise<{
         data: {
             notifications: (import("mongoose").Document<unknown, {}, Notification, {}> & Notification & Required<{
