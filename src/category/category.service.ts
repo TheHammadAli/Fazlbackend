@@ -181,7 +181,7 @@ export class CategoryService {
   }
 
   async findAllForAdmin() {
-    return this.categoryModel.find().lean().exec();
+    return this.categoryModel.find().sort({ sortNumber: 1 }).lean().exec();
   }
 
   async findAll(type?: string) {
@@ -190,7 +190,7 @@ export class CategoryService {
       filter.type = type;
     }
 
-    const categories = await this.categoryModel.find(filter).lean().exec();
+    const categories = await this.categoryModel.find(filter).sort({ sortNumber: 1 }).lean().exec();
 
     return {
       data: categories.map((cat) => ({
