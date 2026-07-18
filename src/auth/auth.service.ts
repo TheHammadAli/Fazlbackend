@@ -435,12 +435,12 @@ export class AuthService {
 
       const payload = ticket.getPayload();
 
-      new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       if (!payload) {
         throw new UnauthorizedException("Invalid Google token");
       }
 
-      console.log("Google token payload:", payload);
+
 
       const user = await this.findOrCreateUserByEmail({
         sub: payload["sub"],

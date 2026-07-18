@@ -67,6 +67,5 @@ export declare class AuthController {
             returnPayload: any;
         };
         accessToken: string;
-        refreshToken: string;
     }>;
 }

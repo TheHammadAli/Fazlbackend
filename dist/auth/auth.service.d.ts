@@ -79,6 +79,5 @@ export declare class AuthService {
             returnPayload: any;
         };
         accessToken: string;
-        refreshToken: string;
     }>;
 }
