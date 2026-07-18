@@ -355,7 +355,7 @@ export class AuthService {
     firstName?: string;
     lastName?: string;
     name?: string;
-  }): Promise<{ accessToken: string; returnPayload: any }> {
+  }): Promise<{ accessToken: string; returnPayload: any; refreshToken: string }> {
     console.log("Finding or creating user with payload:", payload);
     // Check if user exists
     const user = await this.userService.findUserByEmail(payload.email);
@@ -402,6 +402,7 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(returnPayload, {
       expiresIn: "3d",
     });
+
     return {
       accessToken,
       refreshToken,
@@ -451,7 +452,7 @@ export class AuthService {
       });
 
 
-      return { user, accessToken: user.accessToken };
+      return { user, accessToken: user.accessToken, refreshToken: user.refreshToken };
     } catch (err) {
       console.error("Error verifying Google ID token:", err);
       throw new UnauthorizedException(
