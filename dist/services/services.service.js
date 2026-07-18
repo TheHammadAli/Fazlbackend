@@ -494,7 +494,7 @@ let ServicesService = class ServicesService {
             };
             await this.notificationsService.createAndNotify(recipientId, notificationKey, "SERVICE_REQUEST", notificationPayload, i18nArgs);
         }
-        await this.delayResponse(3000);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         return {
             status: 201,
             message: this.i18n.translate("auth.services.request_status_updated", {
@@ -539,7 +539,7 @@ let ServicesService = class ServicesService {
                 }));
         }
         const result = await request.save();
-        await this.delayResponse();
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         return {
             status: 201,
             message: this.i18n.translate("auth.services.job_status_updated", {

@@ -417,6 +417,9 @@ export class AuthService {
       this.configService.get<string>("GOOGLE_CLIENT_ID"),
     );
     try {
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
         audience: [
@@ -428,23 +431,22 @@ export class AuthService {
 
       const payload = ticket.getPayload();
 
-      if (!payload) {
-        throw new UnauthorizedException("Invalid Google token");
-      }
+      // if (!payload) {
+      //   throw new UnauthorizedException("Invalid Google token");
+      // }
 
-      console.log("Google token payload:", payload);
+      // console.log("Google token payload:", payload);
 
-      const user = await this.findOrCreateUserByEmail({
-        sub: payload["sub"],
-        email: payload["email"] as string,
-        firstName: payload["given_name"],
-        lastName: payload["family_name"],
-      name: payload["name"],
-      });
+      // const user = await this.findOrCreateUserByEmail({
+      //   sub: payload["sub"],
+      //   email: payload["email"] as string,
+      //   firstName: payload["given_name"],
+      //   lastName: payload["family_name"],
+      //   name: payload["name"],
+      // });
+      return { ...payload }
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      return { user, accessToken: user.accessToken };
+      // return { user, accessToken: user.accessToken };
     } catch (err) {
       console.error("Error verifying Google ID token:", err);
       throw new UnauthorizedException(

@@ -318,6 +318,7 @@ let AuthService = class AuthService {
     async verifyGoogleToken(idToken) {
         console.log("Verifying Google ID token:", idToken, this.configService.get("GOOGLE_CLIENT_ID"));
         try {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
             const ticket = await this.googleClient.verifyIdToken({
                 idToken,
                 audience: [
@@ -327,18 +328,7 @@ let AuthService = class AuthService {
                 ].filter((value) => Boolean(value)),
             });
             const payload = ticket.getPayload();
-            if (!payload) {
-                throw new common_1.UnauthorizedException("Invalid Google token");
-            }
-            console.log("Google token payload:", payload);
-            const user = await this.findOrCreateUserByEmail({
-                sub: payload["sub"],
-                email: payload["email"],
-                firstName: payload["given_name"],
-                lastName: payload["family_name"],
-                name: payload["name"],
-            });
-            return { user, accessToken: user.accessToken };
+            return { ...payload };
         }
         catch (err) {
             console.error("Error verifying Google ID token:", err);
