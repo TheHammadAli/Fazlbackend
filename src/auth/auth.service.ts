@@ -445,11 +445,9 @@ export class AuthService {
         lastName: payload["family_name"],
         name: payload["name"],
       });
-      const refreshToken = this.jwtService.sign(payload, {
-        expiresIn: "3d",
-      });
 
-      return { user, accessToken: user.accessToken, refreshToken };
+
+      return { user, accessToken: user.accessToken };
     } catch (err) {
       console.error("Error verifying Google ID token:", err);
       throw new UnauthorizedException(
