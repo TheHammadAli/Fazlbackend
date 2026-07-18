@@ -384,16 +384,16 @@ export class AuthService {
         image: null,
       })) as unknown as UserDocument;
 
-      const refreshToken = this.jwtService.sign(returnPayload, {
-        expiresIn: "3d",
-      });
+      const refreshToken = this.jwtService.sign({}, { expiresIn: "3d" });
+      const newUserPayload =
+        typeof (newUser as UserDocument & { toObject?: () => any }).toObject ===
+          "function"
+          ? (newUser as UserDocument & { toObject?: () => any }).toObject()
+          : newUser;
       returnPayload = {
+        ...newUserPayload,
         sub: newUser._id,
-        email: newUser.email,
-        roles: newUser.roles,
-        location: newUser.location,
-        image: newUser.image,
-        refreshToken: refreshToken,
+        refreshToken,
       };
     } else {
       returnPayload = { ...user.toObject(), sub: user._id };
@@ -422,7 +422,7 @@ export class AuthService {
     );
     try {
 
-  
+
 
       const ticket = await this.googleClient.verifyIdToken({
         idToken,

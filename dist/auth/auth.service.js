@@ -291,12 +291,15 @@ let AuthService = class AuthService {
                 },
                 image: null,
             }));
+            const refreshToken = this.jwtService.sign({}, { expiresIn: "3d" });
+            const newUserPayload = typeof newUser.toObject ===
+                "function"
+                ? newUser.toObject()
+                : newUser;
             returnPayload = {
+                ...newUserPayload,
                 sub: newUser._id,
-                email: newUser.email,
-                roles: newUser.roles,
-                location: newUser.location,
-                image: newUser.image,
+                refreshToken,
             };
         }
         else {
@@ -305,12 +308,8 @@ let AuthService = class AuthService {
         const accessToken = this.jwtService.sign(returnPayload, {
             expiresIn: "1d",
         });
-        const refreshToken = this.jwtService.sign(returnPayload, {
-            expiresIn: "3d",
-        });
         return {
             accessToken,
-            refreshToken,
             ...returnPayload,
         };
     }
@@ -322,7 +321,6 @@ let AuthService = class AuthService {
     async verifyGoogleToken(idToken) {
         console.log("Verifying Google ID token:", idToken, this.configService.get("GOOGLE_CLIENT_ID"));
         try {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
             const ticket = await this.googleClient.verifyIdToken({
                 idToken,
                 audience: [
