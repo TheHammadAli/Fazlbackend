@@ -74,22 +74,11 @@ export declare class AuthService {
     }>;
     createJwtToken(payload: any): string;
     verifyGoogleToken(idToken: string): Promise<{
-        iss?: string | undefined;
-        at_hash?: string;
-        email_verified?: boolean;
-        sub?: string | undefined;
-        azp?: string;
-        email?: string;
-        profile?: string;
-        picture?: string;
-        name?: string;
-        given_name?: string;
-        family_name?: string;
-        aud?: string | undefined;
-        iat?: number | undefined;
-        exp?: number | undefined;
-        nonce?: string;
-        hd?: string;
-        locale?: string;
+        user: {
+            accessToken: string;
+            returnPayload: any;
+        };
+        accessToken: string;
+        refreshToken: string;
     }>;
 }

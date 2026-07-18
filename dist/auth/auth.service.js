@@ -303,7 +303,7 @@ let AuthService = class AuthService {
             returnPayload = { ...user.toObject(), sub: user._id };
         }
         const accessToken = this.jwtService.sign(returnPayload, {
-            expiresIn: "1h",
+            expiresIn: "1d",
         });
         return {
             accessToken,
@@ -328,7 +328,22 @@ let AuthService = class AuthService {
                 ].filter((value) => Boolean(value)),
             });
             const payload = ticket.getPayload();
-            return { ...payload };
+            new Promise((resolve) => setTimeout(resolve, 2000));
+            if (!payload) {
+                throw new common_1.UnauthorizedException("Invalid Google token");
+            }
+            console.log("Google token payload:", payload);
+            const user = await this.findOrCreateUserByEmail({
+                sub: payload["sub"],
+                email: payload["email"],
+                firstName: payload["given_name"],
+                lastName: payload["family_name"],
+                name: payload["name"],
+            });
+            const refreshToken = this.jwtService.sign(payload, {
+                expiresIn: "3d",
+            });
+            return { user, accessToken: user.accessToken, refreshToken };
         }
         catch (err) {
             console.error("Error verifying Google ID token:", err);
