@@ -439,8 +439,10 @@ export class AuthService {
         email: payload["email"] as string,
         firstName: payload["given_name"],
         lastName: payload["family_name"],
-        name: payload["name"],
+      name: payload["name"],
       });
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       return { user, accessToken: user.accessToken };
     } catch (err) {

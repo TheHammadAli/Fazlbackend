@@ -689,7 +689,7 @@ export class ServicesService {
       );
     }
     // Give Android a brief window to settle the connection before the response completes.
-    await this.delayResponse(3000);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,
@@ -755,7 +755,7 @@ export class ServicesService {
 
     const result = await request.save();
     // Give Android a brief window to settle the connection before the response completes.
-    await this.delayResponse();
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,
