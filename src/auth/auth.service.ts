@@ -132,8 +132,8 @@ export class AuthService {
         data: {
           accessToken: newAccessToken,
           user,
-          refreshToken: refreshToken.token
-        }
+          refreshToken: newRefreshToken,
+        },
       };
     } catch (err) {
       throw new UnauthorizedException(
