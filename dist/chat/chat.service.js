@@ -138,7 +138,7 @@ let ChatService = class ChatService {
                 name: sender.name,
                 image: sender.image,
             },
-        }, { senderName: sender.name });
+        }, { senderName: sender.name }, sender.name);
         this.chatGateway.server
             .to(conversationId)
             .emit("receiveMessage", {

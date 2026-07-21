@@ -129,9 +129,10 @@ export class NotificationsService {
 
     const notificationTitle =
       titleOverride ||
-      this.i18n.translate("auth.notifications.new_title", {
+      (this.i18n.translate("auth.notifications.new_title", {
         lang: this.lang,
-      });
+      }) as string) ||
+      "Notification";
 
     if (user?.fcmToken) {
       const notificationId =

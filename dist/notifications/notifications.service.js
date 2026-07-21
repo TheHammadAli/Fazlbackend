@@ -69,7 +69,7 @@ let NotificationsService = class NotificationsService {
         });
         return notif.save();
     }
-    async createAndNotify(userId, messageKey, type, payload, i18nArgs = {}) {
+    async createAndNotify(userId, messageKey, type, payload, i18nArgs = {}, titleOverride) {
         console.log("lang args", i18nArgs);
         const user = await this.usersService.findUserById(userId.toString());
         console.log("User for notification:", userId, user);
@@ -95,11 +95,14 @@ let NotificationsService = class NotificationsService {
             this.server.to(userId.toString()).emit("notification", notif);
         }
         console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
+        const notificationTitle = titleOverride ||
+            this.i18n.translate("auth.notifications.new_title", {
+                lang: this.lang,
+            }) ||
+            "Notification";
         if (user?.fcmToken) {
             const notificationId = notif?.['_id']?.toString() || String(notif?.id || "");
-            await this.firebaseService.sendNotification(user.fcmToken, this.i18n.translate("auth.notifications.new_title", {
-                lang: this.lang,
-            }), translatedMessage, {
+            await this.firebaseService.sendNotification(user.fcmToken, notificationTitle, translatedMessage, {
                 type,
                 ...notifPayload,
                 ...(notificationId ? { notificationId } : {}),
