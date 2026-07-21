@@ -169,6 +169,7 @@ export class ChatService {
         },
       },
       { senderName: sender.name },
+      sender.name,
     );
 
     this.chatGateway.server

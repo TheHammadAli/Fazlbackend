@@ -83,6 +83,7 @@ export class NotificationsService {
     type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST",
     payload: T,
     i18nArgs: Record<string, any> = {},
+    titleOverride?: string,
   ) {
     console.log(
       "lang args", i18nArgs
@@ -126,15 +127,19 @@ export class NotificationsService {
 
     console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
 
+    const notificationTitle =
+      titleOverride ||
+      this.i18n.translate("auth.notifications.new_title", {
+        lang: this.lang,
+      });
+
     if (user?.fcmToken) {
       const notificationId =
         notif?.['_id']?.toString() || String((notif as any)?.id || "");
 
       await this.firebaseService.sendNotification(
         user.fcmToken,
-        this.i18n.translate("auth.notifications.new_title", {
-          lang: this.lang,
-        }),
+        notificationTitle,
         translatedMessage,
         {
           type,
@@ -163,7 +168,7 @@ export class NotificationsService {
     const total = await this.notificationModel
       .countDocuments({ userId: new Types.ObjectId(userId) })
       .exec();
- 
+
     const data = await this.notificationModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
