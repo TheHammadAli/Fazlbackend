@@ -38,23 +38,76 @@ let CategoryService = class CategoryService {
         return this.cls?.get("lang") ?? "en";
     }
     normalizeParameters(parameters) {
-        if (!parameters)
-            return {};
-        if (typeof parameters === "object" && parameters !== null && !Array.isArray(parameters)) {
-            return parameters;
+        if (!parameters) {
+            return { en: [], ur: [] };
         }
         if (typeof parameters === "string") {
             try {
-                const parsed = JSON.parse(parameters);
-                if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-                    return parsed;
-                }
+                parameters = JSON.parse(parameters);
             }
             catch (e) {
                 throw new common_1.BadRequestException(this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }));
             }
         }
-        throw new common_1.BadRequestException(this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }));
+        if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
+            throw new common_1.BadRequestException(this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }));
+        }
+        const normalized = {};
+        for (const lang of ["en", "ur"]) {
+            const rawValue = parameters?.[lang];
+            normalized[lang] = this.normalizeParameterList(rawValue);
+        }
+        return normalized;
+    }
+    normalizeParameterList(value) {
+        if (!value)
+            return [];
+        if (Array.isArray(value)) {
+            return value.map((item) => this.normalizeParameterItem(item));
+        }
+        if (typeof value === "object") {
+            return [this.normalizeParameterItem(value)];
+        }
+        return [];
+    }
+    normalizeParameterItem(item) {
+        if (typeof item === "string") {
+            return { name: item.trim(), values: [] };
+        }
+        if (Array.isArray(item)) {
+            return { name: item.join("").trim(), values: [] };
+        }
+        if (typeof item !== "object" || item === null) {
+            return { name: "", values: [] };
+        }
+        const rawName = typeof item.name === "string"
+            ? item.name
+            : typeof item.label === "string"
+                ? item.label
+                : this.extractNameFromKeyedObject(item);
+        const rawValues = Array.isArray(item.values)
+            ? item.values.filter((value) => typeof value === "string")
+            : [];
+        return {
+            name: rawName?.trim?.() || "",
+            values: rawValues,
+        };
+    }
+    extractNameFromKeyedObject(item) {
+        const numericKeys = Object.keys(item)
+            .filter((key) => /^\d+$/.test(key))
+            .sort((a, b) => Number(a) - Number(b));
+        if (numericKeys.length > 0) {
+            return numericKeys
+                .map((key) => item[key])
+                .filter((value) => typeof value === "string")
+                .join("")
+                .trim();
+        }
+        const fallback = Object.entries(item).find(([key, value]) => {
+            return typeof value === "string" && !["values", "_id", "id"].includes(key);
+        });
+        return fallback?.[1]?.trim?.() || "";
     }
     async checkDuplicateName(nameInput, excludeId) {
         let nameEn;
@@ -147,6 +200,7 @@ let CategoryService = class CategoryService {
                 ...cat,
                 name: this.getLocalizedValue(cat?.name, this.lang),
                 description: this.getLocalizedValue(cat?.description, this.lang),
+                parameters: this.normalizeParameters(cat?.parameters),
             })),
             message: this.i18n.translate("category.fetched_success", { lang: this.lang }),
         };
@@ -158,7 +212,10 @@ let CategoryService = class CategoryService {
             .exec();
         if (!category)
             throw new common_1.NotFoundException(this.i18n.translate("auth.category.category_not_found", { lang }));
-        return category;
+        return {
+            ...category,
+            parameters: this.normalizeParameters(category?.parameters),
+        };
     }
     async delete(id) {
         const result = await this.categoryModel.findById(id);

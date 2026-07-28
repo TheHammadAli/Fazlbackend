@@ -681,6 +681,7 @@ export class BroadcastService {
           message: 1,
           address: 1,
           purpose: 1,
+          location: 1,
           radius: 1,
           type: 1,
           createdAt: 1,
