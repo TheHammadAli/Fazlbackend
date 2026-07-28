@@ -7,8 +7,14 @@ export declare class Category {
     name: Map<string, string>;
     description?: Map<string, string>;
     parameters?: {
-        en: string[];
-        ur: string[];
+        en: Array<{
+            name: string;
+            values: string[];
+        }>;
+        ur: Array<{
+            name: string;
+            values: string[];
+        }>;
     };
     sortNumber: number;
     isDisabled: boolean;

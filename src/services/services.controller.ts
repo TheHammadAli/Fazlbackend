@@ -35,6 +35,7 @@ import {
 import { CreateRequestDto } from "./dto/create-request-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
+import { UpdateServiceStatusDto } from "./dto/update-service-status.dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { Public } from "src/common/decorators/public.decorator";
@@ -56,7 +57,7 @@ export class ServicesController {
     return this.servicesService.createServiceRequest(dto);
   }
 
-  
+
   @Patch("status")
   @ApiOperation({
     summary:
@@ -275,6 +276,29 @@ export class ServicesController {
     }
     await this.servicesService.deleteServiceMedia(serviceId, media);
     return { message: "Selected service media deleted successfully" };
+  }
+
+  @Get("admin/all")
+  @ApiOperation({ summary: "Get paginated services for admin, including disabled and deleted" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String })
+  async getAllForAdmin(
+    @Query() paginationDto: PaginationDto,
+    @Query("search") search?: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    return this.servicesService.getAllForAdmin(paginationDto, search);
+  }
+
+  @Patch(":id/status")
+  @ApiOperation({ summary: "Enable or disable a service" })
+  @ApiParam({ name: "id", required: true, description: "Service ID" })
+  @ApiBody({ type: UpdateServiceStatusDto })
+  async updateServiceStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateServiceStatusDto,
+  ) {
+    return this.servicesService.updateStatus(id, dto.isDisabled);
   }
 
   @Public()

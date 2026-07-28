@@ -426,7 +426,66 @@ export class ProductsService {
       pagination,
     );
   }
+  async getAllForAdmin(
+    paginationDto: PaginationDto,
+    search?: string,
+  ): Promise<PaginatedResponseDto<Product>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
 
+    const filter: FilterQuery<ProductDocument> = {};
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { title: { $regex: term, $options: "i" } },
+        { description: { $regex: term, $options: "i" } },
+        { "category.name.en": { $regex: term, $options: "i" } },
+        { "category.name.ur": { $regex: term, $options: "i" } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate("category")
+        .populate("shopId")
+        .populate("ownerId")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items,
+    };
+  }
+
+  async updateStatus(productId: string, isDisabled: boolean) {
+    const updated = await this.productModel.findByIdAndUpdate(
+      new Types.ObjectId(productId),
+      { isDisabled },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    return {
+      message: isDisabled ?
+        this.i18n.translate("auth.products.product_disabled_success", { lang: this.lang }) :
+        this.i18n.translate("auth.products.product_enabled_success", { lang: this.lang }),
+      data: updated,
+    };
+  }
   async findNearbyProductShopOwnerIds(
     categoryId: string,
     coordinates: [number, number],

@@ -20,6 +20,7 @@ const update_product_dto_1 = require("./dto/update-product.dto");
 const pagination_dto_1 = require("../common/dto/pagination.dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const update_product_status_dto_1 = require("./dto/update-product-status.dto");
 const swagger_1 = require("@nestjs/swagger");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("../services/dto/video-with-dto");
@@ -76,6 +77,12 @@ let ProductsController = class ProductsController {
     async delete(id) {
         await this.productsService.delete(id);
         return { message: "Product deleted successfully" };
+    }
+    async getAllForAdmin(paginationDto, search) {
+        return this.productsService.getAllForAdmin(paginationDto, search);
+    }
+    async updateStatus(id, dto) {
+        return this.productsService.updateStatus(id, dto.isDisabled);
     }
 };
 exports.ProductsController = ProductsController;
@@ -220,6 +227,29 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ProductsController.prototype, "delete", null);
+__decorate([
+    (0, common_1.Get)("admin/all"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated products for admin, including disabled and deleted" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "search", required: false, type: String }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Query)("search")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [pagination_dto_1.PaginationDto, String]),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "getAllForAdmin", null);
+__decorate([
+    (0, common_1.Patch)(":id/status"),
+    (0, swagger_1.ApiOperation)({ summary: "Enable or disable a product" }),
+    (0, swagger_1.ApiParam)({ name: "id", required: true, description: "Product ID" }),
+    (0, swagger_1.ApiBody)({ type: update_product_status_dto_1.UpdateProductStatusDto }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_product_status_dto_1.UpdateProductStatusDto]),
+    __metadata("design:returntype", Promise)
+], ProductsController.prototype, "updateStatus", null);
 exports.ProductsController = ProductsController = __decorate([
     (0, swagger_1.ApiTags)("Products"),
     (0, swagger_1.ApiBearerAuth)("jwt"),

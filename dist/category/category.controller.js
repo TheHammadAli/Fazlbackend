@@ -38,6 +38,9 @@ let CategoryController = class CategoryController {
         if (dto.description && typeof dto.description === "string") {
             dto.description = JSON.parse(dto.description);
         }
+        if (dto.parameters && typeof dto.parameters === "string") {
+            dto.parameters = JSON.parse(dto.parameters);
+        }
         if (icon) {
             dto.icon = await this.fileUploadService.uploadCategoryIcon(icon);
         }
@@ -58,6 +61,9 @@ let CategoryController = class CategoryController {
         }
         if (dto.description && typeof dto.description === "string") {
             dto.description = JSON.parse(dto.description);
+        }
+        if (dto.parameters && typeof dto.parameters === "string") {
+            dto.parameters = JSON.parse(dto.parameters);
         }
         if (icon) {
             dto.icon = await this.fileUploadService.uploadCategoryIcon(icon);

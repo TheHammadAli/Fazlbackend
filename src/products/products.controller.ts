@@ -14,6 +14,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Patch,
 } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { CreateProductDto } from "./dto/create-product.dto";
@@ -24,6 +25,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { UpdateProductStatusDto } from "./dto/update-product-status.dto";
 import {
   ApiTags,
   ApiOperation,
@@ -224,5 +226,28 @@ export class ProductsController {
   async delete(@Param("id") id: string): Promise<{ message: string }> {
     await this.productsService.delete(id);
     return { message: "Product deleted successfully" };
+  }
+
+  @Get("admin/all")
+  @ApiOperation({ summary: "Get paginated products for admin, including disabled and deleted" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String })
+  async getAllForAdmin(
+    @Query() paginationDto: PaginationDto,
+    @Query("search") search?: string,
+  ): Promise<PaginatedResponseDto<Product>> {
+    return this.productsService.getAllForAdmin(paginationDto, search);
+  }
+
+  @Patch(":id/status")
+  @ApiOperation({ summary: "Enable or disable a product" })
+  @ApiParam({ name: "id", required: true, description: "Product ID" })
+  @ApiBody({ type: UpdateProductStatusDto })
+  async updateStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateProductStatusDto,
+  ) {
+    return this.productsService.updateStatus(id, dto.isDisabled);
   }
 }

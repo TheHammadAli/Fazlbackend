@@ -14,20 +14,49 @@ const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 const category_schema_1 = require("../schema/category.schema");
+class CategoryParameterDto {
+    name;
+    values;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "Color" }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CategoryParameterDto.prototype, "name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: ["Red", "Blue"], type: [String] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CategoryParameterDto.prototype, "values", void 0);
 class CategoryParametersDto {
     en;
     ur;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: ["Size", "Color"] }),
+    (0, swagger_1.ApiProperty)({
+        type: [CategoryParameterDto],
+        example: [
+            { name: "Size", values: ["S", "M", "L"] },
+            { name: "Color", values: ["Red", "Blue"] },
+        ],
+    }),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => CategoryParameterDto),
     __metadata("design:type", Array)
 ], CategoryParametersDto.prototype, "en", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: ["سائز", "رنگ"] }),
+    (0, swagger_1.ApiProperty)({
+        type: [CategoryParameterDto],
+        example: [
+            { name: "سائز", values: ["S", "M", "L"] },
+            { name: "رنگ", values: ["Red", "Blue"] },
+        ],
+    }),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => CategoryParameterDto),
     __metadata("design:type", Array)
 ], CategoryParametersDto.prototype, "ur", void 0);
 class CreateUpdateCategoryDto {
@@ -64,8 +93,14 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: {
-            en: ["Size", "Color"],
-            ur: ["سائز", "رنگ"],
+            en: [
+                { name: "Size", values: ["S", "M", "L"] },
+                { name: "Color", values: ["Red", "Blue"] },
+            ],
+            ur: [
+                { name: "سائز", values: ["S", "M", "L"] },
+                { name: "رنگ", values: ["Red", "Blue"] },
+            ],
         },
         type: CategoryParametersDto,
     }),

@@ -62,6 +62,15 @@ export declare class ServicesService {
     deleteServiceMedia(serviceId: string, media: string[]): Promise<boolean>;
     getById(serviceId: string, userId?: string): Promise<any>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;
+    getAllForAdmin(paginationDto: PaginationDto, search?: string): Promise<PaginatedResponseDto<Service>>;
+    updateStatus(serviceId: string, isDisabled: boolean): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, ServiceDocument, {}> & Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ServiceDocument>>;
     searchNearbyServices(query: SearchNearbyServiceDto): Promise<{
         meta: {

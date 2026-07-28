@@ -4,6 +4,7 @@ import { UpdateProductDto } from "./dto/update-product.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { Product } from "./schema/product.schema";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { UpdateProductStatusDto } from "./dto/update-product-status.dto";
 import { Request } from "express";
 import { GetWithVideosDto } from "src/services/dto/video-with-dto";
 export declare class ProductsController {
@@ -31,5 +32,14 @@ export declare class ProductsController {
     }): Promise<Product>;
     delete(id: string): Promise<{
         message: string;
+    }>;
+    getAllForAdmin(paginationDto: PaginationDto, search?: string): Promise<PaginatedResponseDto<Product>>;
+    updateStatus(id: string, dto: UpdateProductStatusDto): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("./schema/product.schema").ProductDocument, {}> & Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
     }>;
 }

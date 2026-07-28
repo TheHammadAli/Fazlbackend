@@ -45,8 +45,18 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         type: {
-            en: [{ type: String }],
-            ur: [{ type: String }],
+            en: [
+                {
+                    name: { type: String, required: true },
+                    values: { type: [String], default: [] },
+                },
+            ],
+            ur: [
+                {
+                    name: { type: String, required: true },
+                    values: { type: [String], default: [] },
+                },
+            ],
         },
         default: { en: [], ur: [] },
     }),

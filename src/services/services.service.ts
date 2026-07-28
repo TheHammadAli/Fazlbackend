@@ -347,6 +347,66 @@ export class ServicesService {
     };
   }
 
+  async getAllForAdmin(
+    paginationDto: PaginationDto,
+    search?: string,
+  ): Promise<PaginatedResponseDto<Service>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const filter: FilterQuery<ServiceDocument> = {};
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { title: { $regex: term, $options: "i" } },
+        { description: { $regex: term, $options: "i" } },
+        { "category.name.en": { $regex: term, $options: "i" } },
+        { "category.name.ur": { $regex: term, $options: "i" } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.serviceModel
+        .find(filter)
+        .populate("category")
+        .populate("ownerId")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.serviceModel.countDocuments(filter),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items,
+    };
+  }
+
+  async updateStatus(serviceId: string, isDisabled: boolean) {
+    const updated = await this.serviceModel.findByIdAndUpdate(
+      new Types.ObjectId(serviceId),
+      { isDisabled },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    return {
+      message: isDisabled ?
+        this.i18n.translate("auth.services.service_disabled_success", { lang: this.lang }) :
+        this.i18n.translate("auth.services.service_enabled_success", { lang: this.lang }),
+      data: updated,
+    };
+  }
+
   async searchNearbyWithCategory(
     category: string,
     coordinates: [number, number],

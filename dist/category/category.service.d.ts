@@ -32,8 +32,14 @@ export declare class CategoryService {
             name: string;
             description: string;
             parameters?: import("mongoose").FlattenMaps<{
-                en: string[];
-                ur: string[];
+                en: Array<{
+                    name: string;
+                    values: string[];
+                }>;
+                ur: Array<{
+                    name: string;
+                    values: string[];
+                }>;
             }> | undefined;
             sortNumber: number;
             isDisabled: boolean;

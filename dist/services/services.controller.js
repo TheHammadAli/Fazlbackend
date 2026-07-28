@@ -22,6 +22,7 @@ const swagger_1 = require("@nestjs/swagger");
 const create_request_dto_1 = require("./dto/create-request-dto");
 const update_request_dto_1 = require("./dto/update-request-dto");
 const update_job_dto_1 = require("./dto/update-job-dto");
+const update_service_status_dto_1 = require("./dto/update-service-status.dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("./dto/video-with-dto");
@@ -92,6 +93,12 @@ let ServicesController = class ServicesController {
         }
         await this.servicesService.deleteServiceMedia(serviceId, media);
         return { message: "Selected service media deleted successfully" };
+    }
+    async getAllForAdmin(paginationDto, search) {
+        return this.servicesService.getAllForAdmin(paginationDto, search);
+    }
+    async updateServiceStatus(id, dto) {
+        return this.servicesService.updateStatus(id, dto.isDisabled);
     }
     async searchNearbyServices(query) {
         console.log("Searching nearby services with query:", query);
@@ -296,6 +303,29 @@ __decorate([
     __metadata("design:paramtypes", [String, Array]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "deleteProductMedia", null);
+__decorate([
+    (0, common_1.Get)("admin/all"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated services for admin, including disabled and deleted" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "search", required: false, type: String }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Query)("search")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Get_paginated_dto_1.PaginationDto, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getAllForAdmin", null);
+__decorate([
+    (0, common_1.Patch)(":id/status"),
+    (0, swagger_1.ApiOperation)({ summary: "Enable or disable a service" }),
+    (0, swagger_1.ApiParam)({ name: "id", required: true, description: "Service ID" }),
+    (0, swagger_1.ApiBody)({ type: update_service_status_dto_1.UpdateServiceStatusDto }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_service_status_dto_1.UpdateServiceStatusDto]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "updateServiceStatus", null);
 __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)("search/nearby"),

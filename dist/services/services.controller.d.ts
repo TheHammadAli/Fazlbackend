@@ -6,6 +6,7 @@ import { Request } from "express";
 import { CreateRequestDto } from "./dto/create-request-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
+import { UpdateServiceStatusDto } from "./dto/update-service-status.dto";
 import { GetWithVideosDto } from "./dto/video-with-dto";
 import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
 import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
@@ -72,6 +73,15 @@ export declare class ServicesController {
     getServicesWithVideos(query: GetWithVideosDto, userId?: string): Promise<PaginatedResponseDto<any>>;
     deleteProductMedia(serviceId: string, media: string[]): Promise<{
         message: string;
+    }>;
+    getAllForAdmin(paginationDto: PaginationDto, search?: string): Promise<PaginatedResponseDto<any>>;
+    updateServiceStatus(id: string, dto: UpdateServiceStatusDto): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("./schema/services.schema").ServiceDocument, {}> & import("./schema/services.schema").Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
     }>;
     searchNearbyServices(query: SearchNearbyServiceDto): Promise<{
         meta: {

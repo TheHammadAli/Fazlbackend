@@ -40,6 +40,15 @@ export declare class ProductsService {
     delete(productId: string, lang?: string): Promise<void>;
     deleteProductMedia(productId: string, media: string[]): Promise<boolean>;
     searchNearbyWithCategory(category: string, coordinates: [number, number], radius: number, pagination: PaginationDto): Promise<PaginatedResponseDto<ProductDocument>>;
+    getAllForAdmin(paginationDto: PaginationDto, search?: string): Promise<PaginatedResponseDto<Product>>;
+    updateStatus(productId: string, isDisabled: boolean): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, ProductDocument, {}> & Product & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
     findNearbyProductShopOwnerIds(categoryId: string, coordinates: [number, number], radiusInMeters: number): Promise<string[]>;
     updateLocationByShopId(shopId: string, location: {
         type: "Point";
