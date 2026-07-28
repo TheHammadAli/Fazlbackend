@@ -699,6 +699,10 @@ export class BroadcastService {
     ]);
 
     const total = await this.broadcastModel.countDocuments({ buyer: buyerObjectId });
+    const normalizedBroadcasts = (broadcasts as any[]).map((broadcast) => ({
+      ...broadcast,
+      location: broadcast.location ?? null,
+    }));
 
     return {
       meta: {
@@ -707,7 +711,7 @@ export class BroadcastService {
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
       },
-      data: broadcasts,
+      data: normalizedBroadcasts,
     };
   }
   // -----------------------------
@@ -754,7 +758,8 @@ export class BroadcastService {
       .map((id) => dataMap.get(id))
       .filter((b): b is NonNullable<typeof b> => b != null)
       .map((broadcast) => ({
-        ...broadcast.toObject(),
+        ...(broadcast as any).toObject?.() ?? broadcast,
+        location: (broadcast as any).location ?? null,
         threadId: threadMap.get(broadcast._id.toString()),
       }));
 
