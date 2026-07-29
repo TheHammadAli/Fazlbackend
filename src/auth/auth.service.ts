@@ -13,6 +13,7 @@ import * as crypto from "crypto";
 import { UserDocument } from "src/users/schema/users.schema";
 import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
+import { EmailService } from "src/common/email-service/email-service";
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly configService: ConfigService, // ✅ Add this
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
+    private readonly emailService: EmailService,
   ) {
     this.googleClient = new OAuth2Client();
     // this.twilioClient = new Twilio(
@@ -49,6 +51,8 @@ export class AuthService {
         }),
       );
     }
+
+   
 
     if (user.isDisabled) {
       throw new UnauthorizedException(
@@ -301,6 +305,12 @@ export class AuthService {
     });
 
     // Send email (adjust URL as needed)
+
+     await this.emailService.sendEmail(
+      user.email,
+      'Reset your password',
+      '<h1>Reset your password</h1> <p>Use this code to reset your password: <strong>' + token + '</strong></p>',
+    );
 
     // await this.mailerService.sendMail({
     //   to: user.email,

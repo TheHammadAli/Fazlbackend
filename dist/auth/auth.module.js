@@ -18,6 +18,7 @@ const users_module_1 = require("../users/users.module");
 const otp_schema_1 = require("./schema/otp.schema");
 const mongoose_1 = require("@nestjs/mongoose");
 const google_strategy_1 = require("./strategies/google.strategy");
+const email_service_1 = require("../common/email-service/email-service");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -42,7 +43,7 @@ exports.AuthModule = AuthModule = __decorate([
             ]),
         ],
         controllers: [auth_controller_1.AuthController],
-        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, google_strategy_1.GoogleStrategy],
+        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, google_strategy_1.GoogleStrategy, email_service_1.EmailService],
         exports: [auth_service_1.AuthService],
     })
 ], AuthModule);

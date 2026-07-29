@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { I18nService } from "nestjs-i18n";
 import { UserDocument } from "src/users/schema/users.schema";
 import { ClsService } from "nestjs-cls";
+import { EmailService } from "src/common/email-service/email-service";
 export declare class AuthService {
     private otpModel;
     private readonly userService;
@@ -15,10 +16,11 @@ export declare class AuthService {
     private readonly configService;
     private readonly i18n;
     private readonly cls;
+    private readonly emailService;
     private twilioClient;
     private googleClient;
     private audience;
-    constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService);
+    constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService, emailService: EmailService);
     private getLang;
     loginUser(loginDto: LoginDto): Promise<{
         message: string;

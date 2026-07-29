@@ -24,6 +24,7 @@ const nestjs_i18n_1 = require("nestjs-i18n");
 const crypto = require("crypto");
 const google_auth_library_1 = require("google-auth-library");
 const nestjs_cls_1 = require("nestjs-cls");
+const email_service_1 = require("../common/email-service/email-service");
 let AuthService = class AuthService {
     otpModel;
     userService;
@@ -31,16 +32,18 @@ let AuthService = class AuthService {
     configService;
     i18n;
     cls;
+    emailService;
     twilioClient;
     googleClient;
     audience;
-    constructor(otpModel, userService, jwtService, configService, i18n, cls) {
+    constructor(otpModel, userService, jwtService, configService, i18n, cls, emailService) {
         this.otpModel = otpModel;
         this.userService = userService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.i18n = i18n;
         this.cls = cls;
+        this.emailService = emailService;
         this.googleClient = new google_auth_library_1.OAuth2Client();
     }
     getLang() {
@@ -235,6 +238,7 @@ let AuthService = class AuthService {
             resetPasswordToken: token,
             resetPasswordExpires: expires,
         });
+        await this.emailService.sendEmail(user.email, 'Reset your password', '<h1>Reset your password</h1> <p>Use this code to reset your password: <strong>' + token + '</strong></p>');
         return {
             message: this.i18n.translate("auth.auth.reset_link_sent", { lang }),
             data: token,
@@ -360,6 +364,7 @@ exports.AuthService = AuthService = __decorate([
         jwt_1.JwtService,
         config_1.ConfigService,
         nestjs_i18n_1.I18nService,
-        nestjs_cls_1.ClsService])
+        nestjs_cls_1.ClsService,
+        email_service_1.EmailService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

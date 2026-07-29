@@ -466,6 +466,7 @@ let BroadcastService = class BroadcastService {
                     message: 1,
                     address: 1,
                     purpose: 1,
+                    location: 1,
                     radius: 1,
                     type: 1,
                     createdAt: 1,
@@ -481,6 +482,10 @@ let BroadcastService = class BroadcastService {
             { $limit: limitNum },
         ]);
         const total = await this.broadcastModel.countDocuments({ buyer: buyerObjectId });
+        const normalizedBroadcasts = broadcasts.map((broadcast) => ({
+            ...broadcast,
+            location: broadcast.location ?? null,
+        }));
         return {
             meta: {
                 total,
@@ -488,7 +493,7 @@ let BroadcastService = class BroadcastService {
                 limit: limitNum,
                 totalPages: Math.ceil(total / limitNum),
             },
-            data: broadcasts,
+            data: normalizedBroadcasts,
         };
     }
     async getBroadcastsForSeller(userId, page = 1, limit = 10) {
@@ -519,7 +524,8 @@ let BroadcastService = class BroadcastService {
             .map((id) => dataMap.get(id))
             .filter((b) => b != null)
             .map((broadcast) => ({
-            ...broadcast.toObject(),
+            ...broadcast.toObject?.() ?? broadcast,
+            location: broadcast.location ?? null,
             threadId: threadMap.get(broadcast._id.toString()),
         }));
         return {
