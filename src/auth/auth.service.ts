@@ -52,7 +52,7 @@ export class AuthService {
       );
     }
 
-   
+
 
     if (user.isDisabled) {
       throw new UnauthorizedException(
@@ -306,7 +306,7 @@ export class AuthService {
 
     // Send email (adjust URL as needed)
 
-     await this.emailService.sendEmail(
+    await this.emailService.sendEmail(
       user.email,
       'Reset your password',
       '<h1>Reset your password</h1> <p>Use this code to reset your password: <strong>' + token + '</strong></p>',
@@ -321,7 +321,7 @@ export class AuthService {
 
     return {
       message: this.i18n.translate("auth.auth.reset_link_sent", { lang }),
-      data: token,
+
     };
   }
 

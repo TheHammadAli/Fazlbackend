@@ -241,7 +241,6 @@ let AuthService = class AuthService {
         await this.emailService.sendEmail(user.email, 'Reset your password', '<h1>Reset your password</h1> <p>Use this code to reset your password: <strong>' + token + '</strong></p>');
         return {
             message: this.i18n.translate("auth.auth.reset_link_sent", { lang }),
-            data: token,
         };
     }
     async verifyResetPasswordToken(token) {
