@@ -43,7 +43,6 @@ export declare class AuthService {
     }>;
     sendOtp(phoneNumber: string): Promise<void>;
     sendEmailVerificationLink(email: string, lang?: string): Promise<{
-        data: string;
         message: string;
     }>;
     verifyEmailToken(token: string): Promise<{

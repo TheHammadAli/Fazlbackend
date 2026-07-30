@@ -21,7 +21,6 @@ const mongoose_2 = require("mongoose");
 const otp_schema_1 = require("./schema/otp.schema");
 const config_1 = require("@nestjs/config");
 const nestjs_i18n_1 = require("nestjs-i18n");
-const crypto = require("crypto");
 const google_auth_library_1 = require("google-auth-library");
 const nestjs_cls_1 = require("nestjs-cls");
 const email_service_1 = require("../common/email-service/email-service");
@@ -158,7 +157,7 @@ let AuthService = class AuthService {
         }, { upsert: true, new: true });
     }
     async sendEmailVerificationLink(email, lang = "en") {
-        const token = crypto.randomBytes(32).toString("hex");
+        const token = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await this.otpModel.findOneAndUpdate({ email, type: "email_verification" }, {
             email,
@@ -167,8 +166,8 @@ let AuthService = class AuthService {
             createdAt: new Date(),
             expiresAt: expires,
         }, { upsert: true, new: true });
+        await this.emailService.sendEmail(email, 'Verify your email', '<h1>Verify your email</h1> <p>Use this code to verify your email: <strong>' + token + '</strong></p>');
         return {
-            data: token,
             message: this.i18n.translate("auth.auth.verification_email_sent", {
                 lang: this.getLang(),
             }),

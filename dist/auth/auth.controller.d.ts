@@ -39,7 +39,6 @@ export declare class AuthController {
         };
     }>;
     sendEmailVerification(email: string, lang: string): Promise<{
-        data: string;
         message: string;
     }>;
     verifyEmail(token: string): Promise<{

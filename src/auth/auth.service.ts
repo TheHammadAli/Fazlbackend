@@ -14,6 +14,7 @@ import { UserDocument } from "src/users/schema/users.schema";
 import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
 import { EmailService } from "src/common/email-service/email-service";
+import { user } from "node_modules/@getbrevo/brevo/dist/cjs/api/resources";
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
@@ -192,7 +193,8 @@ export class AuthService {
 
   async sendEmailVerificationLink(email: string, lang: string = "en") {
     // Generate a token
-    const token = crypto.randomBytes(32).toString("hex");
+    // Generate token
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Upsert OTP for email verification
@@ -207,9 +209,13 @@ export class AuthService {
       },
       { upsert: true, new: true },
     );
-
+    await this.emailService.sendEmail(
+      email,
+      'Verify your email',
+      '<h1>Verify your email</h1> <p>Use this code to verify your email: <strong>' + token + '</strong></p>',
+    );
     return {
-      data: token,
+
       message: this.i18n.translate("auth.auth.verification_email_sent", {
         lang: this.getLang(),
       }),
