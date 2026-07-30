@@ -1,35 +1,38 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { Injectable, Logger } from '@nestjs/common';
+import { BrevoClient } from '@getbrevo/brevo';
 
 @Injectable()
-export class EmailService implements OnModuleInit {
+export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private readonly brevo: BrevoClient;
 
-  private transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  async onModuleInit() {
-    try {
-      await this.transporter.verify();
-      this.logger.log('SMTP connection verified.');
-    } catch (error) {
-      this.logger.error('Failed to verify SMTP connection.', error);
-    }
+  constructor() {
+    this.brevo = new BrevoClient({
+      apiKey: process.env.BREVO_API_KEY!,
+    });
   }
 
   async sendEmail(to: string, subject: string, html: string) {
-    await this.transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to,
-      subject,
-      html,
-    });
+    try {
+      const response = await this.brevo.transactionalEmails.sendTransacEmail({
+        sender: {
+          name: 'Fazl',
+          email: process.env.EMAIL_FROM!,
+        },
+        to: [
+          {
+            email: to,
+          },
+        ],
+        subject,
+        htmlContent: html,
+      });
+
+      this.logger.log(`Email sent successfully`);
+      this.logger.debug(response);
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
 }
