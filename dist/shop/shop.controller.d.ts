@@ -30,10 +30,17 @@ export declare class ShopController {
         ordersCount: number;
         ownerId: Types.ObjectId;
         title: string;
-        image: string;
-        banner: string;
+        image?: string | undefined;
+        banner?: string | undefined;
         address: string;
         description: string;
+        category: Types.ObjectId;
+        subcategory?: Types.ObjectId | undefined;
+        marketName?: string | undefined;
+        area: string;
+        city: string;
+        contact: string;
+        openingHours?: string | undefined;
         isDisabled?: boolean | undefined;
         location: import("mongoose").FlattenMaps<{
             type: "Point";

@@ -52,6 +52,10 @@ let ShopService = class ShopService {
         const shop = new this.shopModel({
             ...shopDto,
             ownerId,
+            category: new mongoose_2.Types.ObjectId(dto.category),
+            subcategory: dto.subcategory
+                ? new mongoose_2.Types.ObjectId(dto.subcategory)
+                : undefined,
         });
         const results = await shop.save();
         const updatePayload = {};
@@ -73,44 +77,69 @@ let ShopService = class ShopService {
         };
     }
     async updateShop(shopId, dto) {
-        const { ...safeDto } = dto;
         const existingShop = await this.shopModel.findById(shopId);
         if (!existingShop) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
-        if (dto.image) {
-            safeDto.image = await this.fileUploadService.uploadShopImage(shopId, dto.image);
+        const { image, banner, ...safeDto } = dto;
+        const updateData = { ...safeDto };
+        if (dto.category) {
+            updateData.category = new mongoose_2.Types.ObjectId(dto.category);
         }
-        if (dto.banner) {
-            safeDto.banner = await this.fileUploadService.uploadShopBanner(shopId, dto.banner);
+        if (dto.subcategory) {
+            updateData.subcategory = new mongoose_2.Types.ObjectId(dto.subcategory);
         }
-        const updated = await this.shopModel.findByIdAndUpdate(shopId, {
-            ...safeDto,
-        }, { new: true });
+        else if (dto.subcategory === null || dto.subcategory === "") {
+            updateData.subcategory = null;
+        }
+        if (image) {
+            updateData.image = await this.fileUploadService.uploadShopImage(shopId, image);
+        }
+        if (banner) {
+            updateData.banner = await this.fileUploadService.uploadShopBanner(shopId, banner);
+        }
+        const updated = await this.shopModel.findByIdAndUpdate(shopId, updateData, { new: true });
         if (dto.location) {
             this.productsService.updateLocationByShopId(shopId, dto.location);
         }
         if (!updated) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
-        return { message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }), data: updated.toJSON() };
+        return {
+            message: this.i18n.translate("auth.shop.updated_success", {
+                lang: this.lang,
+            }),
+            data: updated.toJSON(),
+        };
     }
     async getShopById(shopId) {
         const shop = await this.shopModel
             .findById(shopId)
-            .populate("ownerId", "name email");
+            .populate("ownerId", "name email")
+            .populate("category", "name")
+            .populate("subcategory", "name");
         if (!shop) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
         }
         const productsCount = await this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 });
         const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1);
-        return { ...shop.toJSON(), productsCount: productsCount.meta.total, ordersCount: ordersCount.meta.total };
+        return {
+            ...shop.toJSON(),
+            productsCount: productsCount.meta.total,
+            ordersCount: ordersCount.meta.total,
+        };
     }
     async getAllShopsByUser(userId) {
-        return this.shopModel.find({ ownerId: new mongoose_2.Types.ObjectId(userId) }).exec();
+        return this.shopModel
+            .find({ ownerId: new mongoose_2.Types.ObjectId(userId) })
+            .populate("category", "name")
+            .populate("subcategory", "name")
+            .exec();
     }
     async setShopDisabled(shopId, disabled) {
-        await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } });
+        await this.shopModel.findByIdAndUpdate(shopId, {
+            $set: { isDisabled: disabled },
+        });
     }
     async setShopsDisabledBulk(shopIds, disabled) {
         await this.shopModel.updateMany({ _id: { $in: shopIds } }, { $set: { isDisabled: disabled } });
@@ -132,7 +161,7 @@ let ShopService = class ShopService {
     async findShopsNearLocationPaginated(location, radiusInMeters, pagination) {
         const { page = 1, limit = 10 } = pagination || {};
         const skip = (page - 1) * limit;
-        const query = { isDeleted: false };
+        const query = { isDisabled: false };
         const [data, countAgg] = await Promise.all([
             this.shopModel.aggregate([
                 {
@@ -143,6 +172,26 @@ let ShopService = class ShopService {
                         query,
                         spherical: true,
                     },
+                },
+                {
+                    $lookup: {
+                        from: "categories",
+                        localField: "category",
+                        foreignField: "_id",
+                        as: "category",
+                    },
+                },
+                { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+                {
+                    $lookup: {
+                        from: "categories",
+                        localField: "subcategory",
+                        foreignField: "_id",
+                        as: "subcategory",
+                    },
+                },
+                {
+                    $unwind: { path: "$subcategory", preserveNullAndEmptyArrays: true },
                 },
                 { $sort: { createdAt: -1 } },
                 { $skip: skip },
@@ -163,7 +212,12 @@ let ShopService = class ShopService {
         ]);
         const total = countAgg[0]?.total || 0;
         return {
-            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
             data,
         };
     }

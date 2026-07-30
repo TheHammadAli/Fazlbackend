@@ -19,6 +19,7 @@ export declare class Product {
     }>;
     isDeleted: boolean;
     isDisabled?: boolean;
+    address?: string;
     searchableTags: string[];
 }
 export declare const ProductSchema: import("mongoose").Schema<Product, import("mongoose").Model<Product, any, any, any, Document<unknown, any, Product, any> & Product & {

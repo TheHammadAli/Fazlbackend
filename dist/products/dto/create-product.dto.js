@@ -28,6 +28,23 @@ __decorate([
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
 ], ProductParameterDto.prototype, "variants", void 0);
+class LocationDto {
+    type;
+    coordinates;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ enum: ["Point"], example: "Point" }),
+    (0, class_validator_1.IsEnum)(["Point"], { message: 'Location type must be "Point"' }),
+    __metadata("design:type", String)
+], LocationDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: [73.0479, 33.6844], description: "[lng, lat]" }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(2),
+    (0, class_validator_1.ArrayMaxSize)(2),
+    (0, class_validator_1.IsNumber)({}, { each: true }),
+    __metadata("design:type", Array)
+], LocationDto.prototype, "coordinates", void 0);
 class CreateProductDto {
     title;
     description;
@@ -37,6 +54,8 @@ class CreateProductDto {
     images;
     video;
     parameters;
+    location;
+    address;
 }
 exports.CreateProductDto = CreateProductDto;
 __decorate([
@@ -108,4 +127,27 @@ __decorate([
     (0, class_transformer_1.Type)(() => ProductParameterDto),
     __metadata("design:type", Array)
 ], CreateProductDto.prototype, "parameters", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        type: LocationDto,
+        description: "Required for personal listings. GeoJSON Point [lng, lat]",
+        example: {
+            type: "Point",
+            coordinates: [67.0011, 24.8607],
+        },
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => LocationDto),
+    __metadata("design:type", LocationDto)
+], CreateProductDto.prototype, "location", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "House 12, Street 5, DHA Phase 6, Karachi",
+        description: "Human-readable address (recommended for personal listings)",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "address", void 0);
 //# sourceMappingURL=create-product.dto.js.map

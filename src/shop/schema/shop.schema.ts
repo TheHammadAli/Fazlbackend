@@ -16,16 +16,39 @@ export class Shop {
   title: string;
 
   @Prop({ required: false, trim: true })
-  image: string;
+  image?: string;
 
   @Prop({ required: false, trim: true })
-  banner: string;
+  banner?: string;
 
-  @Prop({ required: false, trim: true })
+  @Prop({ required: true, trim: true })
   address: string;
 
   @Prop({ required: true, trim: true })
   description: string;
+
+  // ========== NEW FIELDS ==========
+  @Prop({ type: Types.ObjectId, ref: "Category", required: true })
+  category: Types.ObjectId;                    // Shop Category (required)
+
+  @Prop({ type: Types.ObjectId, ref: "Category", required: false })
+  subcategory?: Types.ObjectId;                // Shop Subcategory (optional)
+
+  @Prop({ required: false, trim: true })
+  marketName?: string;                         // e.g. Singapore Plaza
+
+  @Prop({ required: true, trim: true })
+  area: string;
+
+  @Prop({ required: true, trim: true })
+  city: string;
+
+  @Prop({ required: true, trim: true })
+  contact: string;
+
+  @Prop({ required: false, trim: true })
+  openingHours?: string;                       // e.g. "Mon-Sat 10:00 AM - 9:00 PM"
+  // ================================
 
   @Prop({ type: Boolean, default: false })
   isDisabled?: boolean;
@@ -50,5 +73,4 @@ export class Shop {
 
 export const ShopSchema = SchemaFactory.createForClass(Shop);
 
-// Add geospatial index on location
 ShopSchema.index({ location: "2dsphere" });

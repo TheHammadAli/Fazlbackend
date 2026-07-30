@@ -37,6 +37,13 @@ class CreateUpdateShopDto {
     title;
     address;
     description;
+    category;
+    subcategory;
+    marketName;
+    area;
+    city;
+    contact;
+    openingHours;
     image;
     banner;
     location;
@@ -49,7 +56,7 @@ __decorate([
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "title", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: "Address of shop" }),
+    (0, swagger_1.ApiProperty)({ example: "Shop #12, Ground Floor, Singapore Plaza" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
@@ -60,6 +67,56 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateUpdateShopDto.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: "685c611cbcf37e8c78f97f84",
+        description: "Category ID (ObjectId)",
+    }),
+    (0, class_validator_1.IsMongoId)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "category", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "685c611cbcf37e8c78f97f85",
+        description: "Subcategory ID (ObjectId) - optional",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsMongoId)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "subcategory", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "Singapore Plaza" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "marketName", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "Saddar" }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "area", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "Karachi" }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "city", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: "+923001234567" }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "contact", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "Mon-Sat 10:00 AM - 9:00 PM, Sunday Closed",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUpdateShopDto.prototype, "openingHours", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: "string",

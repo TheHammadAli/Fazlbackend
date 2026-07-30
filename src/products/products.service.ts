@@ -54,6 +54,8 @@ export class ProductsService {
     dto: CreateProductDto,
   ): Promise<{ message: string; data: { product: Product } }> {
     try {
+
+      console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
       let location: { type: "Point"; coordinates: [number, number] };
       const productPayload: Partial<Product> = {
         ...dto,
@@ -89,29 +91,41 @@ export class ProductsService {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.user_not_found", {
-              lang: this.lang,
-            }),
+            this.i18n.translate("auth.products.user_not_found", { lang: this.lang }),
           );
         }
-        console.log("User:", user);
+
         productPayload.ownerId = user._id as Types.ObjectId;
+
+        if (dto.location) {
+          location = typeof dto.location === "string"
+            ? JSON.parse(dto.location)
+            : dto.location;
+        }
+        
+
+        // Location is required for personal listings
         if (
-          !user.location ||
-          !user.location.coordinates ||
-          user.location.coordinates.length !== 2
+          !dto.location ||
+          !dto.location.coordinates ||
+          dto.location.coordinates.length !== 2
         ) {
           throw new BadRequestException(
-            this.i18n.translate("auth.products.user_location_missing", {
+            this.i18n.translate("auth.products.location_required_for_personal", {
               lang: this.lang,
-            }),
+            }) || "Location coordinates are required for personal listings",
           );
         }
 
         location = {
           type: "Point",
-          coordinates: user.location.coordinates,
+          coordinates: dto.location.coordinates,
         };
+
+        // Address is optional but recommended
+        if (dto.address) {
+          productPayload.address = dto.address.trim();
+        }
       } else {
         throw new BadRequestException(
           'Invalid type. Must be "shop" or "personal".',

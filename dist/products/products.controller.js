@@ -43,6 +43,17 @@ let ProductsController = class ProductsController {
             createProductDto.video = null;
         }
         createProductDto.parameters = JSON.parse(createProductDto.parameters?.toString() || "{}");
+        if (createProductDto.location) {
+            try {
+                createProductDto.location =
+                    typeof createProductDto.location === "string"
+                        ? JSON.parse(createProductDto.location)
+                        : createProductDto.location;
+            }
+            catch {
+                throw new common_1.BadRequestException("Invalid location JSON");
+            }
+        }
         return this.productsService.create(entityId, type, createProductDto);
     }
     async getAllByShop(shopId, paginationDto) {

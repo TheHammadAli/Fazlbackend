@@ -10,6 +10,7 @@ import { Otp, OtpSchema } from "./schema/otp.schema";
 import { MongooseModule } from "@nestjs/mongoose";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { EmailService } from "src/common/email-service/email-service";
+import { SmsService } from "src/common/sms-service/sms-service";
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { EmailService } from "src/common/email-service/email-service";
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService, SmsService],
   exports: [AuthService], // Export AuthService if needed elsewhere
 })
 export class AuthModule { }

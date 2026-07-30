@@ -3,10 +3,17 @@ export type ShopDocument = Shop & Document;
 export declare class Shop {
     ownerId: Types.ObjectId;
     title: string;
-    image: string;
-    banner: string;
+    image?: string;
+    banner?: string;
     address: string;
     description: string;
+    category: Types.ObjectId;
+    subcategory?: Types.ObjectId;
+    marketName?: string;
+    area: string;
+    city: string;
+    contact: string;
+    openingHours?: string;
     isDisabled?: boolean;
     location: {
         type: "Point";

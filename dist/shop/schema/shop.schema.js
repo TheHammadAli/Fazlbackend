@@ -19,6 +19,13 @@ let Shop = class Shop {
     banner;
     address;
     description;
+    category;
+    subcategory;
+    marketName;
+    area;
+    city;
+    contact;
+    openingHours;
     isDisabled;
     location;
 };
@@ -40,13 +47,41 @@ __decorate([
     __metadata("design:type", String)
 ], Shop.prototype, "banner", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false, trim: true }),
+    (0, mongoose_1.Prop)({ required: true, trim: true }),
     __metadata("design:type", String)
 ], Shop.prototype, "address", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, trim: true }),
     __metadata("design:type", String)
 ], Shop.prototype, "description", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Category", required: true }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], Shop.prototype, "category", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Category", required: false }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], Shop.prototype, "subcategory", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "marketName", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "area", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "city", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "contact", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
+    __metadata("design:type", String)
+], Shop.prototype, "openingHours", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: Boolean, default: false }),
     __metadata("design:type", Boolean)

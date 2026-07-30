@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   ValidateNested,
+  IsMongoId,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -34,7 +35,7 @@ export class CreateUpdateShopDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: "Address of shop" })
+  @ApiProperty({ example: "Shop #12, Ground Floor, Singapore Plaza" })
   @IsString()
   @IsNotEmpty()
   address: string;
@@ -43,6 +44,51 @@ export class CreateUpdateShopDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+
+  // ========== NEW FIELDS ==========
+  @ApiProperty({
+    example: "685c611cbcf37e8c78f97f84",
+    description: "Category ID (ObjectId)",
+  })
+  @IsMongoId()
+  @IsNotEmpty()
+  category: string;
+
+  @ApiPropertyOptional({
+    example: "685c611cbcf37e8c78f97f85",
+    description: "Subcategory ID (ObjectId) - optional",
+  })
+  @IsOptional()
+  @IsMongoId()
+  subcategory?: string;
+
+  @ApiPropertyOptional({ example: "Singapore Plaza" })
+  @IsOptional()
+  @IsString()
+  marketName?: string;
+
+  @ApiProperty({ example: "Saddar" })
+  @IsString()
+  @IsNotEmpty()
+  area: string;
+
+  @ApiProperty({ example: "Karachi" })
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @ApiProperty({ example: "+923001234567" })
+  @IsString()
+  @IsNotEmpty()
+  contact: string;
+
+  @ApiPropertyOptional({
+    example: "Mon-Sat 10:00 AM - 9:00 PM, Sunday Closed",
+  })
+  @IsOptional()
+  @IsString()
+  openingHours?: string;
+  // ================================
 
   @ApiPropertyOptional({
     type: "string",

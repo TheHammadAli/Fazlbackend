@@ -15,11 +15,12 @@ import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
 import { EmailService } from "src/common/email-service/email-service";
 import { user } from "node_modules/@getbrevo/brevo/dist/cjs/api/resources";
+import { SmsService } from "src/common/sms-service/sms-service";
 @Injectable()
 export class AuthService {
-  private twilioClient: Twilio;
+ 
   private googleClient: OAuth2Client;
-  private audience: string[];
+
   constructor(
     @InjectModel(Otp.name) private otpModel: Model<OtpDocument>,
     private readonly userService: UsersService,
@@ -28,6 +29,7 @@ export class AuthService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
   ) {
     this.googleClient = new OAuth2Client();
     // this.twilioClient = new Twilio(
@@ -171,6 +173,7 @@ export class AuthService {
   async sendOtp(phoneNumber: string): Promise<void> {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
+    // await this.smsService.sendOtp(phoneNumber, otpCode);
     // await this.twilioClient.messages.create({
     //   body: `Your verification code is: ${otpCode}`,
     //   from: this.configService.get('TWILIO_PHONE_NUMBER'),

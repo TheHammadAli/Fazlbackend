@@ -97,6 +97,17 @@ export class ProductsController {
       createProductDto.parameters?.toString() || "{}",
     );
 
+
+    if (createProductDto.location) {
+      try {
+        createProductDto.location =
+          typeof createProductDto.location === "string"
+            ? JSON.parse(createProductDto.location)
+            : createProductDto.location;
+      } catch {
+        throw new BadRequestException("Invalid location JSON");
+      }
+    }
     return this.productsService.create(entityId, type, createProductDto);
   }
 

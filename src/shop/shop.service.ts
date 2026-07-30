@@ -12,7 +12,6 @@ import { I18nService } from "nestjs-i18n";
 import { Shop, ShopDocument } from "./schema/shop.schema";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
 import { ProductsService } from "src/products/products.service";
-import { ServicesService } from "src/services/services.service";
 import { UsersService } from "src/users/users.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
@@ -32,9 +31,11 @@ export class ShopService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
   ) { }
+
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
   }
+
   async createShop(ownerId: Types.ObjectId, dto: CreateUpdateShopDto) {
     const existingUser = await this.usersService.findUserById(
       ownerId.toString(),
@@ -44,10 +45,16 @@ export class ShopService {
         this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }),
       );
     }
+
     const { image: imageFile, banner: bannerFile, ...shopDto } = dto as any;
+
     const shop = new this.shopModel({
       ...shopDto,
       ownerId,
+      category: new Types.ObjectId(dto.category),
+      subcategory: dto.subcategory
+        ? new Types.ObjectId(dto.subcategory)
+        : undefined,
     });
 
     const results = await shop.save();
@@ -80,8 +87,10 @@ export class ShopService {
     };
   }
 
-  async updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<{ message: string; data: Shop }> {
-    const { ...safeDto } = dto as any;
+  async updateShop(
+    shopId: string,
+    dto: CreateUpdateShopDto,
+  ): Promise<{ message: string; data: Shop }> {
     const existingShop = await this.shopModel.findById(shopId);
     if (!existingShop) {
       throw new NotFoundException(
@@ -89,55 +98,104 @@ export class ShopService {
       );
     }
 
-    if (dto.image) {
-      safeDto.image = await this.fileUploadService.uploadShopImage(
-        shopId,
-        dto.image,
-      );
-    }
-    if (dto.banner) {
-      safeDto.banner = await this.fileUploadService.uploadShopBanner(
-        shopId,
-        dto.banner,
-      );
-    }
-    const updated = await this.shopModel.findByIdAndUpdate(shopId, {
-      ...safeDto,
-    }, { new: true });
+    const { image, banner, ...safeDto } = dto as any;
+    const updateData: any = { ...safeDto };
 
+    // Convert category & subcategory to ObjectId
+    if (dto.category) {
+      updateData.category = new Types.ObjectId(dto.category);
+    }
+
+    if (dto.subcategory) {
+      updateData.subcategory = new Types.ObjectId(dto.subcategory);
+    } else if (dto.subcategory === null || dto.subcategory === "") {
+      updateData.subcategory = null; // allow clearing subcategory
+    }
+
+    // Handle image upload
+    if (image) {
+      updateData.image = await this.fileUploadService.uploadShopImage(
+        shopId,
+        image,
+      );
+    }
+
+    // Handle banner upload
+    if (banner) {
+      updateData.banner = await this.fileUploadService.uploadShopBanner(
+        shopId,
+        banner,
+      );
+    }
+
+    const updated = await this.shopModel.findByIdAndUpdate(
+      shopId,
+      updateData,
+      { new: true },
+    );
+
+    // Sync location to products if location was updated
     if (dto.location) {
       this.productsService.updateLocationByShopId(shopId, dto.location);
     }
+
     if (!updated) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
-    return { message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }), data: updated.toJSON() };
+
+    return {
+      message: this.i18n.translate("auth.shop.updated_success", {
+        lang: this.lang,
+      }),
+      data: updated.toJSON(),
+    };
   }
 
   async getShopById(shopId: string) {
     const shop = await this.shopModel
       .findById(shopId)
-      .populate("ownerId", "name email");
-
+      .populate("ownerId", "name email")
+      .populate("category", "name")
+      .populate("subcategory", "name");
 
     if (!shop) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
-    const productsCount = await this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 });
-    const ordersCount = await this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1);
 
-    return { ...shop.toJSON(), productsCount: productsCount.meta.total, ordersCount: ordersCount.meta.total };
+    const productsCount = await this.productsService.getAllProductsByShop(
+      shopId,
+      { page: 1, limit: 1 },
+    );
+    const ordersCount = await this.ordersService.getOrdersByOwner(
+      shopId,
+      "Shop",
+      1,
+      1,
+    );
+
+    return {
+      ...shop.toJSON(),
+      productsCount: productsCount.meta.total,
+      ordersCount: ordersCount.meta.total,
+    };
   }
+
   async getAllShopsByUser(userId: string): Promise<Shop[]> {
-    return this.shopModel.find({ ownerId: new Types.ObjectId(userId) }).exec();
+    return this.shopModel
+      .find({ ownerId: new Types.ObjectId(userId) })
+      .populate("category", "name")
+      .populate("subcategory", "name")
+      .exec();
   }
 
   async setShopDisabled(shopId: string, disabled: boolean) {
-    await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } });
+    await this.shopModel.findByIdAndUpdate(shopId, {
+      $set: { isDisabled: disabled },
+    });
   }
 
   async setShopsDisabledBulk(shopIds: any[], disabled: boolean) {
@@ -175,7 +233,7 @@ export class ShopService {
     const { page = 1, limit = 10 } = pagination || {};
     const skip = (page - 1) * limit;
 
-    const query: Record<string, any> = { isDeleted: false };
+    const query: Record<string, any> = { isDisabled: false };
 
     const [data, countAgg] = await Promise.all([
       this.shopModel.aggregate([
@@ -187,6 +245,26 @@ export class ShopService {
             query,
             spherical: true,
           },
+        },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "subcategory",
+            foreignField: "_id",
+            as: "subcategory",
+          },
+        },
+        {
+          $unwind: { path: "$subcategory", preserveNullAndEmptyArrays: true },
         },
         { $sort: { createdAt: -1 } },
         { $skip: skip },
@@ -209,7 +287,12 @@ export class ShopService {
     const total = countAgg[0]?.total || 0;
 
     return {
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
       data,
     };
   }

@@ -70,7 +70,8 @@ export class Product {
 
   @Prop({ type: Boolean, default: false })
   isDisabled?: boolean;
- 
+  @Prop({ trim: true })
+  address?: string;   // human-readable address (e.g. "123 Main St, Karachi")
 
   @Prop({ type: [String], default: [] })
   searchableTags: string[];

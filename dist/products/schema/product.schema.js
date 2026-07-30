@@ -26,6 +26,7 @@ let Product = class Product {
     parameters;
     isDeleted;
     isDisabled;
+    address;
     searchableTags;
 };
 exports.Product = Product;
@@ -101,6 +102,10 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Boolean, default: false }),
     __metadata("design:type", Boolean)
 ], Product.prototype, "isDisabled", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ trim: true }),
+    __metadata("design:type", String)
+], Product.prototype, "address", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: [String], default: [] }),
     __metadata("design:type", Array)
