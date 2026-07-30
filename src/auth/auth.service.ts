@@ -172,6 +172,7 @@ export class AuthService {
 
   async sendOtp(phoneNumber: string): Promise<void> {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+//COMMENT
 
     // await this.smsService.sendOtp(phoneNumber, otpCode);
     // await this.twilioClient.messages.create({
