@@ -24,7 +24,6 @@ const nestjs_i18n_1 = require("nestjs-i18n");
 const google_auth_library_1 = require("google-auth-library");
 const nestjs_cls_1 = require("nestjs-cls");
 const email_service_1 = require("../common/email-service/email-service");
-const sms_service_1 = require("../common/sms-service/sms-service");
 let AuthService = class AuthService {
     otpModel;
     userService;
@@ -33,9 +32,8 @@ let AuthService = class AuthService {
     i18n;
     cls;
     emailService;
-    smsService;
     googleClient;
-    constructor(otpModel, userService, jwtService, configService, i18n, cls, emailService, smsService) {
+    constructor(otpModel, userService, jwtService, configService, i18n, cls, emailService) {
         this.otpModel = otpModel;
         this.userService = userService;
         this.jwtService = jwtService;
@@ -43,7 +41,6 @@ let AuthService = class AuthService {
         this.i18n = i18n;
         this.cls = cls;
         this.emailService = emailService;
-        this.smsService = smsService;
         this.googleClient = new google_auth_library_1.OAuth2Client();
     }
     getLang() {
@@ -149,7 +146,6 @@ let AuthService = class AuthService {
     }
     async sendOtp(phoneNumber) {
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        await this.smsService.sendOtp(phoneNumber, otpCode);
         return await this.otpModel.findOneAndUpdate({ phoneNumber }, {
             phoneNumber,
             code: otpCode,
@@ -365,7 +361,6 @@ exports.AuthService = AuthService = __decorate([
         config_1.ConfigService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
-        email_service_1.EmailService,
-        sms_service_1.SmsService])
+        email_service_1.EmailService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map
