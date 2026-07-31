@@ -18,7 +18,7 @@ import { user } from "node_modules/@getbrevo/brevo/dist/cjs/api/resources";
 import { SmsService } from "src/common/sms-service/sms-service";
 @Injectable()
 export class AuthService {
- 
+
   private googleClient: OAuth2Client;
 
   constructor(
@@ -172,9 +172,9 @@ export class AuthService {
 
   async sendOtp(phoneNumber: string): Promise<void> {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
-//COMMENT
+    //COMMENT
 
-    // await this.smsService.sendOtp(phoneNumber, otpCode);
+    //  await this.smsService.sendOtp(phoneNumber, otpCode);
     // await this.twilioClient.messages.create({
     //   body: `Your verification code is: ${otpCode}`,
     //   from: this.configService.get('TWILIO_PHONE_NUMBER'),
