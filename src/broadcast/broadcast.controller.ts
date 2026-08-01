@@ -211,6 +211,17 @@ export class BroadcastController {
     return this.broadcastService.getAllBroadcastsForAdmin(page, limit, search, status);
   }
 
+  // 🛠️ Admin: get recipient sellers for a broadcast
+  @Get("admin/:broadcastId/recipients")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("broadcasts")
+  @ApiOperation({ summary: "Get recipient sellers for a broadcast (admin)" })
+  @ApiParam({ name: "broadcastId", required: true })
+  @ApiResponse({ status: 200, description: "List of sellers who received this broadcast" })
+  async getBroadcastRecipients(@Param("broadcastId") broadcastId: string) {
+    return this.broadcastService.getBroadcastRecipients(broadcastId);
+  }
+
   // 🛠️ Admin: close a broadcast
   @Patch("admin/:broadcastId/close")
   @UseGuards(PermissionsGuard)

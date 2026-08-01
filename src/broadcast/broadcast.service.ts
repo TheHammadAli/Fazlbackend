@@ -895,6 +895,80 @@ export class BroadcastService {
     };
   }
 
+  async getBroadcastRecipients(broadcastId: string) {
+    if (!Types.ObjectId.isValid(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+
+    const broadcastExists = await this.broadcastModel.exists({
+      _id: broadcastId,
+      isDeleted: { $ne: true },
+    });
+    if (!broadcastExists) {
+      throw new NotFoundException("Broadcast not found");
+    }
+
+    const recipients = await this.threadModel.aggregate([
+      { $match: { broadcast: new Types.ObjectId(broadcastId) } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "seller",
+          foreignField: "_id",
+          as: "sellerInfo",
+        },
+      },
+      { $unwind: { path: "$sellerInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { threadId: "$_id", sellerId: "$seller" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$thread", "$$threadId"] },
+                    { $eq: ["$sender", "$$sellerId"] },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: 1 } },
+            { $limit: 1 },
+            { $project: { createdAt: 1 } },
+          ],
+          as: "firstReply",
+        },
+      },
+      {
+        $addFields: {
+          hasReplied: { $gt: [{ $size: "$firstReply" }, 0] },
+          repliedAt: { $arrayElemAt: ["$firstReply.createdAt", 0] },
+        },
+      },
+      {
+        $project: {
+          sellerId: "$sellerInfo._id",
+          name: "$sellerInfo.name",
+          email: "$sellerInfo.email",
+          image: "$sellerInfo.image",
+          phone: "$sellerInfo.phone",
+          sentAt: "$createdAt",
+          hasReplied: 1,
+          repliedAt: 1,
+        },
+      },
+      { $sort: { sentAt: -1 } },
+    ]);
+
+    return {
+      broadcastId,
+      total: recipients.length,
+      data: recipients,
+    };
+  }
+
   async closeBroadcast(broadcastId: string) {
     if (!Types.ObjectId.isValid(broadcastId)) {
       throw new BadRequestException("Invalid broadcast id");
