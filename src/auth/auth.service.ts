@@ -352,7 +352,28 @@ export class AuthService {
         }),
       );
     }
-    return user;
+
+    const newPayload = {
+      sub: user._id, // Or user.id if you’ve transformed it
+      email: user.email,
+      roles: user.roles,
+      location: user.location,
+      image: user.image,
+      isDisabled: user.isDisabled,
+    };
+
+    const newAccessToken = this.jwtService.sign(newPayload, {
+      expiresIn: "1d",
+    });
+    return {
+      data: {
+        user,
+        accessToken: newAccessToken,
+      },
+
+
+
+    };
   }
 
   async resetPassword(token: string, newPassword: string) {
