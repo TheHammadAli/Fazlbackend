@@ -62,7 +62,7 @@ let AuthController = class AuthController {
     }
     async verifyResetToken(token) {
         const user = await this.authService.verifyResetPasswordToken(token);
-        return { valid: !!user };
+        return user;
     }
     async resetPassword(body) {
         return this.authService.resetPassword(body.token, body.newPassword);

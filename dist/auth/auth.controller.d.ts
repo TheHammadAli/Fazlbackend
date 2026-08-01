@@ -49,7 +49,10 @@ export declare class AuthController {
         message: string;
     }>;
     verifyResetToken(token: string): Promise<{
-        valid: boolean;
+        data: {
+            user: import("../users/schema/users.schema").UserDocument;
+            accessToken: string;
+        };
     }>;
     resetPassword(body: {
         token: string;

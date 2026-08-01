@@ -56,7 +56,12 @@ export declare class AuthService {
     sendForgotPasswordEmail(email: string, lang?: string): Promise<{
         message: string;
     }>;
-    verifyResetPasswordToken(token: string): Promise<UserDocument>;
+    verifyResetPasswordToken(token: string): Promise<{
+        data: {
+            user: UserDocument;
+            accessToken: string;
+        };
+    }>;
     resetPassword(token: string, newPassword: string): Promise<{
         message: string;
     }>;

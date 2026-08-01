@@ -378,7 +378,7 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.verifyResetPasswordToken(token);
-    await this.userService.updateUser(user.id, {
+    await this.userService.updateUser(String(user.data.user._id), {
       password: newPassword,
       resetPasswordToken: null,
       resetPasswordExpires: null,

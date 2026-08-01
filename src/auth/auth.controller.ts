@@ -160,7 +160,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: "Token is valid" })
   async verifyResetToken(@Query("token") token: string) {
     const user = await this.authService.verifyResetPasswordToken(token);
-    return { valid: !!user };
+    return user;
   }
 
   // === Reset Password ===
