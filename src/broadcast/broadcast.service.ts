@@ -963,9 +963,8 @@ export class BroadcastService {
     ]);
 
     return {
-      broadcastId,
-      total: recipients.length,
       data: recipients,
+      meta: { total: recipients.length },
     };
   }
 
