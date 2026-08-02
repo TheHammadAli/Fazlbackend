@@ -22,6 +22,7 @@ import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
 import { CreateAdminAccountDto } from "./dto/create-admin-account.dto";
 import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
 import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
+import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
 import { CreateMemberDto } from "./dto/create-member.dto";
 import { UpdateMemberDto } from "./dto/update-member.dto";
 import { User } from "./schema/users.schema";
@@ -400,6 +401,31 @@ export class UsersController {
       "User",
       id,
       result.data?.name,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Patch("members/:id/reset-password")
+  @UseGuards(RolesGuard)
+  @Roles("admin", "super_admin")
+  @ApiOperation({ summary: "Reset a member account's password (admin/super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiBody({ type: ResetMemberPasswordDto })
+  async resetMemberPassword(
+    @Param("id") id: string,
+    @Body() dto: ResetMemberPasswordDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const target = await this.usersService.findUserById(id);
+    const result = await this.usersService.resetMemberPassword(id, dto);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "member_password_reset",
+      "User",
+      id,
+      target?.name ?? target?.email,
       req.ip,
     );
     return result;

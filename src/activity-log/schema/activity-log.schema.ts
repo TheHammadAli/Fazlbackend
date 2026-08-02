@@ -15,6 +15,7 @@ export const ACTIVITY_LOG_ACTIONS = [
   "member_created",
   "member_updated",
   "member_deleted",
+  "member_password_reset",
   "task_created",
   "task_assigned",
   "task_updated",

@@ -16,6 +16,7 @@ import * as crypto from "crypto";
 import { CreateAdminAccountDto } from "./dto/create-admin-account.dto";
 import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
 import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
+import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
@@ -551,6 +552,31 @@ export class UsersService {
       .exec();
 
     return { message: "Member updated successfully", data: updatedUser?.toJSON() };
+  }
+
+  async resetMemberPassword(userId: string, dto: ResetMemberPasswordDto) {
+    const existingUser = await this.userModel.findById(userId);
+    if (!existingUser || !existingUser.roles?.includes("moderator")) {
+      throw new NotFoundException("Member not found");
+    }
+
+    // Same reason as createAdminAccount: no global ValidationPipe enforces the DTO's decorators.
+    const trimmed = dto.newPassword?.trim();
+    if (trimmed && trimmed.length < 8) {
+      throw new BadRequestException("Password must be at least 8 characters long");
+    }
+
+    const newPassword = trimmed || this.generateRandomPassword();
+    const hashedPassword = await this.hashPassword(newPassword);
+
+    await this.userModel
+      .findByIdAndUpdate(userId, { $set: { password: hashedPassword } }, { new: true })
+      .exec();
+
+    return {
+      message: "Password updated successfully",
+      data: { generatedPassword: newPassword },
+    };
   }
 
   async deleteMemberAccount(userId: string) {
