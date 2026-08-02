@@ -188,9 +188,12 @@ export class UsersService {
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
-      if (existingUser.roles?.includes("super_admin")) {
+      // Only block attempts to change roles on a super_admin account — this method
+      // is also used internally (login/refresh-token/password-reset flows), which
+      // only ever touch refreshToken/password and must keep working.
+      if (updateData.roles && existingUser.roles?.includes("super_admin")) {
         throw new ForbiddenException(
-          "The Super Admin account cannot be edited through this endpoint",
+          "The Super Admin account's roles cannot be changed through this endpoint",
         );
       }
       console.log("Existing User:", existingUser);
