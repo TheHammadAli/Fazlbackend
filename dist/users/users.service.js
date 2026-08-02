@@ -81,11 +81,16 @@ let UsersService = class UsersService {
     }
     async createUser(createUserDto) {
         try {
+            const normalizedEmail = createUserDto.email?.trim().toLowerCase();
+            const normalizedPhone = createUserDto.phone?.trim();
             const existingUser = await this.userModel.findOne({
-                email: createUserDto.email,
+                $or: [
+                    ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+                    ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+                ],
             });
             if (existingUser) {
-                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_already_registered", {
+                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_or_phone_already_registered", {
                     lang: this.lang,
                 }));
             }
@@ -93,6 +98,8 @@ let UsersService = class UsersService {
             let imageUrl = "default-avatar.png";
             const newUser = new this.userModel({
                 ...createUserDto,
+                email: normalizedEmail,
+                phone: normalizedPhone,
                 image: "default-avatar.png",
                 password: hashedPassword,
             });
@@ -103,12 +110,26 @@ let UsersService = class UsersService {
                 savedUser.image = imageUrl;
             }
             await savedUser.save();
-            return { message: this.i18n.translate("auth.users.created_success", { lang: this.lang }), data: savedUser.toJSON() };
+            return {
+                message: this.i18n.translate("auth.users.created_success", {
+                    lang: this.lang,
+                }),
+                data: savedUser.toJSON(),
+            };
         }
         catch (err) {
-            throw err instanceof common_1.HttpException
-                ? err
-                : new app_error_1.AppError(err?.message || "Internal server error");
+            if (err instanceof common_1.HttpException) {
+                throw err;
+            }
+            if (err instanceof Error &&
+                "code" in err &&
+                err.code === 11000) {
+                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_or_phone_already_registered", {
+                    lang: this.lang,
+                }));
+            }
+            const errorMessage = err instanceof Error ? err.message : "Internal server error";
+            throw new app_error_1.AppError(errorMessage);
         }
     }
     async hashPassword(password) {
@@ -184,7 +205,8 @@ let UsersService = class UsersService {
             };
         }
         catch (err) {
-            throw new app_error_1.AppError(err);
+            const errorMessage = err instanceof Error ? err.message : "Internal server error";
+            throw new app_error_1.AppError(errorMessage);
         }
     }
     async findByIdWithToken(userId, lang = "en") {
@@ -262,9 +284,11 @@ let UsersService = class UsersService {
             };
         }
         catch (err) {
-            throw err instanceof common_1.HttpException
-                ? err
-                : new app_error_1.AppError(err);
+            if (err instanceof common_1.HttpException) {
+                throw err;
+            }
+            const errorMessage = err instanceof Error ? err.message : "Internal server error";
+            throw new app_error_1.AppError(errorMessage);
         }
     }
     async reactivateAccount(userId) {
@@ -292,9 +316,11 @@ let UsersService = class UsersService {
             };
         }
         catch (err) {
-            throw err instanceof common_1.HttpException
-                ? err
-                : new app_error_1.AppError(err?.message || "Internal server error");
+            if (err instanceof common_1.HttpException) {
+                throw err;
+            }
+            const errorMessage = err instanceof Error ? err.message : "Internal server error";
+            throw new app_error_1.AppError(errorMessage);
         }
     }
 };

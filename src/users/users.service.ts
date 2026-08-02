@@ -42,21 +42,31 @@ export class UsersService {
   }
   async createUser(createUserDto: CreateUpdateUserDto) {
     try {
+      const normalizedEmail = createUserDto.email?.trim().toLowerCase();
+      const normalizedPhone = createUserDto.phone?.trim();
+
       const existingUser = await this.userModel.findOne({
-        email: createUserDto.email,
+        $or: [
+          ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+          ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+        ],
       });
+
       if (existingUser) {
         throw new ConflictException(
-          this.i18n.translate("auth.users.email_already_registered", {
+          this.i18n.translate("auth.users.email_or_phone_already_registered", {
             lang: this.lang,
           }),
         );
       }
+
       const hashedPassword = await this.hashPassword(createUserDto.password);
       let imageUrl = "default-avatar.png"; // Default image URL
 
       const newUser = new this.userModel({
         ...createUserDto,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         image: "default-avatar.png", // Default image if none provided
         password: hashedPassword,
       });
@@ -71,11 +81,31 @@ export class UsersService {
         savedUser.image = imageUrl; // Ensure the image is stored as a filename
       }
       await savedUser.save(); // Save the user again to update the image field
-      return { message: this.i18n.translate("auth.users.created_success", { lang: this.lang }), data: savedUser.toJSON() };
+      return {
+        message: this.i18n.translate("auth.users.created_success", {
+          lang: this.lang,
+        }),
+        data: savedUser.toJSON(),
+      };
     } catch (err) {
-      throw err instanceof HttpException
-        ? err
-        : new AppError(err?.message || "Internal server error");
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        (err as any).code === 11000
+      ) {
+        throw new ConflictException(
+          this.i18n.translate("auth.users.email_or_phone_already_registered", {
+            lang: this.lang,
+          }),
+        );
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -191,7 +221,8 @@ export class UsersService {
         data: updatedUser,
       };
     } catch (err) {
-      throw new AppError(err);
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -310,9 +341,12 @@ export class UsersService {
         data: user,
       };
     } catch (err) {
-      throw err instanceof HttpException
-        ? err
-        : new AppError(err);
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -353,9 +387,12 @@ export class UsersService {
         data: user,
       };
     } catch (err) {
-      throw err instanceof HttpException
-        ? err
-        : new AppError(err?.message || "Internal server error");
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 }
