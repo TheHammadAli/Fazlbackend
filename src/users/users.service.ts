@@ -157,6 +157,25 @@ export class UsersService {
         }
       });
 
+      // Defense-in-depth: no global ValidationPipe enforces the DTO's shape, so a raw
+      // request body could carry fields the DTO never declares. This is a generic
+      // self-service endpoint — it must never be able to grant privileges.
+      delete (updateData as Record<string, unknown>).permissions;
+      delete (updateData as Record<string, unknown>).isDisabled;
+
+      // Only safe, self-assignable role values may pass through this endpoint.
+      // Admin-tier roles are managed exclusively via updateAdminAccount, which has
+      // its own super_admin protection.
+      if (updateData.roles) {
+        const SELF_ASSIGNABLE_ROLES = ["buyer", "seller"] as const;
+        updateData.roles = updateData.roles.filter((role) =>
+          (SELF_ASSIGNABLE_ROLES as readonly string[]).includes(role),
+        ) as typeof updateData.roles;
+        if (updateData.roles.length === 0) {
+          delete updateData.roles;
+        }
+      }
+
       // Handle password hashing
       if (updateData.password) {
         const salt = await bcrypt.genSalt();
@@ -167,6 +186,11 @@ export class UsersService {
       if (!existingUser) {
         throw new NotFoundException(
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
+        );
+      }
+      if (existingUser.roles?.includes("super_admin")) {
+        throw new ForbiddenException(
+          "The Super Admin account cannot be edited through this endpoint",
         );
       }
       console.log("Existing User:", existingUser);

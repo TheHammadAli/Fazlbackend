@@ -5,6 +5,7 @@ export const ACTIVITY_LOG_ACTIONS = [
   "admin_login",
   "user_suspended",
   "user_enabled",
+  "user_updated",
   "shop_suspended",
   "shop_enabled",
   "listing_suspended",

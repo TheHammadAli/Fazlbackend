@@ -88,7 +88,7 @@ export class UsersController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update a user (protected)" })
+  @ApiOperation({ summary: "Update a user (protected; self, or requires 'users' permission for other accounts)" })
   @ApiParam({ name: "id", type: String })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileFieldsInterceptor([{ name: "image", maxCount: 1 }]))
@@ -100,7 +100,10 @@ export class UsersController {
     files: {
       image?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
   ): Promise<{ message: string; data: User }> {
+    assertOwnerOrPermission(currentUser, userId, "users");
     if (files?.image && files.image.length > 0) {
       updateUserDto.image = files.image[0];
     }
@@ -110,7 +113,18 @@ export class UsersController {
         updateUserDto.location?.toString() || "{}",
       );
     }
-    return this.usersService.updateUser(userId, updateUserDto);
+    const result = await this.usersService.updateUser(userId, updateUserDto);
+    if (currentUser.sub !== userId) {
+      await this.activityLogService.record(
+        currentUser.sub,
+        "user_updated",
+        "User",
+        userId,
+        result.data?.name ?? result.data?.email,
+        req.ip,
+      );
+    }
+    return result;
   }
 
   @Get("detail/:id")
