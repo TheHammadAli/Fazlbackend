@@ -30,6 +30,27 @@ export class Shop {
   @Prop({ required: true, trim: true })
   description: string;
 
+  @Prop({ required: false, trim: true })
+  marketName?: string;
+
+  @Prop({ required: false, trim: true })
+  city?: string;
+
+  @Prop({ required: false, trim: true })
+  area?: string;
+
+  @Prop({ required: false, trim: true })
+  contact?: string;
+
+  @Prop({ type: Types.ObjectId, ref: "Category", required: false })
+  category?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: "Category", required: false })
+  subcategory?: Types.ObjectId;
+
+  @Prop({ required: false, trim: true })
+  openingHours?: string;
+
   @Prop({ type: Boolean, default: false })
   isDisabled?: boolean;
 

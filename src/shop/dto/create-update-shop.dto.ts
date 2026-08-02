@@ -44,6 +44,41 @@ export class CreateUpdateShopDto {
   @IsNotEmpty()
   description: string;
 
+  @ApiPropertyOptional({ example: "New Makki Market" })
+  @IsString()
+  @IsOptional()
+  marketName?: string;
+
+  @ApiPropertyOptional({ example: "Chakwal" })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @ApiPropertyOptional({ example: "Talagang Road" })
+  @IsString()
+  @IsOptional()
+  area?: string;
+
+  @ApiPropertyOptional({ example: "+923001234567" })
+  @IsString()
+  @IsOptional()
+  contact?: string;
+
+  @ApiPropertyOptional({ example: "689e387f45330caa85c1e19b", description: "Category ObjectId" })
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @ApiPropertyOptional({ example: "689e387f45330caa85c1e19b", description: "Subcategory ObjectId" })
+  @IsString()
+  @IsOptional()
+  subcategory?: string;
+
+  @ApiPropertyOptional({ example: "Mon-Fri, 9:00 AM - 6:00 PM" })
+  @IsString()
+  @IsOptional()
+  openingHours?: string;
+
   @ApiPropertyOptional({
     type: "string",
     format: "binary",

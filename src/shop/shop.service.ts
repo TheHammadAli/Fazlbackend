@@ -140,7 +140,9 @@ export class ShopService {
   async getShopById(shopId: string) {
     const shop = await this.shopModel
       .findById(shopId)
-      .populate("ownerId", "name email");
+      .populate("ownerId", "name email")
+      .populate("category")
+      .populate("subcategory");
 
 
     if (!shop) {
