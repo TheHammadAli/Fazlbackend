@@ -4,6 +4,7 @@ declare class LocationDto implements Location {
     coordinates: [number, number];
 }
 export declare class UpdateUserDto {
+    email?: string;
     password?: string;
     phone?: string;
     address?: string;

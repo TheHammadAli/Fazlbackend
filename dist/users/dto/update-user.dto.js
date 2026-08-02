@@ -31,6 +31,7 @@ __decorate([
     __metadata("design:type", Array)
 ], LocationDto.prototype, "coordinates", void 0);
 class UpdateUserDto {
+    email;
     password;
     phone;
     address;
@@ -43,6 +44,12 @@ class UpdateUserDto {
     resetPasswordExpires;
 }
 exports.UpdateUserDto = UpdateUserDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "user@example.com" }),
+    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UpdateUserDto.prototype, "email", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: "secret123" }),
     (0, class_validator_1.IsString)(),

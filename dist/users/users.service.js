@@ -162,37 +162,79 @@ let UsersService = class UsersService {
     }
     async updateUser(userId, updateData) {
         try {
-            Object.keys(updateData).forEach((key) => {
-                if (updateData[key] === "" ||
-                    updateData[key] === null ||
-                    typeof updateData[key] === "undefined") {
-                    delete updateData[key];
-                }
-            });
-            if (updateData.password) {
-                const salt = await bcrypt.genSalt();
-                updateData.password = await bcrypt.hash(updateData.password, salt);
-            }
             const existingUser = await this.userModel.findById(userId).exec();
             if (!existingUser) {
                 throw new common_1.NotFoundException(this.i18n.translate("auth.users.user_not_found", { lang: this.lang }));
             }
-            console.log("Existing User:", existingUser);
+            const sanitizedData = { ...updateData };
+            Object.keys(sanitizedData).forEach((key) => {
+                if (sanitizedData[key] === "" ||
+                    sanitizedData[key] === null ||
+                    typeof sanitizedData[key] === "undefined") {
+                    delete sanitizedData[key];
+                }
+            });
+            const updatePayload = {};
+            Object.entries(sanitizedData).forEach(([key, value]) => {
+                const currentValue = existingUser[key];
+                if (Array.isArray(currentValue) && Array.isArray(value)) {
+                    const sameArray = currentValue.length === value.length &&
+                        currentValue.every((item, index) => item === value[index]);
+                    if (sameArray) {
+                        return;
+                    }
+                }
+                else if (typeof currentValue === "object" && currentValue !== null && typeof value === "object" && value !== null) {
+                    if (JSON.stringify(currentValue) === JSON.stringify(value)) {
+                        return;
+                    }
+                }
+                else if (currentValue === value) {
+                    return;
+                }
+                updatePayload[key] = value;
+            });
+            if (updatePayload.password) {
+                const salt = await bcrypt.genSalt();
+                updatePayload.password = await bcrypt.hash(updatePayload.password, salt);
+            }
+            const normalizedEmail = updatePayload.email?.trim().toLowerCase();
+            const normalizedPhone = updatePayload.phone?.trim();
+            if (normalizedEmail || normalizedPhone) {
+                const duplicateUser = await this.userModel
+                    .findOne({
+                    _id: { $ne: userId },
+                    $or: [
+                        ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+                        ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+                    ],
+                })
+                    .exec();
+                if (duplicateUser) {
+                    throw new common_1.ConflictException(this.i18n.translate("auth.users.email_or_phone_already_registered", {
+                        lang: this.lang,
+                    }));
+                }
+            }
+            if (normalizedEmail) {
+                updatePayload.email = normalizedEmail;
+            }
+            if (normalizedPhone) {
+                updatePayload.phone = normalizedPhone;
+            }
             let imageUrl = existingUser.image || "default-avatar.png";
-            console.log("Image URL:", imageUrl);
-            console.log("Update Data Image:", updateData.image);
-            if (updateData.image &&
-                typeof updateData.image === "object" &&
-                "buffer" in updateData.image &&
-                "originalname" in updateData.image) {
-                imageUrl = await this.fileUploadService.uploadUserImage(userId, updateData.image);
+            if (updatePayload.image &&
+                typeof updatePayload.image === "object" &&
+                "buffer" in updatePayload.image &&
+                "originalname" in updatePayload.image) {
+                imageUrl = await this.fileUploadService.uploadUserImage(userId, updatePayload.image);
             }
-            if (!updateData.location) {
-                updateData.location = existingUser.location;
+            if (!updatePayload.location) {
+                updatePayload.location = existingUser.location;
             }
-            updateData.image = imageUrl;
+            updatePayload.image = imageUrl;
             const updatedUser = await this.userModel.findByIdAndUpdate(userId, {
-                $set: updateData,
+                $set: updatePayload,
             });
             if (!updatedUser) {
                 throw new common_1.NotFoundException(this.i18n.translate("users.user_not_found", { lang: this.lang }));
@@ -205,6 +247,16 @@ let UsersService = class UsersService {
             };
         }
         catch (err) {
+            if (err instanceof common_1.HttpException) {
+                throw err;
+            }
+            if (err instanceof Error &&
+                "code" in err &&
+                err.code === 11000) {
+                throw new common_1.ConflictException(this.i18n.translate("auth.users.email_or_phone_already_registered", {
+                    lang: this.lang,
+                }));
+            }
             const errorMessage = err instanceof Error ? err.message : "Internal server error";
             throw new app_error_1.AppError(errorMessage);
         }

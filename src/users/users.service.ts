@@ -155,57 +155,106 @@ export class UsersService {
     updateData: Partial<UpdateUserDto>,
   ): Promise<{ message: string; data: User }> {
     try {
-      // Remove empty, null, or undefined fields
-      Object.keys(updateData).forEach((key) => {
-        if (
-          updateData[key] === "" ||
-          updateData[key] === null ||
-          typeof updateData[key] === "undefined"
-        ) {
-          delete updateData[key];
-        }
-      });
-
-      // Handle password hashing
-      if (updateData.password) {
-        const salt = await bcrypt.genSalt();
-        updateData.password = await bcrypt.hash(updateData.password, salt);
-      }
-
       const existingUser = await this.userModel.findById(userId).exec();
       if (!existingUser) {
         throw new NotFoundException(
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
-      console.log("Existing User:", existingUser);
 
-      // Handle image only if a new one is provided
+      const sanitizedData = { ...updateData };
+
+      Object.keys(sanitizedData).forEach((key) => {
+        if (
+          sanitizedData[key] === "" ||
+          sanitizedData[key] === null ||
+          typeof sanitizedData[key] === "undefined"
+        ) {
+          delete sanitizedData[key];
+        }
+      });
+
+      const updatePayload: Partial<UpdateUserDto> = {};
+
+      Object.entries(sanitizedData).forEach(([key, value]) => {
+        const currentValue = (existingUser as Record<string, any>)[key];
+
+        if (Array.isArray(currentValue) && Array.isArray(value)) {
+          const sameArray =
+            currentValue.length === value.length &&
+            currentValue.every((item, index) => item === value[index]);
+          if (sameArray) {
+            return;
+          }
+        } else if (typeof currentValue === "object" && currentValue !== null && typeof value === "object" && value !== null) {
+          if (JSON.stringify(currentValue) === JSON.stringify(value)) {
+            return;
+          }
+        } else if (currentValue === value) {
+          return;
+        }
+
+        (updatePayload as Record<string, any>)[key] = value;
+      });
+
+      // Handle password hashing
+      if (updatePayload.password) {
+        const salt = await bcrypt.genSalt();
+        updatePayload.password = await bcrypt.hash(updatePayload.password, salt);
+      }
+
+      const normalizedEmail = updatePayload.email?.trim().toLowerCase();
+      const normalizedPhone = updatePayload.phone?.trim();
+
+      if (normalizedEmail || normalizedPhone) {
+        const duplicateUser = await this.userModel
+          .findOne({
+            _id: { $ne: userId },
+            $or: [
+              ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+              ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+            ],
+          })
+          .exec();
+
+        if (duplicateUser) {
+          throw new ConflictException(
+            this.i18n.translate("auth.users.email_or_phone_already_registered", {
+              lang: this.lang,
+            }),
+          );
+        }
+      }
+
+      if (normalizedEmail) {
+        updatePayload.email = normalizedEmail;
+      }
+
+      if (normalizedPhone) {
+        updatePayload.phone = normalizedPhone;
+      }
+
       let imageUrl = existingUser.image || "default-avatar.png";
-      console.log("Image URL:", imageUrl);
-      console.log("Update Data Image:", updateData.image);
       if (
-        updateData.image &&
-        typeof updateData.image === "object" &&
-        "buffer" in updateData.image &&
-        "originalname" in updateData.image
+        updatePayload.image &&
+        typeof updatePayload.image === "object" &&
+        "buffer" in updatePayload.image &&
+        "originalname" in updatePayload.image
       ) {
-        // It's a file object (from Multer)
         imageUrl = await this.fileUploadService.uploadUserImage(
           userId,
-          updateData.image,
+          updatePayload.image,
         );
       }
 
-      // Preserve location if not updated
-      if (!updateData.location) {
-        updateData.location = existingUser.location;
+      if (!updatePayload.location) {
+        updatePayload.location = existingUser.location;
       }
 
-      updateData.image = imageUrl;
+      updatePayload.image = imageUrl;
 
       const updatedUser = await this.userModel.findByIdAndUpdate(userId, {
-        $set: updateData,
+        $set: updatePayload,
       });
 
       if (!updatedUser) {
@@ -221,6 +270,22 @@ export class UsersService {
         data: updatedUser,
       };
     } catch (err) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        (err as any).code === 11000
+      ) {
+        throw new ConflictException(
+          this.i18n.translate("auth.users.email_or_phone_already_registered", {
+            lang: this.lang,
+          }),
+        );
+      }
+
       const errorMessage = err instanceof Error ? err.message : "Internal server error";
       throw new AppError(errorMessage);
     }
