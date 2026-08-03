@@ -13,14 +13,18 @@ import { join } from "path";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: "*", // allow all origins
-    credentials: false, // no cookies / sessions
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "x-lang"],
   });
 
   app.use("/media", express.static(join(process.cwd(), "media")));
 
   app.useGlobalInterceptors(app.get(LanguageInterceptor));
-  app.useGlobalInterceptors(new TimeoutInterceptor(60000));
+  app.useGlobalInterceptors(
+    new TimeoutInterceptor(Number(process.env.REQUEST_TIMEOUT_MS ?? 300000)),
+  );
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new SuccessResponseInterceptor());
   app.useWebSocketAdapter(new IoAdapter(app));
@@ -43,10 +47,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api/docs", app, document);
 
-  const server = await app.listen(process.env.PORT ?? 3000, '::');
-  server.keepAliveTimeout = 120000; // 2 minutes
-  server.headersTimeout = 121000;   // Must be slightly higher than keepAliveTimeout
-  server.timeout = 120000;
+  const host = process.env.HOST ?? "0.0.0.0";
+  const port = Number(process.env.PORT ?? 3000);
+  const server = await app.listen(port, host);
+  server.keepAliveTimeout = Number(process.env.KEEP_ALIVE_TIMEOUT_MS ?? 650000);
+  server.headersTimeout = Number(process.env.HEADERS_TIMEOUT_MS ?? 660000);
+  server.timeout = Number(process.env.SO_TIMEOUT_MS ?? 600000);
+  server.requestTimeout = Number(process.env.REQUEST_TIMEOUT_MS ?? 300000);
 
 }
 bootstrap();

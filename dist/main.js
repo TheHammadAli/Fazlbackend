@@ -46,12 +46,14 @@ const path_1 = require("path");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors({
-        origin: "*",
-        credentials: false,
+        origin: true,
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "Accept", "x-lang"],
     });
     app.use("/media", express.static((0, path_1.join)(process.cwd(), "media")));
     app.useGlobalInterceptors(app.get(language_interceptor_1.LanguageInterceptor));
-    app.useGlobalInterceptors(new timeout_interceptor_1.TimeoutInterceptor(60000));
+    app.useGlobalInterceptors(new timeout_interceptor_1.TimeoutInterceptor(Number(process.env.REQUEST_TIMEOUT_MS ?? 300000)));
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
     app.useGlobalInterceptors(new success_response_interceptor_1.SuccessResponseInterceptor());
     app.useWebSocketAdapter(new platform_socket_io_1.IoAdapter(app));
@@ -69,10 +71,13 @@ async function bootstrap() {
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup("api/docs", app, document);
-    const server = await app.listen(process.env.PORT ?? 3000, '::');
-    server.keepAliveTimeout = 120000;
-    server.headersTimeout = 121000;
-    server.timeout = 120000;
+    const host = process.env.HOST ?? "0.0.0.0";
+    const port = Number(process.env.PORT ?? 3000);
+    const server = await app.listen(port, host);
+    server.keepAliveTimeout = Number(process.env.KEEP_ALIVE_TIMEOUT_MS ?? 650000);
+    server.headersTimeout = Number(process.env.HEADERS_TIMEOUT_MS ?? 660000);
+    server.timeout = Number(process.env.SO_TIMEOUT_MS ?? 600000);
+    server.requestTimeout = Number(process.env.REQUEST_TIMEOUT_MS ?? 300000);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map
