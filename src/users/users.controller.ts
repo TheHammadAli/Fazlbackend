@@ -31,6 +31,7 @@ import { RolesGuard } from "src/auth/guard/roles-guard";
 import { Roles } from "src/common/decorators/roles.decorator";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import {
   ApiBearerAuth,
@@ -104,7 +105,7 @@ export class UsersController {
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string; data: User }> {
-    assertOwnerOrPermission(currentUser, userId, "users");
+    assertOwnerOrPermission(currentUser, userId, "users", "edit");
     if (files?.image && files.image.length > 0) {
       updateUserDto.image = files.image[0];
     }
@@ -176,7 +177,7 @@ export class UsersController {
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string; data: User }> {
-    assertOwnerOrPermission(currentUser, userId, "users");
+    assertOwnerOrPermission(currentUser, userId, "users", "delete");
     const result = await this.usersService.disableAccount(userId);
     if (currentUser.sub !== userId) {
       await this.activityLogService.record(
@@ -194,6 +195,7 @@ export class UsersController {
   @Post(":id/reactivate")
   @UseGuards(PermissionsGuard)
   @RequirePermission("users")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Reactivate disabled user account (protected)" })
   @ApiParam({ name: "id", type: String })
   @ApiResponse({ status: 200, description: "Account has been reactivated successfully" })
@@ -331,16 +333,19 @@ export class UsersController {
   // Distinct from Admin Management above, which is super_admin-only.
 
   @Get("members")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles("admin", "super_admin")
+  @RequirePermission("members")
   @ApiOperation({ summary: "Get all members (admin/super_admin only)" })
   async getAllMembers() {
     return { data: await this.usersService.getMembers() };
   }
 
   @Post("members")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Create a new member account (admin/super_admin only)" })
   @ApiBody({ type: CreateMemberDto })
   async createMember(
@@ -361,8 +366,10 @@ export class UsersController {
   }
 
   @Patch("members/:id")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Update a member account's name/email (admin/super_admin only)" })
   @ApiParam({ name: "id", type: String })
   @ApiBody({ type: UpdateMemberDto })
@@ -385,8 +392,10 @@ export class UsersController {
   }
 
   @Delete("members/:id")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("delete")
   @ApiOperation({ summary: "Delete a member account (admin/super_admin only)" })
   @ApiParam({ name: "id", type: String })
   async deleteMember(
@@ -407,8 +416,10 @@ export class UsersController {
   }
 
   @Patch("members/:id/reset-password")
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Reset a member account's password (admin/super_admin only)" })
   @ApiParam({ name: "id", type: String })
   @ApiBody({ type: ResetMemberPasswordDto })

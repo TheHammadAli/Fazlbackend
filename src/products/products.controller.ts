@@ -26,6 +26,7 @@ import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import {
@@ -147,11 +148,12 @@ export class ProductsController {
   async deleteProductMedia(
     @Param("id") productId: string,
     @Body("media") media: string[],
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (!Array.isArray(media) || media.length === 0) {
       throw new BadRequestException("No media files provided for deletion");
     }
-    await this.productsService.deleteProductMedia(productId, media);
+    await this.productsService.deleteProductMedia(productId, media, currentUser);
     return { message: "Selected product media deleted successfully" };
   }
 
@@ -199,6 +201,7 @@ export class ProductsController {
   @Patch(":id/disable")
   @UseGuards(PermissionsGuard)
   @RequirePermission("listings")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Suspend a product/feed video (admin)" })
   @ApiParam({ name: "id", required: true })
   async disableProduct(
@@ -221,6 +224,7 @@ export class ProductsController {
   @Patch(":id/enable")
   @UseGuards(PermissionsGuard)
   @RequirePermission("listings")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Enable a product/feed video (admin)" })
   @ApiParam({ name: "id", required: true })
   async enableProduct(
@@ -253,7 +257,7 @@ export class ProductsController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update product by ID" })
+  @ApiOperation({ summary: "Update product by ID (own listing, or requires 'listings' edit permission for others)" })
   @ApiConsumes("multipart/form-data")
   @ApiParam({ name: "id", required: true })
   @UseInterceptors(
@@ -271,6 +275,7 @@ export class ProductsController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
   ): Promise<Product> {
     if (files?.images && files.images.length > 0) {
       updateProductDto.images = files.images;
@@ -282,7 +287,7 @@ export class ProductsController {
       updateProductDto.parameters?.toString() || "",
     );
 
-    return this.productsService.update(id, updateProductDto);
+    return this.productsService.update(id, updateProductDto, currentUser);
   }
 
   @Delete(":id")

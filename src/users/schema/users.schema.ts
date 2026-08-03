@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
 import { Location } from "./users.interfaces";
+import { PermissionEntry, PermissionEntrySchema } from "./permission-entry.schema";
 @Schema({
   timestamps: true,
   toJSON: { virtuals: true },
@@ -27,11 +28,10 @@ export class User {
   roles: string[];
 
   @Prop({
-    type: [String],
-    enum: ["users", "shops", "listings", "services", "categories", "bookings", "broadcasts"],
+    type: [PermissionEntrySchema],
     default: [],
   })
-  permissions: string[];
+  permissions: PermissionEntry[];
 
   @Prop({ unique: true, sparse: true, required: false })
   phone?: string;

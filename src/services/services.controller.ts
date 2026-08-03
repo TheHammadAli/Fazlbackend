@@ -39,6 +39,7 @@ import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { Public } from "src/common/decorators/public.decorator";
 import { GetWithVideosDto } from "./dto/video-with-dto";
 import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
@@ -118,7 +119,7 @@ export class ServicesController {
   }
 
   @Put("update/:serviceId")
-  @ApiOperation({ summary: "Update an existing service" })
+  @ApiOperation({ summary: "Update an existing service (own service, or requires 'services' edit permission for others)" })
   @ApiParam({ name: "serviceId", required: true })
   @ApiResponse({ status: 200, description: "Service updated successfully" })
   @ApiConsumes("multipart/form-data")
@@ -137,6 +138,7 @@ export class ServicesController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (files?.images && files.images.length > 0) {
       dto.images = files.images; // Assuming images are stored as file objects
@@ -149,16 +151,16 @@ export class ServicesController {
       dto.parameters?.toString() || "{}",
     );
 
-    return await this.servicesService.update(serviceId, dto);
+    return await this.servicesService.update(serviceId, dto, currentUser);
   }
 
   @Delete(':serviceId')
-  @ApiOperation({ summary: 'Delete a service' })
+  @ApiOperation({ summary: "Delete a service (own service, or requires 'services' delete permission for others)" })
   @ApiParam({ name: 'serviceId', required: true })
   @ApiResponse({ status: 204, description: 'Service deleted successfully' })
   @HttpCode(HttpStatus.OK)
-  async delete(@Param('serviceId') serviceId: string) {
-    const results = await this.servicesService.delete(serviceId);
+  async delete(@Param('serviceId') serviceId: string, @CurrentUser() currentUser: JwtPayload) {
+    const results = await this.servicesService.delete(serviceId, currentUser);
     console.log("Results", results)
     return { message: results.message }
   }
@@ -331,11 +333,12 @@ export class ServicesController {
   async deleteProductMedia(
     @Param("id") serviceId: string,
     @Body("media") media: string[],
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (!Array.isArray(media) || media.length === 0) {
       throw new BadRequestException("No media files provided for deletion");
     }
-    await this.servicesService.deleteServiceMedia(serviceId, media);
+    await this.servicesService.deleteServiceMedia(serviceId, media, currentUser);
     return { message: "Selected service media deleted successfully" };
   }
 
@@ -353,35 +356,6 @@ export class ServicesController {
   ) {
     console.log("Searching nearby services with query:", query);
     return this.servicesService.searchNearbyServices(query);
-  }
-
-  @Delete(":id/media")
-  @ApiOperation({ summary: "Delete selected media files for a service" })
-  @ApiParam({ name: "id", description: "Service ID" })
-  @ApiBody({
-    schema: {
-      properties: {
-        media: {
-          type: "array",
-          items: { type: "string" },
-          description: "Array of media file URLs to delete",
-        },
-      },
-      required: ["media"],
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Selected service deleted successfully",
-  })
-  @ApiResponse({ status: 404, description: "Service not found" })
-
-  @HttpCode(HttpStatus.OK)
-  async deleteService(
-    @Param("id") serviceId: string,
-  ) {
-    await this.servicesService.delete(serviceId);
-    return { message: "Selected service deleted successfully" };
   }
 
   @Get("/customer/:customerId")

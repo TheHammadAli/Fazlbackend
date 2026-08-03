@@ -3,12 +3,13 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 
 export interface JwtPayload {
   sub: string;
   email: string;
   roles: string[];
-  permissions?: string[];
+  permissions?: PermissionEntry[];
   location: Location;
   image: string | null;
 }

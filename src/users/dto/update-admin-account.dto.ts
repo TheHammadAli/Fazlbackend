@@ -1,10 +1,10 @@
-import { IsArray, IsEmail, IsEnum, IsOptional, IsString } from "class-validator";
+import { IsArray, IsEmail, IsEnum, IsOptional, IsString, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import {
-  ADMIN_PERMISSIONS,
-  AdminPermission,
   CREATABLE_ADMIN_ROLES,
   CreatableAdminRole,
+  PermissionEntryDto,
 } from "./create-admin-account.dto";
 
 export class UpdateAdminAccountDto {
@@ -23,9 +23,10 @@ export class UpdateAdminAccountDto {
   @IsOptional()
   role?: CreatableAdminRole;
 
-  @ApiPropertyOptional({ enum: ADMIN_PERMISSIONS, isArray: true, example: ["shops"] })
+  @ApiPropertyOptional({ type: [PermissionEntryDto] })
   @IsArray()
   @IsOptional()
-  @IsEnum(ADMIN_PERMISSIONS, { each: true })
-  permissions?: AdminPermission[];
+  @ValidateNested({ each: true })
+  @Type(() => PermissionEntryDto)
+  permissions?: PermissionEntryDto[];
 }

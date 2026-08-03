@@ -17,6 +17,7 @@ import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { CreateCategoryRequestDto } from "./dto/category-request.dto";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
@@ -47,6 +48,7 @@ export class CategoryController {
   @Post()
   @UseGuards(PermissionsGuard)
   @RequirePermission("categories")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Create a new category (admin only)" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("icon"))
@@ -110,6 +112,7 @@ export class CategoryController {
   @Put(":id")
   @UseGuards(PermissionsGuard)
   @RequirePermission("categories")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Update an existing category (admin only)" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("icon"))
@@ -158,6 +161,7 @@ export class CategoryController {
   @Put("review/:id")
   @UseGuards(PermissionsGuard)
   @RequirePermission("categories")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Review a pending category request (admin only)" })
   @ApiBody({ type: ReviewCategoryRequestDto })
   async reviewRequest(

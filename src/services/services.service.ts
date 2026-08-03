@@ -32,6 +32,8 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
 import { ReviewService } from "src/reviews/reviews.service";
+import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 
 @Injectable()
 export class ServicesService {
@@ -175,7 +177,11 @@ export class ServicesService {
     return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
   }
 
-  async update(serviceId: string, dto: UpdateServiceDto) {
+  async update(
+    serviceId: string,
+    dto: UpdateServiceDto,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     Object.keys(dto).forEach((key) => {
       if (
         dto[key] === "" || // empty string
@@ -188,6 +194,9 @@ export class ServicesService {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException("Service not found");
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
     }
     const imageFiles = dto.images as Express.Multer.File[];
     let images = existingService.images; // Preserve existing images if not updated
@@ -243,7 +252,10 @@ export class ServicesService {
     return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
 
-  async delete(serviceId: string) {
+  async delete(
+    serviceId: string,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException(
@@ -252,6 +264,9 @@ export class ServicesService {
         }),
       );
       // Ensure the service exists before attempting to delete
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "delete");
     }
     let media: string[] = []
     if (existingService.images.length != 0) {
@@ -275,7 +290,11 @@ export class ServicesService {
     return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
   }
 
-  async deleteServiceMedia(serviceId: string, media: string[]) {
+  async deleteServiceMedia(
+    serviceId: string,
+    media: string[],
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException(
@@ -290,6 +309,9 @@ export class ServicesService {
           lang: this.lang,
         }),
       );
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
     }
 
     // Remove media files from storage

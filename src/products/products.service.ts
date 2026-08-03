@@ -26,6 +26,7 @@ import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
 import { ReviewService } from "src/reviews/reviews.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 
 @Injectable()
@@ -297,7 +298,11 @@ export class ProductsService {
     } as any;
   }
 
-  async update(productId: string, updateDto: UpdateProductDto): Promise<any> {
+  async update(
+    productId: string,
+    updateDto: UpdateProductDto,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ): Promise<any> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
         this.i18n.translate("auth.products.shop_cant_update", {
@@ -325,6 +330,13 @@ export class ProductsService {
           lang: this.lang,
         }),
       );
+    }
+
+    if (currentUser) {
+      const resolvedOwnerId = existingProduct.shopId
+        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+        : existingProduct.ownerId?.toString();
+      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "edit");
     }
 
     if (updateDto.images && updateDto.images.length > 0) {
@@ -379,7 +391,7 @@ export class ProductsService {
 
   async delete(
     productId: string,
-    currentUser?: { sub: string; roles?: string[]; permissions?: string[] },
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
     lang: string = "en",
     ipAddress?: string,
   ) {
@@ -401,7 +413,7 @@ export class ProductsService {
       resolvedOwnerId = existingProduct.shopId
         ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
         : existingProduct.ownerId?.toString();
-      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings");
+      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "delete");
     }
 
     await this.fileUploadService.deleteEntityProducts(
@@ -431,7 +443,11 @@ export class ProductsService {
     return existingProduct;
   }
 
-  async deleteProductMedia(productId: string, media: string[]) {
+  async deleteProductMedia(
+    productId: string,
+    media: string[],
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
     if (!existingProduct) {
       throw new NotFoundException(
@@ -446,6 +462,13 @@ export class ProductsService {
           lang: this.lang,
         }),
       );
+    }
+
+    if (currentUser) {
+      const resolvedOwnerId = existingProduct.shopId
+        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+        : existingProduct.ownerId?.toString();
+      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "edit");
     }
 
     // Remove media files from storage

@@ -18,6 +18,7 @@ import { SearchNearbyShopDto } from "./dto/search-nearby-shop.dto";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth-guard";
 import { PermissionsGuard } from "../auth/guard/permissions-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { Request } from "express";
 import { Types } from "mongoose";
@@ -77,7 +78,7 @@ export class ShopController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update existing shop by ID" })
+  @ApiOperation({ summary: "Update existing shop by ID (own shop, or requires 'shops' edit permission for others)" })
   @ApiParam({ name: "id", type: String })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileFieldsInterceptor([
@@ -93,6 +94,7 @@ export class ShopController {
       image?: Express.Multer.File[];
       banner?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (files?.image && files.image.length > 0) {
       dto.image = files.image[0];
@@ -103,7 +105,7 @@ export class ShopController {
     if (dto.location && typeof dto.location === "string") {
       dto.location = JSON.parse(dto.location);
     }
-    return this.shopService.updateShop(id, dto);
+    return this.shopService.updateShop(id, dto, currentUser);
   }
 
   @Public()
@@ -157,6 +159,7 @@ export class ShopController {
   @Patch(":id/disable")
   @UseGuards(PermissionsGuard)
   @RequirePermission("shops")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Suspend a shop (admin)" })
   @ApiParam({ name: "id", type: String })
   async disableShop(
@@ -177,6 +180,7 @@ export class ShopController {
   @Patch(":id/enable")
   @UseGuards(PermissionsGuard)
   @RequirePermission("shops")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Re-enable a suspended shop (admin)" })
   @ApiParam({ name: "id", type: String })
   async enableShop(

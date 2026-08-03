@@ -34,6 +34,7 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth-guard";
 import { PermissionsGuard } from "../auth/guard/permissions-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
@@ -226,6 +227,7 @@ export class BroadcastController {
   @Patch("admin/:broadcastId/close")
   @UseGuards(PermissionsGuard)
   @RequirePermission("broadcasts")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Close a broadcast (admin)" })
   @ApiParam({ name: "broadcastId", required: true })
   async closeBroadcast(@Param("broadcastId") broadcastId: string) {
@@ -236,6 +238,7 @@ export class BroadcastController {
   @Delete("admin/:broadcastId")
   @UseGuards(PermissionsGuard)
   @RequirePermission("broadcasts")
+  @RequireAction("delete")
   @ApiOperation({ summary: "Delete a broadcast (admin, soft delete)" })
   @ApiParam({ name: "broadcastId", required: true })
   async deleteBroadcast(

@@ -13,8 +13,12 @@ import { User, UserDocument } from "./schema/users.schema";
 import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
-import { CreateAdminAccountDto } from "./dto/create-admin-account.dto";
+import { CreateAdminAccountDto, PermissionEntryDto } from "./dto/create-admin-account.dto";
 import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
+import {
+  ADMIN_ACTIONS,
+  ADMIN_PERMISSIONS,
+} from "src/common/constants/admin-permissions.constants";
 import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
 import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
 import { InjectModel } from "@nestjs/mongoose";
@@ -464,6 +468,25 @@ export class UsersService {
     };
   }
 
+  /** No global ValidationPipe is registered in this app, so class-validator decorators on the
+   *  DTO are documentation only, not enforcement — the page/action shape must be checked
+   *  explicitly at runtime before it's persisted. */
+  private sanitizePermissions(permissions?: PermissionEntryDto[]): PermissionEntryDto[] {
+    if (!permissions) return [];
+    for (const entry of permissions) {
+      if (!ADMIN_PERMISSIONS.includes(entry?.page as (typeof ADMIN_PERMISSIONS)[number])) {
+        throw new BadRequestException(`Invalid permission page: ${entry?.page}`);
+      }
+      if (
+        !Array.isArray(entry.actions) ||
+        entry.actions.some((action) => !ADMIN_ACTIONS.includes(action as (typeof ADMIN_ACTIONS)[number]))
+      ) {
+        throw new BadRequestException(`Invalid permission actions for page: ${entry.page}`);
+      }
+    }
+    return permissions;
+  }
+
   async createAdminAccount(dto: CreateAdminAccountDto) {
     // No global ValidationPipe is registered in this app, so class-validator decorators on the
     // DTO are documentation only, not enforcement — this must be checked explicitly at runtime.
@@ -489,7 +512,7 @@ export class UsersService {
       email: dto.email,
       password: hashedPassword,
       roles: [dto.role],
-      permissions: dto.permissions ?? [],
+      permissions: this.sanitizePermissions(dto.permissions),
       userCode,
       image: "default-avatar.png",
     });
@@ -612,7 +635,7 @@ export class UsersService {
     if (dto.name) updateData.name = dto.name;
     if (dto.email) updateData.email = dto.email;
     if (dto.role) updateData.roles = [dto.role];
-    if (dto.permissions) updateData.permissions = dto.permissions;
+    if (dto.permissions) updateData.permissions = this.sanitizePermissions(dto.permissions);
 
     const updatedUser = await this.userModel
       .findByIdAndUpdate(userId, { $set: updateData }, { new: true })

@@ -18,6 +18,8 @@ import { UsersService } from "src/users/users.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { OrdersService } from "src/orders/orders.service";
+import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 
 @Injectable()
 export class ShopService {
@@ -94,13 +96,21 @@ export class ShopService {
     };
   }
 
-  async updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<{ message: string; data: Shop }> {
+  async updateShop(
+    shopId: string,
+    dto: CreateUpdateShopDto,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ): Promise<{ message: string; data: Shop }> {
     const { ...safeDto } = dto as any;
     const existingShop = await this.shopModel.findById(shopId);
     if (!existingShop) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
+    }
+
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingShop.ownerId?.toString() ?? "", "shops", "edit");
     }
 
     if (dto.image) {
