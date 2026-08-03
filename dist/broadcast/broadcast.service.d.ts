@@ -58,8 +58,11 @@ export declare class BroadcastService {
             };
         };
     }>;
-    getBroadcastThreads(broadcastId: string): Promise<any[]>;
-    getThreadMessages(threadId: string): Promise<(import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
+    markThreadMessagesAsRead(threadId: string, userId: string): Promise<{
+        success: boolean;
+    }>;
+    getBroadcastThreads(broadcastId: string, currentUserId?: string): Promise<any[]>;
+    getThreadMessages(threadId: string, userId?: string): Promise<(import("mongoose").Document<unknown, {}, BroadcastMessage, {}> & BroadcastMessage & {
         _id: Types.ObjectId;
     } & {
         __v: number;

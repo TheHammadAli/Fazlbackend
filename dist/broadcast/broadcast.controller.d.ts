@@ -30,12 +30,15 @@ export declare class BroadcastController {
             };
         };
     }>;
-    getThreads(broadcastId: string): Promise<any[]>;
-    getThreadMessages(broadcastId: string, threadId: string): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast-message.schema").BroadcastMessage, {}> & import("./schema/broadcast-message.schema").BroadcastMessage & {
+    getThreads(broadcastId: string, req: Request): Promise<any[]>;
+    getThreadMessages(broadcastId: string, threadId: string, req: Request): Promise<(import("mongoose").Document<unknown, {}, import("./schema/broadcast-message.schema").BroadcastMessage, {}> & import("./schema/broadcast-message.schema").BroadcastMessage & {
         _id: import("mongoose").Types.ObjectId;
     } & {
         __v: number;
     })[]>;
+    markThreadAsRead(broadcastId: string, threadId: string, req: Request): Promise<{
+        success: boolean;
+    }>;
     getMyBroadcasts(req: Request, paginationDto: PaginationDto): Promise<{
         meta: {
             total: number;

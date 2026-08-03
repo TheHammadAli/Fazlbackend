@@ -261,6 +261,7 @@ export class BroadcastService {
       message: dto.message || "📢 New broadcast request",
       type: "SYSTEM",
       imageUrls, // Include image URL if provided
+      isRead: false,
     }));
 
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -400,6 +401,7 @@ export class BroadcastService {
       receiver: new Types.ObjectId(receiverId),
       message,
       imageUrls: [imageUrl], // Save the S3 URL here
+      isRead: false,
     });
 
     this.broadcastGateway.server
@@ -426,10 +428,32 @@ export class BroadcastService {
     }
   }
 
+  async markThreadMessagesAsRead(threadId: string, userId: string) {
+    const threadObjectId = new Types.ObjectId(threadId);
+    const userObjectId = new Types.ObjectId(userId);
+
+    await this.messageModel
+      .updateMany(
+        {
+          thread: threadObjectId,
+          receiver: userObjectId,
+          isRead: false,
+        },
+        { $set: { isRead: true } },
+      )
+      .exec();
+
+    return { success: true };
+  }
+
   // -----------------------------
   // GET THREADS
   // -----------------------------
-  async getBroadcastThreads(broadcastId: string) {
+  async getBroadcastThreads(broadcastId: string, currentUserId?: string) {
+    const currentUserObjectId = currentUserId
+      ? new Types.ObjectId(currentUserId)
+      : null;
+
     return this.threadModel
       .aggregate([
         {
@@ -515,6 +539,34 @@ export class BroadcastService {
             preserveNullAndEmptyArrays: true,
           },
         },
+        {
+          $lookup: {
+            from: "broadcastmessages",
+            let: { threadId: "$_id", currentUserId: currentUserObjectId },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$thread", "$$threadId"] },
+                      { $eq: ["$receiver", "$$currentUserId"] },
+                      { $eq: ["$isRead", false] },
+                    ],
+                  },
+                },
+              },
+              { $count: "count" },
+            ],
+            as: "unreadMessages",
+          },
+        },
+        {
+          $addFields: {
+            unreadCount: {
+              $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
+            },
+          },
+        },
         // Project desired fields
         {
           $project: {
@@ -526,6 +578,7 @@ export class BroadcastService {
             createdAt: 1,
             updatedAt: 1,
             latestMessage: 1,
+            unreadCount: 1,
           },
         },
         {
@@ -538,14 +591,20 @@ export class BroadcastService {
   // -----------------------------
   // GET THREAD MESSAGES
   // -----------------------------
-  async getThreadMessages(threadId: string) {
-    return this.messageModel
+  async getThreadMessages(threadId: string, userId?: string) {
+    const messages = await this.messageModel
       .find({
         thread: new Types.ObjectId(threadId),
       })
       .populate("sender", "name")
       .populate("receiver", "name")
       .sort({ createdAt: 1 });
+
+    if (userId) {
+      await this.markThreadMessagesAsRead(threadId, userId);
+    }
+
+    return messages;
   }
 
   // -----------------------------

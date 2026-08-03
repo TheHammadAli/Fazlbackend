@@ -6,20 +6,25 @@ export type BroadcastMessageDocument = HydratedDocument<BroadcastMessage>;
 @Schema({ timestamps: true })
 export class BroadcastMessage {
   @Prop({ type: Types.ObjectId, required: true, ref: "Broadcast" })
-  broadcast: Types.ObjectId;
+  broadcast!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, required: true, ref: "User" })
-  sender: Types.ObjectId;
+  sender!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, required: true, ref: "User" })
-  receiver: Types.ObjectId;
+  receiver!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "BroadcastThread", required: true })
-  thread: Types.ObjectId;
+  thread!: Types.ObjectId;
+
   @Prop({ type: String, required: false })
-  message: string;
+  message?: string;
+
   @Prop({ required: false })
   imageUrls?: string[]; // Optional field for S3 link
+
+  @Prop({ type: Boolean, default: false })
+  isRead!: boolean;
 }
 
 export const BroadcastMessageSchema =

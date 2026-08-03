@@ -56,11 +56,17 @@ let BroadcastController = class BroadcastController {
         }
         return this.broadcastService.sendBroadcastMessage(broadcastId, senderId, dto.receiverId, dto.threadId, dto.message, imageUrl);
     }
-    async getThreads(broadcastId) {
-        return this.broadcastService.getBroadcastThreads(broadcastId);
+    async getThreads(broadcastId, req) {
+        const user = req.user;
+        return this.broadcastService.getBroadcastThreads(broadcastId, user.sub);
     }
-    async getThreadMessages(broadcastId, threadId) {
-        return this.broadcastService.getThreadMessages(threadId);
+    async getThreadMessages(broadcastId, threadId, req) {
+        const user = req.user;
+        return this.broadcastService.getThreadMessages(threadId, user.sub);
+    }
+    async markThreadAsRead(broadcastId, threadId, req) {
+        const user = req.user;
+        return this.broadcastService.markThreadMessagesAsRead(threadId, user.sub);
     }
     async getMyBroadcasts(req, paginationDto) {
         const user = req.user;
@@ -103,8 +109,9 @@ __decorate([
     (0, common_1.Get)("threads/:id"),
     (0, swagger_1.ApiOperation)({ summary: "Get all threads for a broadcast" }),
     __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getThreads", null);
 __decorate([
@@ -112,10 +119,21 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: "Get messages for a thread" }),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Param)("threadId")),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getThreadMessages", null);
+__decorate([
+    (0, common_1.Patch)(":id/threads/:threadId/read"),
+    (0, swagger_1.ApiOperation)({ summary: "Mark all unread messages in a thread as read" }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Param)("threadId")),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "markThreadAsRead", null);
 __decorate([
     (0, common_1.Get)("/my/broadcasts"),
     (0, swagger_1.ApiOperation)({ summary: "Get broadcasts created by logged-in user (buyer)" }),

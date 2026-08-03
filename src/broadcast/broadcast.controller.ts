@@ -10,6 +10,7 @@ import {
   UploadedFile,
   UseInterceptors,
   UploadedFiles,
+  Patch,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -129,8 +130,12 @@ export class BroadcastController {
   // 📥 Get all threads
   @Get("threads/:id")
   @ApiOperation({ summary: "Get all threads for a broadcast" })
-  async getThreads(@Param("id") broadcastId: string) {
-    return this.broadcastService.getBroadcastThreads(broadcastId);
+  async getThreads(
+    @Param("id") broadcastId: string,
+    @Req() req: Request,
+  ) {
+    const user = req.user as { sub: string };
+    return this.broadcastService.getBroadcastThreads(broadcastId, user.sub);
   }
 
   // 💬 Get messages in thread
@@ -139,8 +144,21 @@ export class BroadcastController {
   async getThreadMessages(
     @Param("id") broadcastId: string,
     @Param("threadId") threadId: string,
+    @Req() req: Request,
   ) {
-    return this.broadcastService.getThreadMessages(threadId);
+    const user = req.user as { sub: string };
+    return this.broadcastService.getThreadMessages(threadId, user.sub);
+  }
+
+  @Patch(":id/threads/:threadId/read")
+  @ApiOperation({ summary: "Mark all unread messages in a thread as read" })
+  async markThreadAsRead(
+    @Param("id") broadcastId: string,
+    @Param("threadId") threadId: string,
+    @Req() req: Request,
+  ) {
+    const user = req.user as { sub: string };
+    return this.broadcastService.markThreadMessagesAsRead(threadId, user.sub);
   }
   // 📤 Buyer broadcasts
   @Get("/my/broadcasts")

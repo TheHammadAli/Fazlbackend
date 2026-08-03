@@ -5,8 +5,9 @@ export declare class BroadcastMessage {
     sender: Types.ObjectId;
     receiver: Types.ObjectId;
     thread: Types.ObjectId;
-    message: string;
+    message?: string;
     imageUrls?: string[];
+    isRead: boolean;
 }
 export declare const BroadcastMessageSchema: import("mongoose").Schema<BroadcastMessage, import("mongoose").Model<BroadcastMessage, any, any, any, import("mongoose").Document<unknown, any, BroadcastMessage, any> & BroadcastMessage & {
     _id: Types.ObjectId;

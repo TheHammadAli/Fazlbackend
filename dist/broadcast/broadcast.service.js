@@ -159,6 +159,7 @@ let BroadcastService = class BroadcastService {
             message: dto.message || "📢 New broadcast request",
             type: "SYSTEM",
             imageUrls,
+            isRead: false,
         }));
         await new Promise(resolve => setTimeout(resolve, 2000));
         await this.messageModel.insertMany(initialMessages);
@@ -239,6 +240,7 @@ let BroadcastService = class BroadcastService {
             receiver: new mongoose_2.Types.ObjectId(receiverId),
             message,
             imageUrls: [imageUrl],
+            isRead: false,
         });
         this.broadcastGateway.server
             .to(threadId)
@@ -260,7 +262,22 @@ let BroadcastService = class BroadcastService {
             }
         };
     }
-    async getBroadcastThreads(broadcastId) {
+    async markThreadMessagesAsRead(threadId, userId) {
+        const threadObjectId = new mongoose_2.Types.ObjectId(threadId);
+        const userObjectId = new mongoose_2.Types.ObjectId(userId);
+        await this.messageModel
+            .updateMany({
+            thread: threadObjectId,
+            receiver: userObjectId,
+            isRead: false,
+        }, { $set: { isRead: true } })
+            .exec();
+        return { success: true };
+    }
+    async getBroadcastThreads(broadcastId, currentUserId) {
+        const currentUserObjectId = currentUserId
+            ? new mongoose_2.Types.ObjectId(currentUserId)
+            : null;
         return this.threadModel
             .aggregate([
             {
@@ -344,6 +361,34 @@ let BroadcastService = class BroadcastService {
                 },
             },
             {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { threadId: "$_id", currentUserId: currentUserObjectId },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$thread", "$$threadId"] },
+                                        { $eq: ["$receiver", "$$currentUserId"] },
+                                        { $eq: ["$isRead", false] },
+                                    ],
+                                },
+                            },
+                        },
+                        { $count: "count" },
+                    ],
+                    as: "unreadMessages",
+                },
+            },
+            {
+                $addFields: {
+                    unreadCount: {
+                        $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
+                    },
+                },
+            },
+            {
                 $project: {
                     _id: 1,
                     broadcast: 1,
@@ -353,6 +398,7 @@ let BroadcastService = class BroadcastService {
                     createdAt: 1,
                     updatedAt: 1,
                     latestMessage: 1,
+                    unreadCount: 1,
                 },
             },
             {
@@ -361,14 +407,18 @@ let BroadcastService = class BroadcastService {
         ])
             .exec();
     }
-    async getThreadMessages(threadId) {
-        return this.messageModel
+    async getThreadMessages(threadId, userId) {
+        const messages = await this.messageModel
             .find({
             thread: new mongoose_2.Types.ObjectId(threadId),
         })
             .populate("sender", "name")
             .populate("receiver", "name")
             .sort({ createdAt: 1 });
+        if (userId) {
+            await this.markThreadMessagesAsRead(threadId, userId);
+        }
+        return messages;
     }
     async getBroadcastsByBuyer(userId, page = 1, limit = 10) {
         const pageNum = Number(page);
