@@ -115,9 +115,33 @@ export class CategoryService {
     }
   }
 
+  /** A sort number must be unique within its own type (product/service) — the two
+   *  types are sorted/displayed independently, so the same number can be reused
+   *  across types but not within one. */
+  private async checkDuplicateSortNumber(
+    sortNumber: number | undefined,
+    type: string | undefined,
+    excludeId?: string,
+  ) {
+    if (sortNumber === undefined || sortNumber === null || !type) return;
+
+    const query: any = { isDisabled: false, type, sortNumber };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+
+    const existing = await this.categoryModel.findOne(query);
+    if (existing) {
+      throw new ConflictException(
+        `Sort number ${sortNumber} is already used by another ${type} category`,
+      );
+    }
+  }
+
   async create(dto: CreateUpdateCategoryDto) {
     try {
       await this.checkDuplicateName(dto.name);
+      await this.checkDuplicateSortNumber(dto.sortNumber, dto.type);
 
       const normalizedDto = {
         ...dto,
@@ -146,6 +170,7 @@ export class CategoryService {
   ): Promise<Category> {
     try {
       await this.checkDuplicateName(dto.name, id);
+      await this.checkDuplicateSortNumber(dto.sortNumber, dto.type, id);
 
       const normalizedDto = {
         ...dto,
