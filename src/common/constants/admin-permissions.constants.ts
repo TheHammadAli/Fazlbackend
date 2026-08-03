@@ -6,6 +6,7 @@ export const ADMIN_PERMISSIONS = [
   "categories",
   "bookings",
   "broadcasts",
+  "announcements",
   "feed",
   "reports",
   "email-logs",

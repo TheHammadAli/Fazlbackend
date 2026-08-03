@@ -20,6 +20,7 @@ import { SubscriptionModule } from "./subscription/subscription.module";
 import { PromotionModule } from "./promotion/promotion.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { BroadcastModule } from "./broadcast/broadcast.module";
+import { AnnouncementModule } from "./announcement/announcement.module";
 import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { ClsConfigModule } from "./core/cls/cls.module";
 import { TaskModule } from "./task/task.module";
@@ -74,6 +75,7 @@ const isProduction = process.env.NODE_ENV === "production";
     PromotionModule,
     NotificationsModule,
     BroadcastModule,
+    AnnouncementModule,
     LikeModule,
     ActivityLogModule,
     TaskModule,
