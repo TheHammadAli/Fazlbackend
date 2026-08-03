@@ -27,6 +27,7 @@ export declare class ProductsService {
     private readonly reviewService;
     constructor(productModel: Model<ProductDocument>, shopService: ShopService, listingUtils: ListingUtilsService, userService: UsersService, fileUploadService: FileUploadService, promotionService: PromotionService, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
     private get lang();
+    private parseAndValidateLocation;
     create(entityId: string, type: "shop" | "personal", dto: CreateProductDto): Promise<{
         message: string;
         data: {

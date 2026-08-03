@@ -5,6 +5,8 @@ import {
   ValidateNested,
   IsArray,
   IsDateString,
+  IsObject,
+  IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
@@ -18,6 +20,17 @@ class ProductParameterDto {
   @IsArray()
   @IsString({ each: true })
   variants: string[];
+}
+
+class LocationDto {
+  @ApiPropertyOptional({ example: "Point" })
+  @IsString()
+  type: "Point";
+
+  @ApiPropertyOptional({ example: [73.066722, 31.467132] })
+  @IsArray()
+  @IsNumber({}, { each: true })
+  coordinates: [number, number];
 }
 
 export class UpdateProductDto {
@@ -36,7 +49,9 @@ export class UpdateProductDto {
     enum: ["retail", "classified"],
     description: "Product Type",
   })
-  type: "retail" | "classified";
+  @IsOptional()
+  @IsEnum(["retail", "classified"])
+  type?: "retail" | "classified";
 
   @ApiPropertyOptional({ example: 2999 })
   @IsNumber()
@@ -49,31 +64,25 @@ export class UpdateProductDto {
   category?: string;
 
   @ApiPropertyOptional({
-    type: [String],
-    example: ["https://img.com/p1.jpg", "https://img.com/p2.jpg"],
-  })
-  @ApiPropertyOptional({
     type: "string",
     format: "binary",
     isArray: true,
     description: "Upload multiple images",
   })
-  images: any; // NestJS
+  @IsOptional()
+  images?: any;
 
   @ApiPropertyOptional({
     type: "string",
     format: "binary",
-    isArray: true,
-    description: "Upload One video file",
-    maximum: 1,
+    description: "Upload one video file",
   })
-  video: any;
+  @IsOptional()
+  video?: any;
 
   @ApiPropertyOptional({
     type: [ProductParameterDto],
-    example: [
-      { name: "Color", variants: ["Red", "Blue"] },
-    ],
+    example: [{ name: "Color", variants: ["Red", "Blue"] }],
     description: "Custom product parameters like size, color, etc.",
   })
   @IsOptional()
@@ -81,4 +90,24 @@ export class UpdateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductParameterDto)
   parameters?: ProductParameterDto[];
+
+  // ---------- NEW FIELDS ----------
+  @ApiPropertyOptional({
+    description: "GeoJSON Point location. Can be sent as object or as JSON string.",
+    example: {
+      type: "Point",
+      coordinates: [73.066722, 31.467132],
+    },
+  })
+  @IsOptional()
+  location?: LocationDto | string; // accept both object and string (because of form-data)
+
+  @ApiPropertyOptional({
+    example: "Ismail City Faisalabad",
+    description: "Human readable address",
+  })
+  @IsOptional()
+  @IsString()
+  address?: string;
+  // --------------------------------
 }

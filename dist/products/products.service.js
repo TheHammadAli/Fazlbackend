@@ -52,6 +52,29 @@ let ProductsService = class ProductsService {
     get lang() {
         return this.cls.get("lang") || "en";
     }
+    parseAndValidateLocation(location) {
+        let parsed = location;
+        if (typeof location === "string") {
+            try {
+                parsed = JSON.parse(location);
+            }
+            catch {
+                throw new common_1.BadRequestException("Invalid location format (must be valid JSON)");
+            }
+        }
+        if (!parsed ||
+            parsed.type !== "Point" ||
+            !Array.isArray(parsed.coordinates) ||
+            parsed.coordinates.length !== 2 ||
+            typeof parsed.coordinates[0] !== "number" ||
+            typeof parsed.coordinates[1] !== "number") {
+            throw new common_1.BadRequestException("location must be a valid GeoJSON Point: { type: 'Point', coordinates: [lng, lat] }");
+        }
+        return {
+            type: "Point",
+            coordinates: [parsed.coordinates[0], parsed.coordinates[1]],
+        };
+    }
     async create(entityId, type, dto) {
         try {
             console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
@@ -81,25 +104,17 @@ let ProductsService = class ProductsService {
             else if (type === "personal") {
                 const user = await this.userService.findUserById(entityId);
                 if (!user) {
-                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", { lang: this.lang }));
+                    throw new common_1.NotFoundException(this.i18n.translate("auth.products.user_not_found", {
+                        lang: this.lang,
+                    }));
                 }
                 productPayload.ownerId = user._id;
-                if (dto.location) {
-                    location = typeof dto.location === "string"
-                        ? JSON.parse(dto.location)
-                        : dto.location;
-                }
-                if (!dto.location ||
-                    !dto.location.coordinates ||
-                    dto.location.coordinates.length !== 2) {
+                if (!dto.location) {
                     throw new common_1.BadRequestException(this.i18n.translate("auth.products.location_required_for_personal", {
                         lang: this.lang,
                     }) || "Location coordinates are required for personal listings");
                 }
-                location = {
-                    type: "Point",
-                    coordinates: dto.location.coordinates,
-                };
+                location = this.parseAndValidateLocation(dto.location);
                 if (dto.address) {
                     productPayload.address = dto.address.trim();
                 }
@@ -129,7 +144,7 @@ let ProductsService = class ProductsService {
             }
             if (createdProduct.parameters && createdProduct.parameters.length > 0) {
                 createdProduct.searchableTags = [
-                    ...createdProduct.parameters.flatMap(p => [p.name, ...p.variants])
+                    ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
                 ];
             }
             else {
@@ -146,6 +161,11 @@ let ProductsService = class ProductsService {
             };
         }
         catch (err) {
+            if (err instanceof common_1.NotFoundException ||
+                err instanceof common_1.BadRequestException ||
+                err instanceof common_1.ForbiddenException) {
+                throw err;
+            }
             throw new common_1.InternalServerErrorException(err);
         }
     }
@@ -154,13 +174,21 @@ let ProductsService = class ProductsService {
         const skip = (page - 1) * limit;
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false, isDisabled: false })
+                .find({
+                shopId: new mongoose_2.Types.ObjectId(shopId),
+                isDeleted: false,
+                isDisabled: false,
+            })
                 .populate("category")
                 .populate("shopId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ shopId: new mongoose_2.Types.ObjectId(shopId), isDeleted: false, isDisabled: false }),
+            this.productModel.countDocuments({
+                shopId: new mongoose_2.Types.ObjectId(shopId),
+                isDeleted: false,
+                isDisabled: false,
+            }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -173,13 +201,21 @@ let ProductsService = class ProductsService {
         console.log("Fetching products for user:", ownerId);
         const [items, total] = await Promise.all([
             this.productModel
-                .find({ ownerId: new mongoose_2.Types.ObjectId(ownerId), isDeleted: false, isDisabled: false })
+                .find({
+                ownerId: new mongoose_2.Types.ObjectId(ownerId),
+                isDeleted: false,
+                isDisabled: false,
+            })
                 .populate("category")
                 .populate("ownerId")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            this.productModel.countDocuments({ ownerId, isDeleted: false, isDisabled: false }),
+            this.productModel.countDocuments({
+                ownerId,
+                isDeleted: false,
+                isDisabled: false,
+            }),
         ]);
         return {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -198,12 +234,13 @@ let ProductsService = class ProductsService {
             path: "shopId",
             populate: {
                 path: "ownerId",
-                select: "_id name phone"
+                select: "_id name phone",
             },
         })
             .populate({
             path: "ownerId",
-        }).lean();
+        })
+            .lean();
         if (!product)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -241,25 +278,43 @@ let ProductsService = class ProductsService {
                 delete updateDto[key];
             }
         });
-        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+        if (updateDto.location) {
+            updateDto.location = this.parseAndValidateLocation(updateDto.location);
+        }
+        const existingProduct = await this.productModel.findOne({
+            _id: new mongoose_2.Types.ObjectId(productId),
+            isDeleted: false,
+            isDisabled: false,
+        });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
             }));
         }
         if (updateDto.images && updateDto.images.length > 0) {
-            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId.toString(), productId, "images");
+            const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId
+                ? existingProduct.shopId.toString()
+                : existingProduct.ownerId.toString(), productId, "images");
             console.log("Uploaded Images:", uploadedFiles);
             const newImages = uploadedFiles.map((file) => file.url);
             updateDto.images = [...(existingProduct.images || []), ...newImages];
         }
         if (updateDto.video) {
-            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], "shop", existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId.toString(), productId, "video");
+            const uploadedVideo = await this.fileUploadService.uploadProductFiles([updateDto.video], "shop", existingProduct.shopId
+                ? existingProduct.shopId.toString()
+                : existingProduct.ownerId.toString(), productId, "video");
             console.log("Uploaded Video:", uploadedVideo);
             updateDto.video = uploadedVideo[0].url;
         }
+        if (updateDto.parameters) {
+            updateDto.searchableTags = updateDto.parameters.flatMap((p) => [p.name, ...p.variants]);
+        }
         const updated = await this.productModel
-            .findOneAndUpdate({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false }, updateDto, { new: true })
+            .findOneAndUpdate({
+            _id: new mongoose_2.Types.ObjectId(productId),
+            isDeleted: false,
+            isDisabled: false,
+        }, updateDto, { new: true })
             .exec();
         if (!updated) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
@@ -276,7 +331,11 @@ let ProductsService = class ProductsService {
         };
     }
     async delete(productId, lang = "en") {
-        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+        const existingProduct = await this.productModel.findOne({
+            _id: new mongoose_2.Types.ObjectId(productId),
+            isDeleted: false,
+            isDisabled: false,
+        });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -294,7 +353,11 @@ let ProductsService = class ProductsService {
             }));
     }
     async deleteProductMedia(productId, media) {
-        const existingProduct = await this.productModel.findOne({ _id: new mongoose_2.Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+        const existingProduct = await this.productModel.findOne({
+            _id: new mongoose_2.Types.ObjectId(productId),
+            isDeleted: false,
+            isDisabled: false,
+        });
         if (!existingProduct) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
@@ -358,9 +421,13 @@ let ProductsService = class ProductsService {
             }));
         }
         return {
-            message: isDisabled ?
-                this.i18n.translate("auth.products.product_disabled_success", { lang: this.lang }) :
-                this.i18n.translate("auth.products.product_enabled_success", { lang: this.lang }),
+            message: isDisabled
+                ? this.i18n.translate("auth.products.product_disabled_success", {
+                    lang: this.lang,
+                })
+                : this.i18n.translate("auth.products.product_enabled_success", {
+                    lang: this.lang,
+                }),
             data: updated,
         };
     }
@@ -455,15 +522,16 @@ let ProductsService = class ProductsService {
         };
         if (searchTerm) {
             regularFilter.$or = [
-                { title: { $regex: searchTerm, $options: 'i' } },
-                { description: { $regex: searchTerm, $options: 'i' } },
-                { 'parameters.name': { $regex: searchTerm, $options: 'i' } },
-                { 'parameters.variants': { $regex: searchTerm, $options: 'i' } },
+                { title: { $regex: searchTerm, $options: "i" } },
+                { description: { $regex: searchTerm, $options: "i" } },
+                { "parameters.name": { $regex: searchTerm, $options: "i" } },
+                { "parameters.variants": { $regex: searchTerm, $options: "i" } },
             ];
         }
         const [regularProducts, total] = await Promise.all([
             this.productModel
-                .find(regularFilter).populate("category")
+                .find(regularFilter)
+                .populate("category")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)

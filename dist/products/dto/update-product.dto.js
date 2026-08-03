@@ -28,6 +28,21 @@ __decorate([
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
 ], ProductParameterDto.prototype, "variants", void 0);
+class LocationDto {
+    type;
+    coordinates;
+}
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "Point" }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocationDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: [73.066722, 31.467132] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsNumber)({}, { each: true }),
+    __metadata("design:type", Array)
+], LocationDto.prototype, "coordinates", void 0);
 class UpdateProductDto {
     title;
     description;
@@ -37,6 +52,8 @@ class UpdateProductDto {
     images;
     video;
     parameters;
+    location;
+    address;
 }
 exports.UpdateProductDto = UpdateProductDto;
 __decorate([
@@ -57,6 +74,8 @@ __decorate([
         enum: ["retail", "classified"],
         description: "Product Type",
     }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(["retail", "classified"]),
     __metadata("design:type", String)
 ], UpdateProductDto.prototype, "type", void 0);
 __decorate([
@@ -73,33 +92,27 @@ __decorate([
 ], UpdateProductDto.prototype, "category", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        type: [String],
-        example: ["https://img.com/p1.jpg", "https://img.com/p2.jpg"],
-    }),
-    (0, swagger_1.ApiPropertyOptional)({
         type: "string",
         format: "binary",
         isArray: true,
         description: "Upload multiple images",
     }),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], UpdateProductDto.prototype, "images", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: "string",
         format: "binary",
-        isArray: true,
-        description: "Upload One video file",
-        maximum: 1,
+        description: "Upload one video file",
     }),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], UpdateProductDto.prototype, "video", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: [ProductParameterDto],
-        example: [
-            { name: "Color", variants: ["Red", "Blue"] },
-        ],
+        example: [{ name: "Color", variants: ["Red", "Blue"] }],
         description: "Custom product parameters like size, color, etc.",
     }),
     (0, class_validator_1.IsOptional)(),
@@ -108,4 +121,24 @@ __decorate([
     (0, class_transformer_1.Type)(() => ProductParameterDto),
     __metadata("design:type", Array)
 ], UpdateProductDto.prototype, "parameters", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: "GeoJSON Point location. Can be sent as object or as JSON string.",
+        example: {
+            type: "Point",
+            coordinates: [73.066722, 31.467132],
+        },
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], UpdateProductDto.prototype, "location", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: "Ismail City Faisalabad",
+        description: "Human readable address",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateProductDto.prototype, "address", void 0);
 //# sourceMappingURL=update-product.dto.js.map

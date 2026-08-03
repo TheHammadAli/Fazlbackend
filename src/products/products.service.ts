@@ -42,10 +42,44 @@ export class ProductsService {
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
     private readonly reviewService: ReviewService,
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /** Helper: parse + validate GeoJSON Point */
+  private parseAndValidateLocation(location: any): {
+    type: "Point";
+    coordinates: [number, number];
+  } {
+    let parsed = location;
+
+    if (typeof location === "string") {
+      try {
+        parsed = JSON.parse(location);
+      } catch {
+        throw new BadRequestException("Invalid location format (must be valid JSON)");
+      }
+    }
+
+    if (
+      !parsed ||
+      parsed.type !== "Point" ||
+      !Array.isArray(parsed.coordinates) ||
+      parsed.coordinates.length !== 2 ||
+      typeof parsed.coordinates[0] !== "number" ||
+      typeof parsed.coordinates[1] !== "number"
+    ) {
+      throw new BadRequestException(
+        "location must be a valid GeoJSON Point: { type: 'Point', coordinates: [lng, lat] }",
+      );
+    }
+
+    return {
+      type: "Point",
+      coordinates: [parsed.coordinates[0], parsed.coordinates[1]],
+    };
   }
 
   async create(
@@ -54,9 +88,10 @@ export class ProductsService {
     dto: CreateProductDto,
   ): Promise<{ message: string; data: { product: Product } }> {
     try {
-
       console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
+
       let location: { type: "Point"; coordinates: [number, number] };
+
       const productPayload: Partial<Product> = {
         ...dto,
         category: new Types.ObjectId(dto.category),
@@ -91,25 +126,16 @@ export class ProductsService {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.user_not_found", { lang: this.lang }),
+            this.i18n.translate("auth.products.user_not_found", {
+              lang: this.lang,
+            }),
           );
         }
 
         productPayload.ownerId = user._id as Types.ObjectId;
 
-        if (dto.location) {
-          location = typeof dto.location === "string"
-            ? JSON.parse(dto.location)
-            : dto.location;
-        }
-        
-
         // Location is required for personal listings
-        if (
-          !dto.location ||
-          !dto.location.coordinates ||
-          dto.location.coordinates.length !== 2
-        ) {
+        if (!dto.location) {
           throw new BadRequestException(
             this.i18n.translate("auth.products.location_required_for_personal", {
               lang: this.lang,
@@ -117,10 +143,8 @@ export class ProductsService {
           );
         }
 
-        location = {
-          type: "Point",
-          coordinates: dto.location.coordinates,
-        };
+        // Parse + validate (handles both string and object)
+        location = this.parseAndValidateLocation(dto.location);
 
         // Address is optional but recommended
         if (dto.address) {
@@ -131,14 +155,17 @@ export class ProductsService {
           'Invalid type. Must be "shop" or "personal".',
         );
       }
+
       console.log("Product Payload:", productPayload);
+
       const createdProduct = new this.productModel({
         ...productPayload,
-        location,
+        location, // always a proper object now
         images: [],
         video: "",
         category: new Types.ObjectId(dto.category),
       });
+
       let imageUrls: string[] = [];
       if (dto?.images?.length) {
         const uploadedFiles = await this.fileUploadService.uploadProductFiles(
@@ -151,6 +178,7 @@ export class ProductsService {
         imageUrls = uploadedFiles.map((file) => file.url);
         createdProduct.images = imageUrls;
       }
+
       console.log(dto?.video, "Video Length", dto?.video);
       if (dto?.video) {
         const uploadedVideo = await this.fileUploadService.uploadProductFiles(
@@ -161,18 +189,19 @@ export class ProductsService {
           "video",
         );
         console.log("Uploaded Video:", uploadedVideo);
-        createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
+        createdProduct.video = uploadedVideo[0].url;
       }
-      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
 
+      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
         createdProduct.searchableTags = [
-          ...createdProduct.parameters.flatMap(p => [p.name, ...p.variants])
+          ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
         ];
       } else {
         createdProduct.searchableTags = [];
       }
 
       const result = await createdProduct.save();
+
       return {
         message: this.i18n.translate("auth.products.created_success", {
           lang: this.lang,
@@ -182,6 +211,14 @@ export class ProductsService {
         },
       };
     } catch (err) {
+      // re-throw known Nest exceptions, wrap the rest
+      if (
+        err instanceof NotFoundException ||
+        err instanceof BadRequestException ||
+        err instanceof ForbiddenException
+      ) {
+        throw err;
+      }
       throw new InternalServerErrorException(err);
     }
   }
@@ -195,13 +232,21 @@ export class ProductsService {
 
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ shopId: new Types.ObjectId(shopId), isDeleted: false, isDisabled: false })
+        .find({
+          shopId: new Types.ObjectId(shopId),
+          isDeleted: false,
+          isDisabled: false,
+        })
         .populate("category")
         .populate("shopId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ shopId: new Types.ObjectId(shopId), isDeleted: false, isDisabled: false }),
+      this.productModel.countDocuments({
+        shopId: new Types.ObjectId(shopId),
+        isDeleted: false,
+        isDisabled: false,
+      }),
     ]);
 
     return {
@@ -220,13 +265,21 @@ export class ProductsService {
     console.log("Fetching products for user:", ownerId);
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ ownerId: new Types.ObjectId(ownerId), isDeleted: false, isDisabled: false })
+        .find({
+          ownerId: new Types.ObjectId(ownerId),
+          isDeleted: false,
+          isDisabled: false,
+        })
         .populate("category")
         .populate("ownerId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ ownerId, isDeleted: false, isDisabled: false }),
+      this.productModel.countDocuments({
+        ownerId,
+        isDeleted: false,
+        isDisabled: false,
+      }),
     ]);
 
     return {
@@ -247,12 +300,13 @@ export class ProductsService {
         path: "shopId",
         populate: {
           path: "ownerId",
-          select: "_id name phone"
+          select: "_id name phone",
         },
       })
       .populate({
         path: "ownerId",
-      }).lean();
+      })
+      .lean();
 
     if (!product)
       throw new NotFoundException(
@@ -260,11 +314,10 @@ export class ProductsService {
           lang: this.lang,
         }),
       );
-    console.log("userId", userId)
-    // If there's no logged-in user, return product as-is
+
+    console.log("userId", userId);
     if (!userId) return product;
 
-    // Otherwise include whether the user liked / reviewed this product
     const [isLiked, userReview] = await Promise.all([
       this.likeService.isLiked(userId, id, "product"),
       this.reviewService.findOne(userId, id, "product"),
@@ -275,6 +328,7 @@ export class ProductsService {
     console.log("Product Details:", plain);
     console.log("Is Liked by User:", isLiked);
     console.log("User's Review:", userReview);
+
     return {
       ...plain,
       isLiked: !!isLiked,
@@ -290,20 +344,34 @@ export class ProductsService {
         }),
       );
     }
+
     if (updateDto.category) {
       (updateDto as any).category = new Types.ObjectId(updateDto.category);
     }
+
+    // Remove empty / null / undefined fields
     Object.keys(updateDto).forEach((key) => {
       if (
-        updateDto[key] === "" || // empty string
-        updateDto[key] === null || // null
+        updateDto[key] === "" ||
+        updateDto[key] === null ||
         typeof updateDto[key] === "undefined"
       ) {
-        delete updateDto[key]; // remove it from updateData
+        delete updateDto[key];
       }
     });
 
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+    // ---------- LOCATION FIX ----------
+    if (updateDto.location) {
+      updateDto.location = this.parseAndValidateLocation(updateDto.location);
+    }
+    // ----------------------------------
+
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
+
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -316,7 +384,9 @@ export class ProductsService {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
         updateDto.images,
         "shop",
-        existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString(),
+        existingProduct.shopId
+          ? existingProduct.shopId.toString()
+          : existingProduct.ownerId!.toString(),
         productId,
         "images",
       );
@@ -324,21 +394,39 @@ export class ProductsService {
       const newImages = uploadedFiles.map((file) => file.url);
       updateDto.images = [...(existingProduct.images || []), ...newImages];
     }
+
     if (updateDto.video) {
       const uploadedVideo = await this.fileUploadService.uploadProductFiles(
         [updateDto.video],
         "shop",
-        existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString(),
+        existingProduct.shopId
+          ? existingProduct.shopId.toString()
+          : existingProduct.ownerId!.toString(),
         productId,
         "video",
       );
 
       console.log("Uploaded Video:", uploadedVideo);
-      updateDto.video = uploadedVideo[0].url; // Assuming only one video is uploaded
+      updateDto.video = uploadedVideo[0].url;
+    }
+
+    // Also update searchableTags if parameters changed
+    if (updateDto.parameters) {
+      (updateDto as any).searchableTags = updateDto.parameters.flatMap(
+        (p: any) => [p.name, ...p.variants],
+      );
     }
 
     const updated = await this.productModel
-      .findOneAndUpdate({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false }, updateDto, { new: true })
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(productId),
+          isDeleted: false,
+          isDisabled: false,
+        },
+        updateDto,
+        { new: true },
+      )
       .exec();
 
     if (!updated) {
@@ -360,7 +448,11 @@ export class ProductsService {
   }
 
   async delete(productId: string, lang: string = "en"): Promise<void> {
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -377,7 +469,10 @@ export class ProductsService {
       entityId,
       productId,
     );
-    const result = await this.productModel.findByIdAndUpdate(new Types.ObjectId(productId), { isDeleted: true, images: [], video: "" });
+    const result = await this.productModel.findByIdAndUpdate(
+      new Types.ObjectId(productId),
+      { isDeleted: true, images: [], video: "" },
+    );
     if (!result)
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -387,7 +482,11 @@ export class ProductsService {
   }
 
   async deleteProductMedia(productId: string, media: string[]) {
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -403,22 +502,17 @@ export class ProductsService {
       );
     }
 
-    // Remove media files from storage
     await this.fileUploadService.deleteFiles(media);
 
-    // Remove media from product document
     let images = existingProduct.images || [];
     let video = existingProduct.video;
 
-    // Remove any images that match the URLs
     images = images.filter((imgUrl) => !media.includes(imgUrl));
 
-    // Remove video if its URL is in the media array
     if (media.includes(video)) {
       video = "";
     }
 
-    // Update the product
     existingProduct.images = images;
     existingProduct.video = video;
     await existingProduct.save();
@@ -440,6 +534,7 @@ export class ProductsService {
       pagination,
     );
   }
+
   async getAllForAdmin(
     paginationDto: PaginationDto,
     search?: string,
@@ -494,12 +589,17 @@ export class ProductsService {
     }
 
     return {
-      message: isDisabled ?
-        this.i18n.translate("auth.products.product_disabled_success", { lang: this.lang }) :
-        this.i18n.translate("auth.products.product_enabled_success", { lang: this.lang }),
+      message: isDisabled
+        ? this.i18n.translate("auth.products.product_disabled_success", {
+            lang: this.lang,
+          })
+        : this.i18n.translate("auth.products.product_enabled_success", {
+            lang: this.lang,
+          }),
       data: updated,
     };
   }
+
   async findNearbyProductShopOwnerIds(
     categoryId: string,
     coordinates: [number, number],
@@ -585,13 +685,13 @@ export class ProductsService {
     );
   }
 
-
   async searchProducts(query: SearchAllProductsServiceDto) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.max(1, query.limit || 10);
     const skip = (page - 1) * limit;
 
-    const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
+    const allPromotedIds =
+      await this.promotionService.getActivePromotionProductIds();
 
     const baseFilter: FilterQuery<ProductDocument> = {
       isDeleted: false,
@@ -615,7 +715,7 @@ export class ProductsService {
       .exec();
 
     const promotedProductIds = promotedProducts.map((p: any) =>
-      new Types.ObjectId(p._id).toString()
+      new Types.ObjectId(p._id).toString(),
     );
 
     // === Regular Products ===
@@ -626,17 +726,17 @@ export class ProductsService {
 
     if (searchTerm) {
       regularFilter.$or = [
-        { title: { $regex: searchTerm, $options: 'i' } },
-        { description: { $regex: searchTerm, $options: 'i' } },
-        { 'parameters.name': { $regex: searchTerm, $options: 'i' } },
-        { 'parameters.variants': { $regex: searchTerm, $options: 'i' } },
+        { title: { $regex: searchTerm, $options: "i" } },
+        { description: { $regex: searchTerm, $options: "i" } },
+        { "parameters.name": { $regex: searchTerm, $options: "i" } },
+        { "parameters.variants": { $regex: searchTerm, $options: "i" } },
       ];
     }
 
     const [regularProducts, total] = await Promise.all([
       this.productModel
-        .find(regularFilter).populate("category")
-        // IMPORTANT: Do NOT select or sort by textScore when using $or + regex
+        .find(regularFilter)
+        .populate("category")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -664,6 +764,7 @@ export class ProductsService {
       },
     };
   }
+
   private async enrichProductsWithReviewStats(products: any[]) {
     if (!products || products.length === 0) {
       return products;
@@ -713,7 +814,7 @@ export class ProductsService {
       isDisabled: false,
     };
     if (category) {
-      filter.category = new Types.ObjectId(category)
+      filter.category = new Types.ObjectId(category);
     }
 
     const [items, total] = await Promise.all([
@@ -722,16 +823,16 @@ export class ProductsService {
         .populate("category")
         .populate({
           path: "shopId",
-          select: "_id title image address description ownerId banner", // be explicit
+          select: "_id title image address description ownerId banner",
         })
         .populate({
           path: "ownerId",
-          select: "_id name image address phone", // be explicit
+          select: "_id name image address phone",
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean()                    // keep it for performance
+        .lean()
         .exec(),
 
       this.productModel.countDocuments(filter).exec(),
@@ -753,7 +854,6 @@ export class ProductsService {
       );
     }
 
-
     const productIds = items.map((item: any) => new Types.ObjectId(item._id));
     const likes = await this.likeService.getLikesByUser(
       userId,
@@ -767,8 +867,9 @@ export class ProductsService {
       likes.map((like: any) => like.itemId.toString()),
     );
     console.log("Liked Product IDs:", likedProductIds);
+
     const data = items.map((item: any) => ({
-      ...item, // Now safe because of .lean()
+      ...item,
       isLiked: likedProductIds.has(item._id.toString()),
     }));
 
