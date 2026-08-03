@@ -17,16 +17,29 @@ import {
 
 import { CategoryType } from "../schema/category.schema";
 
-class CategoryParametersDto {
-  @ApiProperty({ example: ["Size", "Color"] })
-  @IsArray()
-  @IsString({ each: true })
-  en!: string[];
+class CategoryParameterEntryDto {
+  @ApiProperty({ example: "Size" })
+  @IsString()
+  name!: string;
 
-  @ApiProperty({ example: ["سائز", "رنگ"] })
+  @ApiProperty({ example: ["S", "M", "L"] })
   @IsArray()
   @IsString({ each: true })
-  ur!: string[];
+  values!: string[];
+}
+
+class CategoryParametersDto {
+  @ApiProperty({ type: [CategoryParameterEntryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CategoryParameterEntryDto)
+  en!: CategoryParameterEntryDto[];
+
+  @ApiProperty({ type: [CategoryParameterEntryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CategoryParameterEntryDto)
+  ur!: CategoryParameterEntryDto[];
 }
 
 export class CreateUpdateCategoryDto {
@@ -51,8 +64,8 @@ export class CreateUpdateCategoryDto {
 
   @ApiPropertyOptional({
     example: {
-      en: ["Size", "Color"],
-      ur: ["سائز", "رنگ"],
+      en: [{ name: "Size", values: ["S", "M", "L"] }, { name: "Color", values: ["Red", "Blue"] }],
+      ur: [{ name: "سائز", values: ["S", "M", "L"] }, { name: "رنگ", values: ["Red", "Blue"] }],
     },
     type: CategoryParametersDto,
   })
