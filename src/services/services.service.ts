@@ -214,6 +214,7 @@ export class ServicesService {
         }),
       );
     }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Updated Service:", video);
     return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
