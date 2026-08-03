@@ -134,6 +134,17 @@ export class CategoryController {
     return this.categoryService.update(id, dto);
   }
 
+  @Post("translate")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Translate English text to Urdu (admin only)" })
+  @ApiBody({ schema: { properties: { text: { type: "string" } }, required: ["text"] } })
+  async translate(@Body("text") text: string) {
+    const translatedText = await this.categoryService.translate(text);
+    return { translatedText };
+  }
+
   // @Delete(":id")
   // @ApiOperation({ summary: "Delete a category by ID (admin only)" })
   // delete(@Param("id") id: string) {

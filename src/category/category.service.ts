@@ -278,4 +278,26 @@ export class CategoryService {
   async getUserRequests(userId: string) {
     return this.categoryRequestModel.find({ requestedBy: userId });
   }
+
+  /** English -> Urdu translation via MyMemory's free public API (no API key required). */
+  async translate(text: string): Promise<string> {
+    const trimmed = text?.trim();
+    if (!trimmed) return "";
+
+    const params = new URLSearchParams({
+      q: trimmed,
+      langpair: "en|ur",
+      de: "amitywise18@gmail.com",
+    });
+    const response = await fetch(`https://api.mymemory.translated.net/get?${params.toString()}`);
+    if (!response.ok) {
+      throw new BadRequestException("Translation service is unavailable right now");
+    }
+    const data = await response.json();
+    const translated = data?.responseData?.translatedText;
+    if (typeof translated !== "string" || !translated) {
+      throw new BadRequestException("Translation failed");
+    }
+    return translated;
+  }
 }
