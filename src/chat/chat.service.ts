@@ -139,6 +139,7 @@ export class ChatService {
       receiver: new Types.ObjectId(receiverId),
       text,
       imageUrl,
+      read: false,
     });
 
     await this.conversationModel.findByIdAndUpdate(conversationId, {
@@ -238,14 +239,19 @@ export class ChatService {
       );
     }
 
+    const conversationObjectId = new Types.ObjectId(conversationId);
+    const receiverObjectId = new Types.ObjectId(userId);
+
     await this.messageModel.updateMany(
       {
-        conversationId: new Types.ObjectId(conversationId),
-        receiver: new Types.ObjectId(userId),
+        conversationId: conversationObjectId,
+        receiver: receiverObjectId,
         read: false,
       },
       { $set: { read: true } },
     );
+
+    return { success: true };
   }
 
   async getUnreadConversations(userId: string) {
@@ -253,7 +259,12 @@ export class ChatService {
     const userObjectId = new Types.ObjectId(userId);
 
     const conversationsWithUnread = await this.messageModel.aggregate([
-      { $match: { receiver: userObjectId, read: false } },
+      {
+        $match: {
+          receiver: userObjectId,
+          read: false,
+        },
+      },
       {
         $group: {
           _id: "$conversationId",
@@ -365,6 +376,34 @@ export class ChatService {
             preserveNullAndEmptyArrays: true,
           },
         },
+        {
+          $lookup: {
+            from: "messages",
+            let: { conversationId: "$_id", currentUserId: userObjectId },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$conversationId", "$$conversationId"] },
+                      { $eq: ["$receiver", "$$currentUserId"] },
+                      { $eq: ["$read", false] },
+                    ],
+                  },
+                },
+              },
+              { $count: "count" },
+            ],
+            as: "unreadMessages",
+          },
+        },
+        {
+          $addFields: {
+            unreadCount: {
+              $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
+            },
+          },
+        },
         // Project desired fields
         {
           $project: {
@@ -376,6 +415,7 @@ export class ChatService {
             createdAt: 1,
             updatedAt: 1,
             latestMessage: 1,
+            unreadCount: 1,
           },
         },
         {

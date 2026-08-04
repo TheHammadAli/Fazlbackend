@@ -8,6 +8,7 @@ import {
   Patch,
   UploadedFile,
   UseInterceptors,
+  Req,
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import { PaginationDto } from "src/common/dto/pagination.dto";
@@ -21,6 +22,7 @@ import {
 import { CreateMessageDto } from "./dto/create-message.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { Request } from "express";
 
 @ApiTags("Chat")
 @Controller("chat")
@@ -28,7 +30,7 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly fileUploadService: FileUploadService,
-  ) {}
+  ) { }
 
   @Post("conversation")
   @ApiOperation({
@@ -103,6 +105,18 @@ export class ChatController {
     @Query() paginationDto: PaginationDto,
   ) {
     return this.chatService.getMessages(conversationId, paginationDto);
+  }
+
+  @Patch("conversations/:conversationId/read")
+  @ApiOperation({
+    summary: "Mark all unread messages in a conversation as read",
+  })
+  async markConversationAsRead(
+    @Param("conversationId") conversationId: string,
+    @Req() req: Request,
+  ) {
+    const user = req.user as { sub: string };
+    return this.chatService.markAsRead(conversationId, user.sub);
   }
 
   @Patch("messages/mark-read")
