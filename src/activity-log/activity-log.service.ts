@@ -57,6 +57,7 @@ export class ActivityLogService {
     limit = 10,
     search?: string,
     action?: string,
+    role?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
@@ -77,6 +78,9 @@ export class ActivityLogService {
     const matchStage: Record<string, any> = {};
     if (action?.trim()) {
       matchStage.action = action.trim();
+    }
+    if (role?.trim()) {
+      matchStage["actorInfo.roles"] = role.trim();
     }
     if (search?.trim()) {
       const regex = { $regex: search.trim(), $options: "i" };

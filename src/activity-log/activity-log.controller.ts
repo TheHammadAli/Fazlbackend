@@ -19,12 +19,14 @@ export class ActivityLogController {
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiQuery({ name: "search", required: false, type: String, description: "Search by actor name/email or details" })
   @ApiQuery({ name: "action", required: false, type: String })
+  @ApiQuery({ name: "role", required: false, type: String, description: "Filter by actor role: super_admin or admin" })
   async getAllActivityLogs(
     @Query("page") page = 1,
     @Query("limit") limit = 10,
     @Query("search") search?: string,
     @Query("action") action?: string,
+    @Query("role") role?: string,
   ) {
-    return this.activityLogService.getAllActivityLogs(page, limit, search, action);
+    return this.activityLogService.getAllActivityLogs(page, limit, search, action, role);
   }
 }
