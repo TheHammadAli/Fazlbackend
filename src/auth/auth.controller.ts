@@ -71,6 +71,15 @@ export class AuthController {
     return this.authService.refreshTokens(token);
   }
 
+  @Post("logout")
+  @ApiOperation({ summary: "Logout and invalidate the refresh token" })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({ status: 201, description: "Logged out successfully" })
+  @ApiResponse({ status: 401, description: "Invalid refresh token" })
+  logout(@Body() token: RefreshTokenDto, @Req() req: Request) {
+    return this.authService.logout(token.token, req.ip);
+  }
+
   // === Send OTP ===
   @Post("send-otp")
   @Throttle({ default: { limit: 4, ttl: 60000 } })

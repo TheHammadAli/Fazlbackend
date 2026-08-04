@@ -159,7 +159,7 @@ export class AuthService {
       );
     }
   }
-  async logout(refreshToken: string) {
+  async logout(refreshToken: string, ipAddress?: string) {
     try {
       const payload = this.jwtService.verify(refreshToken);
       const user = await this.userService.findByIdWithToken(payload.sub);
@@ -168,6 +168,18 @@ export class AuthService {
 
       // Invalidate refresh token in DB
       await this.userService.updateUser(user.id, { refreshToken: null });
+
+      const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
+      if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
+        await this.activityLogService.record(
+          user.id,
+          "admin_logout",
+          undefined,
+          undefined,
+          undefined,
+          ipAddress,
+        );
+      }
 
       return {
         message: this.i18n.translate("auth.auth.logout_success", {

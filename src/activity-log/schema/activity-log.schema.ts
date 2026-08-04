@@ -3,6 +3,7 @@ import { Document, Types } from "mongoose";
 
 export const ACTIVITY_LOG_ACTIONS = [
   "admin_login",
+  "admin_logout",
   "user_suspended",
   "user_enabled",
   "user_updated",
