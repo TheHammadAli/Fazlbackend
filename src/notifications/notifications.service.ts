@@ -137,7 +137,7 @@ export class NotificationsService {
     if (user?.fcmToken) {
       const notificationId =
         notif?.['_id']?.toString() || String((notif as any)?.id || "");
-
+      console.log("Sending FCM notification to user:", userId, "with notification ID:", notificationId);
       await this.firebaseService.sendNotification(
         user.fcmToken,
         notificationTitle,
