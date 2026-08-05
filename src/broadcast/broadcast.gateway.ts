@@ -162,7 +162,7 @@ export class BroadcastGateway
     server.to(receiverId).emit("receiveBroadcastMessage", payload);
     console.log("-------->", server, threadId, receiverId)
     this.logger.debug(
-      `Emitted receiveMessage → thread:${threadId} + user:${receiverId}`,
+      `Emiter receiveBroadcastMessage → thread:${threadId} + user:${receiverId}`,
     );
   }
 }
