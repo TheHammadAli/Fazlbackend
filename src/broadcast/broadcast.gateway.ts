@@ -153,12 +153,12 @@ export class BroadcastGateway
       this.logger.error("Socket.IO server is not initialized yet");
       return;
     }
-
+    console.log("Emitting to thread and user:", { threadId, receiverId, payload });
     // Emit to the thread room
-    server.to(threadId).emit("receiveMessage", payload);
+    server.to(threadId).emit("receiveBroadcastMessage", payload);
 
     // Emit to the personal user room (fallback)
-    server.to(receiverId).emit("receiveMessage", payload);
+    server.to(receiverId).emit("receiveBroadcastMessage", payload);
 
     this.logger.debug(
       `Emitted receiveMessage → thread:${threadId} + user:${receiverId}`,
