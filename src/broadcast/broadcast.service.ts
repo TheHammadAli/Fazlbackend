@@ -393,8 +393,15 @@ export class BroadcastService {
       );
     }
 
-    // 7. Ensure receiver is not the sender and derive the true thread recipient.
-    if (senderId === receiverId) {
+    // 7. Derive the true thread recipient. If the client-supplied `receiverId`
+    // doesn't match, fall back to the computed participant (tolerant behavior).
+    const computedReceiverId =
+      senderId === thread.buyer.toString()
+        ? thread.seller.toString()
+        : thread.buyer.toString();
+
+    // If thread is malformed (both participants same), reject.
+    if (computedReceiverId === senderId) {
       throw new BadRequestException(
         this.i18n.translate("auth.broadcast.receiver_invalid", {
           lang: this.lang,
@@ -402,16 +409,11 @@ export class BroadcastService {
       );
     }
 
-    const computedReceiverId =
-      senderId === thread.buyer.toString()
-        ? thread.seller.toString()
-        : thread.buyer.toString();
-
+    // Use computedReceiverId; if client provided a different receiverId, log and override.
+    let actualReceiverId = computedReceiverId;
     if (receiverId !== computedReceiverId) {
-      throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.receiver_invalid", {
-          lang: this.lang,
-        }),
+      console.warn(
+        `Broadcast.sendBroadcastMessage: overriding provided receiverId=${receiverId} with computedReceiverId=${computedReceiverId}`,
       );
     }
 
@@ -420,7 +422,7 @@ export class BroadcastService {
       broadcast: broadcastObjectId,
       thread: new Types.ObjectId(threadId),
       sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(computedReceiverId),
+      receiver: new Types.ObjectId(actualReceiverId),
       message,
       imageUrls: [imageUrl], // Save the S3 URL here
       isRead: false,
