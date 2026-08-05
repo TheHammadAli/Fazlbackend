@@ -886,6 +886,18 @@ export class ServicesService {
     };
   }
 
+  /** Plain count, unlike getServiceRequestsByUser which throws NotFoundException on an empty result. */
+  async countServiceRequestsByUser(
+    userId: string,
+    role: "customer" | "provider",
+  ): Promise<number> {
+    const filter: FilterQuery<ServiceRequestDocument> =
+      role === "customer"
+        ? { customer: new Types.ObjectId(userId) }
+        : { provider: new Types.ObjectId(userId) };
+    return this.requestModel.countDocuments(filter);
+  }
+
   private computeBookingStatus(status?: string, jobStatus?: string): "pending" | "accepted" | "completed" | "cancelled" {
     if (jobStatus === "completed") return "completed";
     if (status === "cancelled" || status === "rejected") return "cancelled";

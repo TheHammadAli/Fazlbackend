@@ -9,6 +9,7 @@ import { ShopModule } from "src/shop/shop.module";
 import { ProductsModule } from "src/products/products.module";
 import { ServicesModule } from "src/services/services.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
+import { ChatModule } from "src/chat/chat.module";
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -19,6 +20,7 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     forwardRef(() => ShopModule),
     forwardRef(() => ProductsModule),
     forwardRef(() => ServicesModule),
+    forwardRef(() => ChatModule),
     ActivityLogModule,
   ],
   controllers: [UsersController],

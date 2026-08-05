@@ -33,6 +33,7 @@ import { ClsService } from "nestjs-cls";
 import { ShopService } from "src/shop/shop.service";
 import { ProductsService } from "src/products/products.service";
 import { ServicesService } from "src/services/services.service";
+import { ChatService } from "src/chat/chat.service";
 
 @Injectable()
 export class UsersService {
@@ -48,6 +49,8 @@ export class UsersService {
     private readonly productsService: ProductsService,
     @Inject(forwardRef(() => ServicesService))
     private readonly servicesService: ServicesService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
   ) { }
 
   private get lang(): string {
@@ -279,6 +282,39 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  /** Aggregate activity counts for the admin panel's User Profile modal. */
+  async getUserStats(userId: string) {
+    await this.findUserById(userId);
+
+    const [
+      shops,
+      servicesResult,
+      listingsResult,
+      bookingsCount,
+      conversationsCount,
+      messagesSentCount,
+      messagesReceivedCount,
+    ] = await Promise.all([
+      this.shopService.getAllShopsByUser(userId),
+      this.servicesService.getByUser(userId, 1, 1),
+      this.productsService.getAllProductsByUser(userId, { page: 1, limit: 1 }),
+      this.servicesService.countServiceRequestsByUser(userId, "customer"),
+      this.chatService.countConversationsForUser(userId),
+      this.chatService.countMessagesSentByUser(userId),
+      this.chatService.countMessagesReceivedByUser(userId),
+    ]);
+
+    return {
+      shopsCount: shops.length,
+      servicesCount: servicesResult.meta.total,
+      listingsCount: listingsResult.meta.total,
+      bookingsCount,
+      conversationsCount,
+      messagesSentCount,
+      messagesReceivedCount,
+    };
   }
 
   async getAllUsers(

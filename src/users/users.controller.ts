@@ -135,6 +135,14 @@ export class UsersController {
   async getUser(@Param("id") userId: string): Promise<User> {
     return this.usersService.findUserById(userId);
   }
+  @Get(":id/stats")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("users")
+  @ApiOperation({ summary: "Get aggregated activity counts for a user (admin, for User Profile modal)" })
+  @ApiParam({ name: "id", type: String })
+  async getUserStats(@Param("id") userId: string) {
+    return this.usersService.getUserStats(userId);
+  }
   @Get("allUsers")
   @UseGuards(PermissionsGuard)
   @RequirePermission("users")

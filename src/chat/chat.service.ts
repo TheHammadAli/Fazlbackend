@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
@@ -20,6 +20,7 @@ export class ChatService {
     private readonly conversationModel: Model<Conversation>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<Message>,
+    @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
     private readonly shopService: ShopService,
     private readonly i18n: I18nService,
@@ -401,5 +402,20 @@ export class ChatService {
         totalPages: Math.ceil(totalResult / limit),
       },
     };
+  }
+
+  async countConversationsForUser(userId: string): Promise<number> {
+    const userObjectId = new Types.ObjectId(userId);
+    return this.conversationModel.countDocuments({
+      $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+    });
+  }
+
+  async countMessagesSentByUser(userId: string): Promise<number> {
+    return this.messageModel.countDocuments({ sender: new Types.ObjectId(userId) });
+  }
+
+  async countMessagesReceivedByUser(userId: string): Promise<number> {
+    return this.messageModel.countDocuments({ receiver: new Types.ObjectId(userId) });
   }
 }
