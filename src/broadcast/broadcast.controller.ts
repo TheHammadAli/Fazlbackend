@@ -202,14 +202,18 @@ export class BroadcastController {
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiQuery({ name: "search", required: false, type: String, description: "Search by buyer name or message text" })
   @ApiQuery({ name: "status", required: false, enum: ["open", "closed"] })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
   @ApiResponse({ status: 200, description: "Paginated list of all broadcasts with view/response analytics" })
   async getAllBroadcastsForAdmin(
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 10,
     @Query("search") search?: string,
     @Query("status") status?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
-    return this.broadcastService.getAllBroadcastsForAdmin(page, limit, search, status);
+    return this.broadcastService.getAllBroadcastsForAdmin(page, limit, search, status, startDate, endDate);
   }
 
   // 🛠️ Admin: get recipient sellers for a broadcast

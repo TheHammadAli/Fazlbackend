@@ -144,12 +144,16 @@ export class ShopController {
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiQuery({ name: "search", required: false, type: String, description: "Search by shop title (partial, case-insensitive)" })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
   async getAllShops(
     @Query("page") page = 1,
     @Query("limit") limit = 10,
     @Query("search") search?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
-    return this.shopService.getAllShops({ page, limit, search });
+    return this.shopService.getAllShops({ page, limit, search, startDate, endDate });
   }
 
   @Public()

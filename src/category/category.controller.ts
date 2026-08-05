@@ -90,9 +90,14 @@ export class CategoryController {
   @UseGuards(PermissionsGuard)
   @RequirePermission("categories")
   @ApiOperation({ summary: "Get all categories for admin" })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
   @ApiResponse({ status: 200, description: "List of categories" })
-  findAllAdmin() {
-    return this.categoryService.findAllForAdmin();
+  findAllAdmin(
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.categoryService.findAllForAdmin(startDate, endDate);
   }
 
   @Get("detail/:id")

@@ -791,13 +791,28 @@ export class BroadcastService {
     limit = 10,
     search?: string,
     status?: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
+    const dateMatchStage: Record<string, any> = { isDeleted: { $ne: true } };
+    if (startDate || endDate) {
+      dateMatchStage.createdAt = {};
+      if (startDate) {
+        dateMatchStage.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        dateMatchStage.createdAt.$lte = endOfDay;
+      }
+    }
+
     const pipeline: any[] = [
-      { $match: { isDeleted: { $ne: true } } },
+      { $match: dateMatchStage },
       {
         $lookup: {
           from: "users",

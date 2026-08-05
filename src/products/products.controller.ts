@@ -205,12 +205,16 @@ export class ProductsController {
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiQuery({ name: "search", required: false, type: String })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
   async getProductsWithVideosForAdmin(
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 10,
     @Query("search") search?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ): Promise<PaginatedResponseDto<Product>> {
-    return this.productsService.getProductsWithVideosForAdmin(page, limit, search);
+    return this.productsService.getProductsWithVideosForAdmin(page, limit, search, startDate, endDate);
   }
 
   @Patch(":id/disable")

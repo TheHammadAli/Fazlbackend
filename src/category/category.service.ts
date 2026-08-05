@@ -205,8 +205,20 @@ export class CategoryService {
     }
   }
 
-  async findAllForAdmin() {
-    return this.categoryModel.find().sort({ sortNumber: 1 }).lean().exec();
+  async findAllForAdmin(startDate?: string, endDate?: string) {
+    const filter: FilterQuery<CategoryDocument> = {};
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
+    return this.categoryModel.find(filter).sort({ sortNumber: 1 }).lean().exec();
   }
 
   async findAll(type?: string) {

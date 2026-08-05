@@ -611,6 +611,19 @@ export class ProductsService {
       baseFilter.category = new Types.ObjectId(query.category);
     }
 
+    if (query.startDate || query.endDate) {
+      const createdAt: Record<string, Date> = {};
+      if (query.startDate) {
+        createdAt.$gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const endOfDay = new Date(query.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAt.$lte = endOfDay;
+      }
+      baseFilter.createdAt = createdAt;
+    }
+
     const searchTerm = query.name?.trim();
 
     // === Promoted Products ===
@@ -801,6 +814,8 @@ export class ProductsService {
     page = 1,
     limit = 10,
     search?: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
@@ -812,6 +827,18 @@ export class ProductsService {
     };
     if (search?.trim()) {
       filter.title = { $regex: search.trim(), $options: "i" };
+    }
+    if (startDate || endDate) {
+      const createdAt: Record<string, Date> = {};
+      if (startDate) {
+        createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAt.$lte = endOfDay;
+      }
+      filter.createdAt = createdAt;
     }
 
     const [items, total] = await Promise.all([

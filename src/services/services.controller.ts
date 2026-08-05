@@ -305,12 +305,17 @@ export class ServicesController {
   @UseGuards(PermissionsGuard)
   @RequirePermission("bookings")
   @ApiOperation({ summary: "Get booking counts by status, for admin summary cards" })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
   @ApiResponse({
     status: 200,
     description: "Total + per-status booking counts",
   })
-  async getServiceRequestStatusCounts() {
-    return this.servicesService.getServiceRequestStatusCounts();
+  async getServiceRequestStatusCounts(
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.servicesService.getServiceRequestStatusCounts(startDate, endDate);
   }
 
   @Get("requests/detail/:requestId")

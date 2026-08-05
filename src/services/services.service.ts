@@ -506,6 +506,17 @@ export class ServicesService {
     if (query.category) {
       filter.category = new Types.ObjectId(query.category);
     }
+    if (query.startDate || query.endDate) {
+      filter.createdAt = {};
+      if (query.startDate) {
+        filter.createdAt.$gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const endOfDay = new Date(query.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
     filter.isDeleted = false;
     filter.isDisabled = false;
 
@@ -1029,7 +1040,7 @@ export class ServicesService {
     };
   }
 
-  async getServiceRequestStatusCounts() {
+  async getServiceRequestStatusCounts(startDate?: string, endDate?: string) {
     const bookingStatusExpr = {
       $switch: {
         branches: [
@@ -1041,12 +1052,29 @@ export class ServicesService {
       },
     };
 
-    const result = await this.requestModel
-      .aggregate([
-        { $addFields: { bookingStatus: bookingStatusExpr } },
-        { $group: { _id: "$bookingStatus", count: { $sum: 1 } } },
-      ])
-      .exec();
+    const matchStage: Record<string, any> = {};
+    if (startDate || endDate) {
+      matchStage.createdAt = {};
+      if (startDate) {
+        matchStage.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        matchStage.createdAt.$lte = endOfDay;
+      }
+    }
+
+    const pipeline: any[] = [];
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+    pipeline.push(
+      { $addFields: { bookingStatus: bookingStatusExpr } },
+      { $group: { _id: "$bookingStatus", count: { $sum: 1 } } },
+    );
+
+    const result = await this.requestModel.aggregate(pipeline).exec();
 
     const counts = { pending: 0, accepted: 0, completed: 0, cancelled: 0 };
     let total = 0;

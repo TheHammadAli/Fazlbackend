@@ -189,7 +189,7 @@ export class ShopService {
   }
 
   async getAllShops(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Shop>> {
-    const { page = 1, limit = 10, search } = paginationDto;
+    const { page = 1, limit = 10, search, startDate, endDate } = paginationDto;
     const skip = (page - 1) * limit;
 
     const query: Record<string, any> = {};
@@ -200,6 +200,18 @@ export class ShopService {
         { title: { $regex: trimmedSearch, $options: "i" } },
         { shopCode: { $regex: trimmedSearch, $options: "i" } },
       ];
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = endOfDay;
+      }
     }
 
     const [shops, total] = await Promise.all([
