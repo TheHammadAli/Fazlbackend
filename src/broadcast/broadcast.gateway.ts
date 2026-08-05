@@ -147,8 +147,9 @@ export class BroadcastGateway
     receiverId: string,
     payload: any,
   ) {
-    const server = this.server || BroadcastGateway.serverInstance;
 
+    const server = this.server || BroadcastGateway.serverInstance;
+    console.log("-------->", server, threadId, receiverId)
     if (!server) {
       this.logger.error("Socket.IO server is not initialized yet");
       return;
@@ -159,7 +160,7 @@ export class BroadcastGateway
 
     // Emit to the personal user room (fallback)
     server.to(receiverId).emit("receiveBroadcastMessage", payload);
-
+    console.log("-------->", server, threadId, receiverId)
     this.logger.debug(
       `Emitted receiveMessage → thread:${threadId} + user:${receiverId}`,
     );
