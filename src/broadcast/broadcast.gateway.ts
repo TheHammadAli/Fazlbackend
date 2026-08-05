@@ -130,7 +130,7 @@ export class BroadcastGateway
         data.threadId,
         data.message,
       );
-
+      //
       // Service already emits the realtime event
       return result;
     } catch (error) {
