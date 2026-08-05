@@ -14,7 +14,7 @@ import { forwardRef, Inject, Logger } from "@nestjs/common";
 
 @WebSocketGateway({
   cors: {
-    origin: "*", // Adjust in production
+    origin: "*", // Tighten this in production
   },
 })
 export class BroadcastGateway
@@ -24,19 +24,35 @@ export class BroadcastGateway
 
   static serverInstance: Server;
 
-
-  afterInit(server: Server) {
-    BroadcastGateway.serverInstance = server;
-  }
-
-  private logger: Logger = new Logger("BroadcastGateway");
+  private readonly logger = new Logger(BroadcastGateway.name);
 
   constructor(
     @Inject(forwardRef(() => BroadcastService))
     private readonly broadcastService: BroadcastService,
   ) { }
 
-  handleConnection(client: Socket) {
+  afterInit(server: Server) {
+    BroadcastGateway.serverInstance = server;
+    this.logger.log("BroadcastGateway initialized");
+  }
+
+  // --------------------------------------------------
+  // CONNECTION HANDLING
+  // --------------------------------------------------
+  async handleConnection(client: Socket) {
+    // Expect userId from handshake (auth or query)
+    const userId =
+      client.handshake.auth?.userId ||
+      client.handshake.query?.userId;
+
+    if (userId) {
+      const room = userId.toString();
+      client.join(room);
+      this.logger.log(`Client ${client.id} joined personal room: ${room}`);
+    } else {
+      this.logger.warn(`Client ${client.id} connected without userId`);
+    }
+
     this.logger.log(`Client connected: ${client.id}`);
   }
 
@@ -44,15 +60,56 @@ export class BroadcastGateway
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
+  // --------------------------------------------------
+  // ROOM MANAGEMENT
+  // --------------------------------------------------
   @SubscribeMessage("joinThread")
-  async handleJoinThread(
+  handleJoinThread(
     @MessageBody() data: { threadId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    if (!data?.threadId) {
+      this.logger.warn(`joinThread called without threadId by ${client.id}`);
+      return;
+    }
+
     client.join(data.threadId);
-    this.logger.log(`Client ${client.id} joined thread ${data.threadId}`);
+    this.logger.log(`Client ${client.id} joined thread: ${data.threadId}`);
   }
 
+  @SubscribeMessage("joinBroadcast")
+  handleJoinBroadcast(
+    @MessageBody() data: { broadcastId: string; threadId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (data?.broadcastId) {
+      client.join(data.broadcastId);
+    }
+    if (data?.threadId) {
+      client.join(data.threadId);
+    }
+
+    this.logger.log(
+      `Client ${client.id} joined broadcast ${data?.broadcastId} + thread ${data?.threadId}`,
+    );
+  }
+
+  @SubscribeMessage("leaveBroadcast")
+  handleLeaveBroadcast(
+    @MessageBody() data: { broadcastId: string; threadId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (data?.threadId) client.leave(data.threadId);
+    if (data?.broadcastId) client.leave(data.broadcastId);
+
+    this.logger.log(
+      `Client ${client.id} left broadcast ${data?.broadcastId} + thread ${data?.threadId}`,
+    );
+  }
+
+  // --------------------------------------------------
+  // SEND MESSAGE VIA SOCKET (optional path)
+  // --------------------------------------------------
   @SubscribeMessage("sendBroadcastMessage")
   async handleSendBroadcastMessage(
     @MessageBody()
@@ -65,41 +122,46 @@ export class BroadcastGateway
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const newMessage = await this.broadcastService.sendBroadcastMessage(
-      data.broadcastId,
-      data.senderId,
-      data.receiverId,
-      data.threadId,
-      data.message,
-    );
+    try {
+      const result = await this.broadcastService.sendBroadcastMessage(
+        data.broadcastId,
+        data.senderId,
+        data.receiverId,
+        data.threadId,
+        data.message,
+      );
 
-    this.server.to(data.threadId).emit("receiveMessage", newMessage);
-    // Emit the message to all clients in the thread room
-    return newMessage
+      // Service already emits the realtime event
+      return result;
+    } catch (error) {
+      this.logger.error("Error in handleSendBroadcastMessage", error);
+      throw error;
+    }
   }
 
-  @SubscribeMessage("joinBroadcast")
-  async handleJoinBroadcast(
-    @MessageBody() data: { broadcastId: string; threadId: string },
-    @ConnectedSocket() client: Socket,
+  // --------------------------------------------------
+  // HELPER USED BY THE SERVICE
+  // --------------------------------------------------
+  emitToThreadAndUser(
+    threadId: string,
+    receiverId: string,
+    payload: any,
   ) {
-    // Join both broadcast and thread rooms for flexibility
-    client.join(data.broadcastId);
-    client.join(data.threadId);
-    this.logger.log(
-      `Client ${client.id} joined broadcast ${data.broadcastId} and thread ${data.threadId}`,
-    );
-  }
+    const server = this.server || BroadcastGateway.serverInstance;
 
-  @SubscribeMessage("leaveBroadcast")
-  async handleLeaveBroadcast(
-    @MessageBody() data: { broadcastId: string; threadId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    client.leave(data.threadId);
-    client.leave(data.broadcastId);
-    this.logger.log(
-      `Client ${client.id} left broadcast ${data.broadcastId} and thread ${data.threadId}`,
+    if (!server) {
+      this.logger.error("Socket.IO server is not initialized yet");
+      return;
+    }
+
+    // Emit to the thread room
+    server.to(threadId).emit("receiveMessage", payload);
+
+    // Emit to the personal user room (fallback)
+    server.to(receiverId).emit("receiveMessage", payload);
+
+    this.logger.debug(
+      `Emitted receiveMessage → thread:${threadId} + user:${receiverId}`,
     );
   }
 }

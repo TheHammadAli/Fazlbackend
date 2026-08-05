@@ -251,7 +251,7 @@ let BroadcastService = class BroadcastService {
             sender: new mongoose_2.Types.ObjectId(senderId),
             receiver: new mongoose_2.Types.ObjectId(actualReceiverId),
             message,
-            imageUrls: [imageUrl],
+            imageUrls: imageUrl ? [imageUrl] : [],
             isRead: false,
         });
         try {
@@ -277,32 +277,19 @@ let BroadcastService = class BroadcastService {
         catch (err) {
             console.error("Failed to send broadcast notification:", err);
         }
-        this.broadcastGateway.server.to(threadId).emit("receiveMessage", {
+        const payload = {
             message: messageResults,
             sender,
-            thread,
-        });
-        try {
-            this.broadcastGateway.server.to(actualReceiverId).emit("receiveMessage", {
-                message: messageResults,
-                sender,
-                thread,
-            });
-        }
-        catch (err) {
-            console.error("Failed to emit realtime message to receiver room:", err);
-        }
+            thread: {
+                id: threadId,
+                buyer: thread.buyer,
+                seller: thread.seller,
+                broadcast: thread.broadcast,
+            },
+        };
+        this.broadcastGateway.emitToThreadAndUser(threadId, actualReceiverId, payload);
         return {
-            data: {
-                message: messageResults,
-                sender,
-                thread: {
-                    id: threadId,
-                    buyer: thread.buyer,
-                    seller: thread.seller,
-                    broadcast: thread.broadcast,
-                },
-            }
+            data: payload,
         };
     }
     async markThreadMessagesAsRead(threadId, userId) {

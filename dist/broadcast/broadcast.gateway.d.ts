@@ -5,14 +5,22 @@ export declare class BroadcastGateway implements OnGatewayConnection, OnGatewayD
     private readonly broadcastService;
     server: Server;
     static serverInstance: Server;
-    afterInit(server: Server): void;
-    private logger;
+    private readonly logger;
     constructor(broadcastService: BroadcastService);
-    handleConnection(client: Socket): void;
+    afterInit(server: Server): void;
+    handleConnection(client: Socket): Promise<void>;
     handleDisconnect(client: Socket): void;
     handleJoinThread(data: {
         threadId: string;
-    }, client: Socket): Promise<void>;
+    }, client: Socket): void;
+    handleJoinBroadcast(data: {
+        broadcastId: string;
+        threadId: string;
+    }, client: Socket): void;
+    handleLeaveBroadcast(data: {
+        broadcastId: string;
+        threadId: string;
+    }, client: Socket): void;
     handleSendBroadcastMessage(data: {
         broadcastId: string;
         threadId: string;
@@ -35,12 +43,5 @@ export declare class BroadcastGateway implements OnGatewayConnection, OnGatewayD
             };
         };
     }>;
-    handleJoinBroadcast(data: {
-        broadcastId: string;
-        threadId: string;
-    }, client: Socket): Promise<void>;
-    handleLeaveBroadcast(data: {
-        broadcastId: string;
-        threadId: string;
-    }, client: Socket): Promise<void>;
+    emitToThreadAndUser(threadId: string, receiverId: string, payload: any): void;
 }

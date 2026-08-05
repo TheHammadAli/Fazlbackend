@@ -23,37 +23,73 @@ let BroadcastGateway = class BroadcastGateway {
     broadcastService;
     server;
     static serverInstance;
-    afterInit(server) {
-        BroadcastGateway_1.serverInstance = server;
-    }
-    logger = new common_1.Logger("BroadcastGateway");
+    logger = new common_1.Logger(BroadcastGateway_1.name);
     constructor(broadcastService) {
         this.broadcastService = broadcastService;
     }
-    handleConnection(client) {
+    afterInit(server) {
+        BroadcastGateway_1.serverInstance = server;
+        this.logger.log("BroadcastGateway initialized");
+    }
+    async handleConnection(client) {
+        const userId = client.handshake.auth?.userId ||
+            client.handshake.query?.userId;
+        if (userId) {
+            const room = userId.toString();
+            client.join(room);
+            this.logger.log(`Client ${client.id} joined personal room: ${room}`);
+        }
+        else {
+            this.logger.warn(`Client ${client.id} connected without userId`);
+        }
         this.logger.log(`Client connected: ${client.id}`);
     }
     handleDisconnect(client) {
         this.logger.log(`Client disconnected: ${client.id}`);
     }
-    async handleJoinThread(data, client) {
+    handleJoinThread(data, client) {
+        if (!data?.threadId) {
+            this.logger.warn(`joinThread called without threadId by ${client.id}`);
+            return;
+        }
         client.join(data.threadId);
-        this.logger.log(`Client ${client.id} joined thread ${data.threadId}`);
+        this.logger.log(`Client ${client.id} joined thread: ${data.threadId}`);
+    }
+    handleJoinBroadcast(data, client) {
+        if (data?.broadcastId) {
+            client.join(data.broadcastId);
+        }
+        if (data?.threadId) {
+            client.join(data.threadId);
+        }
+        this.logger.log(`Client ${client.id} joined broadcast ${data?.broadcastId} + thread ${data?.threadId}`);
+    }
+    handleLeaveBroadcast(data, client) {
+        if (data?.threadId)
+            client.leave(data.threadId);
+        if (data?.broadcastId)
+            client.leave(data.broadcastId);
+        this.logger.log(`Client ${client.id} left broadcast ${data?.broadcastId} + thread ${data?.threadId}`);
     }
     async handleSendBroadcastMessage(data, client) {
-        const newMessage = await this.broadcastService.sendBroadcastMessage(data.broadcastId, data.senderId, data.receiverId, data.threadId, data.message);
-        this.server.to(data.threadId).emit("receiveMessage", newMessage);
-        return newMessage;
+        try {
+            const result = await this.broadcastService.sendBroadcastMessage(data.broadcastId, data.senderId, data.receiverId, data.threadId, data.message);
+            return result;
+        }
+        catch (error) {
+            this.logger.error("Error in handleSendBroadcastMessage", error);
+            throw error;
+        }
     }
-    async handleJoinBroadcast(data, client) {
-        client.join(data.broadcastId);
-        client.join(data.threadId);
-        this.logger.log(`Client ${client.id} joined broadcast ${data.broadcastId} and thread ${data.threadId}`);
-    }
-    async handleLeaveBroadcast(data, client) {
-        client.leave(data.threadId);
-        client.leave(data.broadcastId);
-        this.logger.log(`Client ${client.id} left broadcast ${data.broadcastId} and thread ${data.threadId}`);
+    emitToThreadAndUser(threadId, receiverId, payload) {
+        const server = this.server || BroadcastGateway_1.serverInstance;
+        if (!server) {
+            this.logger.error("Socket.IO server is not initialized yet");
+            return;
+        }
+        server.to(threadId).emit("receiveMessage", payload);
+        server.to(receiverId).emit("receiveMessage", payload);
+        this.logger.debug(`Emitted receiveMessage → thread:${threadId} + user:${receiverId}`);
     }
 };
 exports.BroadcastGateway = BroadcastGateway;
@@ -67,8 +103,24 @@ __decorate([
     __param(1, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:returntype", void 0)
 ], BroadcastGateway.prototype, "handleJoinThread", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("joinBroadcast"),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
+    __metadata("design:returntype", void 0)
+], BroadcastGateway.prototype, "handleJoinBroadcast", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("leaveBroadcast"),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
+    __metadata("design:returntype", void 0)
+], BroadcastGateway.prototype, "handleLeaveBroadcast", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)("sendBroadcastMessage"),
     __param(0, (0, websockets_1.MessageBody)()),
@@ -77,22 +129,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
     __metadata("design:returntype", Promise)
 ], BroadcastGateway.prototype, "handleSendBroadcastMessage", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)("joinBroadcast"),
-    __param(0, (0, websockets_1.MessageBody)()),
-    __param(1, (0, websockets_1.ConnectedSocket)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
-    __metadata("design:returntype", Promise)
-], BroadcastGateway.prototype, "handleJoinBroadcast", null);
-__decorate([
-    (0, websockets_1.SubscribeMessage)("leaveBroadcast"),
-    __param(0, (0, websockets_1.MessageBody)()),
-    __param(1, (0, websockets_1.ConnectedSocket)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
-    __metadata("design:returntype", Promise)
-], BroadcastGateway.prototype, "handleLeaveBroadcast", null);
 exports.BroadcastGateway = BroadcastGateway = BroadcastGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
