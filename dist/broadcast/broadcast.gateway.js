@@ -83,13 +83,16 @@ let BroadcastGateway = class BroadcastGateway {
     }
     emitToThreadAndUser(threadId, receiverId, payload) {
         const server = this.server || BroadcastGateway_1.serverInstance;
+        console.log("-------->", server, threadId, receiverId);
         if (!server) {
             this.logger.error("Socket.IO server is not initialized yet");
             return;
         }
-        server.to(threadId).emit("receiveMessage", payload);
-        server.to(receiverId).emit("receiveMessage", payload);
-        this.logger.debug(`Emitted receiveMessage → thread:${threadId} + user:${receiverId}`);
+        console.log("Emitting to thread and user:", { threadId, receiverId, payload });
+        server.to(threadId).emit("receiveBroadcastMessage", payload);
+        server.to(receiverId).emit("receiveBroadcastMessage", payload);
+        console.log("-------->", server, threadId, receiverId);
+        this.logger.debug(`Emiter receiveBroadcastMessage → thread:${threadId} + user:${receiverId}`);
     }
 };
 exports.BroadcastGateway = BroadcastGateway;
@@ -131,6 +134,7 @@ __decorate([
 ], BroadcastGateway.prototype, "handleSendBroadcastMessage", null);
 exports.BroadcastGateway = BroadcastGateway = BroadcastGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
+        namespace: "/broadcast",
         cors: {
             origin: "*",
         },

@@ -96,6 +96,7 @@ __decorate([
 ], ChatGateway.prototype, "handleMarkAsRead", null);
 exports.ChatGateway = ChatGateway = ChatGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
+        namespace: "/chat",
         cors: {
             origin: "*",
         },

@@ -13,6 +13,7 @@ import { BroadcastService } from "./broadcast.service";
 import { forwardRef, Inject, Logger } from "@nestjs/common";
 
 @WebSocketGateway({
+  namespace: "/broadcast",
   cors: {
     origin: "*", // Tighten this in production
   },
