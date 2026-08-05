@@ -170,6 +170,21 @@ export class ProductsController {
     return this.productsService.getAllProductsByUser(userId, paginationDto);
   }
 
+  @Get("admin/user/:userId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("listings")
+  @ApiOperation({ summary: "Get a specific user's private/personal listings (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  async getProductsByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page = 1,
+    @Query("limit") limit = 5,
+  ): Promise<PaginatedResponseDto<Product>> {
+    return this.productsService.getAllProductsByUser(userId, { page, limit });
+  }
+
   @Get("with-videos/all")
   @Public()
   @ApiOperation({ summary: "Get all products with videos (paginated)" })

@@ -169,6 +169,25 @@ export class ShopService {
     return this.shopModel.find({ ownerId: new Types.ObjectId(userId) }).exec();
   }
 
+  async getAllShopsByUserPaginated(
+    userId: string,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<Shop>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+    const query = { ownerId: new Types.ObjectId(userId) };
+
+    const [shops, total] = await Promise.all([
+      this.shopModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
+      this.shopModel.countDocuments(query),
+    ]);
+
+    return {
+      data: shops,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async getAllShops(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Shop>> {
     const { page = 1, limit = 10, search } = paginationDto;
     const skip = (page - 1) * limit;

@@ -122,6 +122,21 @@ export class ShopController {
     return this.shopService.getAllShopsByUser(user.sub);
   }
 
+  @Get("admin/user/:userId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("shops")
+  @ApiOperation({ summary: "Get paginated shops owned by a specific user (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", type: String })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getShopsByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page = 1,
+    @Query("limit") limit = 5,
+  ) {
+    return this.shopService.getAllShopsByUserPaginated(userId, { page, limit });
+  }
+
   @Get("allShops")
   @UseGuards(PermissionsGuard)
   @RequirePermission("shops")

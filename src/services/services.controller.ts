@@ -15,6 +15,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { ServicesService } from "./services.service";
 import { CreateServiceDto } from "./dto/create-service.dto";
@@ -226,6 +227,43 @@ export class ServicesController {
     @Query("status") status?: string,
   ): Promise<PaginatedResponseDto<any>> {
     return this.servicesService.getServiceRequestsByUser(userId, role, page, limit, jobStatus, status);
+  }
+
+  @Get("admin/user/:userId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("services")
+  @ApiOperation({ summary: "Get a specific user's services (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getServicesByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 5,
+  ): Promise<PaginatedResponseDto<any>> {
+    return this.servicesService.getByUser(userId, page, limit);
+  }
+
+  @Get("admin/user/:userId/bookings")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("bookings")
+  @ApiOperation({ summary: "Get a specific user's service bookings as customer (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getBookingsByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 5,
+  ): Promise<PaginatedResponseDto<any>> {
+    try {
+      return await this.servicesService.getServiceRequestsByUser(userId, "customer", page, limit);
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+      }
+      throw err;
+    }
   }
 
   @Get("bookings/all")
