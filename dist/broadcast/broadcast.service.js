@@ -233,35 +233,65 @@ let BroadcastService = class BroadcastService {
                 lang: this.lang,
             }));
         }
-        if (senderId === receiverId) {
+        const computedReceiverId = senderId === thread.buyer.toString()
+            ? thread.seller.toString()
+            : thread.buyer.toString();
+        if (computedReceiverId === senderId) {
             throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", {
                 lang: this.lang,
             }));
         }
-        const computedReceiverId = senderId === thread.buyer.toString()
-            ? thread.seller.toString()
-            : thread.buyer.toString();
+        let actualReceiverId = computedReceiverId;
         if (receiverId !== computedReceiverId) {
-            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", {
-                lang: this.lang,
-            }));
+            console.warn(`Broadcast.sendBroadcastMessage: overriding provided receiverId=${receiverId} with computedReceiverId=${computedReceiverId}`);
         }
         const messageResults = await this.messageModel.create({
             broadcast: broadcastObjectId,
             thread: new mongoose_2.Types.ObjectId(threadId),
             sender: new mongoose_2.Types.ObjectId(senderId),
-            receiver: new mongoose_2.Types.ObjectId(computedReceiverId),
+            receiver: new mongoose_2.Types.ObjectId(actualReceiverId),
             message,
             imageUrls: [imageUrl],
             isRead: false,
         });
-        this.broadcastGateway.server
-            .to(threadId)
-            .emit("receiveMessage", {
-            message,
+        try {
+            await this.notificationsService.createAndNotify(actualReceiverId, "broadcast.new_message", "MESSAGE", {
+                thread: {
+                    id: thread._id,
+                    buyer: thread.buyer,
+                    seller: thread.seller,
+                    broadcast: thread.broadcast,
+                },
+                message: {
+                    id: messageResults._id,
+                    text: messageResults.message,
+                    imageUrls: messageResults.imageUrls,
+                },
+                sender: {
+                    id: sender._id,
+                    name: sender.name,
+                    image: sender.image,
+                },
+            }, { senderName: sender.name }, sender.name);
+        }
+        catch (err) {
+            console.error("Failed to send broadcast notification:", err);
+        }
+        this.broadcastGateway.server.to(threadId).emit("receiveMessage", {
+            message: messageResults,
             sender,
             thread,
         });
+        try {
+            this.broadcastGateway.server.to(actualReceiverId).emit("receiveMessage", {
+                message: messageResults,
+                sender,
+                thread,
+            });
+        }
+        catch (err) {
+            console.error("Failed to emit realtime message to receiver room:", err);
+        }
         return {
             data: {
                 message: messageResults,

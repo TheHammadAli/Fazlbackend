@@ -428,13 +428,57 @@ export class BroadcastService {
       isRead: false,
     });
 
-    this.broadcastGateway.server
-      .to(threadId)
-      .emit("receiveMessage", {
-        message,
+    // Notify receiver via push/notification service
+    try {
+      await this.notificationsService.createAndNotify(
+        actualReceiverId,
+        "broadcast.new_message",
+        "MESSAGE",
+        {
+          thread: {
+            id: thread._id,
+            buyer: thread.buyer,
+            seller: thread.seller,
+            broadcast: thread.broadcast,
+          },
+          message: {
+            id: messageResults._id,
+            text: messageResults.message,
+            imageUrls: messageResults.imageUrls,
+
+          },
+          sender: {
+            id: sender._id,
+            name: sender.name,
+            image: sender.image,
+          },
+        },
+        { senderName: sender.name },
+        sender.name,
+      );
+    } catch (err) {
+      console.error("Failed to send broadcast notification:", err);
+    }
+
+    // Emit realtime message to thread room
+    this.broadcastGateway.server.to(threadId).emit("receiveMessage", {
+      message: messageResults,
+      sender,
+      thread,
+    });
+
+    // Also emit directly to the receiver's personal room so they get the
+    // message even if they haven't joined the thread room. The Notifications
+    // gateway joins sockets to a room named after the userId on connect.
+    try {
+      this.broadcastGateway.server.to(actualReceiverId).emit("receiveMessage", {
+        message: messageResults,
         sender,
         thread,
       });
+    } catch (err) {
+      console.error("Failed to emit realtime message to receiver room:", err);
+    }
 
 
     return {
