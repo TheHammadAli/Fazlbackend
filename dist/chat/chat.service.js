@@ -53,34 +53,35 @@ let ChatService = class ChatService {
         if (!buyer || !seller) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }));
         }
-        const [user1, user2] = buyerId < sellerId ? [buyerId, sellerId] : [sellerId, buyerId];
-        const buyerObjectId = new mongoose_2.Types.ObjectId(user1);
-        const sellerObjectId = new mongoose_2.Types.ObjectId(user2);
+        const buyerObjectId = new mongoose_2.Types.ObjectId(buyerId);
+        const sellerObjectId = new mongoose_2.Types.ObjectId(sellerId);
+        let convo = await this.conversationModel.findOne({
+            buyer: buyerObjectId,
+            seller: sellerObjectId,
+        });
+        if (convo) {
+            return convo;
+        }
+        const reversedConvo = await this.conversationModel.findOne({
+            buyer: sellerObjectId,
+            seller: buyerObjectId,
+        });
+        if (reversedConvo) {
+            reversedConvo.buyer = buyerObjectId;
+            reversedConvo.seller = sellerObjectId;
+            await reversedConvo.save();
+            return reversedConvo;
+        }
         try {
-            const convo = await this.conversationModel.findOneAndUpdate({
+            convo = await this.conversationModel.create({
                 buyer: buyerObjectId,
                 seller: sellerObjectId,
-            }, {
-                $setOnInsert: {
-                    buyer: buyerObjectId,
-                    seller: sellerObjectId,
-                    status: "open",
-                },
-            }, {
-                upsert: true,
-                new: true,
+                status: "open",
             });
             await new Promise(resolve => setTimeout(resolve, 2000));
             return convo;
         }
         catch (err) {
-            if (err.code === 11000) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                return this.conversationModel.findOne({
-                    buyer: buyerObjectId,
-                    seller: sellerObjectId,
-                });
-            }
             throw new app_error_1.AppError(err);
         }
     }
@@ -97,15 +98,17 @@ let ChatService = class ChatService {
                 lang: this.lang,
             }));
         }
-        if (receiverId !== conversation.buyer.toString() &&
-            receiverId !== conversation.seller.toString()) {
+        const computedReceiverId = senderId === conversation.buyer.toString()
+            ? conversation.seller.toString()
+            : conversation.buyer.toString();
+        if (receiverId !== computedReceiverId) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_in_conversation", {
                 lang: this.lang,
             }));
         }
         const [sender, receiver] = await Promise.all([
             this.userService.findUserById(senderId),
-            this.userService.findUserById(receiverId),
+            this.userService.findUserById(computedReceiverId),
         ]);
         if (!sender || !receiver) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.chat.user_not_found", { lang: this.lang }));
@@ -113,14 +116,15 @@ let ChatService = class ChatService {
         const message = await this.messageModel.create({
             conversationId: new mongoose_2.Types.ObjectId(conversationId),
             sender: new mongoose_2.Types.ObjectId(senderId),
-            receiver: new mongoose_2.Types.ObjectId(receiverId),
+            receiver: new mongoose_2.Types.ObjectId(computedReceiverId),
             text,
             imageUrl,
+            read: false,
         });
         await this.conversationModel.findByIdAndUpdate(conversationId, {
             lastMessageAt: new Date(),
         });
-        await this.notificationsService.createAndNotify(receiverId, "chat.new_message", "MESSAGE", {
+        await this.notificationsService.createAndNotify(computedReceiverId, "chat.new_message", "MESSAGE", {
             conversation: {
                 id: conversation._id,
                 buyer: conversation.buyer,
@@ -191,17 +195,26 @@ let ChatService = class ChatService {
                 lang: this.lang,
             }));
         }
+        const conversationObjectId = new mongoose_2.Types.ObjectId(conversationId);
+        const receiverObjectId = new mongoose_2.Types.ObjectId(userId);
         await this.messageModel.updateMany({
-            conversationId: new mongoose_2.Types.ObjectId(conversationId),
-            receiver: new mongoose_2.Types.ObjectId(userId),
+            conversationId: conversationObjectId,
+            receiver: receiverObjectId,
             read: false,
         }, { $set: { read: true } });
+        return { success: true };
     }
     async getUnreadConversations(userId) {
         await this.userService.findUserById(userId);
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
         const conversationsWithUnread = await this.messageModel.aggregate([
-            { $match: { receiver: userObjectId, read: false } },
+            {
+                $match: {
+                    receiver: userObjectId,
+                    read: false,
+                    sender: { $ne: userObjectId },
+                },
+            },
             {
                 $group: {
                     _id: "$conversationId",
@@ -304,6 +317,35 @@ let ChatService = class ChatService {
                     },
                 },
                 {
+                    $lookup: {
+                        from: "messages",
+                        let: { conversationId: "$_id", currentUserId: userObjectId },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $and: [
+                                            { $eq: ["$conversationId", "$$conversationId"] },
+                                            { $eq: ["$receiver", "$$currentUserId"] },
+                                            { $eq: ["$read", false] },
+                                            { $ne: ["$sender", "$$currentUserId"] },
+                                        ],
+                                    },
+                                },
+                            },
+                            { $count: "count" },
+                        ],
+                        as: "unreadMessages",
+                    },
+                },
+                {
+                    $addFields: {
+                        unreadCount: {
+                            $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
+                        },
+                    },
+                },
+                {
                     $project: {
                         _id: 1,
                         buyer: { _id: 1, name: 1, email: 1, image: 1 },
@@ -313,6 +355,7 @@ let ChatService = class ChatService {
                         createdAt: 1,
                         updatedAt: 1,
                         latestMessage: 1,
+                        unreadCount: 1,
                     },
                 },
                 {

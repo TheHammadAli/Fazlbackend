@@ -41,6 +41,10 @@ let ChatController = class ChatController {
     async getMessages(conversationId, paginationDto) {
         return this.chatService.getMessages(conversationId, paginationDto);
     }
+    async markConversationAsRead(conversationId, req) {
+        const user = req.user;
+        return this.chatService.markAsRead(conversationId, user.sub);
+    }
     async markAsRead(body) {
         return this.chatService.markAsRead(body.conversationId, body.userId);
     }
@@ -107,6 +111,17 @@ __decorate([
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "getMessages", null);
+__decorate([
+    (0, common_1.Patch)("conversations/:conversationId/read"),
+    (0, swagger_1.ApiOperation)({
+        summary: "Mark all unread messages in a conversation as read",
+    }),
+    __param(0, (0, common_1.Param)("conversationId")),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ChatController.prototype, "markConversationAsRead", null);
 __decorate([
     (0, common_1.Patch)("messages/mark-read"),
     (0, swagger_1.ApiOperation)({
@@ -182,6 +197,22 @@ __decorate([
                             lastMessageAt: { type: "string", format: "date-time" },
                             createdAt: { type: "string", format: "date-time" },
                             updatedAt: { type: "string", format: "date-time" },
+                            latestMessage: {
+                                type: "object",
+                                properties: {
+                                    text: { type: "string" },
+                                    read: { type: "boolean" },
+                                    createdAt: { type: "string", format: "date-time" },
+                                    sender: {
+                                        type: "object",
+                                        properties: {
+                                            _id: { type: "string" },
+                                            name: { type: "string" },
+                                        },
+                                    },
+                                },
+                            },
+                            unreadCount: { type: "number", example: 0 },
                         },
                     },
                 },

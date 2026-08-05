@@ -43,42 +43,41 @@ export class ChatService {
       );
     }
 
-    const [user1, user2] =
-      buyerId < sellerId ? [buyerId, sellerId] : [sellerId, buyerId];
+    const buyerObjectId = new Types.ObjectId(buyerId);
+    const sellerObjectId = new Types.ObjectId(sellerId);
 
-    const buyerObjectId = new Types.ObjectId(user1);
-    const sellerObjectId = new Types.ObjectId(user2);
+    // First, try to find a conversation with the exact requested buyer/seller roles.
+    let convo = await this.conversationModel.findOne({
+      buyer: buyerObjectId,
+      seller: sellerObjectId,
+    });
+    if (convo) {
+      return convo;
+    }
+
+    // If an existing conversation was created with reversed roles, fix it and return.
+    const reversedConvo = await this.conversationModel.findOne({
+      buyer: sellerObjectId,
+      seller: buyerObjectId,
+    });
+    if (reversedConvo) {
+      reversedConvo.buyer = buyerObjectId;
+      reversedConvo.seller = sellerObjectId;
+      await reversedConvo.save();
+      return reversedConvo;
+    }
 
     try {
-      const convo = await this.conversationModel.findOneAndUpdate(
-        {
-          buyer: buyerObjectId,
-          seller: sellerObjectId,
-        },
-        {
-          $setOnInsert: {
-            buyer: buyerObjectId,
-            seller: sellerObjectId,
-            status: "open",
-          },
-        },
-        {
-          upsert: true,
-          new: true,
-        },
-      );
+      convo = await this.conversationModel.create({
+        buyer: buyerObjectId,
+        seller: sellerObjectId,
+        status: "open",
+      });
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       return convo;
     } catch (err: any) {
-      if (err.code === 11000) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return this.conversationModel.findOne({
-          buyer: buyerObjectId,
-          seller: sellerObjectId,
-        });
-      }
       throw new AppError(err);
     }
   }
@@ -111,10 +110,12 @@ export class ChatService {
       );
     }
 
-    if (
-      receiverId !== conversation.buyer.toString() &&
-      receiverId !== conversation.seller.toString()
-    ) {
+    const computedReceiverId =
+      senderId === conversation.buyer.toString()
+        ? conversation.seller.toString()
+        : conversation.buyer.toString();
+
+    if (receiverId !== computedReceiverId) {
       throw new NotFoundException(
         this.i18n.translate("auth.chat.user_not_in_conversation", {
           lang: this.lang,
@@ -124,7 +125,7 @@ export class ChatService {
 
     const [sender, receiver] = await Promise.all([
       this.userService.findUserById(senderId),
-      this.userService.findUserById(receiverId),
+      this.userService.findUserById(computedReceiverId),
     ]);
 
     if (!sender || !receiver) {
@@ -136,7 +137,7 @@ export class ChatService {
     const message = await this.messageModel.create({
       conversationId: new Types.ObjectId(conversationId),
       sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(receiverId),
+      receiver: new Types.ObjectId(computedReceiverId),
       text,
       imageUrl,
       read: false,
@@ -147,7 +148,7 @@ export class ChatService {
     });
 
     await this.notificationsService.createAndNotify(
-      receiverId,
+      computedReceiverId,
       "chat.new_message",
       "MESSAGE",
       {
@@ -263,6 +264,7 @@ export class ChatService {
         $match: {
           receiver: userObjectId,
           read: false,
+          sender: { $ne: userObjectId },
         },
       },
       {
@@ -388,6 +390,7 @@ export class ChatService {
                       { $eq: ["$conversationId", "$$conversationId"] },
                       { $eq: ["$receiver", "$$currentUserId"] },
                       { $eq: ["$read", false] },
+                      { $ne: ["$sender", "$$currentUserId"] },
                     ],
                   },
                 },

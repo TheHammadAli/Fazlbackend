@@ -233,11 +233,24 @@ let BroadcastService = class BroadcastService {
                 lang: this.lang,
             }));
         }
+        if (senderId === receiverId) {
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", {
+                lang: this.lang,
+            }));
+        }
+        const computedReceiverId = senderId === thread.buyer.toString()
+            ? thread.seller.toString()
+            : thread.buyer.toString();
+        if (receiverId !== computedReceiverId) {
+            throw new common_1.BadRequestException(this.i18n.translate("auth.broadcast.receiver_invalid", {
+                lang: this.lang,
+            }));
+        }
         const messageResults = await this.messageModel.create({
             broadcast: broadcastObjectId,
             thread: new mongoose_2.Types.ObjectId(threadId),
             sender: new mongoose_2.Types.ObjectId(senderId),
-            receiver: new mongoose_2.Types.ObjectId(receiverId),
+            receiver: new mongoose_2.Types.ObjectId(computedReceiverId),
             message,
             imageUrls: [imageUrl],
             isRead: false,
@@ -372,6 +385,7 @@ let BroadcastService = class BroadcastService {
                                         { $eq: ["$thread", "$$threadId"] },
                                         { $eq: ["$receiver", "$$currentUserId"] },
                                         { $eq: ["$isRead", false] },
+                                        { $ne: ["$sender", "$$currentUserId"] },
                                     ],
                                 },
                             },

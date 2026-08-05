@@ -393,12 +393,34 @@ export class BroadcastService {
       );
     }
 
-    // 7. Create message
+    // 7. Ensure receiver is not the sender and derive the true thread recipient.
+    if (senderId === receiverId) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.receiver_invalid", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    const computedReceiverId =
+      senderId === thread.buyer.toString()
+        ? thread.seller.toString()
+        : thread.buyer.toString();
+
+    if (receiverId !== computedReceiverId) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.receiver_invalid", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    // 8. Create message
     const messageResults = await this.messageModel.create({
       broadcast: broadcastObjectId,
       thread: new Types.ObjectId(threadId),
       sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(receiverId),
+      receiver: new Types.ObjectId(computedReceiverId),
       message,
       imageUrls: [imageUrl], // Save the S3 URL here
       isRead: false,
@@ -551,6 +573,7 @@ export class BroadcastService {
                       { $eq: ["$thread", "$$threadId"] },
                       { $eq: ["$receiver", "$$currentUserId"] },
                       { $eq: ["$isRead", false] },
+                      { $ne: ["$sender", "$$currentUserId"] },
                     ],
                   },
                 },

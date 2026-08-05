@@ -20,11 +20,11 @@ export declare class ChatService {
     private readonly chatGateway;
     constructor(conversationModel: Model<Conversation>, messageModel: Model<Message>, userService: UsersService, shopService: ShopService, i18n: I18nService, cls: ClsService, notificationsService: NotificationsService, chatGateway: ChatGateway);
     private get lang();
-    getOrCreateConversation(buyerId: string, sellerId: string): Promise<(import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
+    getOrCreateConversation(buyerId: string, sellerId: string): Promise<import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
         _id: unknown;
     }> & {
         __v: number;
-    }) | null>;
+    }>;
     sendMessage(conversationId: string, senderId: string, receiverId: string, text: string, imageUrl?: string): Promise<{
         data: {
             message: import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
@@ -41,7 +41,9 @@ export declare class ChatService {
         };
     }>;
     getMessages(conversationId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Message>>;
-    markAsRead(conversationId: string, userId: string): Promise<void>;
+    markAsRead(conversationId: string, userId: string): Promise<{
+        success: boolean;
+    }>;
     getUnreadConversations(userId: string): Promise<any[]>;
     getConversationsByUserId(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Conversation>>;
 }

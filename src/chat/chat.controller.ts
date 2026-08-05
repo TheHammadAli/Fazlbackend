@@ -189,6 +189,22 @@ export class ChatController {
               lastMessageAt: { type: "string", format: "date-time" },
               createdAt: { type: "string", format: "date-time" },
               updatedAt: { type: "string", format: "date-time" },
+              latestMessage: {
+                type: "object",
+                properties: {
+                  text: { type: "string" },
+                  read: { type: "boolean" },
+                  createdAt: { type: "string", format: "date-time" },
+                  sender: {
+                    type: "object",
+                    properties: {
+                      _id: { type: "string" },
+                      name: { type: "string" },
+                    },
+                  },
+                },
+              },
+              unreadCount: { type: "number", example: 0 },
             },
           },
         },
