@@ -26,6 +26,14 @@ class CategoryParameterEntryDto {
   @IsArray()
   @IsString({ each: true })
   values!: string[];
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Whether listings can skip this parameter. Defaults to required (false).",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isOptional?: boolean;
 }
 
 class CategoryParametersDto {
