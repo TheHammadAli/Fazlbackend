@@ -42,7 +42,7 @@ export class ProductsService {
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
     private readonly reviewService: ReviewService,
-  ) {}
+  ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -201,7 +201,7 @@ export class ProductsService {
       }
 
       const result = await createdProduct.save();
-
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       return {
         message: this.i18n.translate("auth.products.created_success", {
           lang: this.lang,
@@ -436,6 +436,7 @@ export class ProductsService {
         }),
       );
     }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       message: this.i18n.translate("auth.products.updated_success", {
@@ -591,11 +592,11 @@ export class ProductsService {
     return {
       message: isDisabled
         ? this.i18n.translate("auth.products.product_disabled_success", {
-            lang: this.lang,
-          })
+          lang: this.lang,
+        })
         : this.i18n.translate("auth.products.product_enabled_success", {
-            lang: this.lang,
-          }),
+          lang: this.lang,
+        }),
       data: updated,
     };
   }

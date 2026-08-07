@@ -151,6 +151,7 @@ let ProductsService = class ProductsService {
                 createdProduct.searchableTags = [];
             }
             const result = await createdProduct.save();
+            await new Promise((resolve) => setTimeout(resolve, 2000));
             return {
                 message: this.i18n.translate("auth.products.created_success", {
                     lang: this.lang,
@@ -321,6 +322,7 @@ let ProductsService = class ProductsService {
                 lang: this.lang,
             }));
         }
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         return {
             message: this.i18n.translate("auth.products.updated_success", {
                 lang: this.lang,
