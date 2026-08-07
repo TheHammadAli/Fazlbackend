@@ -34,6 +34,14 @@ class CategoryParameterEntryDto {
   @IsOptional()
   @IsBoolean()
   isOptional?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Whether the user can type their own value instead of picking from the fixed list. Defaults to false.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowCustomValue?: boolean;
 }
 
 class CategoryParametersDto {

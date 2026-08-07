@@ -27,14 +27,28 @@ export class Category {
 
   @Prop({
     type: {
-      en: [{ name: { type: String }, values: [{ type: String }], isOptional: { type: Boolean, default: false } }],
-      ur: [{ name: { type: String }, values: [{ type: String }], isOptional: { type: Boolean, default: false } }],
+      en: [
+        {
+          name: { type: String },
+          values: [{ type: String }],
+          isOptional: { type: Boolean, default: false },
+          allowCustomValue: { type: Boolean, default: false },
+        },
+      ],
+      ur: [
+        {
+          name: { type: String },
+          values: [{ type: String }],
+          isOptional: { type: Boolean, default: false },
+          allowCustomValue: { type: Boolean, default: false },
+        },
+      ],
     },
     default: { en: [], ur: [] },
   })
   parameters?: {
-    en: { name: string; values: string[]; isOptional?: boolean }[];
-    ur: { name: string; values: string[]; isOptional?: boolean }[];
+    en: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean }[];
+    ur: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean }[];
   };
 
   @Prop({ default: 0 })
