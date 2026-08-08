@@ -86,130 +86,128 @@ export class ProductsService {
     entityId: string,
     type: "shop" | "personal",
     dto: CreateProductDto,
-  ) {
+  ): Promise<{ message: string; data: { product: Product } }> {
     try {
-      // console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
+      console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
 
-      // let location: { type: "Point"; coordinates: [number, number] };
+      let location: { type: "Point"; coordinates: [number, number] };
 
-      // const productPayload: Partial<Product> = {
-      //   ...dto,
-      //   category: new Types.ObjectId(dto.category),
-      // };
+      const productPayload: Partial<Product> = {
+        ...dto,
+        category: new Types.ObjectId(dto.category),
+      };
 
-      // if (type === "shop") {
-      //   const shop = await this.shopService.getShopById(entityId);
-      //   if (!shop) {
-      //     throw new NotFoundException(
-      //       this.i18n.translate("auth.products.shop_not_found", {
-      //         lang: this.lang,
-      //       }),
-      //     );
-      //   }
+      if (type === "shop") {
+        const shop = await this.shopService.getShopById(entityId);
+        if (!shop) {
+          throw new NotFoundException(
+            this.i18n.translate("auth.products.shop_not_found", {
+              lang: this.lang,
+            }),
+          );
+        }
 
-      //   if (
-      //     !shop.location ||
-      //     !shop.location.coordinates ||
-      //     shop.location.coordinates.length !== 2
-      //   ) {
-      //     throw new BadRequestException(
-      //       this.i18n.translate("auth.products.shop_location_missing", {
-      //         lang: this.lang,
-      //       }),
-      //     );
-      //   }
+        if (
+          !shop.location ||
+          !shop.location.coordinates ||
+          shop.location.coordinates.length !== 2
+        ) {
+          throw new BadRequestException(
+            this.i18n.translate("auth.products.shop_location_missing", {
+              lang: this.lang,
+            }),
+          );
+        }
 
-      //   productPayload.shopId = shop._id as Types.ObjectId;
-      //   location = shop.location;
-      //   console.log("product payload", productPayload);
-      // } else if (type === "personal") {
-      //   const user = await this.userService.findUserById(entityId);
-      //   if (!user) {
-      //     throw new NotFoundException(
-      //       this.i18n.translate("auth.products.user_not_found", {
-      //         lang: this.lang,
-      //       }),
-      //     );
-      //   }
+        productPayload.shopId = shop._id as Types.ObjectId;
+        location = shop.location;
+        console.log("product payload", productPayload);
+      } else if (type === "personal") {
+        const user = await this.userService.findUserById(entityId);
+        if (!user) {
+          throw new NotFoundException(
+            this.i18n.translate("auth.products.user_not_found", {
+              lang: this.lang,
+            }),
+          );
+        }
 
-      //   productPayload.ownerId = user._id as Types.ObjectId;
+        productPayload.ownerId = user._id as Types.ObjectId;
 
-      //   // Location is required for personal listings
-      //   if (!dto.location) {
-      //     throw new BadRequestException(
-      //       this.i18n.translate("auth.products.location_required_for_personal", {
-      //         lang: this.lang,
-      //       }) || "Location coordinates are required for personal listings",
-      //     );
-      //   }
+        // Location is required for personal listings
+        if (!dto.location) {
+          throw new BadRequestException(
+            this.i18n.translate("auth.products.location_required_for_personal", {
+              lang: this.lang,
+            }) || "Location coordinates are required for personal listings",
+          );
+        }
 
-      //   // Parse + validate (handles both string and object)
-      //   location = this.parseAndValidateLocation(dto.location);
+        // Parse + validate (handles both string and object)
+        location = this.parseAndValidateLocation(dto.location);
 
-      //   // Address is optional but recommended
-      //   if (dto.address) {
-      //     productPayload.address = dto.address.trim();
-      //   }
-      // } else {
-      //   throw new BadRequestException(
-      //     'Invalid type. Must be "shop" or "personal".',
-      //   );
-      // }
+        // Address is optional but recommended
+        if (dto.address) {
+          productPayload.address = dto.address.trim();
+        }
+      } else {
+        throw new BadRequestException(
+          'Invalid type. Must be "shop" or "personal".',
+        );
+      }
 
-      // console.log("Product Payload:", productPayload);
+      console.log("Product Payload:", productPayload);
 
-      // const createdProduct = new this.productModel({
-      //   ...productPayload,
-      //   location, // always a proper object now
-      //   images: [],
-      //   video: "",
-      //   category: new Types.ObjectId(dto.category),
-      // });
+      const createdProduct = new this.productModel({
+        ...productPayload,
+        location, // always a proper object now
+        images: [],
+        video: "",
+        category: new Types.ObjectId(dto.category),
+      });
 
-      // let imageUrls: string[] = [];
-      // if (dto?.images?.length) {
-      //   const uploadedFiles = await this.fileUploadService.uploadProductFiles(
-      //     dto.images,
-      //     type,
-      //     entityId,
-      //     (createdProduct._id as Types.ObjectId).toString(),
-      //     "images",
-      //   );
-      //   imageUrls = uploadedFiles.map((file) => file.url);
-      //   createdProduct.images = imageUrls;
-      // }
+      let imageUrls: string[] = [];
+      if (dto?.images?.length) {
+        const uploadedFiles = await this.fileUploadService.uploadProductFiles(
+          dto.images,
+          type,
+          entityId,
+          (createdProduct._id as Types.ObjectId).toString(),
+          "images",
+        );
+        imageUrls = uploadedFiles.map((file) => file.url);
+        createdProduct.images = imageUrls;
+      }
 
-      // console.log(dto?.video, "Video Length", dto?.video);
-      // if (dto?.video) {
-      //   const uploadedVideo = await this.fileUploadService.uploadProductFiles(
-      //     [dto.video],
-      //     type,
-      //     entityId,
-      //     (createdProduct._id as Types.ObjectId).toString(),
-      //     "video",
-      //   );
-      //   console.log("Uploaded Video:", uploadedVideo);
-      //   createdProduct.video = uploadedVideo[0].url;
-      // }
+      console.log(dto?.video, "Video Length", dto?.video);
+      if (dto?.video) {
+        const uploadedVideo = await this.fileUploadService.uploadProductFiles(
+          [dto.video],
+          type,
+          entityId,
+          (createdProduct._id as Types.ObjectId).toString(),
+          "video",
+        );
+        console.log("Uploaded Video:", uploadedVideo);
+        createdProduct.video = uploadedVideo[0].url;
+      }
 
-      // if (createdProduct.parameters && createdProduct.parameters.length > 0) {
-      //   createdProduct.searchableTags = [
-      //     ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
-      //   ];
-      // } else {
-      //   createdProduct.searchableTags = [];
-      // }
+      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
+        createdProduct.searchableTags = [
+          ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
+        ];
+      } else {
+        createdProduct.searchableTags = [];
+      }
 
-      // const result = await createdProduct.save();
-      // await new Promise((resolve) => setTimeout(resolve, 2000));
+      const result = await createdProduct.save();
+
       return {
         message: this.i18n.translate("auth.products.created_success", {
           lang: this.lang,
         }),
         data: {
-          success: true
-          // product: result,
-
+          product: result,
         },
       };
     } catch (err) {
