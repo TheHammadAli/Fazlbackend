@@ -88,75 +88,75 @@ export class ProductsService {
     dto: CreateProductDto,
   ) {
     try {
-      console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
+      // console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
 
-      let location: { type: "Point"; coordinates: [number, number] };
+      // let location: { type: "Point"; coordinates: [number, number] };
 
-      const productPayload: Partial<Product> = {
-        ...dto,
-        category: new Types.ObjectId(dto.category),
-      };
+      // const productPayload: Partial<Product> = {
+      //   ...dto,
+      //   category: new Types.ObjectId(dto.category),
+      // };
 
-      if (type === "shop") {
-        const shop = await this.shopService.getShopById(entityId);
-        if (!shop) {
-          throw new NotFoundException(
-            this.i18n.translate("auth.products.shop_not_found", {
-              lang: this.lang,
-            }),
-          );
-        }
+      // if (type === "shop") {
+      //   const shop = await this.shopService.getShopById(entityId);
+      //   if (!shop) {
+      //     throw new NotFoundException(
+      //       this.i18n.translate("auth.products.shop_not_found", {
+      //         lang: this.lang,
+      //       }),
+      //     );
+      //   }
 
-        if (
-          !shop.location ||
-          !shop.location.coordinates ||
-          shop.location.coordinates.length !== 2
-        ) {
-          throw new BadRequestException(
-            this.i18n.translate("auth.products.shop_location_missing", {
-              lang: this.lang,
-            }),
-          );
-        }
+      //   if (
+      //     !shop.location ||
+      //     !shop.location.coordinates ||
+      //     shop.location.coordinates.length !== 2
+      //   ) {
+      //     throw new BadRequestException(
+      //       this.i18n.translate("auth.products.shop_location_missing", {
+      //         lang: this.lang,
+      //       }),
+      //     );
+      //   }
 
-        productPayload.shopId = shop._id as Types.ObjectId;
-        location = shop.location;
-        console.log("product payload", productPayload);
-      } else if (type === "personal") {
-        const user = await this.userService.findUserById(entityId);
-        if (!user) {
-          throw new NotFoundException(
-            this.i18n.translate("auth.products.user_not_found", {
-              lang: this.lang,
-            }),
-          );
-        }
+      //   productPayload.shopId = shop._id as Types.ObjectId;
+      //   location = shop.location;
+      //   console.log("product payload", productPayload);
+      // } else if (type === "personal") {
+      //   const user = await this.userService.findUserById(entityId);
+      //   if (!user) {
+      //     throw new NotFoundException(
+      //       this.i18n.translate("auth.products.user_not_found", {
+      //         lang: this.lang,
+      //       }),
+      //     );
+      //   }
 
-        productPayload.ownerId = user._id as Types.ObjectId;
+      //   productPayload.ownerId = user._id as Types.ObjectId;
 
-        // Location is required for personal listings
-        if (!dto.location) {
-          throw new BadRequestException(
-            this.i18n.translate("auth.products.location_required_for_personal", {
-              lang: this.lang,
-            }) || "Location coordinates are required for personal listings",
-          );
-        }
+      //   // Location is required for personal listings
+      //   if (!dto.location) {
+      //     throw new BadRequestException(
+      //       this.i18n.translate("auth.products.location_required_for_personal", {
+      //         lang: this.lang,
+      //       }) || "Location coordinates are required for personal listings",
+      //     );
+      //   }
 
-        // Parse + validate (handles both string and object)
-        location = this.parseAndValidateLocation(dto.location);
+      //   // Parse + validate (handles both string and object)
+      //   location = this.parseAndValidateLocation(dto.location);
 
-        // Address is optional but recommended
-        if (dto.address) {
-          productPayload.address = dto.address.trim();
-        }
-      } else {
-        throw new BadRequestException(
-          'Invalid type. Must be "shop" or "personal".',
-        );
-      }
+      //   // Address is optional but recommended
+      //   if (dto.address) {
+      //     productPayload.address = dto.address.trim();
+      //   }
+      // } else {
+      //   throw new BadRequestException(
+      //     'Invalid type. Must be "shop" or "personal".',
+      //   );
+      // }
 
-      console.log("Product Payload:", productPayload);
+      // console.log("Product Payload:", productPayload);
 
       // const createdProduct = new this.productModel({
       //   ...productPayload,
