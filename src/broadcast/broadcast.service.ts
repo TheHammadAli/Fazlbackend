@@ -264,7 +264,7 @@ export class BroadcastService {
       isRead: false,
     }));
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // await new Promise(resolve => setTimeout(resolve, 2000));
 
     await this.messageModel.insertMany(initialMessages);
 
@@ -313,174 +313,174 @@ export class BroadcastService {
   // -----------------------------
   // SEND MESSAGE (THREAD SAFE)
   // -----------------------------
- // -----------------------------
-// SEND MESSAGE (THREAD SAFE)
-// -----------------------------
-async sendBroadcastMessage(
-  broadcastId: string,
-  senderId: string,
-  receiverId: string,
-  threadId: string,
-  message: string,
-  imageUrl?: string,
-) {
-  const broadcastObjectId = new Types.ObjectId(broadcastId);
+  // -----------------------------
+  // SEND MESSAGE (THREAD SAFE)
+  // -----------------------------
+  async sendBroadcastMessage(
+    broadcastId: string,
+    senderId: string,
+    receiverId: string,
+    threadId: string,
+    message: string,
+    imageUrl?: string,
+  ) {
+    const broadcastObjectId = new Types.ObjectId(broadcastId);
 
-  // 1. Validate broadcast
-  const broadcast = await this.broadcastModel.findById(broadcastObjectId);
-  if (!broadcast) {
-    throw new NotFoundException(
-      this.i18n.translate("auth.broadcast.broadcast_not_found", {
-        lang: this.lang,
-      }),
-    );
-  }
+    // 1. Validate broadcast
+    const broadcast = await this.broadcastModel.findById(broadcastObjectId);
+    if (!broadcast) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.broadcast.broadcast_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  // 2. Validate users
-  const [sender, receiver] = await Promise.all([
-    this.userService.findUserById(senderId),
-    this.userService.findUserById(receiverId),
-  ]);
+    // 2. Validate users
+    const [sender, receiver] = await Promise.all([
+      this.userService.findUserById(senderId),
+      this.userService.findUserById(receiverId),
+    ]);
 
-  if (!sender || !receiver) {
-    throw new NotFoundException(
-      this.i18n.translate("auth.products.user_not_found", {
-        lang: this.lang,
-      }),
-    );
-  }
+    if (!sender || !receiver) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.products.user_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  // 3. Validate thread (SOURCE OF TRUTH)
-  const thread = await this.threadModel.findById(threadId);
+    // 3. Validate thread (SOURCE OF TRUTH)
+    const thread = await this.threadModel.findById(threadId);
 
-  if (!thread) {
-    throw new NotFoundException(
-      this.i18n.translate("auth.broadcast.thread_not_found", {
-        lang: this.lang,
-      }),
-    );
-  }
+    if (!thread) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.broadcast.thread_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  // 4. Ensure thread belongs to broadcast
-  if (thread.broadcast.toString() !== broadcastId) {
-    throw new BadRequestException(
-      this.i18n.translate("auth.broadcast.thread_invalid", {
-        lang: this.lang,
-      }),
-    );
-  }
+    // 4. Ensure thread belongs to broadcast
+    if (thread.broadcast.toString() !== broadcastId) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.thread_invalid", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  // 5. Validate sender is participant
-  const isParticipant =
-    thread.buyer.toString() === senderId ||
-    thread.seller.toString() === senderId;
+    // 5. Validate sender is participant
+    const isParticipant =
+      thread.buyer.toString() === senderId ||
+      thread.seller.toString() === senderId;
 
-  if (!isParticipant) {
-    throw new BadRequestException(
-      this.i18n.translate("auth.broadcast.sender_not_in_thread", {
-        lang: this.lang,
-      }),
-    );
-  }
+    if (!isParticipant) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.sender_not_in_thread", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  // 6. Validate receiver is participant
-  const isValidReceiver =
-    thread.buyer.toString() === receiverId ||
-    thread.seller.toString() === receiverId;
+    // 6. Validate receiver is participant
+    const isValidReceiver =
+      thread.buyer.toString() === receiverId ||
+      thread.seller.toString() === receiverId;
 
-  if (!isValidReceiver) {
-    throw new BadRequestException(
-      this.i18n.translate("auth.broadcast.receiver_invalid", {
-        lang: this.lang,
-      }),
-    );
-  }
+    if (!isValidReceiver) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.receiver_invalid", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  // 7. Derive the true thread recipient
-  const computedReceiverId =
-    senderId === thread.buyer.toString()
-      ? thread.seller.toString()
-      : thread.buyer.toString();
+    // 7. Derive the true thread recipient
+    const computedReceiverId =
+      senderId === thread.buyer.toString()
+        ? thread.seller.toString()
+        : thread.buyer.toString();
 
-  if (computedReceiverId === senderId) {
-    throw new BadRequestException(
-      this.i18n.translate("auth.broadcast.receiver_invalid", {
-        lang: this.lang,
-      }),
-    );
-  }
+    if (computedReceiverId === senderId) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.broadcast.receiver_invalid", {
+          lang: this.lang,
+        }),
+      );
+    }
 
-  let actualReceiverId = computedReceiverId;
-  if (receiverId !== computedReceiverId) {
-    console.warn(
-      `Broadcast.sendBroadcastMessage: overriding provided receiverId=${receiverId} with computedReceiverId=${computedReceiverId}`,
-    );
-  }
+    let actualReceiverId = computedReceiverId;
+    if (receiverId !== computedReceiverId) {
+      console.warn(
+        `Broadcast.sendBroadcastMessage: overriding provided receiverId=${receiverId} with computedReceiverId=${computedReceiverId}`,
+      );
+    }
 
-  // 8. Create message
-  const messageResults = await this.messageModel.create({
-    broadcast: broadcastObjectId,
-    thread: new Types.ObjectId(threadId),
-    sender: new Types.ObjectId(senderId),
-    receiver: new Types.ObjectId(actualReceiverId),
-    message,
-    imageUrls: imageUrl ? [imageUrl] : [],
-    isRead: false,
-  });
+    // 8. Create message
+    const messageResults = await this.messageModel.create({
+      broadcast: broadcastObjectId,
+      thread: new Types.ObjectId(threadId),
+      sender: new Types.ObjectId(senderId),
+      receiver: new Types.ObjectId(actualReceiverId),
+      message,
+      imageUrls: imageUrl ? [imageUrl] : [],
+      isRead: false,
+    });
 
-  // 9. Notify via push notification service
-  try {
-    await this.notificationsService.createAndNotify(
-      actualReceiverId,
-      "broadcast.new_message",
-      "MESSAGE",
-      {
-        thread: {
-          id: thread._id,
-          buyer: thread.buyer,
-          seller: thread.seller,
-          broadcast: thread.broadcast,
+    // 9. Notify via push notification service
+    try {
+      await this.notificationsService.createAndNotify(
+        actualReceiverId,
+        "broadcast.new_message",
+        "MESSAGE",
+        {
+          thread: {
+            id: thread._id,
+            buyer: thread.buyer,
+            seller: thread.seller,
+            broadcast: thread.broadcast,
+          },
+          message: {
+            id: messageResults._id,
+            text: messageResults.message,
+            imageUrls: messageResults.imageUrls,
+          },
+          sender: {
+            id: sender._id,
+            name: sender.name,
+            image: sender.image,
+          },
         },
-        message: {
-          id: messageResults._id,
-          text: messageResults.message,
-          imageUrls: messageResults.imageUrls,
-        },
-        sender: {
-          id: sender._id,
-          name: sender.name,
-          image: sender.image,
-        },
+        { senderName: sender.name },
+        sender.name,
+      );
+    } catch (err) {
+      console.error("Failed to send broadcast notification:", err);
+    }
+
+    // 10. REALTIME EMIT (single source of truth)
+    const payload = {
+      message: messageResults,
+      sender,
+      thread: {
+        id: threadId,
+        buyer: thread.buyer,
+        seller: thread.seller,
+        broadcast: thread.broadcast,
       },
-      { senderName: sender.name },
-      sender.name,
+    };
+
+    this.broadcastGateway.emitToThreadAndUser(
+      threadId,
+      actualReceiverId,
+      payload,
     );
-  } catch (err) {
-    console.error("Failed to send broadcast notification:", err);
+
+    return {
+      data: payload,
+    };
   }
-
-  // 10. REALTIME EMIT (single source of truth)
-  const payload = {
-    message: messageResults,
-    sender,
-    thread: {
-      id: threadId,
-      buyer: thread.buyer,
-      seller: thread.seller,
-      broadcast: thread.broadcast,
-    },
-  };
-
-  this.broadcastGateway.emitToThreadAndUser(
-    threadId,
-    actualReceiverId,
-    payload,
-  );
-
-  return {
-    data: payload,
-  };
-}
 
   async markThreadMessagesAsRead(threadId: string, userId: string) {
     const threadObjectId = new Types.ObjectId(threadId);
