@@ -82,7 +82,7 @@ export class ProductsController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
-  ): Promise<{ message: string; data: { product: Product } }> {
+  ) {
     if (files?.images && files.images.length > 0) {
       createProductDto.images = files.images;
     } else {
@@ -108,6 +108,7 @@ export class ProductsController {
         throw new BadRequestException("Invalid location JSON");
       }
     }
+
     return this.productsService.create(entityId, type, createProductDto);
   }
 
@@ -228,7 +229,7 @@ export class ProductsController {
     updateProductDto.parameters = JSON.parse(
       updateProductDto.parameters?.toString() || "",
     );
-   
+
 
     return this.productsService.update(id, updateProductDto);
   }

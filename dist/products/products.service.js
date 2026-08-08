@@ -123,41 +123,12 @@ let ProductsService = class ProductsService {
                 throw new common_1.BadRequestException('Invalid type. Must be "shop" or "personal".');
             }
             console.log("Product Payload:", productPayload);
-            const createdProduct = new this.productModel({
-                ...productPayload,
-                location,
-                images: [],
-                video: "",
-                category: new mongoose_2.Types.ObjectId(dto.category),
-            });
-            let imageUrls = [];
-            if (dto?.images?.length) {
-                const uploadedFiles = await this.fileUploadService.uploadProductFiles(dto.images, type, entityId, createdProduct._id.toString(), "images");
-                imageUrls = uploadedFiles.map((file) => file.url);
-                createdProduct.images = imageUrls;
-            }
-            console.log(dto?.video, "Video Length", dto?.video);
-            if (dto?.video) {
-                const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, createdProduct._id.toString(), "video");
-                console.log("Uploaded Video:", uploadedVideo);
-                createdProduct.video = uploadedVideo[0].url;
-            }
-            if (createdProduct.parameters && createdProduct.parameters.length > 0) {
-                createdProduct.searchableTags = [
-                    ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
-                ];
-            }
-            else {
-                createdProduct.searchableTags = [];
-            }
-            const result = await createdProduct.save();
-            await new Promise((resolve) => setTimeout(resolve, 2000));
             return {
                 message: this.i18n.translate("auth.products.created_success", {
                     lang: this.lang,
                 }),
                 data: {
-                    product: result,
+                    success: true
                 },
             };
         }
