@@ -308,7 +308,6 @@ let UsersService = class UsersService {
         };
     }
     async saveFcmToken(userId, token) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
         return this.userModel.findByIdAndUpdate(userId, { fcmToken: token }, { new: true });
     }
     async disableAccount(userId) {

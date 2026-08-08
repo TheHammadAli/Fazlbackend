@@ -52,9 +52,6 @@ let ServicesService = class ServicesService {
     get lang() {
         return this.cls?.get("lang") ?? "en";
     }
-    async delayResponse(ms = 2000) {
-        await new Promise((resolve) => setTimeout(resolve, ms));
-    }
     getServiceModel() {
         return this.serviceModel;
     }
@@ -161,7 +158,6 @@ let ServicesService = class ServicesService {
                 lang: this.lang,
             }));
         }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
         console.log("Updated Service:", video);
         return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } };
     }
@@ -458,7 +454,6 @@ let ServicesService = class ServicesService {
         });
         const results = await request.save();
         await this.notificationsService.createAndNotify(service.ownerId._id.toString(), "request_created", "SERVICE_REQUEST", { serviceId: new mongoose_2.Types.ObjectId(serviceId), customerId: new mongoose_2.Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" }, { serviceName: service.title, customerName: customer?.name || "A customer" });
-        await this.delayResponse();
         return {
             data: results,
             message: this.i18n.translate("auth.services.request_created_success", {
@@ -538,7 +533,6 @@ let ServicesService = class ServicesService {
             };
             await this.notificationsService.createAndNotify(recipientId, notificationKey, "SERVICE_REQUEST", notificationPayload, i18nArgs);
         }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
         return {
             status: 201,
             message: this.i18n.translate("auth.services.request_status_updated", {
@@ -583,7 +577,6 @@ let ServicesService = class ServicesService {
                 }));
         }
         const result = await request.save();
-        await new Promise((resolve) => setTimeout(resolve, 2000));
         return {
             status: 201,
             message: this.i18n.translate("auth.services.job_status_updated", {

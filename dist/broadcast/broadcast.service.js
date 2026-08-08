@@ -150,6 +150,7 @@ let BroadcastService = class BroadcastService {
         console.log("Broadcast created:", broadcast);
         const threads = await this.createBroadcastThreads(broadcast._id.toString(), sellerIds, buyerId);
         const uniqueThreads = Array.from(new Map(threads.map((thread) => [thread._id.toString(), thread])).values());
+        const threadBySellerId = new Map(uniqueThreads.map((thread) => [thread.seller.toString(), thread._id.toString()]));
         console.log("Image Urls", imageUrls);
         const initialMessages = uniqueThreads.map((thread) => ({
             broadcast: broadcast._id,
@@ -161,12 +162,12 @@ let BroadcastService = class BroadcastService {
             imageUrls,
             isRead: false,
         }));
-        await new Promise(resolve => setTimeout(resolve, 2000));
         await this.messageModel.insertMany(initialMessages);
         const buyer = await this.userService.findUserById(buyerId);
         console.log("Buyer info for notifications:", buyer, isCategoryValid);
         const notificationPromises = sellerIds.map((sellerId) => this.notificationsService.createAndNotify(sellerId, "broadcast_created", "PROMOTION", {
             broadcastId: broadcast._id.toString(),
+            threadId: threadBySellerId.get(sellerId) ?? null,
             buyerId,
             message: dto.message || "📢 New broadcast request",
             purpose: dto.purpose,
@@ -586,17 +587,19 @@ let BroadcastService = class BroadcastService {
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
-                .select("broadcast").lean()
+                .select("broadcast")
+                .lean()
                 .exec(),
             this.threadModel.countDocuments({ seller: userObjectId }),
         ]);
-        const broadcastIds = threads.map((thread) => thread.broadcast);
+        const broadcastIds = threads.map((thread) => thread.broadcast.toString());
+        const uniqueBroadcastIds = Array.from(new Set(broadcastIds));
         const threadMap = new Map(threads.map((thread) => [
             thread.broadcast.toString(),
             thread._id.toString(),
         ]));
         const data = await this.broadcastModel
-            .find({ _id: { $in: broadcastIds } })
+            .find({ _id: { $in: uniqueBroadcastIds } })
             .populate("category")
             .exec();
         const broadcastIdOrder = threads.map((thread) => thread.broadcast.toString());

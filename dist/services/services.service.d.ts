@@ -31,7 +31,6 @@ export declare class ServicesService {
     private readonly reviewService;
     constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
     private get lang();
-    private delayResponse;
     getServiceModel(): Model<ServiceDocument>;
     create(userId: string, dto: CreateServiceDto): Promise<{
         message: string;

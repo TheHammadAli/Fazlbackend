@@ -346,7 +346,6 @@ let AuthService = class AuthService {
                 ].filter((value) => Boolean(value)),
             });
             const payload = ticket.getPayload();
-            await new Promise((resolve) => setTimeout(resolve, 2000));
             if (!payload) {
                 throw new common_1.UnauthorizedException("Invalid Google token");
             }

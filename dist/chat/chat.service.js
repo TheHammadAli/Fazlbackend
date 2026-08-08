@@ -78,7 +78,6 @@ let ChatService = class ChatService {
                 seller: sellerObjectId,
                 status: "open",
             });
-            await new Promise(resolve => setTimeout(resolve, 2000));
             return convo;
         }
         catch (err) {
