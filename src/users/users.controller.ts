@@ -146,10 +146,10 @@ export class UsersController {
   @Get("allUsers")
   @UseGuards(PermissionsGuard)
   @RequirePermission("users")
-  @ApiOperation({ summary: "Get paginated list of all users with optional name/ID search and join-date range filter (protected)" })
+  @ApiOperation({ summary: "Get paginated list of all users with optional name/email/phone/ID search and join-date range filter (protected)" })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "search", required: false, type: String, description: "Search by user name or userCode (partial, case-insensitive)" })
+  @ApiQuery({ name: "search", required: false, type: String, description: "Search by user name, email, phone, or userCode (partial, case-insensitive)" })
   @ApiQuery({ name: "startDate", required: false, type: String, description: "Filter by join date, inclusive lower bound (ISO date)" })
   @ApiQuery({ name: "endDate", required: false, type: String, description: "Filter by join date, inclusive upper bound (ISO date)" })
   async getAllUsers(

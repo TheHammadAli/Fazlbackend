@@ -328,9 +328,12 @@ export class UsersService {
 
     if (search?.trim()) {
       const trimmedSearch = search.trim();
+      const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       query.$or = [
-        { name: { $regex: trimmedSearch, $options: "i" } },
-        { userCode: { $regex: trimmedSearch, $options: "i" } },
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { userCode: { $regex: escapedSearch, $options: "i" } },
+        { email: { $regex: escapedSearch, $options: "i" } },
+        { phone: { $regex: escapedSearch, $options: "i" } },
       ];
     }
 
