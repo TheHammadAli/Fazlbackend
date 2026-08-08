@@ -5,6 +5,7 @@ import { AnnouncementController } from "./announcement.controller";
 import { AnnouncementService } from "./announcement.service";
 import { Announcement, AnnouncementSchema } from "./schema/announcement.schema";
 import { Counter, CounterSchema } from "src/common/schema/counter.schema";
+import { SharedModule } from "src/shared/shared.module";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { Counter, CounterSchema } from "src/common/schema/counter.schema";
       { name: Announcement.name, schema: AnnouncementSchema },
       { name: Counter.name, schema: CounterSchema },
     ]),
+    SharedModule,
   ],
   controllers: [AnnouncementController],
   providers: [AnnouncementService],

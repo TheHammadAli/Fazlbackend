@@ -36,17 +36,50 @@ export class AnnouncementService {
       throw new BadRequestException("Title and message are required");
     }
 
+    const status = dto.status ?? "sent";
+    if (!["draft", "scheduled", "sent"].includes(status)) {
+      throw new BadRequestException("Invalid status");
+    }
+    if (status === "scheduled" && !dto.scheduledAt) {
+      throw new BadRequestException("Schedule date & time is required when scheduling an announcement");
+    }
+
+    if (dto.priority && !["low", "medium", "high"].includes(dto.priority)) {
+      throw new BadRequestException("Invalid priority");
+    }
+
+    if (dto.category && !Types.ObjectId.isValid(dto.category)) {
+      throw new BadRequestException("Invalid category id");
+    }
+
     const announcementCode = await this.generateNextAnnouncementCode();
 
     const announcement = await this.announcementModel.create({
       announcementCode,
       title,
       message,
+      image: dto.image,
+      targetAudience: dto.targetAudience ?? [],
+      category: dto.category ? new Types.ObjectId(dto.category) : undefined,
+      location: dto.location?.trim() || undefined,
+      ctaLabel: dto.ctaLabel?.trim() || undefined,
+      ctaDestination: dto.ctaDestination?.trim() || undefined,
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      priority: dto.priority ?? "medium",
+      status,
+      sentAt: status === "sent" ? new Date() : undefined,
       createdBy: new Types.ObjectId(createdBy),
     });
 
+    const statusMessage: Record<string, string> = {
+      sent: "Announcement sent successfully",
+      scheduled: "Announcement scheduled successfully",
+      draft: "Announcement saved as draft",
+    };
+
     return {
-      message: "Announcement sent successfully",
+      message: statusMessage[status],
       data: announcement,
     };
   }
@@ -62,6 +95,7 @@ export class AnnouncementService {
         .skip(skip)
         .limit(limit)
         .populate("createdBy", "name email")
+        .populate("category", "name")
         .lean()
         .exec(),
       this.announcementModel.countDocuments(),
