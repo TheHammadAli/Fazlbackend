@@ -19,6 +19,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiQuery,
+  ApiParam,
 } from "@nestjs/swagger";
 import { CreateMessageDto } from "./dto/create-message.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -229,5 +230,33 @@ export class ChatController {
       messages,
       meta,
     };
+  }
+
+  @Get("admin/user/:userId/conversations")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("users")
+  @ApiOperation({ summary: "Admin: get paginated conversations for a user, with the other party + latest message" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getAdminUserConversations(
+    @Param("userId") userId: string,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.chatService.getConversationsByUserId(userId, paginationDto);
+  }
+
+  @Get("admin/conversation/:conversationId/messages")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermission("users")
+  @ApiOperation({ summary: "Admin: get paginated messages for a specific conversation" })
+  @ApiParam({ name: "conversationId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getAdminConversationMessages(
+    @Param("conversationId") conversationId: string,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.chatService.getMessages(conversationId, paginationDto);
   }
 }
