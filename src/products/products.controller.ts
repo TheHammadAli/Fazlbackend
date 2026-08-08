@@ -108,6 +108,7 @@ export class ProductsController {
         throw new BadRequestException("Invalid location JSON");
       }
     }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     return this.productsService.create(entityId, type, createProductDto);
   }
 
@@ -121,6 +122,7 @@ export class ProductsController {
     @Param("shopId") shopId: string,
     @Query() paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<Product>> {
+
     return this.productsService.getAllProductsByShop(shopId, paginationDto);
   }
 
@@ -227,6 +229,7 @@ export class ProductsController {
     updateProductDto.parameters = JSON.parse(
       updateProductDto.parameters?.toString() || "",
     );
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return this.productsService.update(id, updateProductDto);
   }
