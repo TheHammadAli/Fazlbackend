@@ -55,9 +55,9 @@ export class ServicesService {
     return this.cls?.get("lang") ?? "en";
   }
 
-  private async delayResponse(ms = 2000): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  }
+  // private async delayResponse(ms = 2000): Promise<void> {
+  //   await new Promise((resolve) => setTimeout(resolve, ms));
+  // }
 
   // Expose service model for use in other services (e.g., broadcast)
   getServiceModel(): Model<ServiceDocument> {
@@ -214,7 +214,7 @@ export class ServicesService {
         }),
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Updated Service:", video);
     return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
@@ -630,7 +630,7 @@ export class ServicesService {
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
-    await this.delayResponse();
+    // await this.delayResponse();
 
     return {
       data: results,
@@ -750,7 +750,7 @@ export class ServicesService {
       );
     }
     // Give Android a brief window to settle the connection before the response completes.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,
@@ -816,7 +816,7 @@ export class ServicesService {
 
     const result = await request.save();
     // Give Android a brief window to settle the connection before the response completes.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,

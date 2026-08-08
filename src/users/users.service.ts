@@ -361,7 +361,7 @@ export class UsersService {
     };
   }
   async saveFcmToken(userId: string, token: string) {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // await new Promise(resolve => setTimeout(resolve, 2000));
     return this.userModel.findByIdAndUpdate(
       userId,
       { fcmToken: token },
