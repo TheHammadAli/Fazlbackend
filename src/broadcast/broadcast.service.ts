@@ -251,6 +251,10 @@ export class BroadcastService {
       ).values(),
     );
 
+    const threadBySellerId = new Map<string, string>(
+      uniqueThreads.map((thread: any) => [thread.seller.toString(), thread._id.toString()]),
+    );
+
     console.log("Image Urls", imageUrls)
     // 2. CREATE INITIAL MESSAGES
     const initialMessages = uniqueThreads.map((thread: any) => ({
@@ -280,6 +284,7 @@ export class BroadcastService {
         "PROMOTION",
         {
           broadcastId: broadcast._id.toString(),
+          threadId: threadBySellerId.get(sellerId) ?? null,
           buyerId,
           message: dto.message || "📢 New broadcast request",
           purpose: dto.purpose,
@@ -845,12 +850,14 @@ export class BroadcastService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("broadcast").lean()
+        .select("broadcast")
+        .lean()
         .exec(),
       this.threadModel.countDocuments({ seller: userObjectId }),
     ]);
 
-    const broadcastIds = threads.map((thread) => thread.broadcast);
+    const broadcastIds = threads.map((thread) => thread.broadcast.toString());
+    const uniqueBroadcastIds = Array.from(new Set(broadcastIds));
     const threadMap = new Map(
       threads.map((thread: any) => [
         thread.broadcast.toString(),
@@ -859,7 +866,7 @@ export class BroadcastService {
     );
 
     const data = await this.broadcastModel
-      .find({ _id: { $in: broadcastIds } })
+      .find({ _id: { $in: uniqueBroadcastIds } })
       .populate("category")
       .exec();
 
