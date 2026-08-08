@@ -83,33 +83,36 @@ export class ProductsController {
       video?: Express.Multer.File[];
     },
   ) {
-    if (files?.images && files.images.length > 0) {
-      createProductDto.images = files.images;
-    } else {
-      createProductDto.images = [];
-    }
-    if (files?.video && files.video.length > 0) {
-      createProductDto.video = files.video[0];
-    } else {
-      createProductDto.video = null; // Set to null if no video is uploaded
-    }
-    createProductDto.parameters = JSON.parse(
-      createProductDto.parameters?.toString() || "{}",
-    );
+    // if (files?.images && files.images.length > 0) {
+    //   createProductDto.images = files.images;
+    // } else {
+    //   createProductDto.images = [];
+    // }
+    // if (files?.video && files.video.length > 0) {
+    //   createProductDto.video = files.video[0];
+    // } else {
+    //   createProductDto.video = null; // Set to null if no video is uploaded
+    // }
+    // createProductDto.parameters = JSON.parse(
+    //   createProductDto.parameters?.toString() || "{}",
+    // );
 
 
-    if (createProductDto.location) {
-      try {
-        createProductDto.location =
-          typeof createProductDto.location === "string"
-            ? JSON.parse(createProductDto.location)
-            : createProductDto.location;
-      } catch {
-        throw new BadRequestException("Invalid location JSON");
-      }
+    // if (createProductDto.location) {
+    //   try {
+    //     createProductDto.location =
+    //       typeof createProductDto.location === "string"
+    //         ? JSON.parse(createProductDto.location)
+    //         : createProductDto.location;
+    //   } catch {
+    //     throw new BadRequestException("Invalid location JSON");
+    //   }
+    // }
+    return {
+      success: true,
+      message: "Product creation endpoint is under maintenance. Please try again later."
     }
-
-    return this.productsService.create(entityId, type, createProductDto);
+    // return this.productsService.create(entityId, type, createProductDto);
   }
 
   @Public()
