@@ -84,6 +84,17 @@ export class ChatService {
     }
   }
 
+  /** Read-only lookup — unlike getOrCreateConversation, never creates one. */
+  async findConversationBetween(userIdA: string, userIdB: string) {
+    const [user1, user2] =
+      userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
+
+    return this.conversationModel.findOne({
+      buyer: new Types.ObjectId(user1),
+      seller: new Types.ObjectId(user2),
+    });
+  }
+
   async sendMessage(
     conversationId: string,
     senderId: string,
