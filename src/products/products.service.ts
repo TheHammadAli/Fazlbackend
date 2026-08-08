@@ -86,7 +86,7 @@ export class ProductsService {
     entityId: string,
     type: "shop" | "personal",
     dto: CreateProductDto,
-  ): Promise<{ message: string; data: { product: Product } }> {
+  ) {
     try {
       console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
 
@@ -158,56 +158,58 @@ export class ProductsService {
 
       console.log("Product Payload:", productPayload);
 
-      const createdProduct = new this.productModel({
-        ...productPayload,
-        location, // always a proper object now
-        images: [],
-        video: "",
-        category: new Types.ObjectId(dto.category),
-      });
+      // const createdProduct = new this.productModel({
+      //   ...productPayload,
+      //   location, // always a proper object now
+      //   images: [],
+      //   video: "",
+      //   category: new Types.ObjectId(dto.category),
+      // });
 
-      let imageUrls: string[] = [];
-      if (dto?.images?.length) {
-        const uploadedFiles = await this.fileUploadService.uploadProductFiles(
-          dto.images,
-          type,
-          entityId,
-          (createdProduct._id as Types.ObjectId).toString(),
-          "images",
-        );
-        imageUrls = uploadedFiles.map((file) => file.url);
-        createdProduct.images = imageUrls;
-      }
+      // let imageUrls: string[] = [];
+      // if (dto?.images?.length) {
+      //   const uploadedFiles = await this.fileUploadService.uploadProductFiles(
+      //     dto.images,
+      //     type,
+      //     entityId,
+      //     (createdProduct._id as Types.ObjectId).toString(),
+      //     "images",
+      //   );
+      //   imageUrls = uploadedFiles.map((file) => file.url);
+      //   createdProduct.images = imageUrls;
+      // }
 
-      console.log(dto?.video, "Video Length", dto?.video);
-      if (dto?.video) {
-        const uploadedVideo = await this.fileUploadService.uploadProductFiles(
-          [dto.video],
-          type,
-          entityId,
-          (createdProduct._id as Types.ObjectId).toString(),
-          "video",
-        );
-        console.log("Uploaded Video:", uploadedVideo);
-        createdProduct.video = uploadedVideo[0].url;
-      }
+      // console.log(dto?.video, "Video Length", dto?.video);
+      // if (dto?.video) {
+      //   const uploadedVideo = await this.fileUploadService.uploadProductFiles(
+      //     [dto.video],
+      //     type,
+      //     entityId,
+      //     (createdProduct._id as Types.ObjectId).toString(),
+      //     "video",
+      //   );
+      //   console.log("Uploaded Video:", uploadedVideo);
+      //   createdProduct.video = uploadedVideo[0].url;
+      // }
 
-      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
-        createdProduct.searchableTags = [
-          ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
-        ];
-      } else {
-        createdProduct.searchableTags = [];
-      }
+      // if (createdProduct.parameters && createdProduct.parameters.length > 0) {
+      //   createdProduct.searchableTags = [
+      //     ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
+      //   ];
+      // } else {
+      //   createdProduct.searchableTags = [];
+      // }
 
-      const result = await createdProduct.save();
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // const result = await createdProduct.save();
+      // await new Promise((resolve) => setTimeout(resolve, 2000));
       return {
         message: this.i18n.translate("auth.products.created_success", {
           lang: this.lang,
         }),
         data: {
-          product: result,
+          success: true
+          // product: result,
+
         },
       };
     } catch (err) {
