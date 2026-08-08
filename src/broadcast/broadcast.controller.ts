@@ -227,6 +227,24 @@ export class BroadcastController {
     return this.broadcastService.getBroadcastRecipients(broadcastId);
   }
 
+  // 🛠️ Admin: get paginated messages between the broadcaster and one recipient
+  @Get("admin/:broadcastId/recipients/:sellerId/messages")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("broadcasts")
+  @ApiOperation({ summary: "Get paginated thread messages for one broadcast recipient (admin)" })
+  @ApiParam({ name: "broadcastId", required: true })
+  @ApiParam({ name: "sellerId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiResponse({ status: 200, description: "Thread + paginated messages for this broadcast/recipient pair" })
+  async getAdminThreadMessages(
+    @Param("broadcastId") broadcastId: string,
+    @Param("sellerId") sellerId: string,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.broadcastService.getAdminThreadMessages(broadcastId, sellerId, paginationDto);
+  }
+
   // 🛠️ Admin: close a broadcast
   @Patch("admin/:broadcastId/close")
   @UseGuards(PermissionsGuard)

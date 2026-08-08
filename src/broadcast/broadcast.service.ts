@@ -14,6 +14,7 @@ import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 
 import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { PaginationDto } from "src/common/dto/pagination.dto";
 
 import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
@@ -980,6 +981,48 @@ export class BroadcastService {
     return {
       data: recipients,
       meta: { total: recipients.length },
+    };
+  }
+
+  /** Admin: paginated messages in the thread for one recipient (seller) of a broadcast. */
+  async getAdminThreadMessages(
+    broadcastId: string,
+    sellerId: string,
+    paginationDto: PaginationDto,
+  ) {
+    if (!Types.ObjectId.isValid(broadcastId) || !Types.ObjectId.isValid(sellerId)) {
+      throw new BadRequestException("Invalid broadcast or seller id");
+    }
+
+    const { page = 1, limit = 10 } = paginationDto;
+
+    const thread = await this.threadModel.findOne({
+      broadcast: new Types.ObjectId(broadcastId),
+      seller: new Types.ObjectId(sellerId),
+    });
+
+    if (!thread) {
+      return {
+        thread: null,
+        messages: [],
+        meta: { total: 0, page, limit, totalPages: 0 },
+      };
+    }
+
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.messageModel
+        .find({ thread: thread._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      this.messageModel.countDocuments({ thread: thread._id }),
+    ]);
+
+    return {
+      thread: { _id: thread._id },
+      messages: data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
