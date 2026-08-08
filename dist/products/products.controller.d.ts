@@ -16,7 +16,7 @@ export declare class ProductsController {
     }): Promise<{
         message: string;
         data: {
-            success: boolean;
+            product: Product;
         };
     }>;
     getAllByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;

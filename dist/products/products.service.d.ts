@@ -31,7 +31,7 @@ export declare class ProductsService {
     create(entityId: string, type: "shop" | "personal", dto: CreateProductDto): Promise<{
         message: string;
         data: {
-            success: boolean;
+            product: Product;
         };
     }>;
     getAllProductsByShop(shopId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Product>>;
