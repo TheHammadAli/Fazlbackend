@@ -19,34 +19,45 @@ let FileUploadService = class FileUploadService {
     configService;
     s3;
     bucketName;
+    region;
+    cloudfrontDomain;
     constructor(configService) {
         this.configService = configService;
         const region = this.configService.get("AWS_REGION");
         const accessKeyId = this.configService.get("AWS_ACCESS_KEY_ID");
         const secretAccessKey = this.configService.get("AWS_SECRET_ACCESS_KEY");
-        const bucket = this.configService.get("AWS_S3_BUCKET_NAME");
-        if (!region || !accessKeyId || !secretAccessKey || !bucket) {
+        const bucketName = this.configService.get("AWS_S3_BUCKET_NAME");
+        this.cloudfrontDomain = this.configService.get("CLOUDFRONT_DOMAIN");
+        if (!region || !accessKeyId || !secretAccessKey || !bucketName) {
             throw new Error("Missing AWS S3 configuration");
         }
-        console.log(`Initializing S3 client with bucket: ${bucket}`, accessKeyId, secretAccessKey, region);
-        this.bucketName = bucket;
+        this.region = region;
+        this.bucketName = bucketName;
         this.s3 = new client_s3_1.S3Client({
-            region,
+            region: this.region,
             credentials: {
                 accessKeyId,
                 secretAccessKey,
             },
         });
     }
+    getFileUrl(key, isVideo = false) {
+        if (isVideo && this.cloudfrontDomain) {
+            return `${this.cloudfrontDomain}/${key}`;
+        }
+        return `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
+    }
     async uploadProductFiles(files, type, entityId, productId, fileType = "images") {
         const uploadedFiles = [];
-        console.log("Uploading files:", files);
         for (const file of files) {
             const fileExt = (0, path_1.extname)(file.originalname);
             const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
-            let key = `${type}/${entityId}/products/${productId}/${fileType}/${uniqueName}`;
+            let key;
             if (fileType === "video") {
-                key = `${type}/${entityId}/products/${productId}/video`;
+                key = `${type}/${entityId}/products/${productId}/video/${uniqueName}`;
+            }
+            else {
+                key = `${type}/${entityId}/products/${productId}/${fileType}/${uniqueName}`;
             }
             try {
                 const command = new client_s3_1.PutObjectCommand({
@@ -54,11 +65,10 @@ let FileUploadService = class FileUploadService {
                     Key: key,
                     Body: file.buffer,
                     ContentType: file.mimetype,
+                    CacheControl: fileType === "video" ? "max-age=31536000" : "max-age=86400",
                 });
-                console.log(`Uploading file to S3 with key: ${key}`);
                 await this.s3.send(command);
-                const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
-                console.log(`File uploaded successfully: ${url}`);
+                const url = this.getFileUrl(key, fileType === "video");
                 uploadedFiles.push({ key, url });
             }
             catch (err) {
@@ -68,8 +78,38 @@ let FileUploadService = class FileUploadService {
         }
         return uploadedFiles;
     }
+    async uploadServiceFile(userId, serviceId, files, fileType = "images") {
+        const uploadedFiles = [];
+        for (const file of files) {
+            const fileExt = (0, path_1.extname)(file.originalname);
+            const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
+            let key;
+            if (fileType === "video") {
+                key = `service/${userId}/${serviceId}/video/${uniqueName}`;
+            }
+            else {
+                key = `service/${userId}/${serviceId}/${fileType}/${uniqueName}`;
+            }
+            try {
+                const command = new client_s3_1.PutObjectCommand({
+                    Bucket: this.bucketName,
+                    Key: key,
+                    Body: file.buffer,
+                    ContentType: file.mimetype,
+                    CacheControl: fileType === "video" ? "max-age=31536000" : "max-age=86400",
+                });
+                await this.s3.send(command);
+                const url = this.getFileUrl(key, fileType === "video");
+                uploadedFiles.push(url);
+            }
+            catch (err) {
+                console.error("S3 upload error:", err);
+                throw new common_1.InternalServerErrorException("One or more file uploads failed");
+            }
+        }
+        return uploadedFiles;
+    }
     async uploadUserImage(userId, file) {
-        const fileExt = (0, path_1.extname)(file.originalname);
         const key = `users/${userId}/images/profile-pic`;
         try {
             const command = new client_s3_1.PutObjectCommand({
@@ -78,15 +118,12 @@ let FileUploadService = class FileUploadService {
                 Body: file.buffer,
                 ContentType: file.mimetype,
             });
-            console.log(`Uploading file to S3 with key: ${key}`);
             await this.s3.send(command);
-            const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
-            console.log(`File uploaded successfully: ${url}`);
-            return url;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
-            throw new common_1.InternalServerErrorException("One or more file uploads failed");
+            throw new common_1.InternalServerErrorException("User image upload failed");
         }
     }
     async uploadShopImage(shopId, file) {
@@ -98,15 +135,12 @@ let FileUploadService = class FileUploadService {
                 Body: file.buffer,
                 ContentType: file.mimetype,
             });
-            console.log(`Uploading file to S3 with key: ${key}`);
             await this.s3.send(command);
-            const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
-            console.log(`File uploaded successfully: ${url}`);
-            return url;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
-            throw new common_1.InternalServerErrorException("One or more file uploads failed");
+            throw new common_1.InternalServerErrorException("Shop image upload failed");
         }
     }
     async uploadCategoryIcon(file) {
@@ -121,9 +155,7 @@ let FileUploadService = class FileUploadService {
                 ContentType: file.mimetype,
             });
             await this.s3.send(command);
-            const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
-            console.log(`File uploaded successfully: ${url}`);
-            return url;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
@@ -139,78 +171,12 @@ let FileUploadService = class FileUploadService {
                 Body: file.buffer,
                 ContentType: file.mimetype,
             });
-            console.log(`Uploading file to S3 with key: ${key}`);
             await this.s3.send(command);
-            const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
-            console.log(`File uploaded successfully: ${url}`);
-            return url;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
-            throw new common_1.InternalServerErrorException("One or more file uploads failed");
-        }
-    }
-    async uploadServiceFile(userId, serviceId, files, fileType = "images") {
-        const uploadedFiles = [];
-        console.log("Uploading files:", files);
-        for (const file of files) {
-            const fileExt = (0, path_1.extname)(file.originalname);
-            const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
-            let key = `service/${userId}/${serviceId}/${fileType}/${uniqueName}`;
-            if (fileType === "video") {
-                key = `service/${userId}/${serviceId}/video`;
-            }
-            try {
-                const command = new client_s3_1.PutObjectCommand({
-                    Bucket: this.bucketName,
-                    Key: key,
-                    Body: file.buffer,
-                    ContentType: file.mimetype,
-                });
-                console.log(`Uploading file to S3 with key: ${key}`);
-                await this.s3.send(command);
-                const url = `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
-                console.log(`File uploaded successfully: ${url}`);
-                uploadedFiles.push(url);
-            }
-            catch (err) {
-                console.error("S3 upload error:", err);
-                throw new common_1.InternalServerErrorException("One or more file uploads failed");
-            }
-        }
-        return uploadedFiles;
-    }
-    async deleteEntityProducts(type, entityId, productId) {
-        try {
-            const prefix = `${type}/${entityId}/products/${productId}`;
-            const command = new client_s3_1.PutObjectCommand({
-                Bucket: this.bucketName,
-                Key: prefix,
-            });
-            console.log(`Deleting files from S3 with prefix: ${prefix}`);
-            await this.s3.send(command);
-            console.log(`Files deleted successfully from S3 with prefix: ${prefix}`);
-        }
-        catch (err) { }
-    }
-    async deleteFiles(media) {
-        try {
-            for (const path of media) {
-                const key = path.split(`https://${this.bucketName}.s3.us-east-1.amazonaws.com/`)[1];
-                if (!key)
-                    throw new Error("Invalid S3 URL");
-                const command = new client_s3_1.PutObjectCommand({
-                    Bucket: this.bucketName,
-                    Key: key,
-                });
-                console.log(`Deleting file from S3 with key: ${key}`);
-                await this.s3.send(command);
-                console.log(`File deleted successfully: ${key}`);
-            }
-        }
-        catch (err) {
-            console.error("S3 delete error:", err);
-            throw new common_1.InternalServerErrorException("File deletion failed");
+            throw new common_1.InternalServerErrorException("Shop banner upload failed");
         }
     }
     async uploadChatMessage(conversationId, file) {
@@ -225,7 +191,7 @@ let FileUploadService = class FileUploadService {
                 ContentType: file.mimetype,
             });
             await this.s3.send(command);
-            return `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
@@ -244,7 +210,7 @@ let FileUploadService = class FileUploadService {
                 ContentType: file.mimetype,
             });
             await this.s3.send(command);
-            return `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
@@ -263,11 +229,71 @@ let FileUploadService = class FileUploadService {
                 ContentType: file.mimetype,
             });
             await this.s3.send(command);
-            return `https://${this.bucketName}.s3.${this.configService.get("AWS_REGION")}.amazonaws.com/${key}`;
+            return this.getFileUrl(key, false);
         }
         catch (err) {
             console.error("S3 upload error:", err);
             throw new common_1.InternalServerErrorException("Thread image upload failed");
+        }
+    }
+    async deleteEntityProducts(type, entityId, productId) {
+        try {
+            const prefix = productId
+                ? `${type}/${entityId}/products/${productId}/`
+                : `${type}/${entityId}/products/`;
+            const listCommand = new client_s3_1.ListObjectsV2Command({
+                Bucket: this.bucketName,
+                Prefix: prefix,
+            });
+            const listed = await this.s3.send(listCommand);
+            if (!listed.Contents || listed.Contents.length === 0) {
+                console.log(`No files found for prefix: ${prefix}`);
+                return;
+            }
+            const deleteCommand = new client_s3_1.DeleteObjectsCommand({
+                Bucket: this.bucketName,
+                Delete: {
+                    Objects: listed.Contents.map((item) => ({ Key: item.Key })),
+                    Quiet: true,
+                },
+            });
+            await this.s3.send(deleteCommand);
+            console.log(`Deleted ${listed.Contents.length} files under: ${prefix}`);
+        }
+        catch (err) {
+            console.error("S3 delete error:", err);
+            throw new common_1.InternalServerErrorException("Failed to delete product files");
+        }
+    }
+    async deleteFiles(media) {
+        try {
+            const keysToDelete = media
+                .map((path) => {
+                if (path.includes("amazonaws.com/")) {
+                    return path.split("amazonaws.com/")[1];
+                }
+                if (this.cloudfrontDomain &&
+                    path.includes(this.cloudfrontDomain)) {
+                    return path.split(`${this.cloudfrontDomain}/`)[1];
+                }
+                return null;
+            })
+                .filter(Boolean);
+            if (keysToDelete.length === 0)
+                return;
+            const deleteCommand = new client_s3_1.DeleteObjectsCommand({
+                Bucket: this.bucketName,
+                Delete: {
+                    Objects: keysToDelete.map((Key) => ({ Key })),
+                    Quiet: true,
+                },
+            });
+            await this.s3.send(deleteCommand);
+            console.log(`Deleted ${keysToDelete.length} files`);
+        }
+        catch (err) {
+            console.error("S3 delete error:", err);
+            throw new common_1.InternalServerErrorException("File deletion failed");
         }
     }
 };
