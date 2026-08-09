@@ -42,6 +42,14 @@ class CategoryParameterEntryDto {
   @IsOptional()
   @IsBoolean()
   allowCustomValue?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Whether the user can select more than one value from the list. Defaults to single-select (false).",
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMultiple?: boolean;
 }
 
 class CategoryParametersDto {

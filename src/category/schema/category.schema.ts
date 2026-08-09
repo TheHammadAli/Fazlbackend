@@ -33,6 +33,7 @@ export class Category {
           values: [{ type: String }],
           isOptional: { type: Boolean, default: false },
           allowCustomValue: { type: Boolean, default: false },
+          allowMultiple: { type: Boolean, default: false },
         },
       ],
       ur: [
@@ -41,14 +42,15 @@ export class Category {
           values: [{ type: String }],
           isOptional: { type: Boolean, default: false },
           allowCustomValue: { type: Boolean, default: false },
+          allowMultiple: { type: Boolean, default: false },
         },
       ],
     },
     default: { en: [], ur: [] },
   })
   parameters?: {
-    en: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean }[];
-    ur: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean }[];
+    en: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean; allowMultiple?: boolean }[];
+    ur: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean; allowMultiple?: boolean }[];
   };
 
   @Prop({ default: 0 })
