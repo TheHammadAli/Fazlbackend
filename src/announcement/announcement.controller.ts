@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 
@@ -42,6 +42,28 @@ export class AnnouncementController {
       dto.image = await this.fileUploadService.uploadAnnouncementImage(image);
     }
     return this.announcementService.create(dto, currentUser.sub);
+  }
+
+  @Put(":id")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("announcements")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Update a draft announcement (admin only)" })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FileInterceptor("image"))
+  @ApiBody({ type: CreateAnnouncementDto })
+  async update(
+    @Param("id") id: string,
+    @Body() dto: CreateAnnouncementDto,
+    @UploadedFile() image?: any,
+  ) {
+    if (dto.targetAudience && typeof dto.targetAudience === "string") {
+      dto.targetAudience = JSON.parse(dto.targetAudience);
+    }
+    if (image) {
+      dto.image = await this.fileUploadService.uploadAnnouncementImage(image);
+    }
+    return this.announcementService.update(id, dto);
   }
 
   @Get()

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
@@ -7,6 +7,12 @@ import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateAnnouncementDto } from "./dto/create-announcement.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
+
+const STATUS_MESSAGE: Record<string, string> = {
+  sent: "Announcement sent successfully",
+  scheduled: "Announcement scheduled successfully",
+  draft: "Announcement saved as draft",
+};
 
 @Injectable()
 export class AnnouncementService {
@@ -27,16 +33,16 @@ export class AnnouncementService {
     return `ANN-${String(counter.seq).padStart(6, "0")}`;
   }
 
-  async create(dto: CreateAnnouncementDto, createdBy: string) {
-    // No global ValidationPipe is registered in this app, so class-validator decorators on the
-    // DTO are documentation only, not enforcement — this must be checked explicitly at runtime.
+  // No global ValidationPipe is registered in this app, so class-validator decorators on the
+  // DTO are documentation only, not enforcement — this must be checked explicitly at runtime.
+  private validateDto(dto: CreateAnnouncementDto, defaultStatus: "draft" | "sent") {
     const title = dto.title?.trim();
     const message = dto.message?.trim();
     if (!title || !message) {
       throw new BadRequestException("Title and message are required");
     }
 
-    const status = dto.status ?? "sent";
+    const status = dto.status ?? defaultStatus;
     if (!["draft", "scheduled", "sent"].includes(status)) {
       throw new BadRequestException("Invalid status");
     }
@@ -51,6 +57,12 @@ export class AnnouncementService {
     if (dto.category && !Types.ObjectId.isValid(dto.category)) {
       throw new BadRequestException("Invalid category id");
     }
+
+    return { title, message, status };
+  }
+
+  async create(dto: CreateAnnouncementDto, createdBy: string) {
+    const { title, message, status } = this.validateDto(dto, "sent");
 
     const announcementCode = await this.generateNextAnnouncementCode();
 
@@ -72,14 +84,50 @@ export class AnnouncementService {
       createdBy: new Types.ObjectId(createdBy),
     });
 
-    const statusMessage: Record<string, string> = {
-      sent: "Announcement sent successfully",
-      scheduled: "Announcement scheduled successfully",
-      draft: "Announcement saved as draft",
+    return {
+      message: STATUS_MESSAGE[status],
+      data: announcement,
     };
+  }
+
+  /** Only drafts can be edited — scheduled/sent announcements are treated as final. */
+  async update(id: string, dto: CreateAnnouncementDto) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException("Invalid announcement id");
+    }
+
+    const announcement = await this.announcementModel.findById(id);
+    if (!announcement) {
+      throw new NotFoundException("Announcement not found");
+    }
+    if (announcement.status !== "draft") {
+      throw new BadRequestException("Only draft announcements can be edited");
+    }
+
+    const { title, message, status } = this.validateDto(dto, "draft");
+
+    announcement.title = title;
+    announcement.message = message;
+    if (dto.image) {
+      announcement.image = dto.image;
+    }
+    announcement.targetAudience = dto.targetAudience ?? [];
+    announcement.category = dto.category ? new Types.ObjectId(dto.category) : undefined;
+    announcement.location = dto.location?.trim() || undefined;
+    announcement.ctaLabel = dto.ctaLabel?.trim() || undefined;
+    announcement.ctaDestination = dto.ctaDestination?.trim() || undefined;
+    announcement.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : undefined;
+    announcement.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : undefined;
+    announcement.priority = dto.priority ?? "medium";
+    announcement.status = status;
+    if (status === "sent") {
+      announcement.sentAt = new Date();
+    }
+
+    await announcement.save();
 
     return {
-      message: statusMessage[status],
+      message: STATUS_MESSAGE[status],
       data: announcement,
     };
   }
