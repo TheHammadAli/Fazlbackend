@@ -438,7 +438,7 @@ export class BroadcastService {
       await this.notificationsService.createAndNotify(
         actualReceiverId,
         "broadcast.new_message",
-        "MESSAGE",
+        "BROADCAST",
         {
           thread: {
             id: thread._id,
