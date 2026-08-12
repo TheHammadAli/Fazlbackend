@@ -256,7 +256,7 @@ let BroadcastService = class BroadcastService {
             isRead: false,
         });
         try {
-            await this.notificationsService.createAndNotify(actualReceiverId, "broadcast.new_message", "MESSAGE", {
+            await this.notificationsService.createAndNotify(actualReceiverId, "broadcast.new_message", "BROADCAST", {
                 thread: {
                     id: thread._id,
                     buyer: thread.buyer,
