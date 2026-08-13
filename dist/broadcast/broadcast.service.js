@@ -485,6 +485,35 @@ let BroadcastService = class BroadcastService {
             {
                 $lookup: {
                     from: "broadcastmessages",
+                    let: { broadcastId: "$_id", currentUserId: buyerObjectId },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$broadcast", "$$broadcastId"] },
+                                        { $eq: ["$receiver", "$$currentUserId"] },
+                                        { $eq: ["$isRead", false] },
+                                        { $ne: ["$sender", "$$currentUserId"] },
+                                    ],
+                                },
+                            },
+                        },
+                        { $count: "count" },
+                    ],
+                    as: "unreadMessages",
+                },
+            },
+            {
+                $addFields: {
+                    unreadCount: {
+                        $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
+                    },
+                },
+            },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
                     let: { broadcastId: "$_id" },
                     pipeline: [
                         { $match: { $expr: { $eq: ["$broadcast", "$$broadcastId"] } } },
@@ -554,6 +583,7 @@ let BroadcastService = class BroadcastService {
                     createdAt: 1,
                     updatedAt: 1,
                     threadCount: 1,
+                    unreadCount: 1,
                     imageUrls: 1,
                     latestMessage: 1,
                     category: 1,
@@ -598,6 +628,32 @@ let BroadcastService = class BroadcastService {
             thread.broadcast.toString(),
             thread._id.toString(),
         ]));
+        const threadIds = threads.map((thread) => new mongoose_2.Types.ObjectId(String(thread._id)));
+        const unreadCounts = await this.messageModel
+            .aggregate([
+            {
+                $match: {
+                    thread: { $in: threadIds },
+                    receiver: userObjectId,
+                    isRead: false,
+                    sender: { $ne: userObjectId },
+                },
+            },
+            {
+                $group: {
+                    _id: "$thread",
+                    unreadCount: { $sum: 1 },
+                },
+            },
+        ])
+            .exec();
+        const unreadMap = new Map();
+        unreadCounts.forEach((item) => {
+            const threadId = String(item?._id ?? "");
+            if (threadId) {
+                unreadMap.set(threadId, Number(item.unreadCount || 0));
+            }
+        });
         const data = await this.broadcastModel
             .find({ _id: { $in: uniqueBroadcastIds } })
             .populate("category")
@@ -607,11 +663,15 @@ let BroadcastService = class BroadcastService {
         const orderedData = broadcastIdOrder
             .map((id) => dataMap.get(id))
             .filter((b) => b != null)
-            .map((broadcast) => ({
-            ...broadcast.toObject?.() ?? broadcast,
-            location: broadcast.location ?? null,
-            threadId: threadMap.get(broadcast._id.toString()),
-        }));
+            .map((broadcast) => {
+            const threadId = threadMap.get(broadcast._id.toString());
+            return {
+                ...broadcast.toObject?.() ?? broadcast,
+                location: broadcast.location ?? null,
+                threadId,
+                unreadCount: threadId ? unreadMap.get(threadId) ?? 0 : 0,
+            };
+        });
         return {
             meta: {
                 total,

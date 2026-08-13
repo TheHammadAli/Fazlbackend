@@ -702,7 +702,6 @@ export class BroadcastService {
     const broadcasts = await this.broadcastModel.aggregate([
       { $match: { buyer: buyerObjectId } },
 
-      // 1. Threads count
       {
         $lookup: {
           from: "broadcastthreads",
@@ -713,7 +712,6 @@ export class BroadcastService {
       },
       { $addFields: { threadCount: { $size: "$threads" } } },
 
-      // 2. Category
       {
         $lookup: {
           from: "categories",
@@ -726,7 +724,36 @@ export class BroadcastService {
         $unwind: { path: "$category", preserveNullAndEmptyArrays: true },
       },
 
-      // 3. Latest Message (with imageUrls)
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { broadcastId: "$_id", currentUserId: buyerObjectId },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$broadcast", "$$broadcastId"] },
+                    { $eq: ["$receiver", "$$currentUserId"] },
+                    { $eq: ["$isRead", false] },
+                    { $ne: ["$sender", "$$currentUserId"] },
+                  ],
+                },
+              },
+            },
+            { $count: "count" },
+          ],
+          as: "unreadMessages",
+        },
+      },
+      {
+        $addFields: {
+          unreadCount: {
+            $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
+          },
+        },
+      },
+
       {
         $lookup: {
           from: "broadcastmessages",
@@ -748,8 +775,8 @@ export class BroadcastService {
               $project: {
                 message: 1,
                 createdAt: 1,
-                imageUrls: 1,           // ← ADD THIS
-                type: 1,                // optional
+                imageUrls: 1,
+                type: 1,
                 sender: { _id: 1, name: 1, image: 1 },
               },
             },
@@ -761,7 +788,6 @@ export class BroadcastService {
         $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true },
       },
 
-      // 4. Extract imageUrls from latest message (fallback to empty array)
       {
         $addFields: {
           imageUrls: {
@@ -770,8 +796,6 @@ export class BroadcastService {
         },
       },
 
-      // Optional: Keep initial SYSTEM message if you still need it for something else
-      // (you can remove this block if not needed)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -793,7 +817,6 @@ export class BroadcastService {
         $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true },
       },
 
-      // Final Projection
       {
         $project: {
           _id: 1,
@@ -806,10 +829,10 @@ export class BroadcastService {
           createdAt: 1,
           updatedAt: 1,
           threadCount: 1,
+          unreadCount: 1,
           imageUrls: 1,
           latestMessage: 1,
           category: 1,
-          // initialMessage: 1, // remove if not needed
         },
       },
       { $sort: { createdAt: -1 } },
@@ -865,12 +888,42 @@ export class BroadcastService {
       ]),
     );
 
+    const threadIds = threads.map((thread: any) =>
+      new Types.ObjectId(String(thread._id)),
+    );
+
+    const unreadCounts = await this.messageModel
+      .aggregate([
+        {
+          $match: {
+            thread: { $in: threadIds },
+            receiver: userObjectId,
+            isRead: false,
+            sender: { $ne: userObjectId },
+          },
+        },
+        {
+          $group: {
+            _id: "$thread",
+            unreadCount: { $sum: 1 },
+          },
+        },
+      ])
+      .exec();
+
+    const unreadMap = new Map<string, number>();
+    unreadCounts.forEach((item: any) => {
+      const threadId = String(item?._id ?? "");
+      if (threadId) {
+        unreadMap.set(threadId, Number(item.unreadCount || 0));
+      }
+    });
+
     const data = await this.broadcastModel
       .find({ _id: { $in: uniqueBroadcastIds } })
       .populate("category")
       .exec();
 
-    // Maintain order and add threadId
     const broadcastIdOrder = threads.map((thread) =>
       thread.broadcast.toString(),
     );
@@ -878,11 +931,16 @@ export class BroadcastService {
     const orderedData = broadcastIdOrder
       .map((id) => dataMap.get(id))
       .filter((b): b is NonNullable<typeof b> => b != null)
-      .map((broadcast) => ({
-        ...(broadcast as any).toObject?.() ?? broadcast,
-        location: (broadcast as any).location ?? null,
-        threadId: threadMap.get(broadcast._id.toString()),
-      }));
+      .map((broadcast) => {
+        const threadId = threadMap.get(broadcast._id.toString());
+
+        return {
+          ...(broadcast as any).toObject?.() ?? broadcast,
+          location: (broadcast as any).location ?? null,
+          threadId,
+          unreadCount: threadId ? unreadMap.get(threadId) ?? 0 : 0,
+        };
+      });
 
     return {
       meta: {
