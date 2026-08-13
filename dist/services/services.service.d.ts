@@ -124,4 +124,33 @@ export declare class ServicesService {
     }>;
     getServicesWithVideos(paginationDto: PaginationDto, userId?: string, category?: string): Promise<PaginatedResponseDto<Service>>;
     getServicesRequestsForCustomer(customerId: string, paginationDto: PaginationDto, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
+    checkReviewEligibility(userId: string, serviceId: string): Promise<{
+        canReview: boolean;
+        alreadyReviewed: boolean;
+        message: string;
+        notBooked?: undefined;
+        notAccepted?: undefined;
+        requestStatus?: undefined;
+    } | {
+        canReview: boolean;
+        notBooked: boolean;
+        message: string;
+        alreadyReviewed?: undefined;
+        notAccepted?: undefined;
+        requestStatus?: undefined;
+    } | {
+        canReview: boolean;
+        notAccepted: boolean;
+        requestStatus: import("./schema/service_request.schema").RequestStatus;
+        message: string;
+        alreadyReviewed?: undefined;
+        notBooked?: undefined;
+    } | {
+        canReview: boolean;
+        message: string;
+        alreadyReviewed?: undefined;
+        notBooked?: undefined;
+        notAccepted?: undefined;
+        requestStatus?: undefined;
+    }>;
 }

@@ -171,6 +171,22 @@ export class ServicesController {
     return await this.servicesService.getById(serviceId, userId);
   }
 
+  @Get(':serviceId/check-review')
+  @ApiOperation({ summary: 'Check if a user can review a service' })
+  @ApiParam({ name: 'serviceId', required: true })
+  @ApiQuery({ name: 'userId', required: false })
+  async checkReviewEligibility(
+    @Param('serviceId') serviceId: string,
+    @Query('userId') userId?: string,
+    @CurrentUser('sub') currentUserId?: string,
+  ) {
+    const uid = userId || currentUserId;
+    if (!uid) {
+      throw new BadRequestException('userId is required');
+    }
+    return this.servicesService.checkReviewEligibility(uid, serviceId);
+  }
+
   @Get("/user/:userId")
   @Public()
   @ApiOperation({ summary: "Get paginated services by user ID" })

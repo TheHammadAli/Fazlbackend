@@ -1075,6 +1075,67 @@ export class ServicesService {
       data: requests,
     };
   }
+
+  /**
+   * Check whether a user is eligible to review a service.
+   * Returns flags and message explaining the reason.
+   */
+  async checkReviewEligibility(userId: string, serviceId: string) {
+    if (!userId) throw new BadRequestException("userId is required");
+
+    // 1) Check if the user already submitted a review for this service
+    const existingReview = await this.reviewService.findOne(
+      userId,
+      serviceId,
+      "service",
+    );
+    if (existingReview) {
+      return {
+        canReview: false,
+        alreadyReviewed: true,
+        message: this.i18n.translate("auth.reviews.duplicate_review", {
+          lang: this.lang,
+        }),
+      };
+    }
+
+    // 2) Check service requests made by this user for the service
+    const request = await this.requestModel
+      .findOne({
+        service: new Types.ObjectId(serviceId),
+        customer: new Types.ObjectId(userId),
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!request) {
+      return {
+        canReview: false,
+        notBooked: true,
+        message: this.i18n.translate("auth.services.no_requests_found", {
+          lang: this.lang,
+        }),
+      };
+    }
+
+    // Only allow review if request was accepted/confirmed
+    const acceptedStatuses = ["accepted", "confirmed"];
+    if (!acceptedStatuses.includes(request.status)) {
+      return {
+        canReview: false,
+        notAccepted: true,
+        requestStatus: request.status,
+        message: this.i18n.translate("auth.services.request_not_accepted", {
+          lang: this.lang,
+        }) || "Service request has not been accepted",
+      };
+    }
+
+    return {
+      canReview: true,
+      message: "User is eligible to review",
+    };
+  }
 }
 
 

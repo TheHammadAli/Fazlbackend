@@ -68,6 +68,35 @@ export declare class ServicesController {
         message: string;
     }>;
     getById(serviceId: string, userId?: string): Promise<any>;
+    checkReviewEligibility(serviceId: string, userId?: string, currentUserId?: string): Promise<{
+        canReview: boolean;
+        alreadyReviewed: boolean;
+        message: string;
+        notBooked?: undefined;
+        notAccepted?: undefined;
+        requestStatus?: undefined;
+    } | {
+        canReview: boolean;
+        notBooked: boolean;
+        message: string;
+        alreadyReviewed?: undefined;
+        notAccepted?: undefined;
+        requestStatus?: undefined;
+    } | {
+        canReview: boolean;
+        notAccepted: boolean;
+        requestStatus: import("./schema/service_request.schema").RequestStatus;
+        message: string;
+        alreadyReviewed?: undefined;
+        notBooked?: undefined;
+    } | {
+        canReview: boolean;
+        message: string;
+        alreadyReviewed?: undefined;
+        notBooked?: undefined;
+        notAccepted?: undefined;
+        requestStatus?: undefined;
+    }>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
     getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<any>>;
     getServicesWithVideos(query: GetWithVideosDto, userId?: string): Promise<PaginatedResponseDto<any>>;

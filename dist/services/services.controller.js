@@ -24,6 +24,7 @@ const update_request_dto_1 = require("./dto/update-request-dto");
 const update_job_dto_1 = require("./dto/update-job-dto");
 const update_service_status_dto_1 = require("./dto/update-service-status.dto");
 const platform_express_1 = require("@nestjs/platform-express");
+const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 const video_with_dto_1 = require("./dto/video-with-dto");
 const Get_paginated_dto_1 = require("../orders/dto/Get-paginated-dto");
@@ -76,6 +77,13 @@ let ServicesController = class ServicesController {
     }
     async getById(serviceId, userId) {
         return await this.servicesService.getById(serviceId, userId);
+    }
+    async checkReviewEligibility(serviceId, userId, currentUserId) {
+        const uid = userId || currentUserId;
+        if (!uid) {
+            throw new common_1.BadRequestException('userId is required');
+        }
+        return this.servicesService.checkReviewEligibility(uid, serviceId);
     }
     async getByUser(userId, page = 1, limit = 10) {
         return this.servicesService.getByUser(userId, page, limit);
@@ -203,6 +211,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServicesController.prototype, "getById", null);
+__decorate([
+    (0, common_1.Get)(':serviceId/check-review'),
+    (0, swagger_1.ApiOperation)({ summary: 'Check if a user can review a service' }),
+    (0, swagger_1.ApiParam)({ name: 'serviceId', required: true }),
+    (0, swagger_1.ApiQuery)({ name: 'userId', required: false }),
+    __param(0, (0, common_1.Param)('serviceId')),
+    __param(1, (0, common_1.Query)('userId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "checkReviewEligibility", null);
 __decorate([
     (0, common_1.Get)("/user/:userId"),
     (0, public_decorator_1.Public)(),

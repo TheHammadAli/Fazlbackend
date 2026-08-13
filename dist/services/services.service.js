@@ -764,6 +764,51 @@ let ServicesService = class ServicesService {
             data: requests,
         };
     }
+    async checkReviewEligibility(userId, serviceId) {
+        if (!userId)
+            throw new common_1.BadRequestException("userId is required");
+        const existingReview = await this.reviewService.findOne(userId, serviceId, "service");
+        if (existingReview) {
+            return {
+                canReview: false,
+                alreadyReviewed: true,
+                message: this.i18n.translate("auth.reviews.duplicate_review", {
+                    lang: this.lang,
+                }),
+            };
+        }
+        const request = await this.requestModel
+            .findOne({
+            service: new mongoose_2.Types.ObjectId(serviceId),
+            customer: new mongoose_2.Types.ObjectId(userId),
+        })
+            .sort({ createdAt: -1 })
+            .lean();
+        if (!request) {
+            return {
+                canReview: false,
+                notBooked: true,
+                message: this.i18n.translate("auth.services.no_requests_found", {
+                    lang: this.lang,
+                }),
+            };
+        }
+        const acceptedStatuses = ["accepted", "confirmed"];
+        if (!acceptedStatuses.includes(request.status)) {
+            return {
+                canReview: false,
+                notAccepted: true,
+                requestStatus: request.status,
+                message: this.i18n.translate("auth.services.request_not_accepted", {
+                    lang: this.lang,
+                }) || "Service request has not been accepted",
+            };
+        }
+        return {
+            canReview: true,
+            message: "User is eligible to review",
+        };
+    }
 };
 exports.ServicesService = ServicesService;
 exports.ServicesService = ServicesService = __decorate([
