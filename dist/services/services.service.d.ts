@@ -125,32 +125,40 @@ export declare class ServicesService {
     getServicesWithVideos(paginationDto: PaginationDto, userId?: string, category?: string): Promise<PaginatedResponseDto<Service>>;
     getServicesRequestsForCustomer(customerId: string, paginationDto: PaginationDto, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
     checkReviewEligibility(userId: string, serviceId: string): Promise<{
-        canReview: boolean;
-        alreadyReviewed: boolean;
+        data: {
+            canReview: boolean;
+            alreadyReviewed: boolean;
+            notBooked?: undefined;
+            notAccepted?: undefined;
+            requestStatus?: undefined;
+        };
         message: string;
-        notBooked?: undefined;
-        notAccepted?: undefined;
-        requestStatus?: undefined;
     } | {
-        canReview: boolean;
-        notBooked: boolean;
+        data: {
+            canReview: boolean;
+            notBooked: boolean;
+            alreadyReviewed?: undefined;
+            notAccepted?: undefined;
+            requestStatus?: undefined;
+        };
         message: string;
-        alreadyReviewed?: undefined;
-        notAccepted?: undefined;
-        requestStatus?: undefined;
     } | {
-        canReview: boolean;
-        notAccepted: boolean;
-        requestStatus: import("./schema/service_request.schema").RequestStatus;
+        data: {
+            canReview: boolean;
+            notAccepted: boolean;
+            requestStatus: import("./schema/service_request.schema").RequestStatus;
+            alreadyReviewed?: undefined;
+            notBooked?: undefined;
+        };
         message: string;
-        alreadyReviewed?: undefined;
-        notBooked?: undefined;
     } | {
-        canReview: boolean;
+        data: {
+            canReview: boolean;
+            alreadyReviewed?: undefined;
+            notBooked?: undefined;
+            notAccepted?: undefined;
+            requestStatus?: undefined;
+        };
         message: string;
-        alreadyReviewed?: undefined;
-        notBooked?: undefined;
-        notAccepted?: undefined;
-        requestStatus?: undefined;
     }>;
 }

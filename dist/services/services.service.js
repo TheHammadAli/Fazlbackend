@@ -770,8 +770,10 @@ let ServicesService = class ServicesService {
         const existingReview = await this.reviewService.findOne(userId, serviceId, "service");
         if (existingReview) {
             return {
-                canReview: false,
-                alreadyReviewed: true,
+                data: {
+                    canReview: false,
+                    alreadyReviewed: true,
+                },
                 message: this.i18n.translate("auth.reviews.duplicate_review", {
                     lang: this.lang,
                 }),
@@ -786,8 +788,10 @@ let ServicesService = class ServicesService {
             .lean();
         if (!request) {
             return {
-                canReview: false,
-                notBooked: true,
+                data: {
+                    canReview: false,
+                    notBooked: true,
+                },
                 message: this.i18n.translate("auth.services.no_requests_found", {
                     lang: this.lang,
                 }),
@@ -796,16 +800,20 @@ let ServicesService = class ServicesService {
         const acceptedStatuses = ["accepted", "confirmed"];
         if (!acceptedStatuses.includes(request.status)) {
             return {
-                canReview: false,
-                notAccepted: true,
-                requestStatus: request.status,
+                data: {
+                    canReview: false,
+                    notAccepted: true,
+                    requestStatus: request.status,
+                },
                 message: this.i18n.translate("auth.services.request_not_accepted", {
                     lang: this.lang,
                 }) || "Service request has not been accepted",
             };
         }
         return {
-            canReview: true,
+            data: {
+                canReview: true,
+            },
             message: "User is eligible to review",
         };
     }

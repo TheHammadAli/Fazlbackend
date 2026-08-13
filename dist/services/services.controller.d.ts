@@ -69,33 +69,41 @@ export declare class ServicesController {
     }>;
     getById(serviceId: string, userId?: string): Promise<any>;
     checkReviewEligibility(serviceId: string, userId?: string, currentUserId?: string): Promise<{
-        canReview: boolean;
-        alreadyReviewed: boolean;
+        data: {
+            canReview: boolean;
+            alreadyReviewed: boolean;
+            notBooked?: undefined;
+            notAccepted?: undefined;
+            requestStatus?: undefined;
+        };
         message: string;
-        notBooked?: undefined;
-        notAccepted?: undefined;
-        requestStatus?: undefined;
     } | {
-        canReview: boolean;
-        notBooked: boolean;
+        data: {
+            canReview: boolean;
+            notBooked: boolean;
+            alreadyReviewed?: undefined;
+            notAccepted?: undefined;
+            requestStatus?: undefined;
+        };
         message: string;
-        alreadyReviewed?: undefined;
-        notAccepted?: undefined;
-        requestStatus?: undefined;
     } | {
-        canReview: boolean;
-        notAccepted: boolean;
-        requestStatus: import("./schema/service_request.schema").RequestStatus;
+        data: {
+            canReview: boolean;
+            notAccepted: boolean;
+            requestStatus: import("./schema/service_request.schema").RequestStatus;
+            alreadyReviewed?: undefined;
+            notBooked?: undefined;
+        };
         message: string;
-        alreadyReviewed?: undefined;
-        notBooked?: undefined;
     } | {
-        canReview: boolean;
+        data: {
+            canReview: boolean;
+            alreadyReviewed?: undefined;
+            notBooked?: undefined;
+            notAccepted?: undefined;
+            requestStatus?: undefined;
+        };
         message: string;
-        alreadyReviewed?: undefined;
-        notBooked?: undefined;
-        notAccepted?: undefined;
-        requestStatus?: undefined;
     }>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
     getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<any>>;
