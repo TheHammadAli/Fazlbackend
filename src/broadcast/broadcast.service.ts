@@ -911,6 +911,45 @@ export class BroadcastService {
     };
   }
 
+  async getBroadcastDetailForAdmin(broadcastId: string) {
+    if (!Types.ObjectId.isValid(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+
+    const broadcastObjectId = new Types.ObjectId(broadcastId);
+
+    const broadcast = await this.broadcastModel
+      .findOne({ _id: broadcastObjectId, isDeleted: { $ne: true } })
+      .populate("buyer", "name email phone image")
+      .populate("category")
+      .lean();
+
+    if (!broadcast) {
+      throw new NotFoundException("Broadcast not found");
+    }
+
+    const [threadCount, repliedSellers, initialMessage] = await Promise.all([
+      this.threadModel.countDocuments({ broadcast: broadcastObjectId }),
+      this.messageModel.distinct("sender", {
+        broadcast: broadcastObjectId,
+        sender: { $ne: (broadcast as any).buyer?._id },
+      }),
+      this.messageModel
+        .findOne({ broadcast: broadcastObjectId, type: "SYSTEM" })
+        .sort({ createdAt: 1 })
+        .lean(),
+    ]);
+
+    return {
+      data: {
+        ...broadcast,
+        sentTo: threadCount,
+        repliedSellers: repliedSellers.length,
+        imageUrls: initialMessage?.imageUrls ?? [],
+      },
+    };
+  }
+
   async getBroadcastRecipients(broadcastId: string) {
     if (!Types.ObjectId.isValid(broadcastId)) {
       throw new BadRequestException("Invalid broadcast id");
