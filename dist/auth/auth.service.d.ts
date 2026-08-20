@@ -9,6 +9,7 @@ import { I18nService } from "nestjs-i18n";
 import { UserDocument } from "src/users/schema/users.schema";
 import { ClsService } from "nestjs-cls";
 import { EmailService } from "src/common/email-service/email-service";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 export declare class AuthService {
     private otpModel;
     private readonly userService;
@@ -17,10 +18,13 @@ export declare class AuthService {
     private readonly i18n;
     private readonly cls;
     private readonly emailService;
+    private readonly activityLogService;
+    private twilioClient;
     private googleClient;
-    constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService, emailService: EmailService);
+    private audience;
+    constructor(otpModel: Model<OtpDocument>, userService: UsersService, jwtService: JwtService, configService: ConfigService, i18n: I18nService, cls: ClsService, emailService: EmailService, activityLogService: ActivityLogService);
     private getLang;
-    loginUser(loginDto: LoginDto): Promise<{
+    loginUser(loginDto: LoginDto, ipAddress?: string): Promise<{
         message: string;
         data: {
             refreshToken: string;
@@ -36,7 +40,7 @@ export declare class AuthService {
             refreshToken: string;
         };
     }>;
-    logout(refreshToken: string): Promise<{
+    logout(refreshToken: string, ipAddress?: string): Promise<{
         message: string;
     }>;
     sendOtp(phoneNumber: string): Promise<void>;

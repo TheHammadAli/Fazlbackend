@@ -42,4 +42,23 @@ export declare class ChatController {
     }>;
     getUnreadCount(userId: string): Promise<any[]>;
     getConversationsByUserId(userId: string, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/conversation.schema").Conversation>>;
+    getAdminConversation(customerId: string, providerId: string, paginationDto: PaginationDto): Promise<{
+        conversation: null;
+        messages: never[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    } | {
+        conversation: {
+            _id: unknown;
+            status: string;
+        };
+        messages: import("./schema/message.schema").Message[];
+        meta: import("../common/dto/pagination-response.dto").PaginationMetaDto;
+    }>;
+    getAdminUserConversations(userId: string, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/conversation.schema").Conversation>>;
+    getAdminConversationMessages(conversationId: string, paginationDto: PaginationDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/message.schema").Message>>;
 }

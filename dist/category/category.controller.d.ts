@@ -212,7 +212,7 @@ export declare class CategoryController {
         }[];
         message: string;
     }>;
-    findAllAdmin(): Promise<(import("mongoose").FlattenMaps<import("./schema/category.schema").CategoryDocument> & Required<{
+    findAllAdmin(startDate?: string, endDate?: string): Promise<(import("mongoose").FlattenMaps<import("./schema/category.schema").CategoryDocument> & Required<{
         _id: import("mongoose").FlattenMaps<unknown>;
     }> & {
         __v: number;
@@ -414,6 +414,9 @@ export declare class CategoryController {
         __v: number;
     }>;
     update(id: string, dto: CreateUpdateCategoryDto, icon?: any): Promise<import("./schema/category.schema").Category>;
+    translate(text: string): Promise<{
+        translatedText: string;
+    }>;
     createRequest(dto: CreateCategoryRequestDto, user: JwtPayload): Promise<import("mongoose").Document<unknown, {}, import("./schema/category-request.schema").CategoryRequestDocument, {}> & import("./schema/category-request.schema").CategoryRequest & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;
     }> & {

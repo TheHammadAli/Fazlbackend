@@ -1,11 +1,14 @@
 import { CategoryType } from "../schema/category.schema";
-declare class CategoryParameterDto {
+declare class CategoryParameterEntryDto {
     name: string;
     values: string[];
+    isOptional?: boolean;
+    allowCustomValue?: boolean;
+    allowMultiple?: boolean;
 }
 declare class CategoryParametersDto {
-    en: CategoryParameterDto[];
-    ur: CategoryParameterDto[];
+    en: CategoryParameterEntryDto[];
+    ur: CategoryParameterEntryDto[];
 }
 export declare class CreateUpdateCategoryDto {
     name: Record<string, string>;

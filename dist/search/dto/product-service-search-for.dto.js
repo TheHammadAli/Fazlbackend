@@ -16,6 +16,8 @@ class SearchAllProductsServiceDto {
     category;
     page;
     limit;
+    startDate;
+    endDate;
 }
 exports.SearchAllProductsServiceDto = SearchAllProductsServiceDto;
 __decorate([
@@ -46,4 +48,12 @@ __decorate([
     }),
     __metadata("design:type", Number)
 ], SearchAllProductsServiceDto.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "2026-01-01" }),
+    __metadata("design:type", String)
+], SearchAllProductsServiceDto.prototype, "startDate", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "2026-01-31" }),
+    __metadata("design:type", String)
+], SearchAllProductsServiceDto.prototype, "endDate", void 0);
 //# sourceMappingURL=product-service-search-for.dto.js.map

@@ -16,6 +16,7 @@ exports.ServicesService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const services_schema_1 = require("./schema/services.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
 const mongoose_2 = require("mongoose");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const listing_util_service_1 = require("../shared/listing-util-service");
@@ -26,8 +27,10 @@ const file_upload_service_1 = require("../common/file-upload/file-upload.service
 const nestjs_cls_1 = require("nestjs-cls");
 const like_service_1 = require("../like/like.service");
 const reviews_service_1 = require("../reviews/reviews.service");
+const permission_utils_1 = require("../common/utils/permission.utils");
 let ServicesService = class ServicesService {
     serviceModel;
+    counterModel;
     userService;
     notificationsService;
     listingUtils;
@@ -37,8 +40,9 @@ let ServicesService = class ServicesService {
     cls;
     likeService;
     reviewService;
-    constructor(serviceModel, userService, notificationsService, listingUtils, fileUploadService, requestModel, i18n, cls, likeService, reviewService) {
+    constructor(serviceModel, counterModel, userService, notificationsService, listingUtils, fileUploadService, requestModel, i18n, cls, likeService, reviewService) {
         this.serviceModel = serviceModel;
+        this.counterModel = counterModel;
         this.userService = userService;
         this.notificationsService = notificationsService;
         this.listingUtils = listingUtils;
@@ -54,6 +58,14 @@ let ServicesService = class ServicesService {
     }
     getServiceModel() {
         return this.serviceModel;
+    }
+    async generateNextServiceCode() {
+        const counter = await this.counterModel.findByIdAndUpdate("serviceCode", { $inc: { seq: 1 } }, { new: true, upsert: true });
+        return `SVC-${String(counter.seq).padStart(6, "0")}`;
+    }
+    async generateNextJobCode() {
+        const counter = await this.counterModel.findByIdAndUpdate("jobCode", { $inc: { seq: 1 } }, { new: true, upsert: true });
+        return `JOB-${String(counter.seq).padStart(6, "0")}`;
     }
     async create(userId, dto) {
         const user = await this.userService.findUserById(userId);
@@ -93,8 +105,10 @@ let ServicesService = class ServicesService {
         if (dto.video) {
             videoFiles = dto.video;
         }
+        const serviceCode = await this.generateNextServiceCode();
         const created = await this.serviceModel.create({
             ...dto,
+            serviceCode,
             ownerId: new mongoose_2.Types.ObjectId(userId),
             category: new mongoose_2.Types.ObjectId(dto.category),
             location: user.location,
@@ -113,7 +127,7 @@ let ServicesService = class ServicesService {
         await created.save();
         return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
     }
-    async update(serviceId, dto) {
+    async update(serviceId, dto, currentUser) {
         Object.keys(dto).forEach((key) => {
             if (dto[key] === "" ||
                 dto[key] === null ||
@@ -124,6 +138,9 @@ let ServicesService = class ServicesService {
         const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
         if (!existingService) {
             throw new common_1.NotFoundException("Service not found");
+        }
+        if (currentUser) {
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
         }
         const imageFiles = dto.images;
         let images = existingService.images;
@@ -161,12 +178,15 @@ let ServicesService = class ServicesService {
         console.log("Updated Service:", video);
         return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } };
     }
-    async delete(serviceId) {
+    async delete(serviceId, currentUser) {
         const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
         if (!existingService) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
             }));
+        }
+        if (currentUser) {
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, existingService.ownerId?.toString() ?? "", "services", "delete");
         }
         let media = [];
         if (existingService.images.length != 0) {
@@ -186,7 +206,7 @@ let ServicesService = class ServicesService {
         }
         return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
     }
-    async deleteServiceMedia(serviceId, media) {
+    async deleteServiceMedia(serviceId, media, currentUser) {
         const existingService = await this.serviceModel.findOne({ _id: new mongoose_2.Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
         if (!existingService) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
@@ -197,6 +217,9 @@ let ServicesService = class ServicesService {
             throw new common_1.BadRequestException(this.i18n.translate("auth.services.no_media_provided", {
                 lang: this.lang,
             }));
+        }
+        if (currentUser) {
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingService.images || [];
@@ -374,10 +397,24 @@ let ServicesService = class ServicesService {
     async searchServices(query) {
         const filter = {};
         if (query.name) {
-            filter.title = { $regex: query.name, $options: "i" };
+            filter.$or = [
+                { title: { $regex: query.name, $options: "i" } },
+                { serviceCode: { $regex: query.name, $options: "i" } },
+            ];
         }
         if (query.category) {
             filter.category = new mongoose_2.Types.ObjectId(query.category);
+        }
+        if (query.startDate || query.endDate) {
+            filter.createdAt = {};
+            if (query.startDate) {
+                filter.createdAt.$gte = new Date(query.startDate);
+            }
+            if (query.endDate) {
+                const endOfDay = new Date(query.endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                filter.createdAt.$lte = endOfDay;
+            }
         }
         filter.isDeleted = false;
         filter.isDisabled = false;
@@ -443,7 +480,9 @@ let ServicesService = class ServicesService {
             throw new common_1.NotFoundException(this.i18n.translate("auth.services.service_not_found", {
                 lang: this.lang,
             }));
+        const jobCode = await this.generateNextJobCode();
         const request = new this.requestModel({
+            jobCode,
             service: new mongoose_2.Types.ObjectId(serviceId),
             customer: new mongoose_2.Types.ObjectId(customerId),
             provider: service.ownerId,
@@ -636,6 +675,187 @@ let ServicesService = class ServicesService {
             data: requests,
         };
     }
+    async countServiceRequestsByUser(userId, role) {
+        const filter = role === "customer"
+            ? { customer: new mongoose_2.Types.ObjectId(userId) }
+            : { provider: new mongoose_2.Types.ObjectId(userId) };
+        return this.requestModel.countDocuments(filter);
+    }
+    computeBookingStatus(status, jobStatus) {
+        if (jobStatus === "completed")
+            return "completed";
+        if (status === "cancelled" || status === "rejected")
+            return "cancelled";
+        if (status === "accepted" || status === "confirmed")
+            return "accepted";
+        return "pending";
+    }
+    async getAllServiceRequests(page = 1, limit = 10, search, bookingStatus, startDate, endDate) {
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 10;
+        const skip = (pageNum - 1) * limitNum;
+        const bookingStatusExpr = {
+            $switch: {
+                branches: [
+                    { case: { $eq: ["$jobStatus", "completed"] }, then: "completed" },
+                    { case: { $in: ["$status", ["cancelled", "rejected"]] }, then: "cancelled" },
+                    { case: { $in: ["$status", ["accepted", "confirmed"]] }, then: "accepted" },
+                ],
+                default: "pending",
+            },
+        };
+        const pipeline = [
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "customer",
+                    foreignField: "_id",
+                    as: "customerInfo",
+                },
+            },
+            { $unwind: { path: "$customerInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "provider",
+                    foreignField: "_id",
+                    as: "providerInfo",
+                },
+            },
+            { $unwind: { path: "$providerInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "services",
+                    localField: "service",
+                    foreignField: "_id",
+                    as: "serviceInfo",
+                },
+            },
+            { $unwind: { path: "$serviceInfo", preserveNullAndEmptyArrays: true } },
+            { $addFields: { bookingStatus: bookingStatusExpr } },
+        ];
+        const matchStage = {};
+        if (bookingStatus?.trim()) {
+            matchStage.bookingStatus = bookingStatus.trim().toLowerCase();
+        }
+        if (search?.trim()) {
+            const regex = { $regex: search.trim(), $options: "i" };
+            matchStage.$or = [
+                { jobCode: regex },
+                { "customerInfo.name": regex },
+                { "providerInfo.name": regex },
+                { "serviceInfo.title": regex },
+            ];
+        }
+        if (startDate || endDate) {
+            matchStage.createdAt = {};
+            if (startDate) {
+                matchStage.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                const endOfDay = new Date(endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                matchStage.createdAt.$lte = endOfDay;
+            }
+        }
+        if (Object.keys(matchStage).length > 0) {
+            pipeline.push({ $match: matchStage });
+        }
+        pipeline.push({ $sort: { createdAt: -1 } }, {
+            $project: {
+                jobCode: 1,
+                status: 1,
+                jobStatus: 1,
+                bookingStatus: 1,
+                requestedDateTime: 1,
+                proposedDateTime: 1,
+                createdAt: 1,
+                "customerInfo._id": 1,
+                "customerInfo.name": 1,
+                "providerInfo._id": 1,
+                "providerInfo.name": 1,
+                "serviceInfo._id": 1,
+                "serviceInfo.title": 1,
+            },
+        }, {
+            $facet: {
+                data: [{ $skip: skip }, { $limit: limitNum }],
+                totalCount: [{ $count: "count" }],
+            },
+        });
+        const result = await this.requestModel.aggregate(pipeline).exec();
+        const data = result[0]?.data ?? [];
+        const total = result[0]?.totalCount?.[0]?.count ?? 0;
+        return {
+            data,
+            meta: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum),
+            },
+        };
+    }
+    async getServiceRequestStatusCounts(startDate, endDate) {
+        const bookingStatusExpr = {
+            $switch: {
+                branches: [
+                    { case: { $eq: ["$jobStatus", "completed"] }, then: "completed" },
+                    { case: { $in: ["$status", ["cancelled", "rejected"]] }, then: "cancelled" },
+                    { case: { $in: ["$status", ["accepted", "confirmed"]] }, then: "accepted" },
+                ],
+                default: "pending",
+            },
+        };
+        const matchStage = {};
+        if (startDate || endDate) {
+            matchStage.createdAt = {};
+            if (startDate) {
+                matchStage.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                const endOfDay = new Date(endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                matchStage.createdAt.$lte = endOfDay;
+            }
+        }
+        const pipeline = [];
+        if (Object.keys(matchStage).length > 0) {
+            pipeline.push({ $match: matchStage });
+        }
+        pipeline.push({ $addFields: { bookingStatus: bookingStatusExpr } }, { $group: { _id: "$bookingStatus", count: { $sum: 1 } } });
+        const result = await this.requestModel.aggregate(pipeline).exec();
+        const counts = { pending: 0, accepted: 0, completed: 0, cancelled: 0 };
+        let total = 0;
+        for (const row of result) {
+            if (row._id in counts) {
+                counts[row._id] = row.count;
+            }
+            total += row.count;
+        }
+        return { data: { total, ...counts } };
+    }
+    async getServiceRequestDetail(requestId) {
+        if (!mongoose_2.Types.ObjectId.isValid(requestId)) {
+            throw new common_1.BadRequestException("Invalid booking id");
+        }
+        const request = await this.requestModel
+            .findById(requestId)
+            .populate("service", "title price paymentType images")
+            .populate("customer", "name email phone")
+            .populate("provider", "name email phone")
+            .lean()
+            .exec();
+        if (!request) {
+            throw new common_1.NotFoundException("Booking not found");
+        }
+        return {
+            data: {
+                ...request,
+                bookingStatus: this.computeBookingStatus(request.status, request.jobStatus),
+            },
+        };
+    }
     async deleteAllServiceMedia(serviceId, media) {
         const service = await this.serviceModel.findById(serviceId);
         if (!service) {
@@ -822,10 +1042,12 @@ exports.ServicesService = ServicesService;
 exports.ServicesService = ServicesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(services_schema_1.Service.name)),
-    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
-    __param(5, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
-    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
+    __param(1, (0, mongoose_1.InjectModel)(counter_schema_1.Counter.name)),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
+    __param(6, (0, mongoose_1.InjectModel)(service_request_schema_1.ServiceRequest.name)),
+    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         users_service_1.UsersService,
         notifications_service_1.NotificationsService,
         listing_util_service_1.ListingUtilsService,

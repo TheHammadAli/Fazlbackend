@@ -25,6 +25,11 @@ export declare class ChatService {
     }> & {
         __v: number;
     }>;
+    findConversationBetween(userIdA: string, userIdB: string): Promise<(import("mongoose").Document<unknown, {}, Conversation, {}> & Conversation & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
+    }) | null>;
     sendMessage(conversationId: string, senderId: string, receiverId: string, text: string, imageUrl?: string): Promise<{
         data: {
             message: import("mongoose").Document<unknown, {}, Message, {}> & Message & Required<{
@@ -46,4 +51,7 @@ export declare class ChatService {
     }>;
     getUnreadConversations(userId: string): Promise<any[]>;
     getConversationsByUserId(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Conversation>>;
+    countConversationsForUser(userId: string): Promise<number>;
+    countMessagesSentByUser(userId: string): Promise<number>;
+    countMessagesReceivedByUser(userId: string): Promise<number>;
 }

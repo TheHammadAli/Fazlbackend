@@ -36,11 +36,14 @@ let AuthController = class AuthController {
     getCurrentUser(user) {
         return user;
     }
-    loginUser(loginDto) {
-        return this.authService.loginUser(loginDto);
+    loginUser(loginDto, req) {
+        return this.authService.loginUser(loginDto, req.ip);
     }
     refreshToken(token) {
         return this.authService.refreshTokens(token);
+    }
+    logout(token, req) {
+        return this.authService.logout(token.token, req.ip);
     }
     async sendOtp(phoneNumber) {
         await this.authService.sendOtp(phoneNumber);
@@ -95,8 +98,9 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 201, description: "User successfully logged in" }),
     (0, swagger_1.ApiResponse)({ status: 401, description: "Invalid credentials" }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "loginUser", null);
 __decorate([
@@ -110,6 +114,18 @@ __decorate([
     __metadata("design:paramtypes", [refreshToken_dto_1.RefreshTokenDto]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "refreshToken", null);
+__decorate([
+    (0, common_1.Post)("logout"),
+    (0, swagger_1.ApiOperation)({ summary: "Logout and invalidate the refresh token" }),
+    (0, swagger_1.ApiBody)({ type: refreshToken_dto_1.RefreshTokenDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "Logged out successfully" }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: "Invalid refresh token" }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [refreshToken_dto_1.RefreshTokenDto, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "logout", null);
 __decorate([
     (0, common_1.Post)("send-otp"),
     (0, throttler_1.Throttle)({ default: { limit: 4, ttl: 60000 } }),

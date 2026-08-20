@@ -15,6 +15,8 @@ class PaginationDto {
     page;
     limit;
     search;
+    startDate;
+    endDate;
 }
 exports.PaginationDto = PaginationDto;
 __decorate([
@@ -29,4 +31,12 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: "name" }),
     __metadata("design:type", String)
 ], PaginationDto.prototype, "search", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "2026-01-01" }),
+    __metadata("design:type", String)
+], PaginationDto.prototype, "startDate", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: "2026-01-31" }),
+    __metadata("design:type", String)
+], PaginationDto.prototype, "endDate", void 0);
 //# sourceMappingURL=pagination.dto.js.map

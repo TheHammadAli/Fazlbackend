@@ -18,6 +18,9 @@ const platform_express_1 = require("@nestjs/platform-express");
 const category_service_1 = require("./category.service");
 const category_create_update_dto_1 = require("./dto/category-create-update.dto");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const permissions_guard_1 = require("../auth/guard/permissions-guard");
+const require_permission_decorator_1 = require("../common/decorators/require-permission.decorator");
+const require_action_decorator_1 = require("../common/decorators/require-action.decorator");
 const category_request_dto_1 = require("./dto/category-request.dto");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const review_category_dto_1 = require("./dto/review-category.dto");
@@ -49,8 +52,8 @@ let CategoryController = class CategoryController {
     findAll(type) {
         return this.categoryService.findAll(type);
     }
-    findAllAdmin() {
-        return this.categoryService.findAllForAdmin();
+    findAllAdmin(startDate, endDate) {
+        return this.categoryService.findAllForAdmin(startDate, endDate);
     }
     findById(id) {
         return this.categoryService.findById(id);
@@ -70,6 +73,10 @@ let CategoryController = class CategoryController {
         }
         return this.categoryService.update(id, dto);
     }
+    async translate(text) {
+        const translatedText = await this.categoryService.translate(text);
+        return { translatedText };
+    }
     async createRequest(dto, user) {
         return this.categoryService.createRequest(dto, user.sub);
     }
@@ -83,6 +90,9 @@ let CategoryController = class CategoryController {
 exports.CategoryController = CategoryController;
 __decorate([
     (0, common_1.Post)(),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("categories"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
     (0, swagger_1.ApiOperation)({ summary: "Create a new category (admin only)" }),
     (0, swagger_1.ApiConsumes)("multipart/form-data"),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("icon")),
@@ -113,10 +123,16 @@ __decorate([
 ], CategoryController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)("admin"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("categories"),
     (0, swagger_1.ApiOperation)({ summary: "Get all categories for admin" }),
+    (0, swagger_1.ApiQuery)({ name: "startDate", required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: "endDate", required: false, type: String }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "List of categories" }),
+    __param(0, (0, common_1.Query)("startDate")),
+    __param(1, (0, common_1.Query)("endDate")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], CategoryController.prototype, "findAllAdmin", null);
 __decorate([
@@ -137,6 +153,9 @@ __decorate([
 ], CategoryController.prototype, "findById", null);
 __decorate([
     (0, common_1.Put)(":id"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("categories"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
     (0, swagger_1.ApiOperation)({ summary: "Update an existing category (admin only)" }),
     (0, swagger_1.ApiConsumes)("multipart/form-data"),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)("icon")),
@@ -149,6 +168,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CategoryController.prototype, "update", null);
 __decorate([
+    (0, common_1.Post)("translate"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("categories"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
+    (0, swagger_1.ApiOperation)({ summary: "Translate English text to Urdu (admin only)" }),
+    (0, swagger_1.ApiBody)({ schema: { properties: { text: { type: "string" } }, required: ["text"] } }),
+    __param(0, (0, common_1.Body)("text")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CategoryController.prototype, "translate", null);
+__decorate([
     (0, common_1.Post)("request"),
     (0, swagger_1.ApiOperation)({ summary: "Request a new category (user)" }),
     (0, swagger_1.ApiBody)({ type: category_request_dto_1.CreateCategoryRequestDto }),
@@ -160,6 +191,8 @@ __decorate([
 ], CategoryController.prototype, "createRequest", null);
 __decorate([
     (0, common_1.Get)("pending"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("categories"),
     (0, swagger_1.ApiOperation)({ summary: "Get all pending category requests (admin only)" }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -167,6 +200,9 @@ __decorate([
 ], CategoryController.prototype, "getPendingRequests", null);
 __decorate([
     (0, common_1.Put)("review/:id"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("categories"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
     (0, swagger_1.ApiOperation)({ summary: "Review a pending category request (admin only)" }),
     (0, swagger_1.ApiBody)({ type: review_category_dto_1.ReviewCategoryRequestDto }),
     __param(0, (0, common_1.Param)("id")),

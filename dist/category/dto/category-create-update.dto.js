@@ -14,49 +14,67 @@ const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 const category_schema_1 = require("../schema/category.schema");
-class CategoryParameterDto {
+class CategoryParameterEntryDto {
     name;
     values;
+    isOptional;
+    allowCustomValue;
+    allowMultiple;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: "Color" }),
+    (0, swagger_1.ApiProperty)({ example: "Size" }),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], CategoryParameterDto.prototype, "name", void 0);
+], CategoryParameterEntryDto.prototype, "name", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: ["Red", "Blue"], type: [String] }),
+    (0, swagger_1.ApiProperty)({ example: ["S", "M", "L"] }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
-], CategoryParameterDto.prototype, "values", void 0);
+], CategoryParameterEntryDto.prototype, "values", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: false,
+        description: "Whether listings can skip this parameter. Defaults to required (false).",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CategoryParameterEntryDto.prototype, "isOptional", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: false,
+        description: "Whether the user can type their own value instead of picking from the fixed list. Defaults to false.",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CategoryParameterEntryDto.prototype, "allowCustomValue", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: false,
+        description: "Whether the user can select more than one value from the list. Defaults to single-select (false).",
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CategoryParameterEntryDto.prototype, "allowMultiple", void 0);
 class CategoryParametersDto {
     en;
     ur;
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({
-        type: [CategoryParameterDto],
-        example: [
-            { name: "Size", values: ["S", "M", "L"] },
-            { name: "Color", values: ["Red", "Blue"] },
-        ],
-    }),
+    (0, swagger_1.ApiProperty)({ type: [CategoryParameterEntryDto] }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
-    (0, class_transformer_1.Type)(() => CategoryParameterDto),
+    (0, class_transformer_1.Type)(() => CategoryParameterEntryDto),
     __metadata("design:type", Array)
 ], CategoryParametersDto.prototype, "en", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({
-        type: [CategoryParameterDto],
-        example: [
-            { name: "سائز", values: ["S", "M", "L"] },
-            { name: "رنگ", values: ["Red", "Blue"] },
-        ],
-    }),
+    (0, swagger_1.ApiProperty)({ type: [CategoryParameterEntryDto] }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),
-    (0, class_transformer_1.Type)(() => CategoryParameterDto),
+    (0, class_transformer_1.Type)(() => CategoryParameterEntryDto),
     __metadata("design:type", Array)
 ], CategoryParametersDto.prototype, "ur", void 0);
 class CreateUpdateCategoryDto {

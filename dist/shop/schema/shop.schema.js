@@ -13,6 +13,7 @@ exports.ShopSchema = exports.Shop = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 let Shop = class Shop {
+    shopCode;
     ownerId;
     title;
     image;
@@ -30,6 +31,10 @@ let Shop = class Shop {
     location;
 };
 exports.Shop = Shop;
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], Shop.prototype, "shopCode", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)

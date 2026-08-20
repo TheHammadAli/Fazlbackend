@@ -1,12 +1,14 @@
 import { ShopService } from "./shop.service";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
 import { SearchNearbyShopDto } from "./dto/search-nearby-shop.dto";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { Request } from "express";
 import { Types } from "mongoose";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 export declare class ShopController {
     private readonly shopService;
-    constructor(shopService: ShopService);
+    private readonly activityLogService;
+    constructor(shopService: ShopService, activityLogService: ActivityLogService);
     createShop(dto: CreateUpdateShopDto, req: Request, files: {
         image?: Express.Multer.File[];
         banner?: Express.Multer.File[];
@@ -21,13 +23,14 @@ export declare class ShopController {
     updateShop(id: string, dto: CreateUpdateShopDto, files: {
         image?: Express.Multer.File[];
         banner?: Express.Multer.File[];
-    }): Promise<{
+    }, currentUser: JwtPayload): Promise<{
         message: string;
         data: import("./schema/shop.schema").Shop;
     }>;
     getShop(id: string): Promise<{
         productsCount: number;
         ordersCount: number;
+        shopCode?: string | undefined;
         ownerId: Types.ObjectId;
         title: string;
         image?: string | undefined;
@@ -327,5 +330,23 @@ export declare class ShopController {
         __v: number;
     }>;
     getMyShops(user: JwtPayload): Promise<import("./schema/shop.schema").Shop[]>;
+    getShopsByUserForAdmin(userId: string, page?: number, limit?: number): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/shop.schema").Shop>>;
+    getAllShops(page?: number, limit?: number, search?: string, startDate?: string, endDate?: string): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/shop.schema").Shop>>;
     searchNearbyShops(query: SearchNearbyShopDto): Promise<import("../common/dto/pagination-response.dto").PaginatedResponseDto<import("./schema/shop.schema").Shop>>;
+    disableShop(id: string, currentUser: JwtPayload): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("./schema/shop.schema").ShopDocument, {}> & import("./schema/shop.schema").Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
+    enableShop(id: string, currentUser: JwtPayload): Promise<{
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("./schema/shop.schema").ShopDocument, {}> & import("./schema/shop.schema").Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
 }

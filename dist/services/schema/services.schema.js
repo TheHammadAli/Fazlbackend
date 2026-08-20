@@ -13,6 +13,7 @@ exports.ServiceSchema = exports.Service = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 let Service = class Service {
+    serviceCode;
     ownerId;
     title;
     description;
@@ -28,6 +29,10 @@ let Service = class Service {
     parameters;
 };
 exports.Service = Service;
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], Service.prototype, "serviceCode", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "User", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)

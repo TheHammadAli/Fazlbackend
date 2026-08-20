@@ -1,10 +1,13 @@
 import { Document } from "mongoose";
 import { Location } from "./users.interfaces";
+import { PermissionEntry } from "./permission-entry.schema";
 export declare class User {
+    userCode?: string;
     name: string;
     email: string;
     password: string;
     roles: string[];
+    permissions: PermissionEntry[];
     phone?: string;
     language: "en" | "ur";
     isVerified: boolean;

@@ -3,4 +3,5 @@ export declare class GetWithVideosDto {
     limit?: number;
     category?: string;
     userId?: string;
+    search?: string;
 }

@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login-dto";
 import { JwtPayload } from "./strategies/jwt-strategy";
@@ -10,7 +10,7 @@ export declare class AuthController {
     private readonly configService;
     constructor(authService: AuthService, configService: ConfigService);
     getCurrentUser(user: JwtPayload): JwtPayload;
-    loginUser(loginDto: LoginDto): Promise<{
+    loginUser(loginDto: LoginDto, req: Request): Promise<{
         message: string;
         data: {
             refreshToken: string;
@@ -25,6 +25,9 @@ export declare class AuthController {
             user: import("../users/schema/users.schema").UserDocument;
             refreshToken: string;
         };
+    }>;
+    logout(token: RefreshTokenDto, req: Request): Promise<{
+        message: string;
     }>;
     sendOtp(phoneNumber: string): Promise<{
         message: string;

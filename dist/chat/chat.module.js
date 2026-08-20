@@ -29,12 +29,13 @@ exports.ChatModule = ChatModule = __decorate([
                 { name: message_schema_1.Message.name, schema: message_schema_1.MessageSchema },
                 { name: conversation_schema_1.Conversation.name, schema: conversation_schema_1.ConversationSchema },
             ]),
-            users_module_1.UsersModule,
+            (0, common_1.forwardRef)(() => users_module_1.UsersModule),
             shop_module_1.ShopModule,
             notifications_module_1.NotificationsModule,
         ],
         providers: [chat_service_1.ChatService, chat_gateway_1.ChatGateway, file_upload_service_1.FileUploadService, config_1.ConfigService],
         controllers: [chat_controller_1.ChatController],
+        exports: [chat_service_1.ChatService],
     })
 ], ChatModule);
 //# sourceMappingURL=chat.module.js.map

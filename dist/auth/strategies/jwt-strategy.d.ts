@@ -1,9 +1,11 @@
 import { ConfigService } from "@nestjs/config";
 import { Strategy } from "passport-jwt";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 export interface JwtPayload {
     sub: string;
     email: string;
     roles: string[];
+    permissions?: PermissionEntry[];
     location: Location;
     image: string | null;
 }
@@ -16,6 +18,7 @@ export declare class JwtStrategy extends JwtStrategy_base {
         sub: string;
         email: string;
         roles: string[];
+        permissions: PermissionEntry[] | undefined;
         location: Location;
         image: string | null;
     }>;

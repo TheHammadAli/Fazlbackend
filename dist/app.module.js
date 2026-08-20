@@ -62,7 +62,10 @@ const subscription_module_1 = require("./subscription/subscription.module");
 const promotion_module_1 = require("./promotion/promotion.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const broadcast_module_1 = require("./broadcast/broadcast.module");
+const announcement_module_1 = require("./announcement/announcement.module");
+const activity_log_module_1 = require("./activity-log/activity-log.module");
 const cls_module_1 = require("./core/cls/cls.module");
+const task_module_1 = require("./task/task.module");
 const path = __importStar(require("path"));
 const language_interceptor_1 = require("./common/interceptors/language.interceptor");
 const like_module_1 = require("./like/like.module");
@@ -115,7 +118,10 @@ exports.AppModule = AppModule = __decorate([
             promotion_module_1.PromotionModule,
             notifications_module_1.NotificationsModule,
             broadcast_module_1.BroadcastModule,
+            announcement_module_1.AnnouncementModule,
             like_module_1.LikeModule,
+            activity_log_module_1.ActivityLogModule,
+            task_module_1.TaskModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

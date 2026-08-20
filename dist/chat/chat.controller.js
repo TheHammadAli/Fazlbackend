@@ -20,6 +20,9 @@ const swagger_1 = require("@nestjs/swagger");
 const create_message_dto_1 = require("./dto/create-message.dto");
 const platform_express_1 = require("@nestjs/platform-express");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
+const permissions_guard_1 = require("../auth/guard/permissions-guard");
+const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const require_permission_decorator_1 = require("../common/decorators/require-permission.decorator");
 let ChatController = class ChatController {
     chatService;
     fileUploadService;
@@ -53,6 +56,29 @@ let ChatController = class ChatController {
     }
     async getConversationsByUserId(userId, paginationDto) {
         return this.chatService.getConversationsByUserId(userId, paginationDto);
+    }
+    async getAdminConversation(customerId, providerId, paginationDto) {
+        const conversation = await this.chatService.findConversationBetween(customerId, providerId);
+        if (!conversation) {
+            const { page = 1, limit = 10 } = paginationDto;
+            return {
+                conversation: null,
+                messages: [],
+                meta: { total: 0, page, limit, totalPages: 0 },
+            };
+        }
+        const { data: messages, meta } = await this.chatService.getMessages(String(conversation._id), paginationDto);
+        return {
+            conversation: { _id: conversation._id, status: conversation.status },
+            messages,
+            meta,
+        };
+    }
+    async getAdminUserConversations(userId, paginationDto) {
+        return this.chatService.getConversationsByUserId(userId, paginationDto);
+    }
+    async getAdminConversationMessages(conversationId, paginationDto) {
+        return this.chatService.getMessages(conversationId, paginationDto);
     }
 };
 exports.ChatController = ChatController;
@@ -225,6 +251,52 @@ __decorate([
     __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "getConversationsByUserId", null);
+__decorate([
+    (0, common_1.Get)("admin/conversation"),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("bookings"),
+    (0, swagger_1.ApiOperation)({
+        summary: "Admin: get the conversation + paginated messages between a customer and provider",
+    }),
+    (0, swagger_1.ApiQuery)({ name: "customerId", required: true, type: String }),
+    (0, swagger_1.ApiQuery)({ name: "providerId", required: true, type: String }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Query)("customerId")),
+    __param(1, (0, common_1.Query)("providerId")),
+    __param(2, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, pagination_dto_1.PaginationDto]),
+    __metadata("design:returntype", Promise)
+], ChatController.prototype, "getAdminConversation", null);
+__decorate([
+    (0, common_1.Get)("admin/user/:userId/conversations"),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("users"),
+    (0, swagger_1.ApiOperation)({ summary: "Admin: get paginated conversations for a user, with the other party + latest message" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Param)("userId")),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
+    __metadata("design:returntype", Promise)
+], ChatController.prototype, "getAdminUserConversations", null);
+__decorate([
+    (0, common_1.Get)("admin/conversation/:conversationId/messages"),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("users"),
+    (0, swagger_1.ApiOperation)({ summary: "Admin: get paginated messages for a specific conversation" }),
+    (0, swagger_1.ApiParam)({ name: "conversationId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Param)("conversationId")),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, pagination_dto_1.PaginationDto]),
+    __metadata("design:returntype", Promise)
+], ChatController.prototype, "getAdminConversationMessages", null);
 exports.ChatController = ChatController = __decorate([
     (0, swagger_1.ApiTags)("Chat"),
     (0, common_1.Controller)("chat"),

@@ -1,4 +1,5 @@
 import { Service, ServiceDocument } from "./schema/services.schema";
+import { CounterDocument } from "src/common/schema/counter.schema";
 import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { CreateServiceDto } from "./dto/create-service.dto";
@@ -18,8 +19,10 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
 import { ReviewService } from "src/reviews/reviews.service";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 export declare class ServicesService {
     private readonly serviceModel;
+    private readonly counterModel;
     private readonly userService;
     private readonly notificationsService;
     private readonly listingUtils;
@@ -29,9 +32,11 @@ export declare class ServicesService {
     private readonly cls;
     private readonly likeService;
     private readonly reviewService;
-    constructor(serviceModel: Model<ServiceDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
+    constructor(serviceModel: Model<ServiceDocument>, counterModel: Model<CounterDocument>, userService: UsersService, notificationsService: NotificationsService, listingUtils: ListingUtilsService, fileUploadService: FileUploadService, requestModel: Model<ServiceRequestDocument>, i18n: I18nService, cls: ClsService, likeService: LikeService, reviewService: ReviewService);
     private get lang();
     getServiceModel(): Model<ServiceDocument>;
+    private generateNextServiceCode;
+    private generateNextJobCode;
     create(userId: string, dto: CreateServiceDto): Promise<{
         message: string;
         data: Promise<Omit<import("mongoose").Document<unknown, {}, ServiceDocument, {}> & Service & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
@@ -40,7 +45,11 @@ export declare class ServicesService {
             __v: number;
         }, never>>;
     }>;
-    update(serviceId: string, dto: UpdateServiceDto): Promise<{
+    update(serviceId: string, dto: UpdateServiceDto, currentUser?: {
+        sub: string;
+        roles?: string[];
+        permissions?: PermissionEntry[];
+    }): Promise<{
         message: string;
         data: {
             images: string[];
@@ -54,11 +63,19 @@ export declare class ServicesService {
             parameters?: import("./dto/create-service.dto").ServiceParameterDto[];
         };
     }>;
-    delete(serviceId: string): Promise<{
+    delete(serviceId: string, currentUser?: {
+        sub: string;
+        roles?: string[];
+        permissions?: PermissionEntry[];
+    }): Promise<{
         status: number;
         message: string;
     }>;
-    deleteServiceMedia(serviceId: string, media: string[]): Promise<boolean>;
+    deleteServiceMedia(serviceId: string, media: string[], currentUser?: {
+        sub: string;
+        roles?: string[];
+        permissions?: PermissionEntry[];
+    }): Promise<boolean>;
     getById(serviceId: string, userId?: string): Promise<any>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<Service>>;
     getAllForAdmin(paginationDto: PaginationDto, search?: string): Promise<PaginatedResponseDto<Service>>;
@@ -119,6 +136,21 @@ export declare class ServicesService {
         };
     }>;
     getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<ServiceRequest>>;
+    countServiceRequestsByUser(userId: string, role: "customer" | "provider"): Promise<number>;
+    private computeBookingStatus;
+    getAllServiceRequests(page?: number, limit?: number, search?: string, bookingStatus?: string, startDate?: string, endDate?: string): Promise<PaginatedResponseDto<any>>;
+    getServiceRequestStatusCounts(startDate?: string, endDate?: string): Promise<{
+        data: {
+            pending: number;
+            accepted: number;
+            completed: number;
+            cancelled: number;
+            total: number;
+        };
+    }>;
+    getServiceRequestDetail(requestId: string): Promise<{
+        data: any;
+    }>;
     deleteAllServiceMedia(serviceId: string, media: string[]): Promise<{
         message: string;
     }>;

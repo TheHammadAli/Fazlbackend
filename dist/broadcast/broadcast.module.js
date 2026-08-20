@@ -15,6 +15,7 @@ const broadcast_gateway_1 = require("./broadcast.gateway");
 const shop_module_1 = require("../shop/shop.module");
 const category_module_1 = require("../category/category.module");
 const broadcast_schema_1 = require("./schema/broadcast.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
 const broadcast_message_schema_1 = require("./schema/broadcast-message.schema");
 const users_module_1 = require("../users/users.module");
 const broadcast_thread_schema_1 = require("./schema/broadcast-thread.schema");
@@ -23,6 +24,7 @@ const products_module_1 = require("../products/products.module");
 const notifications_module_1 = require("../notifications/notifications.module");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const config_1 = require("@nestjs/config");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let BroadcastModule = class BroadcastModule {
 };
 exports.BroadcastModule = BroadcastModule;
@@ -39,6 +41,7 @@ exports.BroadcastModule = BroadcastModule = __decorate([
                     schema: broadcast_message_schema_1.BroadcastMessageSchema,
                 },
                 { name: broadcast_thread_schema_1.BroadcastThread.name, schema: broadcast_thread_schema_1.BroadcastThreadSchema },
+                { name: counter_schema_1.Counter.name, schema: counter_schema_1.CounterSchema },
             ]),
             shop_module_1.ShopModule,
             category_module_1.CategoryModule,
@@ -46,6 +49,7 @@ exports.BroadcastModule = BroadcastModule = __decorate([
             services_module_1.ServicesModule,
             products_module_1.ProductsModule,
             notifications_module_1.NotificationsModule,
+            activity_log_module_1.ActivityLogModule,
         ],
         controllers: [broadcast_controller_1.BroadcastController],
         providers: [

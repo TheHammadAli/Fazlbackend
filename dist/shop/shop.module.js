@@ -12,23 +12,29 @@ const shop_service_1 = require("./shop.service");
 const shop_controller_1 = require("./shop.controller");
 const mongoose_1 = require("@nestjs/mongoose");
 const shop_schema_1 = require("./schema/shop.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
 const shared_module_1 = require("../shared/shared.module");
 const products_module_1 = require("../products/products.module");
 const services_module_1 = require("../services/services.module");
 const users_module_1 = require("../users/users.module");
 const orders_module_1 = require("../orders/orders.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let ShopModule = class ShopModule {
 };
 exports.ShopModule = ShopModule;
 exports.ShopModule = ShopModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: shop_schema_1.Shop.name, schema: shop_schema_1.ShopSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: shop_schema_1.Shop.name, schema: shop_schema_1.ShopSchema },
+                { name: counter_schema_1.Counter.name, schema: counter_schema_1.CounterSchema },
+            ]),
             (0, common_1.forwardRef)(() => shared_module_1.SharedModule),
             (0, common_1.forwardRef)(() => products_module_1.ProductsModule),
             (0, common_1.forwardRef)(() => users_module_1.UsersModule),
             (0, common_1.forwardRef)(() => services_module_1.ServicesModule),
             (0, common_1.forwardRef)(() => orders_module_1.OrdersModule),
+            activity_log_module_1.ActivityLogModule,
         ],
         providers: [shop_service_1.ShopService],
         controllers: [shop_controller_1.ShopController],

@@ -13,6 +13,7 @@ exports.ServiceRequestSchema = exports.ServiceRequest = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 let ServiceRequest = class ServiceRequest {
+    jobCode;
     service;
     customer;
     provider;
@@ -25,6 +26,10 @@ let ServiceRequest = class ServiceRequest {
     startedAt;
 };
 exports.ServiceRequest = ServiceRequest;
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], ServiceRequest.prototype, "jobCode", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Service", required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)

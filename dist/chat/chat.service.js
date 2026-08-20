@@ -84,6 +84,13 @@ let ChatService = class ChatService {
             throw new app_error_1.AppError(err);
         }
     }
+    async findConversationBetween(userIdA, userIdB) {
+        const [user1, user2] = userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
+        return this.conversationModel.findOne({
+            buyer: new mongoose_2.Types.ObjectId(user1),
+            seller: new mongoose_2.Types.ObjectId(user2),
+        });
+    }
     async sendMessage(conversationId, senderId, receiverId, text, imageUrl) {
         const conversation = await this.conversationModel.findById(conversationId);
         if (!conversation) {
@@ -381,12 +388,25 @@ let ChatService = class ChatService {
             },
         };
     }
+    async countConversationsForUser(userId) {
+        const userObjectId = new mongoose_2.Types.ObjectId(userId);
+        return this.conversationModel.countDocuments({
+            $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+        });
+    }
+    async countMessagesSentByUser(userId) {
+        return this.messageModel.countDocuments({ sender: new mongoose_2.Types.ObjectId(userId) });
+    }
+    async countMessagesReceivedByUser(userId) {
+        return this.messageModel.countDocuments({ receiver: new mongoose_2.Types.ObjectId(userId) });
+    }
 };
 exports.ChatService = ChatService;
 exports.ChatService = ChatService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(conversation_schema_1.Conversation.name)),
     __param(1, (0, mongoose_1.InjectModel)(message_schema_1.Message.name)),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         users_service_1.UsersService,

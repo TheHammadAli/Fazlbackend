@@ -1,5 +1,6 @@
 import { Document, Types } from "mongoose";
 export declare class Service {
+    serviceCode?: string;
     ownerId: Types.ObjectId;
     title: string;
     description?: string;

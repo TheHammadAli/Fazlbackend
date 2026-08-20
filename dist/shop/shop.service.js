@@ -18,21 +18,25 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const shop_schema_1 = require("./schema/shop.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
 const products_service_1 = require("../products/products.service");
 const users_service_1 = require("../users/users.service");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const orders_service_1 = require("../orders/orders.service");
+const permission_utils_1 = require("../common/utils/permission.utils");
 let ShopService = class ShopService {
     shopModel;
+    counterModel;
     productsService;
     usersService;
     fileUploadService;
     ordersService;
     i18n;
     cls;
-    constructor(shopModel, productsService, usersService, fileUploadService, ordersService, i18n, cls) {
+    constructor(shopModel, counterModel, productsService, usersService, fileUploadService, ordersService, i18n, cls) {
         this.shopModel = shopModel;
+        this.counterModel = counterModel;
         this.productsService = productsService;
         this.usersService = usersService;
         this.fileUploadService = fileUploadService;
@@ -43,14 +47,20 @@ let ShopService = class ShopService {
     get lang() {
         return this.cls?.get("lang") ?? "en";
     }
+    async generateNextShopCode() {
+        const counter = await this.counterModel.findByIdAndUpdate("shopCode", { $inc: { seq: 1 } }, { new: true, upsert: true });
+        return `SHP-${String(counter.seq).padStart(6, "0")}`;
+    }
     async createShop(ownerId, dto) {
         const existingUser = await this.usersService.findUserById(ownerId.toString());
         if (!existingUser) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }));
         }
         const { image: imageFile, banner: bannerFile, ...shopDto } = dto;
+        const shopCode = await this.generateNextShopCode();
         const shop = new this.shopModel({
             ...shopDto,
+            shopCode,
             ownerId,
             category: new mongoose_2.Types.ObjectId(dto.category),
             subcategory: dto.subcategory
@@ -76,10 +86,13 @@ let ShopService = class ShopService {
             data: results,
         };
     }
-    async updateShop(shopId, dto) {
+    async updateShop(shopId, dto, currentUser) {
         const existingShop = await this.shopModel.findById(shopId);
         if (!existingShop) {
             throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
+        }
+        if (currentUser) {
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, existingShop.ownerId?.toString() ?? "", "shops", "edit");
         }
         const { image, banner, ...safeDto } = dto;
         const updateData = { ...safeDto };
@@ -112,6 +125,10 @@ let ShopService = class ShopService {
             data: updated.toJSON(),
         };
     }
+    async getShopOwnerId(shopId) {
+        const shop = await this.shopModel.findById(shopId).select("ownerId").lean();
+        return shop?.ownerId ? shop.ownerId.toString() : null;
+    }
     async getShopById(shopId) {
         const shop = await this.shopModel
             .findById(shopId)
@@ -136,10 +153,67 @@ let ShopService = class ShopService {
             .populate("subcategory", "name")
             .exec();
     }
+    async getAllShopsByUserPaginated(userId, paginationDto) {
+        const { page = 1, limit = 10 } = paginationDto;
+        const skip = (page - 1) * limit;
+        const query = { ownerId: new mongoose_2.Types.ObjectId(userId) };
+        const [shops, total] = await Promise.all([
+            this.shopModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
+            this.shopModel.countDocuments(query),
+        ]);
+        return {
+            data: shops,
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        };
+    }
+    async getAllShops(paginationDto) {
+        const { page = 1, limit = 10, search, startDate, endDate } = paginationDto;
+        const skip = (page - 1) * limit;
+        const query = {};
+        if (search?.trim()) {
+            const trimmedSearch = search.trim();
+            query.$or = [
+                { title: { $regex: trimmedSearch, $options: "i" } },
+                { shopCode: { $regex: trimmedSearch, $options: "i" } },
+            ];
+        }
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) {
+                query.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                const endOfDay = new Date(endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = endOfDay;
+            }
+        }
+        const [shops, total] = await Promise.all([
+            this.shopModel
+                .find(query)
+                .skip(skip)
+                .limit(limit)
+                .sort({ createdAt: -1 })
+                .lean()
+                .exec(),
+            this.shopModel.countDocuments(query),
+        ]);
+        return {
+            data: shops,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
     async setShopDisabled(shopId, disabled) {
-        await this.shopModel.findByIdAndUpdate(shopId, {
-            $set: { isDisabled: disabled },
-        });
+        const shop = await this.shopModel.findByIdAndUpdate(shopId, { $set: { isDisabled: disabled } }, { new: true });
+        if (!shop) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }));
+        }
+        return shop;
     }
     async setShopsDisabledBulk(shopIds, disabled) {
         await this.shopModel.updateMany({ _id: { $in: shopIds } }, { $set: { isDisabled: disabled } });
@@ -226,10 +300,12 @@ exports.ShopService = ShopService;
 exports.ShopService = ShopService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(shop_schema_1.Shop.name)),
-    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => products_service_1.ProductsService))),
-    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
-    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => orders_service_1.OrdersService))),
+    __param(1, (0, mongoose_1.InjectModel)(counter_schema_1.Counter.name)),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => products_service_1.ProductsService))),
+    __param(3, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
+    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => orders_service_1.OrdersService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         products_service_1.ProductsService,
         users_service_1.UsersService,
         file_upload_service_1.FileUploadService,

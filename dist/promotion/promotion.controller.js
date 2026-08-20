@@ -19,6 +19,7 @@ const promotion_service_1 = require("./promotion.service");
 const create_promotion_dto_1 = require("./dto/create-promotion.dto");
 const update_promotion_dto_1 = require("./dto/update-promotion.dto");
 const promotion_schema_1 = require("./schema/promotion-schema");
+const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
 let PromotionController = class PromotionController {
     promotionService;
     constructor(promotionService) {
@@ -110,6 +111,8 @@ __decorate([
 ], PromotionController.prototype, "getFeedPromotions", null);
 exports.PromotionController = PromotionController = __decorate([
     (0, swagger_1.ApiTags)("Promotions"),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)("promotions"),
     __metadata("design:paramtypes", [promotion_service_1.PromotionService])
 ], PromotionController);

@@ -162,6 +162,25 @@ let FileUploadService = class FileUploadService {
             throw new common_1.InternalServerErrorException("Category icon upload failed");
         }
     }
+    async uploadAnnouncementImage(file) {
+        const fileExt = (0, path_1.extname)(file.originalname);
+        const uniqueName = `${(0, uuid_1.v4)()}${fileExt}`;
+        const key = `announcements/images/${uniqueName}`;
+        try {
+            const command = new client_s3_1.PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            });
+            await this.s3.send(command);
+            return this.getFileUrl(key, false);
+        }
+        catch (err) {
+            console.error("S3 upload error:", err);
+            throw new common_1.InternalServerErrorException("Announcement image upload failed");
+        }
+    }
     async uploadShopBanner(shopId, file) {
         const key = `shop/${shopId}/images/banner`;
         try {

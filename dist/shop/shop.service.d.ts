@@ -3,22 +3,26 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { I18nService } from "nestjs-i18n";
 import { Shop, ShopDocument } from "./schema/shop.schema";
+import { CounterDocument } from "src/common/schema/counter.schema";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
 import { ProductsService } from "src/products/products.service";
 import { UsersService } from "src/users/users.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { OrdersService } from "src/orders/orders.service";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 export declare class ShopService {
     private shopModel;
+    private counterModel;
     private readonly productsService;
     private readonly usersService;
     private readonly fileUploadService;
     private readonly ordersService;
     private readonly i18n;
     private readonly cls;
-    constructor(shopModel: Model<ShopDocument>, productsService: ProductsService, usersService: UsersService, fileUploadService: FileUploadService, ordersService: OrdersService, i18n: I18nService, cls: ClsService);
+    constructor(shopModel: Model<ShopDocument>, counterModel: Model<CounterDocument>, productsService: ProductsService, usersService: UsersService, fileUploadService: FileUploadService, ordersService: OrdersService, i18n: I18nService, cls: ClsService);
     private get lang();
+    private generateNextShopCode;
     createShop(ownerId: Types.ObjectId, dto: CreateUpdateShopDto): Promise<{
         message: string;
         data: import("mongoose").Document<unknown, {}, ShopDocument, {}> & Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
@@ -27,13 +31,19 @@ export declare class ShopService {
             __v: number;
         };
     }>;
-    updateShop(shopId: string, dto: CreateUpdateShopDto): Promise<{
+    updateShop(shopId: string, dto: CreateUpdateShopDto, currentUser?: {
+        sub: string;
+        roles?: string[];
+        permissions?: PermissionEntry[];
+    }): Promise<{
         message: string;
         data: Shop;
     }>;
+    getShopOwnerId(shopId: string): Promise<string | null>;
     getShopById(shopId: string): Promise<{
         productsCount: number;
         ordersCount: number;
+        shopCode?: string | undefined;
         ownerId: Types.ObjectId;
         title: string;
         image?: string | undefined;
@@ -333,7 +343,13 @@ export declare class ShopService {
         __v: number;
     }>;
     getAllShopsByUser(userId: string): Promise<Shop[]>;
-    setShopDisabled(shopId: string, disabled: boolean): Promise<void>;
+    getAllShopsByUserPaginated(userId: string, paginationDto: PaginationDto): Promise<PaginatedResponseDto<Shop>>;
+    getAllShops(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Shop>>;
+    setShopDisabled(shopId: string, disabled: boolean): Promise<import("mongoose").Document<unknown, {}, ShopDocument, {}> & Shop & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
+    }>;
     setShopsDisabledBulk(shopIds: any[], disabled: boolean): Promise<void>;
     findShopsNearLocation(location: [number, number], radiusInMeters: number): Promise<Shop[]>;
     findShopsNearLocationPaginated(location: [number, number], radiusInMeters: number, pagination?: PaginationDto): Promise<PaginatedResponseDto<Shop>>;

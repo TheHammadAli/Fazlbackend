@@ -24,6 +24,7 @@ const nestjs_i18n_1 = require("nestjs-i18n");
 const google_auth_library_1 = require("google-auth-library");
 const nestjs_cls_1 = require("nestjs-cls");
 const email_service_1 = require("../common/email-service/email-service");
+const activity_log_service_1 = require("../activity-log/activity-log.service");
 let AuthService = class AuthService {
     otpModel;
     userService;
@@ -32,8 +33,11 @@ let AuthService = class AuthService {
     i18n;
     cls;
     emailService;
+    activityLogService;
+    twilioClient;
     googleClient;
-    constructor(otpModel, userService, jwtService, configService, i18n, cls, emailService) {
+    audience;
+    constructor(otpModel, userService, jwtService, configService, i18n, cls, emailService, activityLogService) {
         this.otpModel = otpModel;
         this.userService = userService;
         this.jwtService = jwtService;
@@ -41,12 +45,13 @@ let AuthService = class AuthService {
         this.i18n = i18n;
         this.cls = cls;
         this.emailService = emailService;
+        this.activityLogService = activityLogService;
         this.googleClient = new google_auth_library_1.OAuth2Client();
     }
     getLang() {
         return this.cls.get("lang") || "en";
     }
-    async loginUser(loginDto) {
+    async loginUser(loginDto, ipAddress) {
         const user = await this.userService.validateUserForLogin(loginDto.email, loginDto.password);
         if (!user) {
             throw new common_1.UnauthorizedException(this.i18n.translate("auth.auth.invalid_credentials", {
@@ -62,6 +67,7 @@ let AuthService = class AuthService {
             sub: user.id,
             email: user.email,
             roles: user.roles,
+            permissions: user.permissions,
             location: user.location,
             image: user.image,
             isDisabled: user.isDisabled,
@@ -73,6 +79,10 @@ let AuthService = class AuthService {
             expiresIn: "3d",
         });
         await this.userService.updateUser(user.id, { refreshToken });
+        const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
+        if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
+            await this.activityLogService.record(user.id, "admin_login", undefined, undefined, undefined, ipAddress);
+        }
         return {
             message: this.i18n.translate("auth.auth.login_success", {
                 lang: this.getLang(),
@@ -97,6 +107,7 @@ let AuthService = class AuthService {
                 sub: user._id,
                 email: user.email,
                 roles: user.roles,
+                permissions: user.permissions,
                 location: user.location,
                 image: user.image,
                 isDisabled: user.isDisabled,
@@ -127,13 +138,17 @@ let AuthService = class AuthService {
             }));
         }
     }
-    async logout(refreshToken) {
+    async logout(refreshToken, ipAddress) {
         try {
             const payload = this.jwtService.verify(refreshToken);
             const user = await this.userService.findByIdWithToken(payload.sub);
             if (!user)
                 throw new common_1.UnauthorizedException();
             await this.userService.updateUser(user.id, { refreshToken: null });
+            const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
+            if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
+                await this.activityLogService.record(user.id, "admin_logout", undefined, undefined, undefined, ipAddress);
+            }
             return {
                 message: this.i18n.translate("auth.auth.logout_success", {
                     lang: this.getLang(),
@@ -376,6 +391,7 @@ exports.AuthService = AuthService = __decorate([
         config_1.ConfigService,
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
-        email_service_1.EmailService])
+        email_service_1.EmailService,
+        activity_log_service_1.ActivityLogService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

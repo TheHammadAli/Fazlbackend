@@ -20,14 +20,21 @@ const create_broadcast_dto_1 = require("./dto/create-broadcast.dto");
 const send_broadcast_dto_1 = require("./dto/send-broadcast.dto");
 const pagination_dto_1 = require("../common/dto/pagination.dto");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const permissions_guard_1 = require("../auth/guard/permissions-guard");
+const require_permission_decorator_1 = require("../common/decorators/require-permission.decorator");
+const require_action_decorator_1 = require("../common/decorators/require-action.decorator");
+const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
+const activity_log_service_1 = require("../activity-log/activity-log.service");
 const platform_express_1 = require("@nestjs/platform-express");
 const file_upload_service_1 = require("../common/file-upload/file-upload.service");
 let BroadcastController = class BroadcastController {
     broadcastService;
     fileUploadService;
-    constructor(broadcastService, fileUploadService) {
+    activityLogService;
+    constructor(broadcastService, fileUploadService, activityLogService) {
         this.broadcastService = broadcastService;
         this.fileUploadService = fileUploadService;
+        this.activityLogService = activityLogService;
     }
     async createBroadcast(dto, req, files) {
         const user = req.user;
@@ -75,6 +82,26 @@ let BroadcastController = class BroadcastController {
     async getReceivedBroadcasts(req, paginationDto) {
         const user = req.user;
         return this.broadcastService.getBroadcastsForSeller(user.sub, paginationDto.page, paginationDto.limit);
+    }
+    async getAllBroadcastsForAdmin(page = 1, limit = 10, search, status, startDate, endDate) {
+        return this.broadcastService.getAllBroadcastsForAdmin(page, limit, search, status, startDate, endDate);
+    }
+    async getBroadcastDetail(broadcastId) {
+        return this.broadcastService.getBroadcastDetailForAdmin(broadcastId);
+    }
+    async getBroadcastRecipients(broadcastId) {
+        return this.broadcastService.getBroadcastRecipients(broadcastId);
+    }
+    async getAdminThreadMessages(broadcastId, sellerId, paginationDto) {
+        return this.broadcastService.getAdminThreadMessages(broadcastId, sellerId, paginationDto);
+    }
+    async closeBroadcast(broadcastId) {
+        return this.broadcastService.closeBroadcast(broadcastId);
+    }
+    async deleteBroadcast(broadcastId, currentUser, req) {
+        const result = await this.broadcastService.deleteBroadcast(broadcastId);
+        await this.activityLogService.record(currentUser.sub, "broadcast_deleted", "Broadcast", broadcastId, result.data?.message, req.ip);
+        return result;
     }
 };
 exports.BroadcastController = BroadcastController;
@@ -164,12 +191,102 @@ __decorate([
     __metadata("design:paramtypes", [Object, pagination_dto_1.PaginationDto]),
     __metadata("design:returntype", Promise)
 ], BroadcastController.prototype, "getReceivedBroadcasts", null);
+__decorate([
+    (0, common_1.Get)("admin/all"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("broadcasts"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all broadcasts across all users, with analytics (admin)" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "search", required: false, type: String, description: "Search by buyer name or message text" }),
+    (0, swagger_1.ApiQuery)({ name: "status", required: false, enum: ["open", "closed"] }),
+    (0, swagger_1.ApiQuery)({ name: "startDate", required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: "endDate", required: false, type: String }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Paginated list of all broadcasts with view/response analytics" }),
+    __param(0, (0, common_1.Query)("page")),
+    __param(1, (0, common_1.Query)("limit")),
+    __param(2, (0, common_1.Query)("search")),
+    __param(3, (0, common_1.Query)("status")),
+    __param(4, (0, common_1.Query)("startDate")),
+    __param(5, (0, common_1.Query)("endDate")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number, String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "getAllBroadcastsForAdmin", null);
+__decorate([
+    (0, common_1.Get)("admin/:broadcastId"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("broadcasts"),
+    (0, swagger_1.ApiOperation)({ summary: "Get full broadcast detail (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "broadcastId", required: true }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Full broadcast details including location, category, and photos" }),
+    __param(0, (0, common_1.Param)("broadcastId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "getBroadcastDetail", null);
+__decorate([
+    (0, common_1.Get)("admin/:broadcastId/recipients"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("broadcasts"),
+    (0, swagger_1.ApiOperation)({ summary: "Get recipient sellers for a broadcast (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "broadcastId", required: true }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "List of sellers who received this broadcast" }),
+    __param(0, (0, common_1.Param)("broadcastId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "getBroadcastRecipients", null);
+__decorate([
+    (0, common_1.Get)("admin/:broadcastId/recipients/:sellerId/messages"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("broadcasts"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated thread messages for one broadcast recipient (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "broadcastId", required: true }),
+    (0, swagger_1.ApiParam)({ name: "sellerId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Thread + paginated messages for this broadcast/recipient pair" }),
+    __param(0, (0, common_1.Param)("broadcastId")),
+    __param(1, (0, common_1.Param)("sellerId")),
+    __param(2, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, pagination_dto_1.PaginationDto]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "getAdminThreadMessages", null);
+__decorate([
+    (0, common_1.Patch)("admin/:broadcastId/close"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("broadcasts"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
+    (0, swagger_1.ApiOperation)({ summary: "Close a broadcast (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "broadcastId", required: true }),
+    __param(0, (0, common_1.Param)("broadcastId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "closeBroadcast", null);
+__decorate([
+    (0, common_1.Delete)("admin/:broadcastId"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("broadcasts"),
+    (0, require_action_decorator_1.RequireAction)("delete"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete a broadcast (admin, soft delete)" }),
+    (0, swagger_1.ApiParam)({ name: "broadcastId", required: true }),
+    __param(0, (0, common_1.Param)("broadcastId")),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], BroadcastController.prototype, "deleteBroadcast", null);
 exports.BroadcastController = BroadcastController = __decorate([
     (0, swagger_1.ApiTags)("Broadcast"),
     (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)("broadcast"),
     __metadata("design:paramtypes", [broadcast_service_1.BroadcastService,
-        file_upload_service_1.FileUploadService])
+        file_upload_service_1.FileUploadService,
+        activity_log_service_1.ActivityLogService])
 ], BroadcastController);
 //# sourceMappingURL=broadcast.controller.js.map

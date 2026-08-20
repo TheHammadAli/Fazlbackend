@@ -20,6 +20,7 @@ const nestjs_i18n_1 = require("nestjs-i18n");
 const broadcast_schema_1 = require("./schema/broadcast.schema");
 const broadcast_message_schema_1 = require("./schema/broadcast-message.schema");
 const broadcast_thread_schema_1 = require("./schema/broadcast-thread.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
 const shop_service_1 = require("../shop/shop.service");
 const users_service_1 = require("../users/users.service");
 const category_service_1 = require("../category/category.service");
@@ -32,6 +33,7 @@ let BroadcastService = class BroadcastService {
     broadcastModel;
     messageModel;
     threadModel;
+    counterModel;
     shopService;
     categoryService;
     userService;
@@ -41,10 +43,11 @@ let BroadcastService = class BroadcastService {
     i18n;
     cls;
     broadcastGateway;
-    constructor(broadcastModel, messageModel, threadModel, shopService, categoryService, userService, servicesService, productsService, notificationsService, i18n, cls, broadcastGateway) {
+    constructor(broadcastModel, messageModel, threadModel, counterModel, shopService, categoryService, userService, servicesService, productsService, notificationsService, i18n, cls, broadcastGateway) {
         this.broadcastModel = broadcastModel;
         this.messageModel = messageModel;
         this.threadModel = threadModel;
+        this.counterModel = counterModel;
         this.shopService = shopService;
         this.categoryService = categoryService;
         this.userService = userService;
@@ -58,6 +61,10 @@ let BroadcastService = class BroadcastService {
     get lang() {
         return this.cls.get("lang") || "en";
     }
+    async generateNextBroadcastCode() {
+        const counter = await this.counterModel.findByIdAndUpdate("broadcastCode", { $inc: { seq: 1 } }, { new: true, upsert: true });
+        return `ECH-${String(counter.seq).padStart(6, "0")}`;
+    }
     async createBroadcast(dto, buyerId, location) {
         const results = await this.userService.findUserById(buyerId);
         if (!results) {
@@ -65,7 +72,9 @@ let BroadcastService = class BroadcastService {
                 lang: this.lang,
             }));
         }
+        const broadcastCode = await this.generateNextBroadcastCode();
         return this.broadcastModel.create({
+            broadcastCode,
             buyer: new mongoose_2.Types.ObjectId(buyerId),
             message: dto.message,
             address: dto.address,
@@ -574,6 +583,7 @@ let BroadcastService = class BroadcastService {
             {
                 $project: {
                     _id: 1,
+                    broadcastCode: 1,
                     message: 1,
                     address: 1,
                     purpose: 1,
@@ -682,6 +692,265 @@ let BroadcastService = class BroadcastService {
             data: orderedData,
         };
     }
+    async getAllBroadcastsForAdmin(page = 1, limit = 10, search, status, startDate, endDate) {
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 10;
+        const skip = (pageNum - 1) * limitNum;
+        const dateMatchStage = { isDeleted: { $ne: true } };
+        if (startDate || endDate) {
+            dateMatchStage.createdAt = {};
+            if (startDate) {
+                dateMatchStage.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                const endOfDay = new Date(endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                dateMatchStage.createdAt.$lte = endOfDay;
+            }
+        }
+        const pipeline = [
+            { $match: dateMatchStage },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "buyer",
+                    foreignField: "_id",
+                    as: "buyerInfo",
+                },
+            },
+            { $unwind: { path: "$buyerInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "broadcastthreads",
+                    localField: "_id",
+                    foreignField: "broadcast",
+                    as: "threads",
+                },
+            },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { broadcastId: "$_id", buyerId: "$buyer" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$broadcast", "$$broadcastId"] },
+                                        { $ne: ["$sender", "$$buyerId"] },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
+                    as: "sellerMessages",
+                },
+            },
+            {
+                $addFields: {
+                    sentTo: { $size: "$threads" },
+                    repliedSellers: {
+                        $size: { $setUnion: ["$sellerMessages.sender", []] },
+                    },
+                },
+            },
+        ];
+        const matchStage = {};
+        if (status?.trim()) {
+            matchStage.status = status.trim().toLowerCase();
+        }
+        if (search?.trim()) {
+            const regex = { $regex: search.trim(), $options: "i" };
+            matchStage.$or = [{ message: regex }, { "buyerInfo.name": regex }];
+        }
+        if (Object.keys(matchStage).length > 0) {
+            pipeline.push({ $match: matchStage });
+        }
+        pipeline.push({ $sort: { createdAt: -1 } }, {
+            $project: {
+                broadcastCode: 1,
+                message: 1,
+                purpose: 1,
+                type: 1,
+                status: 1,
+                createdAt: 1,
+                sentTo: 1,
+                repliedSellers: 1,
+                "buyerInfo._id": 1,
+                "buyerInfo.name": 1,
+            },
+        }, {
+            $facet: {
+                data: [{ $skip: skip }, { $limit: limitNum }],
+                totalCount: [{ $count: "count" }],
+            },
+        });
+        const result = await this.broadcastModel.aggregate(pipeline).exec();
+        const data = result[0]?.data ?? [];
+        const total = result[0]?.totalCount?.[0]?.count ?? 0;
+        return {
+            data,
+            meta: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum),
+            },
+        };
+    }
+    async getBroadcastDetailForAdmin(broadcastId) {
+        if (!mongoose_2.Types.ObjectId.isValid(broadcastId)) {
+            throw new common_1.BadRequestException("Invalid broadcast id");
+        }
+        const broadcastObjectId = new mongoose_2.Types.ObjectId(broadcastId);
+        const broadcast = await this.broadcastModel
+            .findOne({ _id: broadcastObjectId, isDeleted: { $ne: true } })
+            .populate("buyer", "name email phone image")
+            .populate("category")
+            .lean();
+        if (!broadcast) {
+            throw new common_1.NotFoundException("Broadcast not found");
+        }
+        const [threadCount, repliedSellers, initialMessage] = await Promise.all([
+            this.threadModel.countDocuments({ broadcast: broadcastObjectId }),
+            this.messageModel.distinct("sender", {
+                broadcast: broadcastObjectId,
+                sender: { $ne: broadcast.buyer?._id },
+            }),
+            this.messageModel
+                .findOne({ broadcast: broadcastObjectId, type: "SYSTEM" })
+                .sort({ createdAt: 1 })
+                .lean(),
+        ]);
+        return {
+            data: {
+                ...broadcast,
+                sentTo: threadCount,
+                repliedSellers: repliedSellers.length,
+                imageUrls: initialMessage?.imageUrls ?? [],
+            },
+        };
+    }
+    async getBroadcastRecipients(broadcastId) {
+        if (!mongoose_2.Types.ObjectId.isValid(broadcastId)) {
+            throw new common_1.BadRequestException("Invalid broadcast id");
+        }
+        const broadcastExists = await this.broadcastModel.exists({
+            _id: broadcastId,
+            isDeleted: { $ne: true },
+        });
+        if (!broadcastExists) {
+            throw new common_1.NotFoundException("Broadcast not found");
+        }
+        const recipients = await this.threadModel.aggregate([
+            { $match: { broadcast: new mongoose_2.Types.ObjectId(broadcastId) } },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "seller",
+                    foreignField: "_id",
+                    as: "sellerInfo",
+                },
+            },
+            { $unwind: { path: "$sellerInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "broadcastmessages",
+                    let: { threadId: "$_id", sellerId: "$seller" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$thread", "$$threadId"] },
+                                        { $eq: ["$sender", "$$sellerId"] },
+                                    ],
+                                },
+                            },
+                        },
+                        { $sort: { createdAt: 1 } },
+                        { $limit: 1 },
+                        { $project: { createdAt: 1 } },
+                    ],
+                    as: "firstReply",
+                },
+            },
+            {
+                $addFields: {
+                    hasReplied: { $gt: [{ $size: "$firstReply" }, 0] },
+                    repliedAt: { $arrayElemAt: ["$firstReply.createdAt", 0] },
+                },
+            },
+            {
+                $project: {
+                    sellerId: "$sellerInfo._id",
+                    name: "$sellerInfo.name",
+                    email: "$sellerInfo.email",
+                    image: "$sellerInfo.image",
+                    phone: "$sellerInfo.phone",
+                    sentAt: "$createdAt",
+                    hasReplied: 1,
+                    repliedAt: 1,
+                },
+            },
+            { $sort: { sentAt: -1 } },
+        ]);
+        return {
+            data: recipients,
+            meta: { total: recipients.length },
+        };
+    }
+    async getAdminThreadMessages(broadcastId, sellerId, paginationDto) {
+        if (!mongoose_2.Types.ObjectId.isValid(broadcastId) || !mongoose_2.Types.ObjectId.isValid(sellerId)) {
+            throw new common_1.BadRequestException("Invalid broadcast or seller id");
+        }
+        const { page = 1, limit = 10 } = paginationDto;
+        const thread = await this.threadModel.findOne({
+            broadcast: new mongoose_2.Types.ObjectId(broadcastId),
+            seller: new mongoose_2.Types.ObjectId(sellerId),
+        });
+        if (!thread) {
+            return {
+                thread: null,
+                messages: [],
+                meta: { total: 0, page, limit, totalPages: 0 },
+            };
+        }
+        const skip = (page - 1) * limit;
+        const [data, total] = await Promise.all([
+            this.messageModel
+                .find({ thread: thread._id })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            this.messageModel.countDocuments({ thread: thread._id }),
+        ]);
+        return {
+            thread: { _id: thread._id },
+            messages: data,
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        };
+    }
+    async closeBroadcast(broadcastId) {
+        if (!mongoose_2.Types.ObjectId.isValid(broadcastId)) {
+            throw new common_1.BadRequestException("Invalid broadcast id");
+        }
+        const broadcast = await this.broadcastModel.findByIdAndUpdate(broadcastId, { $set: { status: "closed" } }, { new: true });
+        if (!broadcast) {
+            throw new common_1.NotFoundException("Broadcast not found");
+        }
+        return { message: "Broadcast closed successfully", data: broadcast };
+    }
+    async deleteBroadcast(broadcastId) {
+        if (!mongoose_2.Types.ObjectId.isValid(broadcastId)) {
+            throw new common_1.BadRequestException("Invalid broadcast id");
+        }
+        const broadcast = await this.broadcastModel.findByIdAndUpdate(broadcastId, { $set: { isDeleted: true } }, { new: true });
+        if (!broadcast) {
+            throw new common_1.NotFoundException("Broadcast not found");
+        }
+        return { message: "Broadcast deleted successfully", data: broadcast };
+    }
 };
 exports.BroadcastService = BroadcastService;
 exports.BroadcastService = BroadcastService = __decorate([
@@ -689,7 +958,9 @@ exports.BroadcastService = BroadcastService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(broadcast_schema_1.Broadcast.name)),
     __param(1, (0, mongoose_1.InjectModel)(broadcast_message_schema_1.BroadcastMessage.name)),
     __param(2, (0, mongoose_1.InjectModel)(broadcast_thread_schema_1.BroadcastThread.name)),
+    __param(3, (0, mongoose_1.InjectModel)(counter_schema_1.Counter.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         shop_service_1.ShopService,

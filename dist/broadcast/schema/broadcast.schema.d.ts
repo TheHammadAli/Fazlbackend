@@ -1,6 +1,7 @@
 import { HydratedDocument, Types } from "mongoose";
 export type BroadcastDocument = HydratedDocument<Broadcast>;
 export declare class Broadcast {
+    broadcastCode?: string;
     buyer: Types.ObjectId;
     message: string;
     address?: string;
@@ -14,6 +15,8 @@ export declare class Broadcast {
     type: "product" | "service";
     expiresAt: Date;
     lastResponseAt: Date;
+    status: "open" | "closed";
+    isDeleted: boolean;
 }
 export declare const BroadcastSchema: import("mongoose").Schema<Broadcast, import("mongoose").Model<Broadcast, any, any, any, import("mongoose").Document<unknown, any, Broadcast, any> & Broadcast & {
     _id: Types.ObjectId;

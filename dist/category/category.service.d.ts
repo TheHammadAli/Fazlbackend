@@ -19,13 +19,14 @@ export declare class CategoryService {
     private normalizeParameterItem;
     private extractNameFromKeyedObject;
     private checkDuplicateName;
+    private checkDuplicateSortNumber;
     create(dto: CreateUpdateCategoryDto): Promise<import("mongoose").Document<unknown, {}, CategoryDocument, {}> & Category & import("mongoose").Document<unknown, any, any, Record<string, any>> & Required<{
         _id: unknown;
     }> & {
         __v: number;
     }>;
     update(id: string, dto: CreateUpdateCategoryDto): Promise<Category>;
-    findAllForAdmin(): Promise<(import("mongoose").FlattenMaps<CategoryDocument> & Required<{
+    findAllForAdmin(startDate?: string, endDate?: string): Promise<(import("mongoose").FlattenMaps<CategoryDocument> & Required<{
         _id: import("mongoose").FlattenMaps<unknown>;
     }> & {
         __v: number;
@@ -446,4 +447,5 @@ export declare class CategoryService {
     }> & {
         __v: number;
     })[]>;
+    translate(text: string): Promise<string>;
 }

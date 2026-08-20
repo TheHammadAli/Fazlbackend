@@ -1,6 +1,7 @@
 import { Document, Types } from "mongoose";
 export type ShopDocument = Shop & Document;
 export declare class Shop {
+    shopCode?: string;
     ownerId: Types.ObjectId;
     title: string;
     image?: string;

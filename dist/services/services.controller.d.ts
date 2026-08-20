@@ -7,6 +7,7 @@ import { CreateRequestDto } from "./dto/create-request-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { UpdateServiceStatusDto } from "./dto/update-service-status.dto";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { GetWithVideosDto } from "./dto/video-with-dto";
 import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
 import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
@@ -50,7 +51,7 @@ export declare class ServicesController {
     update(serviceId: string, dto: UpdateServiceDto, files: {
         images?: Express.Multer.File[];
         video?: Express.Multer.File[];
-    }): Promise<{
+    }, currentUser: JwtPayload): Promise<{
         message: string;
         data: {
             images: string[];
@@ -64,7 +65,7 @@ export declare class ServicesController {
             parameters?: import("./dto/create-service.dto").ServiceParameterDto[];
         };
     }>;
-    delete(serviceId: string): Promise<{
+    delete(serviceId: string, currentUser: JwtPayload): Promise<{
         message: string;
     }>;
     getById(serviceId: string, userId?: string): Promise<any>;
@@ -107,8 +108,23 @@ export declare class ServicesController {
     }>;
     getByUser(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
     getServiceRequestsByUser(userId: string, role: "customer" | "provider", page?: number, limit?: number, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<any>>;
+    getServicesByUserForAdmin(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
+    getBookingsByUserForAdmin(userId: string, page?: number, limit?: number): Promise<PaginatedResponseDto<any>>;
+    getAllServiceRequests(page?: number, limit?: number, search?: string, bookingStatus?: string, startDate?: string, endDate?: string): Promise<PaginatedResponseDto<any>>;
+    getServiceRequestStatusCounts(startDate?: string, endDate?: string): Promise<{
+        data: {
+            pending: number;
+            accepted: number;
+            completed: number;
+            cancelled: number;
+            total: number;
+        };
+    }>;
+    getServiceRequestDetail(requestId: string): Promise<{
+        data: any;
+    }>;
     getServicesWithVideos(query: GetWithVideosDto, userId?: string): Promise<PaginatedResponseDto<any>>;
-    deleteProductMedia(serviceId: string, media: string[]): Promise<{
+    deleteProductMedia(serviceId: string, media: string[], currentUser: JwtPayload): Promise<{
         message: string;
     }>;
     getAllForAdmin(paginationDto: PaginationDto, search?: string): Promise<PaginatedResponseDto<any>>;
@@ -128,9 +144,6 @@ export declare class ServicesController {
             totalPages: number;
         };
         data: any[];
-    }>;
-    deleteService(serviceId: string): Promise<{
-        message: string;
     }>;
     getServiceRequestsForCustomer(customerId: string, paginationDto: PaginationDto, jobStatus?: string, status?: string): Promise<PaginatedResponseDto<import("./schema/service_request.schema").ServiceRequest>>;
 }

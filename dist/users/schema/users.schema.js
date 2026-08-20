@@ -11,11 +11,14 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserSchema = exports.User = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
+const permission_entry_schema_1 = require("./permission-entry.schema");
 let User = class User {
+    userCode;
     name;
     email;
     password;
     roles;
+    permissions;
     phone;
     language;
     isVerified;
@@ -31,6 +34,10 @@ let User = class User {
 };
 exports.User = User;
 __decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], User.prototype, "userCode", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)
 ], User.prototype, "name", void 0);
@@ -45,11 +52,18 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({
         type: [String],
-        enum: ["buyer", "seller", "admin", "subadmin"],
+        enum: ["buyer", "seller", "admin", "subadmin", "super_admin", "moderator"],
         default: ["buyer"],
     }),
     __metadata("design:type", Array)
 ], User.prototype, "roles", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: [permission_entry_schema_1.PermissionEntrySchema],
+        default: [],
+    }),
+    __metadata("design:type", Array)
+], User.prototype, "permissions", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
     __metadata("design:type", String)

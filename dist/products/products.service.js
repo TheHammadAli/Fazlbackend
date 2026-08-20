@@ -18,6 +18,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const nestjs_i18n_1 = require("nestjs-i18n");
 const product_schema_1 = require("./schema/product.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
 const shop_service_1 = require("../shop/shop.service");
 const listing_util_service_1 = require("../shared/listing-util-service");
 const users_service_1 = require("../users/users.service");
@@ -26,8 +27,11 @@ const promotion_service_1 = require("../promotion/promotion.service");
 const nestjs_cls_1 = require("nestjs-cls");
 const like_service_1 = require("../like/like.service");
 const reviews_service_1 = require("../reviews/reviews.service");
+const permission_utils_1 = require("../common/utils/permission.utils");
+const activity_log_service_1 = require("../activity-log/activity-log.service");
 let ProductsService = class ProductsService {
     productModel;
+    counterModel;
     shopService;
     listingUtils;
     userService;
@@ -37,8 +41,10 @@ let ProductsService = class ProductsService {
     cls;
     likeService;
     reviewService;
-    constructor(productModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n, cls, likeService, reviewService) {
+    activityLogService;
+    constructor(productModel, counterModel, shopService, listingUtils, userService, fileUploadService, promotionService, i18n, cls, likeService, reviewService, activityLogService) {
         this.productModel = productModel;
+        this.counterModel = counterModel;
         this.shopService = shopService;
         this.listingUtils = listingUtils;
         this.userService = userService;
@@ -48,6 +54,7 @@ let ProductsService = class ProductsService {
         this.cls = cls;
         this.likeService = likeService;
         this.reviewService = reviewService;
+        this.activityLogService = activityLogService;
     }
     get lang() {
         return this.cls.get("lang") || "en";
@@ -74,6 +81,14 @@ let ProductsService = class ProductsService {
             type: "Point",
             coordinates: [parsed.coordinates[0], parsed.coordinates[1]],
         };
+    }
+    async generateNextListingCode() {
+        const counter = await this.counterModel.findByIdAndUpdate("listingCode", { $inc: { seq: 1 } }, { new: true, upsert: true });
+        return `LST-${String(counter.seq).padStart(6, "0")}`;
+    }
+    async generateNextVideoCode() {
+        const counter = await this.counterModel.findByIdAndUpdate("videoCode", { $inc: { seq: 1 } }, { new: true, upsert: true });
+        return `VID-${String(counter.seq).padStart(6, "0")}`;
     }
     async create(entityId, type, dto) {
         try {
@@ -123,8 +138,10 @@ let ProductsService = class ProductsService {
                 throw new common_1.BadRequestException('Invalid type. Must be "shop" or "personal".');
             }
             console.log("Product Payload:", productPayload);
+            const listingCode = await this.generateNextListingCode();
             const createdProduct = new this.productModel({
                 ...productPayload,
+                listingCode,
                 location,
                 images: [],
                 video: "",
@@ -141,6 +158,7 @@ let ProductsService = class ProductsService {
                 const uploadedVideo = await this.fileUploadService.uploadProductFiles([dto.video], type, entityId, createdProduct._id.toString(), "video");
                 console.log("Uploaded Video:", uploadedVideo);
                 createdProduct.video = uploadedVideo[0].url;
+                createdProduct.videoCode = await this.generateNextVideoCode();
             }
             if (createdProduct.parameters && createdProduct.parameters.length > 0) {
                 createdProduct.searchableTags = [
@@ -262,7 +280,7 @@ let ProductsService = class ProductsService {
             isReviewed: userReview || null,
         };
     }
-    async update(productId, updateDto) {
+    async update(productId, updateDto, currentUser) {
         if ("shopId" in updateDto) {
             throw new common_1.ForbiddenException(this.i18n.translate("auth.products.shop_cant_update", {
                 lang: this.lang,
@@ -291,6 +309,12 @@ let ProductsService = class ProductsService {
                 lang: this.lang,
             }));
         }
+        if (currentUser) {
+            const resolvedOwnerId = existingProduct.shopId
+                ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+                : existingProduct.ownerId?.toString();
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, resolvedOwnerId ?? "", "listings", "edit");
+        }
         if (updateDto.images && updateDto.images.length > 0) {
             const uploadedFiles = await this.fileUploadService.uploadProductFiles(updateDto.images, "shop", existingProduct.shopId
                 ? existingProduct.shopId.toString()
@@ -305,6 +329,9 @@ let ProductsService = class ProductsService {
                 : existingProduct.ownerId.toString(), productId, "video");
             console.log("Uploaded Video:", uploadedVideo);
             updateDto.video = uploadedVideo[0].url;
+            if (!existingProduct.videoCode) {
+                updateDto.videoCode = await this.generateNextVideoCode();
+            }
         }
         if (updateDto.parameters) {
             updateDto.searchableTags = updateDto.parameters.flatMap((p) => [p.name, ...p.variants]);
@@ -330,7 +357,7 @@ let ProductsService = class ProductsService {
             },
         };
     }
-    async delete(productId, lang = "en") {
+    async delete(productId, currentUser, lang = "en", ipAddress) {
         const existingProduct = await this.productModel.findOne({
             _id: new mongoose_2.Types.ObjectId(productId),
             isDeleted: false,
@@ -345,14 +372,25 @@ let ProductsService = class ProductsService {
         const entityId = existingProduct.shopId
             ? existingProduct.shopId.toString()
             : existingProduct.ownerId.toString();
+        let resolvedOwnerId;
+        if (currentUser) {
+            resolvedOwnerId = existingProduct.shopId
+                ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+                : existingProduct.ownerId?.toString();
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, resolvedOwnerId ?? "", "listings", "delete");
+        }
         await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
         const result = await this.productModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(productId), { isDeleted: true, images: [], video: "" });
         if (!result)
             throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
                 lang: this.lang,
             }));
+        if (currentUser && resolvedOwnerId && resolvedOwnerId !== currentUser.sub) {
+            await this.activityLogService.record(currentUser.sub, "listing_deleted", "Product", productId, existingProduct.title, ipAddress);
+        }
+        return existingProduct;
     }
-    async deleteProductMedia(productId, media) {
+    async deleteProductMedia(productId, media, currentUser) {
         const existingProduct = await this.productModel.findOne({
             _id: new mongoose_2.Types.ObjectId(productId),
             isDeleted: false,
@@ -367,6 +405,12 @@ let ProductsService = class ProductsService {
             throw new common_1.BadRequestException(this.i18n.translate("auth.products.no_media_provided", {
                 lang: this.lang,
             }));
+        }
+        if (currentUser) {
+            const resolvedOwnerId = existingProduct.shopId
+                ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+                : existingProduct.ownerId?.toString();
+            (0, permission_utils_1.assertOwnerOrPermission)(currentUser, resolvedOwnerId ?? "", "listings", "edit");
         }
         await this.fileUploadService.deleteFiles(media);
         let images = existingProduct.images || [];
@@ -506,6 +550,18 @@ let ProductsService = class ProductsService {
         if (query.category) {
             baseFilter.category = new mongoose_2.Types.ObjectId(query.category);
         }
+        if (query.startDate || query.endDate) {
+            const createdAt = {};
+            if (query.startDate) {
+                createdAt.$gte = new Date(query.startDate);
+            }
+            if (query.endDate) {
+                const endOfDay = new Date(query.endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                createdAt.$lte = endOfDay;
+            }
+            baseFilter.createdAt = createdAt;
+        }
         const searchTerm = query.name?.trim();
         const promotedProducts = await this.productModel
             .find({
@@ -526,6 +582,7 @@ let ProductsService = class ProductsService {
                 { description: { $regex: searchTerm, $options: "i" } },
                 { "parameters.name": { $regex: searchTerm, $options: "i" } },
                 { "parameters.variants": { $regex: searchTerm, $options: "i" } },
+                { listingCode: { $regex: searchTerm, $options: "i" } },
             ];
         }
         const [regularProducts, total] = await Promise.all([
@@ -581,7 +638,7 @@ let ProductsService = class ProductsService {
         });
     }
     async getProductsWithVideos(paginationDto, userId, category) {
-        const { page = 1, limit = 10 } = paginationDto;
+        const { page = 1, limit = 10, search } = paginationDto;
         const skip = (page - 1) * limit;
         const filter = {
             video: { $exists: true, $nin: ["", null] },
@@ -590,6 +647,9 @@ let ProductsService = class ProductsService {
         };
         if (category) {
             filter.category = new mongoose_2.Types.ObjectId(category);
+        }
+        if (search?.trim()) {
+            filter.title = { $regex: search.trim(), $options: "i" };
         }
         const [items, total] = await Promise.all([
             this.productModel
@@ -641,15 +701,78 @@ let ProductsService = class ProductsService {
             data,
         };
     }
+    async getProductsWithVideosForAdmin(page = 1, limit = 10, search, startDate, endDate) {
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 10;
+        const skip = (pageNum - 1) * limitNum;
+        const filter = {
+            video: { $exists: true, $nin: ["", null] },
+            isDeleted: false,
+        };
+        if (search?.trim()) {
+            filter.title = { $regex: search.trim(), $options: "i" };
+        }
+        if (startDate || endDate) {
+            const createdAt = {};
+            if (startDate) {
+                createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                const endOfDay = new Date(endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                createdAt.$lte = endOfDay;
+            }
+            filter.createdAt = createdAt;
+        }
+        const [items, total] = await Promise.all([
+            this.productModel
+                .find(filter)
+                .populate("category")
+                .populate({
+                path: "shopId",
+                select: "_id title image address ownerId",
+            })
+                .populate({
+                path: "ownerId",
+                select: "_id name image",
+            })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .lean()
+                .exec(),
+            this.productModel.countDocuments(filter).exec(),
+        ]);
+        return {
+            meta: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum),
+            },
+            data: items,
+        };
+    }
+    async setProductDisabled(productId, disabled) {
+        const product = await this.productModel.findByIdAndUpdate(productId, { $set: { isDisabled: disabled } }, { new: true });
+        if (!product) {
+            throw new common_1.NotFoundException(this.i18n.translate("auth.products.product_not_found", {
+                lang: this.lang,
+            }));
+        }
+        return product;
+    }
 };
 exports.ProductsService = ProductsService;
 exports.ProductsService = ProductsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
-    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => shop_service_1.ShopService))),
-    __param(3, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
-    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
+    __param(1, (0, mongoose_1.InjectModel)(counter_schema_1.Counter.name)),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => shop_service_1.ShopService))),
+    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => users_service_1.UsersService))),
+    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => like_service_1.LikeService))),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         shop_service_1.ShopService,
         listing_util_service_1.ListingUtilsService,
         users_service_1.UsersService,
@@ -658,6 +781,7 @@ exports.ProductsService = ProductsService = __decorate([
         nestjs_i18n_1.I18nService,
         nestjs_cls_1.ClsService,
         like_service_1.LikeService,
-        reviews_service_1.ReviewService])
+        reviews_service_1.ReviewService,
+        activity_log_service_1.ActivityLogService])
 ], ProductsService);
 //# sourceMappingURL=products.service.js.map

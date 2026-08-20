@@ -13,6 +13,8 @@ exports.ProductSchema = exports.Product = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 let Product = class Product {
+    listingCode;
+    videoCode;
     shopId;
     ownerId;
     title;
@@ -30,6 +32,14 @@ let Product = class Product {
     searchableTags;
 };
 exports.Product = Product;
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], Product.prototype, "listingCode", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], Product.prototype, "videoCode", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Shop", required: false }),
     __metadata("design:type", mongoose_2.Types.ObjectId)

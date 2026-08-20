@@ -20,6 +20,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const google_strategy_1 = require("./strategies/google.strategy");
 const email_service_1 = require("../common/email-service/email-service");
 const sms_service_1 = require("../common/sms-service/sms-service");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -29,6 +30,7 @@ exports.AuthModule = AuthModule = __decorate([
             config_1.ConfigModule,
             users_module_1.UsersModule,
             passport_1.PassportModule,
+            activity_log_module_1.ActivityLogModule,
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],

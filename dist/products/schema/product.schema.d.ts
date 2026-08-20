@@ -1,5 +1,7 @@
 import { Document, Types } from "mongoose";
 export declare class Product {
+    listingCode?: string;
+    videoCode?: string;
     shopId: Types.ObjectId;
     ownerId?: Types.ObjectId;
     title: string;

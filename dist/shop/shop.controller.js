@@ -18,6 +18,10 @@ const shop_service_1 = require("./shop.service");
 const create_update_shop_dto_1 = require("./dto/create-update-shop.dto");
 const search_nearby_shop_dto_1 = require("./dto/search-nearby-shop.dto");
 const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const permissions_guard_1 = require("../auth/guard/permissions-guard");
+const require_permission_decorator_1 = require("../common/decorators/require-permission.decorator");
+const require_action_decorator_1 = require("../common/decorators/require-action.decorator");
+const activity_log_service_1 = require("../activity-log/activity-log.service");
 const mongoose_1 = require("mongoose");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const swagger_1 = require("@nestjs/swagger");
@@ -25,8 +29,10 @@ const platform_express_1 = require("@nestjs/platform-express");
 const public_decorator_1 = require("../common/decorators/public.decorator");
 let ShopController = class ShopController {
     shopService;
-    constructor(shopService) {
+    activityLogService;
+    constructor(shopService, activityLogService) {
         this.shopService = shopService;
+        this.activityLogService = activityLogService;
     }
     async createShop(dto, req, files) {
         const user = req.user;
@@ -41,7 +47,7 @@ let ShopController = class ShopController {
         }
         return this.shopService.createShop(new mongoose_1.Types.ObjectId(user.sub), dto);
     }
-    async updateShop(id, dto, files) {
+    async updateShop(id, dto, files, currentUser) {
         if (files?.image && files.image.length > 0) {
             dto.image = files.image[0];
         }
@@ -51,7 +57,7 @@ let ShopController = class ShopController {
         if (dto.location && typeof dto.location === "string") {
             dto.location = JSON.parse(dto.location);
         }
-        return this.shopService.updateShop(id, dto);
+        return this.shopService.updateShop(id, dto, currentUser);
     }
     async getShop(id) {
         return this.shopService.getShopById(id);
@@ -59,10 +65,26 @@ let ShopController = class ShopController {
     async getMyShops(user) {
         return this.shopService.getAllShopsByUser(user.sub);
     }
+    async getShopsByUserForAdmin(userId, page = 1, limit = 5) {
+        return this.shopService.getAllShopsByUserPaginated(userId, { page, limit });
+    }
+    async getAllShops(page = 1, limit = 10, search, startDate, endDate) {
+        return this.shopService.getAllShops({ page, limit, search, startDate, endDate });
+    }
     async searchNearbyShops(query) {
         const coordinates = [query.lng, query.lat];
         const radiusMeters = query.radius * 1000;
         return await this.shopService.findShopsNearLocationPaginated(coordinates, radiusMeters, { page: query.page, limit: query.limit });
+    }
+    async disableShop(id, currentUser) {
+        const shop = await this.shopService.setShopDisabled(id, true);
+        await this.activityLogService.record(currentUser.sub, "shop_suspended", "Shop", id, shop.title);
+        return { message: "Shop suspended successfully", data: shop };
+    }
+    async enableShop(id, currentUser) {
+        const shop = await this.shopService.setShopDisabled(id, false);
+        await this.activityLogService.record(currentUser.sub, "shop_enabled", "Shop", id, shop.title);
+        return { message: "Shop enabled successfully", data: shop };
     }
 };
 exports.ShopController = ShopController;
@@ -84,7 +106,7 @@ __decorate([
 ], ShopController.prototype, "createShop", null);
 __decorate([
     (0, common_1.Put)(":id"),
-    (0, swagger_1.ApiOperation)({ summary: "Update existing shop by ID" }),
+    (0, swagger_1.ApiOperation)({ summary: "Update existing shop by ID (own shop, or requires 'shops' edit permission for others)" }),
     (0, swagger_1.ApiParam)({ name: "id", type: String }),
     (0, swagger_1.ApiConsumes)("multipart/form-data"),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
@@ -95,8 +117,9 @@ __decorate([
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.UploadedFiles)()),
+    __param(3, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, create_update_shop_dto_1.CreateUpdateShopDto, Object]),
+    __metadata("design:paramtypes", [String, create_update_shop_dto_1.CreateUpdateShopDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "updateShop", null);
 __decorate([
@@ -118,6 +141,40 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "getMyShops", null);
 __decorate([
+    (0, common_1.Get)("admin/user/:userId"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("shops"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated shops owned by a specific user (admin, for User Profile modal)" }),
+    (0, swagger_1.ApiParam)({ name: "userId", type: String }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Param)("userId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ShopController.prototype, "getShopsByUserForAdmin", null);
+__decorate([
+    (0, common_1.Get)("allShops"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("shops"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated list of all shops with optional title search (protected)" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "search", required: false, type: String, description: "Search by shop title (partial, case-insensitive)" }),
+    (0, swagger_1.ApiQuery)({ name: "startDate", required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: "endDate", required: false, type: String }),
+    __param(0, (0, common_1.Query)("page")),
+    __param(1, (0, common_1.Query)("limit")),
+    __param(2, (0, common_1.Query)("search")),
+    __param(3, (0, common_1.Query)("startDate")),
+    __param(4, (0, common_1.Query)("endDate")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, String, String, String]),
+    __metadata("design:returntype", Promise)
+], ShopController.prototype, "getAllShops", null);
+__decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)("search/nearby"),
     (0, swagger_1.ApiOperation)({ summary: "Search shops near a coordinate within a radius" }),
@@ -132,11 +189,38 @@ __decorate([
     __metadata("design:paramtypes", [search_nearby_shop_dto_1.SearchNearbyShopDto]),
     __metadata("design:returntype", Promise)
 ], ShopController.prototype, "searchNearbyShops", null);
+__decorate([
+    (0, common_1.Patch)(":id/disable"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("shops"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
+    (0, swagger_1.ApiOperation)({ summary: "Suspend a shop (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "id", type: String }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ShopController.prototype, "disableShop", null);
+__decorate([
+    (0, common_1.Patch)(":id/enable"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("shops"),
+    (0, require_action_decorator_1.RequireAction)("edit"),
+    (0, swagger_1.ApiOperation)({ summary: "Re-enable a suspended shop (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "id", type: String }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ShopController.prototype, "enableShop", null);
 exports.ShopController = ShopController = __decorate([
     (0, swagger_1.ApiTags)("Shops"),
     (0, swagger_1.ApiBearerAuth)("jwt"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)("shops"),
-    __metadata("design:paramtypes", [shop_service_1.ShopService])
+    __metadata("design:paramtypes", [shop_service_1.ShopService,
+        activity_log_service_1.ActivityLogService])
 ], ShopController);
 //# sourceMappingURL=shop.controller.js.map

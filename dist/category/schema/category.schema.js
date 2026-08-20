@@ -47,14 +47,20 @@ __decorate([
         type: {
             en: [
                 {
-                    name: { type: String, required: true },
-                    values: { type: [String], default: [] },
+                    name: { type: String },
+                    values: [{ type: String }],
+                    isOptional: { type: Boolean, default: false },
+                    allowCustomValue: { type: Boolean, default: false },
+                    allowMultiple: { type: Boolean, default: false },
                 },
             ],
             ur: [
                 {
-                    name: { type: String, required: true },
-                    values: { type: [String], default: [] },
+                    name: { type: String },
+                    values: [{ type: String }],
+                    isOptional: { type: Boolean, default: false },
+                    allowCustomValue: { type: Boolean, default: false },
+                    allowMultiple: { type: Boolean, default: false },
                 },
             ],
         },

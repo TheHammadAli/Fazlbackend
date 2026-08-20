@@ -13,6 +13,7 @@ exports.BroadcastSchema = exports.Broadcast = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 let Broadcast = class Broadcast {
+    broadcastCode;
     buyer;
     message;
     address;
@@ -23,8 +24,14 @@ let Broadcast = class Broadcast {
     type;
     expiresAt;
     lastResponseAt;
+    status;
+    isDeleted;
 };
 exports.Broadcast = Broadcast;
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true, required: false }),
+    __metadata("design:type", String)
+], Broadcast.prototype, "broadcastCode", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, required: true, ref: "User" }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
@@ -75,6 +82,14 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Date }),
     __metadata("design:type", Date)
 ], Broadcast.prototype, "lastResponseAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, enum: ["open", "closed"], default: "open" }),
+    __metadata("design:type", String)
+], Broadcast.prototype, "status", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Broadcast.prototype, "isDeleted", void 0);
 exports.Broadcast = Broadcast = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Broadcast);

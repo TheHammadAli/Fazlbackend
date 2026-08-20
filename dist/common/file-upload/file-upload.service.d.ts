@@ -15,6 +15,7 @@ export declare class FileUploadService {
     uploadUserImage(userId: string, file: Express.Multer.File): Promise<string>;
     uploadShopImage(shopId: string, file: Express.Multer.File): Promise<string>;
     uploadCategoryIcon(file: any): Promise<string>;
+    uploadAnnouncementImage(file: any): Promise<string>;
     uploadShopBanner(shopId: string, file: Express.Multer.File): Promise<string>;
     uploadChatMessage(conversationId: string, file: Express.Multer.File): Promise<string>;
     uploadBroadcastImage(buyerId: string, file: Express.Multer.File): Promise<string>;

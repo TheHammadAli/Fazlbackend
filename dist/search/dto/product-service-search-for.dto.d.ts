@@ -3,4 +3,6 @@ export declare class SearchAllProductsServiceDto {
     category?: string;
     page?: number;
     limit?: number;
+    startDate?: string;
+    endDate?: string;
 }

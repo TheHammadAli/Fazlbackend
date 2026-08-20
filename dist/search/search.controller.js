@@ -52,7 +52,7 @@ let SearchController = class SearchController {
     }
     async searchAllProducts(query) {
         console.log("Search query:", query);
-        const { name, category, page = 1, limit = 20 } = query;
+        const { name, category, page = 1, limit = 20, startDate, endDate } = query;
         if (page < 1 || limit < 1) {
             throw new common_1.BadRequestException("Page and limit must be greater than 0");
         }
@@ -61,11 +61,13 @@ let SearchController = class SearchController {
             category,
             page,
             limit,
+            startDate,
+            endDate,
         });
     }
     async searchAllServices(query) {
         console.log("Search query:", query);
-        const { name, category, page = 1, limit = 20 } = query;
+        const { name, category, page = 1, limit = 20, startDate, endDate } = query;
         if (page < 1 || limit < 1) {
             throw new common_1.BadRequestException("Page and limit must be greater than 0");
         }
@@ -74,6 +76,8 @@ let SearchController = class SearchController {
             category,
             page,
             limit,
+            startDate,
+            endDate,
         });
     }
 };
