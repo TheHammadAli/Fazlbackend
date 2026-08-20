@@ -5,7 +5,6 @@ import {
   ValidateNested,
   IsArray,
   IsDateString,
-  IsObject,
   IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";

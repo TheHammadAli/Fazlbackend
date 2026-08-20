@@ -2,20 +2,37 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   InternalServerErrorException,
   Param,
+  Patch,
   Post,
   Put,
   Query,
+  Req,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
+import { Request } from "express";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { UsersService } from "./users.service";
 import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
+import { CreateAdminAccountDto } from "./dto/create-admin-account.dto";
+import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
+import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
+import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
+import { CreateMemberDto } from "./dto/create-member.dto";
+import { UpdateMemberDto } from "./dto/update-member.dto";
 import { User } from "./schema/users.schema";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
+import { RolesGuard } from "src/auth/guard/roles-guard";
+import { Roles } from "src/common/decorators/roles.decorator";
+import { PermissionsGuard } from "src/auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
+import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import {
   ApiBearerAuth,
   ApiTags,
@@ -38,7 +55,10 @@ import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 @UseGuards(JwtAuthGuard)
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly activityLogService: ActivityLogService,
+  ) { }
 
   @Public()
   @Post("createUser")
@@ -70,7 +90,7 @@ export class UsersController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update a user (protected)" })
+  @ApiOperation({ summary: "Update a user (protected; self, or requires 'users' permission for other accounts)" })
   @ApiParam({ name: "id", type: String })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileFieldsInterceptor([{ name: "image", maxCount: 1 }]))
@@ -82,7 +102,10 @@ export class UsersController {
     files: {
       image?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
   ): Promise<{ message: string; data: User }> {
+    assertOwnerOrPermission(currentUser, userId, "users", "edit");
     if (files?.image && files.image.length > 0) {
       updateUserDto.image = files.image[0];
     }
@@ -92,7 +115,18 @@ export class UsersController {
         updateUserDto.location?.toString() || "{}",
       );
     }
-    return this.usersService.updateUser(userId, updateUserDto);
+    const result = await this.usersService.updateUser(userId, updateUserDto);
+    if (currentUser.sub !== userId) {
+      await this.activityLogService.record(
+        currentUser.sub,
+        "user_updated",
+        "User",
+        userId,
+        result.data?.name ?? result.data?.email,
+        req.ip,
+      );
+    }
+    return result;
   }
 
   @Get("detail/:id")
@@ -101,17 +135,31 @@ export class UsersController {
   async getUser(@Param("id") userId: string): Promise<User> {
     return this.usersService.findUserById(userId);
   }
+  @Get(":id/stats")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("users")
+  @ApiOperation({ summary: "Get aggregated activity counts for a user (admin, for User Profile modal)" })
+  @ApiParam({ name: "id", type: String })
+  async getUserStats(@Param("id") userId: string) {
+    return this.usersService.getUserStats(userId);
+  }
   @Get("allUsers")
-  @ApiOperation({ summary: "Get paginated list of all users with optional name search (protected)" })
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("users")
+  @ApiOperation({ summary: "Get paginated list of all users with optional name/email/phone/ID search and join-date range filter (protected)" })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "search", required: false, type: String, description: "Search by user name (partial, case-insensitive)" })
+  @ApiQuery({ name: "search", required: false, type: String, description: "Search by user name, email, phone, or userCode (partial, case-insensitive)" })
+  @ApiQuery({ name: "startDate", required: false, type: String, description: "Filter by join date, inclusive lower bound (ISO date)" })
+  @ApiQuery({ name: "endDate", required: false, type: String, description: "Filter by join date, inclusive upper bound (ISO date)" })
   async getAllUsers(
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
-    return this.usersService.getAllUsers({ page, limit, search });
+    return this.usersService.getAllUsers({ page, limit, search, startDate, endDate });
   }
 
   @Post("register-fcm-token")
@@ -129,22 +177,276 @@ export class UsersController {
   }
 
   @Delete(":id/deactivate")
-  @ApiOperation({ summary: "Disable/Delete user account (protected)" })
+  @ApiOperation({ summary: "Disable/Delete user account (protected; self, or requires 'users' permission for other accounts)" })
   @ApiParam({ name: "id", type: String })
   @ApiResponse({ status: 200, description: "Account has been disabled successfully" })
   async disableAccount(
     @Param("id") userId: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
   ): Promise<{ message: string; data: User }> {
-    return this.usersService.disableAccount(userId);
+    assertOwnerOrPermission(currentUser, userId, "users", "delete");
+    const result = await this.usersService.disableAccount(userId);
+    if (currentUser.sub !== userId) {
+      await this.activityLogService.record(
+        currentUser.sub,
+        "user_suspended",
+        "User",
+        userId,
+        result.data?.name ?? result.data?.email,
+        req.ip,
+      );
+    }
+    return result;
   }
 
   @Post(":id/reactivate")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("users")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Reactivate disabled user account (protected)" })
   @ApiParam({ name: "id", type: String })
   @ApiResponse({ status: 200, description: "Account has been reactivated successfully" })
   async reactivateAccount(
     @Param("id") userId: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
   ): Promise<{ message: string; data: User }> {
-    return this.usersService.reactivateAccount(userId);
+    const result = await this.usersService.reactivateAccount(userId);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "user_enabled",
+      "User",
+      userId,
+      result.data?.name ?? result.data?.email,
+      req.ip,
+    );
+    return result;
+  }
+
+  // --- Admin Management (super_admin only) ---
+
+  @Get("admins")
+  @UseGuards(RolesGuard)
+  @Roles("super_admin")
+  @ApiOperation({ summary: "Get paginated list of admin-panel accounts (super_admin only)" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String, description: "Search by name or email" })
+  async getAllAdminAccounts(
+    @Query("page") page = 1,
+    @Query("limit") limit = 10,
+    @Query("search") search?: string,
+  ) {
+    return this.usersService.getAllAdminAccounts({ page, limit, search });
+  }
+
+  @Post("admins")
+  @UseGuards(RolesGuard)
+  @Roles("super_admin")
+  @ApiOperation({ summary: "Create a new admin-panel account (super_admin only)" })
+  @ApiBody({ type: CreateAdminAccountDto })
+  async createAdminAccount(@Body() dto: CreateAdminAccountDto) {
+    return this.usersService.createAdminAccount(dto);
+  }
+
+  @Patch("admins/:id")
+  @UseGuards(RolesGuard)
+  @Roles("super_admin")
+  @ApiOperation({ summary: "Update an admin-panel account's name/email/role (super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiBody({ type: UpdateAdminAccountDto })
+  async updateAdminAccount(
+    @Param("id") id: string,
+    @Body() dto: UpdateAdminAccountDto,
+  ) {
+    return this.usersService.updateAdminAccount(id, dto);
+  }
+
+  @Patch("admins/:id/disable")
+  @UseGuards(RolesGuard)
+  @Roles("super_admin")
+  @ApiOperation({ summary: "Disable an admin-panel account (super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  async disableAdminAccount(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ): Promise<{ message: string; data: User }> {
+    const target = await this.usersService.findUserById(id);
+    if (target.roles?.includes("super_admin")) {
+      throw new ForbiddenException("The Super Admin account cannot be disabled");
+    }
+    const result = await this.usersService.disableAccount(id);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "user_suspended",
+      "User",
+      id,
+      result.data?.name ?? result.data?.email,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Patch("admins/:id/enable")
+  @UseGuards(RolesGuard)
+  @Roles("super_admin")
+  @ApiOperation({ summary: "Re-enable a disabled admin-panel account (super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  async enableAdminAccount(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ): Promise<{ message: string; data: User }> {
+    const result = await this.usersService.reactivateAccount(id);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "user_enabled",
+      "User",
+      id,
+      result.data?.name ?? result.data?.email,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Patch("admins/:id/reset-password")
+  @UseGuards(RolesGuard)
+  @Roles("super_admin")
+  @ApiOperation({ summary: "Update an admin-panel account's password (super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiBody({ type: ResetAdminPasswordDto })
+  async resetAdminPassword(
+    @Param("id") id: string,
+    @Body() dto: ResetAdminPasswordDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const target = await this.usersService.findUserById(id);
+    const result = await this.usersService.resetAdminPassword(id, dto);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "admin_password_reset",
+      "User",
+      id,
+      target?.name ?? target?.email,
+      req.ip,
+    );
+    return result;
+  }
+
+  // --- Member Management (admin/super_admin) ---
+  // Members (moderator accounts) are the pool of people tasks can be assigned to.
+  // Distinct from Admin Management above, which is super_admin-only.
+
+  @Get("members")
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @ApiOperation({ summary: "Get all members (admin/super_admin only)" })
+  async getAllMembers() {
+    return { data: await this.usersService.getMembers() };
+  }
+
+  @Post("members")
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Create a new member account (admin/super_admin only)" })
+  @ApiBody({ type: CreateMemberDto })
+  async createMember(
+    @Body() dto: CreateMemberDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const result = await this.usersService.createMemberAccount(dto.name, dto.email);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "member_created",
+      "User",
+      result.data?._id?.toString(),
+      result.data?.name,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Patch("members/:id")
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Update a member account's name/email (admin/super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiBody({ type: UpdateMemberDto })
+  async updateMember(
+    @Param("id") id: string,
+    @Body() dto: UpdateMemberDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const result = await this.usersService.updateMemberAccount(id, dto.name, dto.email);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "member_updated",
+      "User",
+      id,
+      result.data?.name,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Delete("members/:id")
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("delete")
+  @ApiOperation({ summary: "Delete a member account (admin/super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  async deleteMember(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const result = await this.usersService.deleteMemberAccount(id);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "member_deleted",
+      "User",
+      id,
+      result.data?.name,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Patch("members/:id/reset-password")
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles("admin", "super_admin")
+  @RequirePermission("members")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Reset a member account's password (admin/super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiBody({ type: ResetMemberPasswordDto })
+  async resetMemberPassword(
+    @Param("id") id: string,
+    @Body() dto: ResetMemberPasswordDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const target = await this.usersService.findUserById(id);
+    const result = await this.usersService.resetMemberPassword(id, dto);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "member_password_reset",
+      "User",
+      id,
+      target?.name ?? target?.email,
+      req.ip,
+    );
+    return result;
   }
 }

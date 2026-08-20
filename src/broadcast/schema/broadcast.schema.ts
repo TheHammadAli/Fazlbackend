@@ -5,6 +5,9 @@ export type BroadcastDocument = HydratedDocument<Broadcast>;
 
 @Schema({ timestamps: true })
 export class Broadcast {
+  @Prop({ unique: true, sparse: true, required: false })
+  broadcastCode?: string;
+
   @Prop({ type: Types.ObjectId, required: true, ref: "User" })
   buyer: Types.ObjectId;
 
@@ -48,6 +51,12 @@ export class Broadcast {
 
   @Prop({ type: Date })
   lastResponseAt: Date;
+
+  @Prop({ type: String, enum: ["open", "closed"], default: "open" })
+  status: "open" | "closed";
+
+  @Prop({ type: Boolean, default: false })
+  isDeleted: boolean;
 }
 
 export const BroadcastSchema = SchemaFactory.createForClass(Broadcast);

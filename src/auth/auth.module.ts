@@ -11,12 +11,14 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { GoogleStrategy } from "./strategies/google.strategy";
 import { EmailService } from "src/common/email-service/email-service";
 import { SmsService } from "src/common/sms-service/sms-service";
+import { ActivityLogModule } from "src/activity-log/activity-log.module";
 
 @Module({
   imports: [
     ConfigModule, // Optional but good to explicitly include
     UsersModule,
     PassportModule,
+    ActivityLogModule,
 
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -36,4 +38,4 @@ import { SmsService } from "src/common/sms-service/sms-service";
   providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService, SmsService],
   exports: [AuthService], // Export AuthService if needed elsewhere
 })
-export class AuthModule { }
+export class AuthModule {}

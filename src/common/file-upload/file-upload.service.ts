@@ -207,6 +207,28 @@ export class FileUploadService {
     }
   }
 
+  // ========== Announcement Image ==========
+  async uploadAnnouncementImage(file: any) {
+    const fileExt = extname(file.originalname);
+    const uniqueName = `${uuidv4()}${fileExt}`;
+    const key = `announcements/images/${uniqueName}`;
+
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      });
+
+      await this.s3.send(command);
+      return this.getFileUrl(key, false);
+    } catch (err) {
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Announcement image upload failed");
+    }
+  }
+
   // ========== Shop Banner ==========
   async uploadShopBanner(shopId: string, file: Express.Multer.File) {
     const key = `shop/${shopId}/images/banner`;

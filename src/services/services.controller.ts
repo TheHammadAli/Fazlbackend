@@ -15,12 +15,15 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { ServicesService } from "./services.service";
 import { CreateServiceDto } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
+import { PermissionsGuard } from "src/auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
 import { Request } from "express";
 import {
   ApiBearerAuth,
@@ -38,6 +41,7 @@ import { UpdateJobStatusDto } from "./dto/update-job-dto";
 import { UpdateServiceStatusDto } from "./dto/update-service-status.dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { Public } from "src/common/decorators/public.decorator";
 import { GetWithVideosDto } from "./dto/video-with-dto";
 import { PaginationDto } from "src/orders/dto/Get-paginated-dto";
@@ -56,7 +60,6 @@ export class ServicesController {
   createRequest(@Body() dto: CreateRequestDto) {
     return this.servicesService.createServiceRequest(dto);
   }
-
 
   @Patch("status")
   @ApiOperation({
@@ -117,7 +120,7 @@ export class ServicesController {
   }
 
   @Put("update/:serviceId")
-  @ApiOperation({ summary: "Update an existing service" })
+  @ApiOperation({ summary: "Update an existing service (own service, or requires 'services' edit permission for others)" })
   @ApiParam({ name: "serviceId", required: true })
   @ApiResponse({ status: 200, description: "Service updated successfully" })
   @ApiConsumes("multipart/form-data")
@@ -136,6 +139,7 @@ export class ServicesController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (files?.images && files.images.length > 0) {
       dto.images = files.images; // Assuming images are stored as file objects
@@ -148,16 +152,16 @@ export class ServicesController {
       dto.parameters?.toString() || "{}",
     );
 
-    return await this.servicesService.update(serviceId, dto);
+    return await this.servicesService.update(serviceId, dto, currentUser);
   }
 
   @Delete(':serviceId')
-  @ApiOperation({ summary: 'Delete a service' })
+  @ApiOperation({ summary: "Delete a service (own service, or requires 'services' delete permission for others)" })
   @ApiParam({ name: 'serviceId', required: true })
   @ApiResponse({ status: 204, description: 'Service deleted successfully' })
   @HttpCode(HttpStatus.OK)
-  async delete(@Param('serviceId') serviceId: string) {
-    const results = await this.servicesService.delete(serviceId);
+  async delete(@Param('serviceId') serviceId: string, @CurrentUser() currentUser: JwtPayload) {
+    const results = await this.servicesService.delete(serviceId, currentUser);
     console.log("Results", results)
     return { message: results.message }
   }
@@ -241,6 +245,107 @@ export class ServicesController {
     return this.servicesService.getServiceRequestsByUser(userId, role, page, limit, jobStatus, status);
   }
 
+  @Get("admin/user/:userId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("services")
+  @ApiOperation({ summary: "Get a specific user's services (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getServicesByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 5,
+  ): Promise<PaginatedResponseDto<any>> {
+    return this.servicesService.getByUser(userId, page, limit);
+  }
+
+  @Get("admin/user/:userId/bookings")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("bookings")
+  @ApiOperation({ summary: "Get a specific user's service bookings as customer (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getBookingsByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 5,
+  ): Promise<PaginatedResponseDto<any>> {
+    try {
+      return await this.servicesService.getServiceRequestsByUser(userId, "customer", page, limit);
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+      }
+      throw err;
+    }
+  }
+
+  @Get("bookings/all")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("bookings")
+  @ApiOperation({ summary: "Get all service bookings across all users (admin)" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({
+    name: "search",
+    required: false,
+    type: String,
+    description: "Search by customer name, provider name, or service title",
+  })
+  @ApiQuery({
+    name: "bookingStatus",
+    required: false,
+    enum: ["pending", "accepted", "completed", "cancelled"],
+    description: "Simplified admin-facing status, derived from status + jobStatus",
+  })
+  @ApiQuery({ name: "startDate", required: false, type: String, description: "Filter by createdAt >= startDate (YYYY-MM-DD)" })
+  @ApiQuery({ name: "endDate", required: false, type: String, description: "Filter by createdAt <= endDate (YYYY-MM-DD)" })
+  @ApiResponse({
+    status: 200,
+    description: "Paginated list of all service bookings",
+  })
+  async getAllServiceRequests(
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 10,
+    @Query("search") search?: string,
+    @Query("bookingStatus") bookingStatus?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    return this.servicesService.getAllServiceRequests(page, limit, search, bookingStatus, startDate, endDate);
+  }
+
+  @Get("bookings/stats")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("bookings")
+  @ApiOperation({ summary: "Get booking counts by status, for admin summary cards" })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
+  @ApiResponse({
+    status: 200,
+    description: "Total + per-status booking counts",
+  })
+  async getServiceRequestStatusCounts(
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.servicesService.getServiceRequestStatusCounts(startDate, endDate);
+  }
+
+  @Get("requests/detail/:requestId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("bookings")
+  @ApiOperation({ summary: "Get a single booking's full details (admin)" })
+  @ApiParam({ name: "requestId", required: true })
+  @ApiResponse({
+    status: 200,
+    description: "Full booking detail",
+  })
+  async getServiceRequestDetail(@Param("requestId") requestId: string) {
+    return this.servicesService.getServiceRequestDetail(requestId);
+  }
 
   @Public()
   @Get("with-videos/all")
@@ -286,11 +391,12 @@ export class ServicesController {
   async deleteProductMedia(
     @Param("id") serviceId: string,
     @Body("media") media: string[],
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (!Array.isArray(media) || media.length === 0) {
       throw new BadRequestException("No media files provided for deletion");
     }
-    await this.servicesService.deleteServiceMedia(serviceId, media);
+    await this.servicesService.deleteServiceMedia(serviceId, media, currentUser);
     return { message: "Selected service media deleted successfully" };
   }
 
@@ -331,35 +437,6 @@ export class ServicesController {
   ) {
     console.log("Searching nearby services with query:", query);
     return this.servicesService.searchNearbyServices(query);
-  }
-
-  @Delete(":id/media")
-  @ApiOperation({ summary: "Delete selected media files for a service" })
-  @ApiParam({ name: "id", description: "Service ID" })
-  @ApiBody({
-    schema: {
-      properties: {
-        media: {
-          type: "array",
-          items: { type: "string" },
-          description: "Array of media file URLs to delete",
-        },
-      },
-      required: ["media"],
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Selected service deleted successfully",
-  })
-  @ApiResponse({ status: 404, description: "Service not found" })
-
-  @HttpCode(HttpStatus.OK)
-  async deleteService(
-    @Param("id") serviceId: string,
-  ) {
-    await this.servicesService.delete(serviceId);
-    return { message: "Selected service deleted successfully" };
   }
 
   @Get("/customer/:customerId")

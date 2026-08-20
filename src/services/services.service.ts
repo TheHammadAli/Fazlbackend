@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Service, ServiceDocument } from "./schema/services.schema";
+import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { CreateServiceDto } from "./dto/create-service.dto";
@@ -31,12 +32,16 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
 import { ReviewService } from "src/reviews/reviews.service";
+import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 
 @Injectable()
 export class ServicesService {
   constructor(
     @InjectModel(Service.name)
     private readonly serviceModel: Model<ServiceDocument>,
+    @InjectModel(Counter.name)
+    private readonly counterModel: Model<CounterDocument>,
     @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
     private readonly notificationsService: NotificationsService,
@@ -62,6 +67,26 @@ export class ServicesService {
   // Expose service model for use in other services (e.g., broadcast)
   getServiceModel(): Model<ServiceDocument> {
     return this.serviceModel;
+  }
+
+  /** Atomically reserves the next sequential service code (e.g. SVC-000010). */
+  private async generateNextServiceCode(): Promise<string> {
+    const counter = await this.counterModel.findByIdAndUpdate(
+      "serviceCode",
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+    return `SVC-${String(counter.seq).padStart(6, "0")}`;
+  }
+
+  /** Atomically reserves the next sequential booking/job code (e.g. JOB-000010). */
+  private async generateNextJobCode(): Promise<string> {
+    const counter = await this.counterModel.findByIdAndUpdate(
+      "jobCode",
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+    return `JOB-${String(counter.seq).padStart(6, "0")}`;
   }
 
   async create(
@@ -117,8 +142,10 @@ export class ServicesService {
     if (dto.video) {
       videoFiles = dto.video as Express.Multer.File[];
     }
+    const serviceCode = await this.generateNextServiceCode();
     const created = await this.serviceModel.create({
       ...dto,
+      serviceCode,
       ownerId: new Types.ObjectId(userId),
       category: new Types.ObjectId(dto.category),
       location: user.location,
@@ -150,7 +177,11 @@ export class ServicesService {
     return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
   }
 
-  async update(serviceId: string, dto: UpdateServiceDto) {
+  async update(
+    serviceId: string,
+    dto: UpdateServiceDto,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     Object.keys(dto).forEach((key) => {
       if (
         dto[key] === "" || // empty string
@@ -163,6 +194,9 @@ export class ServicesService {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException("Service not found");
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
     }
     const imageFiles = dto.images as Express.Multer.File[];
     let images = existingService.images; // Preserve existing images if not updated
@@ -219,7 +253,10 @@ export class ServicesService {
     return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
 
-  async delete(serviceId: string) {
+  async delete(
+    serviceId: string,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException(
@@ -228,6 +265,9 @@ export class ServicesService {
         }),
       );
       // Ensure the service exists before attempting to delete
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "delete");
     }
     let media: string[] = []
     if (existingService.images.length != 0) {
@@ -251,7 +291,11 @@ export class ServicesService {
     return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
   }
 
-  async deleteServiceMedia(serviceId: string, media: string[]) {
+  async deleteServiceMedia(
+    serviceId: string,
+    media: string[],
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
     if (!existingService) {
       throw new NotFoundException(
@@ -266,6 +310,9 @@ export class ServicesService {
           lang: this.lang,
         }),
       );
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
     }
 
     // Remove media files from storage
@@ -512,10 +559,24 @@ export class ServicesService {
     const filter: Record<string, any> = {};
 
     if (query.name) {
-      filter.title = { $regex: query.name, $options: "i" };
+      filter.$or = [
+        { title: { $regex: query.name, $options: "i" } },
+        { serviceCode: { $regex: query.name, $options: "i" } },
+      ];
     }
     if (query.category) {
       filter.category = new Types.ObjectId(query.category);
+    }
+    if (query.startDate || query.endDate) {
+      filter.createdAt = {};
+      if (query.startDate) {
+        filter.createdAt.$gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const endOfDay = new Date(query.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
     }
     filter.isDeleted = false;
     filter.isDisabled = false;
@@ -611,7 +672,9 @@ export class ServicesService {
         }),
       );
 
+    const jobCode = await this.generateNextJobCode();
     const request = new this.requestModel({
+      jobCode,
       service: new Types.ObjectId(serviceId),
       customer: new Types.ObjectId(customerId),
       provider: service.ownerId,
@@ -892,6 +955,222 @@ export class ServicesService {
         totalPages: Math.ceil(total / limit),
       },
       data: requests,
+    };
+  }
+
+  /** Plain count, unlike getServiceRequestsByUser which throws NotFoundException on an empty result. */
+  async countServiceRequestsByUser(
+    userId: string,
+    role: "customer" | "provider",
+  ): Promise<number> {
+    const filter: FilterQuery<ServiceRequestDocument> =
+      role === "customer"
+        ? { customer: new Types.ObjectId(userId) }
+        : { provider: new Types.ObjectId(userId) };
+    return this.requestModel.countDocuments(filter);
+  }
+
+  private computeBookingStatus(status?: string, jobStatus?: string): "pending" | "accepted" | "completed" | "cancelled" {
+    if (jobStatus === "completed") return "completed";
+    if (status === "cancelled" || status === "rejected") return "cancelled";
+    if (status === "accepted" || status === "confirmed") return "accepted";
+    return "pending";
+  }
+
+  async getAllServiceRequests(
+    page = 1,
+    limit = 10,
+    search?: string,
+    bookingStatus?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const bookingStatusExpr = {
+      $switch: {
+        branches: [
+          { case: { $eq: ["$jobStatus", "completed"] }, then: "completed" },
+          { case: { $in: ["$status", ["cancelled", "rejected"]] }, then: "cancelled" },
+          { case: { $in: ["$status", ["accepted", "confirmed"]] }, then: "accepted" },
+        ],
+        default: "pending",
+      },
+    };
+
+    const pipeline: any[] = [
+      {
+        $lookup: {
+          from: "users",
+          localField: "customer",
+          foreignField: "_id",
+          as: "customerInfo",
+        },
+      },
+      { $unwind: { path: "$customerInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "provider",
+          foreignField: "_id",
+          as: "providerInfo",
+        },
+      },
+      { $unwind: { path: "$providerInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "services",
+          localField: "service",
+          foreignField: "_id",
+          as: "serviceInfo",
+        },
+      },
+      { $unwind: { path: "$serviceInfo", preserveNullAndEmptyArrays: true } },
+      { $addFields: { bookingStatus: bookingStatusExpr } },
+    ];
+
+    const matchStage: Record<string, any> = {};
+    if (bookingStatus?.trim()) {
+      matchStage.bookingStatus = bookingStatus.trim().toLowerCase();
+    }
+    if (search?.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      matchStage.$or = [
+        { jobCode: regex },
+        { "customerInfo.name": regex },
+        { "providerInfo.name": regex },
+        { "serviceInfo.title": regex },
+      ];
+    }
+    if (startDate || endDate) {
+      matchStage.createdAt = {};
+      if (startDate) {
+        matchStage.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        matchStage.createdAt.$lte = endOfDay;
+      }
+    }
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    pipeline.push(
+      { $sort: { createdAt: -1 } },
+      {
+        $project: {
+          jobCode: 1,
+          status: 1,
+          jobStatus: 1,
+          bookingStatus: 1,
+          requestedDateTime: 1,
+          proposedDateTime: 1,
+          createdAt: 1,
+          "customerInfo._id": 1,
+          "customerInfo.name": 1,
+          "providerInfo._id": 1,
+          "providerInfo.name": 1,
+          "serviceInfo._id": 1,
+          "serviceInfo.title": 1,
+        },
+      },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limitNum }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    );
+
+    const result = await this.requestModel.aggregate(pipeline).exec();
+    const data = result[0]?.data ?? [];
+    const total = result[0]?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
+  async getServiceRequestStatusCounts(startDate?: string, endDate?: string) {
+    const bookingStatusExpr = {
+      $switch: {
+        branches: [
+          { case: { $eq: ["$jobStatus", "completed"] }, then: "completed" },
+          { case: { $in: ["$status", ["cancelled", "rejected"]] }, then: "cancelled" },
+          { case: { $in: ["$status", ["accepted", "confirmed"]] }, then: "accepted" },
+        ],
+        default: "pending",
+      },
+    };
+
+    const matchStage: Record<string, any> = {};
+    if (startDate || endDate) {
+      matchStage.createdAt = {};
+      if (startDate) {
+        matchStage.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        matchStage.createdAt.$lte = endOfDay;
+      }
+    }
+
+    const pipeline: any[] = [];
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+    pipeline.push(
+      { $addFields: { bookingStatus: bookingStatusExpr } },
+      { $group: { _id: "$bookingStatus", count: { $sum: 1 } } },
+    );
+
+    const result = await this.requestModel.aggregate(pipeline).exec();
+
+    const counts = { pending: 0, accepted: 0, completed: 0, cancelled: 0 };
+    let total = 0;
+    for (const row of result) {
+      if (row._id in counts) {
+        counts[row._id as keyof typeof counts] = row.count;
+      }
+      total += row.count;
+    }
+
+    return { data: { total, ...counts } };
+  }
+
+  async getServiceRequestDetail(requestId: string) {
+    if (!Types.ObjectId.isValid(requestId)) {
+      throw new BadRequestException("Invalid booking id");
+    }
+
+    const request: any = await this.requestModel
+      .findById(requestId)
+      .populate("service", "title price paymentType images")
+      .populate("customer", "name email phone")
+      .populate("provider", "name email phone")
+      .lean()
+      .exec();
+
+    if (!request) {
+      throw new NotFoundException("Booking not found");
+    }
+
+    return {
+      data: {
+        ...request,
+        bookingStatus: this.computeBookingStatus(request.status, request.jobStatus),
+      },
     };
   }
 

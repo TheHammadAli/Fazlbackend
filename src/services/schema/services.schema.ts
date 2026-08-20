@@ -7,6 +7,9 @@ import { Document, Types } from "mongoose";
   toObject: { virtuals: true },
 })
 export class Service {
+  @Prop({ unique: true, sparse: true, required: false })
+  serviceCode?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   ownerId!: Types.ObjectId;
 

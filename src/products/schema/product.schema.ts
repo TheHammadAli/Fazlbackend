@@ -7,6 +7,13 @@ import { Document, Types } from "mongoose";
   toObject: { virtuals: true },
 })
 export class Product {
+  @Prop({ unique: true, sparse: true, required: false })
+  listingCode?: string;
+
+  /** Sequential display id (e.g. VID-000001), assigned only when this product has a video (i.e. is a feed video). */
+  @Prop({ unique: true, sparse: true, required: false })
+  videoCode?: string;
+
   @Prop({ type: Types.ObjectId, ref: "Shop", required: false })
   shopId: Types.ObjectId;
 

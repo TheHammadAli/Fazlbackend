@@ -8,14 +8,18 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from "@nestjs/swagger";
 import { PromotionService } from "./promotion.service";
 import { CreatePromotionDto } from "./dto/create-promotion.dto";
 import { UpdatePromotionDto } from "./dto/update-promotion.dto";
 import { Promotion } from "./schema/promotion-schema";
+import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 
 @ApiTags("Promotions")
+@ApiBearerAuth("jwt")
+@UseGuards(JwtAuthGuard)
 @Controller("promotions")
 export class PromotionController {
   constructor(private readonly promotionService: PromotionService) {}

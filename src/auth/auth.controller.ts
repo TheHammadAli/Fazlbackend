@@ -9,7 +9,7 @@ import {
   Req,
   Res,
 } from "@nestjs/common";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login-dto";
 import { JwtAuthGuard } from "./guard/jwt-auth-guard";
@@ -58,8 +58,8 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 201, description: "User successfully logged in" })
   @ApiResponse({ status: 401, description: "Invalid credentials" })
-  loginUser(@Body() loginDto: LoginDto) {
-    return this.authService.loginUser(loginDto);
+  loginUser(@Body() loginDto: LoginDto, @Req() req: Request) {
+    return this.authService.loginUser(loginDto, req.ip);
   }
 
   @Post("refreshToken")
@@ -69,6 +69,15 @@ export class AuthController {
   @ApiResponse({ status: 400, description: "Invalid or expired refresh token" })
   refreshToken(@Body() token: RefreshTokenDto) {
     return this.authService.refreshTokens(token);
+  }
+
+  @Post("logout")
+  @ApiOperation({ summary: "Logout and invalidate the refresh token" })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({ status: 201, description: "Logged out successfully" })
+  @ApiResponse({ status: 401, description: "Invalid refresh token" })
+  logout(@Body() token: RefreshTokenDto, @Req() req: Request) {
+    return this.authService.logout(token.token, req.ip);
   }
 
   // === Send OTP ===

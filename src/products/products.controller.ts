@@ -5,6 +5,7 @@ import {
   Param,
   Get,
   Delete,
+  Patch,
   Query,
   UploadedFiles,
   UseInterceptors,
@@ -14,7 +15,6 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
-  Patch,
 } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { CreateProductDto } from "./dto/create-product.dto";
@@ -24,6 +24,10 @@ import { Product } from "./schema/product.schema";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
+import { PermissionsGuard } from "src/auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { UpdateProductStatusDto } from "./dto/update-product-status.dto";
 import {
@@ -38,6 +42,7 @@ import {
 } from "@nestjs/swagger";
 import { Request } from "express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
+import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { Public } from "src/common/decorators/public.decorator";
 import { GetWithVideosDto } from "src/services/dto/video-with-dto";
 
@@ -46,7 +51,10 @@ import { GetWithVideosDto } from "src/services/dto/video-with-dto";
 @UseGuards(JwtAuthGuard)
 @Controller("products")
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) { }
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly activityLogService: ActivityLogService,
+  ) { }
 
   @Post(":entityId/:type")
   @UseInterceptors(
@@ -82,7 +90,7 @@ export class ProductsController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
-  ) {
+  ): Promise<{ message: string; data: { product: Product } }> {
     if (files?.images && files.images.length > 0) {
       createProductDto.images = files.images;
     } else {
@@ -97,7 +105,6 @@ export class ProductsController {
       createProductDto.parameters?.toString() || "{}",
     );
 
-
     if (createProductDto.location) {
       try {
         createProductDto.location =
@@ -108,7 +115,7 @@ export class ProductsController {
         throw new BadRequestException("Invalid location JSON");
       }
     }
-    
+
     return this.productsService.create(entityId, type, createProductDto);
   }
 
@@ -122,7 +129,6 @@ export class ProductsController {
     @Param("shopId") shopId: string,
     @Query() paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<Product>> {
-
     return this.productsService.getAllProductsByShop(shopId, paginationDto);
   }
 
@@ -154,11 +160,12 @@ export class ProductsController {
   async deleteProductMedia(
     @Param("id") productId: string,
     @Body("media") media: string[],
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (!Array.isArray(media) || media.length === 0) {
       throw new BadRequestException("No media files provided for deletion");
     }
-    await this.productsService.deleteProductMedia(productId, media);
+    await this.productsService.deleteProductMedia(productId, media, currentUser);
     return { message: "Selected product media deleted successfully" };
   }
 
@@ -175,6 +182,21 @@ export class ProductsController {
     return this.productsService.getAllProductsByUser(userId, paginationDto);
   }
 
+  @Get("admin/user/:userId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("listings")
+  @ApiOperation({ summary: "Get a specific user's private/personal listings (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", required: true })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  async getProductsByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page = 1,
+    @Query("limit") limit = 5,
+  ): Promise<PaginatedResponseDto<Product>> {
+    return this.productsService.getAllProductsByUser(userId, { page, limit });
+  }
+
   @Get("with-videos/all")
   @Public()
   @ApiOperation({ summary: "Get all products with videos (paginated)" })
@@ -186,6 +208,71 @@ export class ProductsController {
     @Query() query: GetWithVideosDto,
   ): Promise<PaginatedResponseDto<Product>> {
     return this.productsService.getProductsWithVideos(query, query?.userId, query.category);
+  }
+
+  @Get("admin/with-videos")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("feed")
+  @ApiOperation({ summary: "Get all feed videos including suspended ones (admin)" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
+  async getProductsWithVideosForAdmin(
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 10,
+    @Query("search") search?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ): Promise<PaginatedResponseDto<Product>> {
+    return this.productsService.getProductsWithVideosForAdmin(page, limit, search, startDate, endDate);
+  }
+
+  @Patch(":id/disable")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("listings")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Suspend a product/feed video (admin)" })
+  @ApiParam({ name: "id", required: true })
+  async disableProduct(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const product = await this.productsService.setProductDisabled(id, true);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "listing_suspended",
+      "Product",
+      id,
+      product.title,
+      req.ip,
+    );
+    return { message: "Product suspended successfully", data: product };
+  }
+
+  @Patch(":id/enable")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("listings")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Enable a product/feed video (admin)" })
+  @ApiParam({ name: "id", required: true })
+  async enableProduct(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const product = await this.productsService.setProductDisabled(id, false);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "listing_enabled",
+      "Product",
+      id,
+      product.title,
+      req.ip,
+    );
+    return { message: "Product enabled successfully", data: product };
   }
 
   @Get("detail/:id")
@@ -201,7 +288,7 @@ export class ProductsController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update product by ID" })
+  @ApiOperation({ summary: "Update product by ID (own listing, or requires 'listings' edit permission for others)" })
   @ApiConsumes("multipart/form-data")
   @ApiParam({ name: "id", required: true })
   @UseInterceptors(
@@ -219,6 +306,7 @@ export class ProductsController {
       images?: Express.Multer.File[];
       video?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
   ): Promise<Product> {
     if (files?.images && files.images.length > 0) {
       updateProductDto.images = files.images;
@@ -230,15 +318,18 @@ export class ProductsController {
       updateProductDto.parameters?.toString() || "",
     );
 
-
-    return this.productsService.update(id, updateProductDto);
+    return this.productsService.update(id, updateProductDto, currentUser);
   }
 
   @Delete(":id")
-  @ApiOperation({ summary: "Delete product by ID" })
+  @ApiOperation({ summary: "Delete product by ID (own listing, or requires 'listings' permission for others)" })
   @ApiParam({ name: "id", required: true })
-  async delete(@Param("id") id: string): Promise<{ message: string }> {
-    await this.productsService.delete(id);
+  async delete(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    await this.productsService.delete(id, currentUser, undefined, req.ip);
     return { message: "Product deleted successfully" };
   }
 

@@ -7,6 +7,7 @@ import { BroadcastGateway } from "./broadcast.gateway";
 import { ShopModule } from "../shop/shop.module";
 import { CategoryModule } from "src/category/category.module";
 import { Broadcast, BroadcastSchema } from "./schema/broadcast.schema";
+import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 
 import {
   BroadcastMessage,
@@ -22,6 +23,7 @@ import { ProductsModule } from "src/products/products.module";
 import { NotificationsModule } from "src/notifications/notifications.module";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ConfigService } from "@nestjs/config";
+import { ActivityLogModule } from "src/activity-log/activity-log.module";
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { ConfigService } from "@nestjs/config";
         schema: BroadcastMessageSchema,
       },
       { name: BroadcastThread.name, schema: BroadcastThreadSchema },
+      { name: Counter.name, schema: CounterSchema },
     ]),
     ShopModule,
     CategoryModule,
@@ -42,6 +45,7 @@ import { ConfigService } from "@nestjs/config";
     ServicesModule,
     ProductsModule,
     NotificationsModule,
+    ActivityLogModule,
   ],
   controllers: [BroadcastController],
   providers: [

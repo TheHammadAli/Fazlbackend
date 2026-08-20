@@ -17,41 +17,53 @@ import {
 
 import { CategoryType } from "../schema/category.schema";
 
-class CategoryParameterDto {
-  @ApiProperty({ example: "Color" })
+class CategoryParameterEntryDto {
+  @ApiProperty({ example: "Size" })
   @IsString()
   name!: string;
 
-  @ApiProperty({ example: ["Red", "Blue"], type: [String] })
+  @ApiProperty({ example: ["S", "M", "L"] })
   @IsArray()
   @IsString({ each: true })
   values!: string[];
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Whether listings can skip this parameter. Defaults to required (false).",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isOptional?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Whether the user can type their own value instead of picking from the fixed list. Defaults to false.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowCustomValue?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Whether the user can select more than one value from the list. Defaults to single-select (false).",
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMultiple?: boolean;
 }
 
 class CategoryParametersDto {
-  @ApiProperty({
-    type: [CategoryParameterDto],
-    example: [
-      { name: "Size", values: ["S", "M", "L"] },
-      { name: "Color", values: ["Red", "Blue"] },
-    ],
-  })
+  @ApiProperty({ type: [CategoryParameterEntryDto] })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CategoryParameterDto)
-  en!: CategoryParameterDto[];
+  @Type(() => CategoryParameterEntryDto)
+  en!: CategoryParameterEntryDto[];
 
-  @ApiProperty({
-    type: [CategoryParameterDto],
-    example: [
-      { name: "سائز", values: ["S", "M", "L"] },
-      { name: "رنگ", values: ["Red", "Blue"] },
-    ],
-  })
+  @ApiProperty({ type: [CategoryParameterEntryDto] })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CategoryParameterDto)
-  ur!: CategoryParameterDto[];
+  @Type(() => CategoryParameterEntryDto)
+  ur!: CategoryParameterEntryDto[];
 }
 
 export class CreateUpdateCategoryDto {

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Req,
@@ -15,6 +16,10 @@ import { ShopService } from "./shop.service";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
 import { SearchNearbyShopDto } from "./dto/search-nearby-shop.dto";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth-guard";
+import { PermissionsGuard } from "../auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { Request } from "express";
 import { Types } from "mongoose";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
@@ -37,7 +42,10 @@ import { Public } from "src/common/decorators/public.decorator";
 @UseGuards(JwtAuthGuard)
 @Controller("shops")
 export class ShopController {
-  constructor(private readonly shopService: ShopService) { }
+  constructor(
+    private readonly shopService: ShopService,
+    private readonly activityLogService: ActivityLogService,
+  ) { }
 
   @Post("create")
   @ApiOperation({ summary: "Create a new shop" })
@@ -70,7 +78,7 @@ export class ShopController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update existing shop by ID" })
+  @ApiOperation({ summary: "Update existing shop by ID (own shop, or requires 'shops' edit permission for others)" })
   @ApiParam({ name: "id", type: String })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileFieldsInterceptor([
@@ -86,6 +94,7 @@ export class ShopController {
       image?: Express.Multer.File[];
       banner?: Express.Multer.File[];
     },
+    @CurrentUser() currentUser: JwtPayload,
   ) {
     if (files?.image && files.image.length > 0) {
       dto.image = files.image[0];
@@ -96,7 +105,7 @@ export class ShopController {
     if (dto.location && typeof dto.location === "string") {
       dto.location = JSON.parse(dto.location);
     }
-    return this.shopService.updateShop(id, dto);
+    return this.shopService.updateShop(id, dto, currentUser);
   }
 
   @Public()
@@ -111,6 +120,40 @@ export class ShopController {
   @ApiOperation({ summary: "Get all shops owned by current user" })
   async getMyShops(@CurrentUser() user: JwtPayload) {
     return this.shopService.getAllShopsByUser(user.sub);
+  }
+
+  @Get("admin/user/:userId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("shops")
+  @ApiOperation({ summary: "Get paginated shops owned by a specific user (admin, for User Profile modal)" })
+  @ApiParam({ name: "userId", type: String })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getShopsByUserForAdmin(
+    @Param("userId") userId: string,
+    @Query("page") page = 1,
+    @Query("limit") limit = 5,
+  ) {
+    return this.shopService.getAllShopsByUserPaginated(userId, { page, limit });
+  }
+
+  @Get("allShops")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("shops")
+  @ApiOperation({ summary: "Get paginated list of all shops with optional title search (protected)" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String, description: "Search by shop title (partial, case-insensitive)" })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
+  async getAllShops(
+    @Query("page") page = 1,
+    @Query("limit") limit = 10,
+    @Query("search") search?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.shopService.getAllShops({ page, limit, search, startDate, endDate });
   }
 
   @Public()
@@ -130,5 +173,47 @@ export class ShopController {
       radiusMeters,
       { page: query.page, limit: query.limit },
     );
+  }
+
+  @Patch(":id/disable")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("shops")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Suspend a shop (admin)" })
+  @ApiParam({ name: "id", type: String })
+  async disableShop(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    const shop = await this.shopService.setShopDisabled(id, true);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "shop_suspended",
+      "Shop",
+      id,
+      shop.title,
+    );
+    return { message: "Shop suspended successfully", data: shop };
+  }
+
+  @Patch(":id/enable")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("shops")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Re-enable a suspended shop (admin)" })
+  @ApiParam({ name: "id", type: String })
+  async enableShop(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    const shop = await this.shopService.setShopDisabled(id, false);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "shop_enabled",
+      "Shop",
+      id,
+      shop.title,
+    );
+    return { message: "Shop enabled successfully", data: shop };
   }
 }

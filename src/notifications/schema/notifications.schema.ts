@@ -6,7 +6,8 @@ export type NotificationType =
   | "ORDER"
   | "MESSAGE"
   | "PROMOTION"
-  | "SERVICE_REQUEST";
+  | "SERVICE_REQUEST"
+  | "BROADCAST";
 
 @Schema({ timestamps: true })
 export class Notification extends Document {
@@ -15,7 +16,6 @@ export class Notification extends Document {
 
   @Prop({
     required: true,
-    
     enum: ["ORDER", "MESSAGE", "PROMOTION", "SERVICE_REQUEST", "BROADCAST"],
   })
   type!: NotificationType;

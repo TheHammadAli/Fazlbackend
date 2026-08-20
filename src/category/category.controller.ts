@@ -15,6 +15,9 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { CategoryService } from "./category.service";
 import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
+import { PermissionsGuard } from "src/auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { CreateCategoryRequestDto } from "./dto/category-request.dto";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
@@ -43,6 +46,9 @@ export class CategoryController {
   ) { }
 
   @Post()
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Create a new category (admin only)" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("icon"))
@@ -84,11 +90,17 @@ export class CategoryController {
 
 
   @Get("admin")
-
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
   @ApiOperation({ summary: "Get all categories for admin" })
+  @ApiQuery({ name: "startDate", required: false, type: String })
+  @ApiQuery({ name: "endDate", required: false, type: String })
   @ApiResponse({ status: 200, description: "List of categories" })
-  findAllAdmin() {
-    return this.categoryService.findAllForAdmin();
+  findAllAdmin(
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    return this.categoryService.findAllForAdmin(startDate, endDate);
   }
 
   @Get("detail/:id")
@@ -106,6 +118,9 @@ export class CategoryController {
   }
 
   @Put(":id")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Update an existing category (admin only)" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(FileInterceptor("icon"))
@@ -130,6 +145,17 @@ export class CategoryController {
     return this.categoryService.update(id, dto);
   }
 
+  @Post("translate")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Translate English text to Urdu (admin only)" })
+  @ApiBody({ schema: { properties: { text: { type: "string" } }, required: ["text"] } })
+  async translate(@Body("text") text: string) {
+    const translatedText = await this.categoryService.translate(text);
+    return { translatedText };
+  }
+
   // @Delete(":id")
   // @ApiOperation({ summary: "Delete a category by ID (admin only)" })
   // delete(@Param("id") id: string) {
@@ -147,12 +173,17 @@ export class CategoryController {
   }
 
   @Get("pending")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
   @ApiOperation({ summary: "Get all pending category requests (admin only)" })
   async getPendingRequests() {
     return this.categoryService.getPendingRequests();
   }
 
   @Put("review/:id")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("categories")
+  @RequireAction("edit")
   @ApiOperation({ summary: "Review a pending category request (admin only)" })
   @ApiBody({ type: ReviewCategoryRequestDto })
   async reviewRequest(

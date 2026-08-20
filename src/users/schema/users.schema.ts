@@ -1,12 +1,16 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
 import { Location } from "./users.interfaces";
+import { PermissionEntry, PermissionEntrySchema } from "./permission-entry.schema";
 @Schema({
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true },
 })
 export class User {
+  @Prop({ unique: true, sparse: true, required: false })
+  userCode?: string;
+
   @Prop({ required: false, trim: true })
   name: string;
 
@@ -18,10 +22,17 @@ export class User {
 
   @Prop({
     type: [String],
-    enum: ["buyer", "seller", "admin", "subadmin"],
+    enum: ["buyer", "seller", "admin", "subadmin", "super_admin", "moderator"],
     default: ["buyer"],
   })
   roles: string[];
+
+  @Prop({
+    type: [PermissionEntrySchema],
+    default: [],
+  })
+  permissions: PermissionEntry[];
+
   @Prop({ unique: true, sparse: true, required: false })
   phone?: string;
   language: "en" | "ur";

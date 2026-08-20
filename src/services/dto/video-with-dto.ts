@@ -23,4 +23,9 @@ export class GetWithVideosDto {
     description: "User ID to filter by",
   })
   userId?: string;
+
+  @ApiPropertyOptional({
+    description: "Search by title",
+  })
+  search?: string;
 }

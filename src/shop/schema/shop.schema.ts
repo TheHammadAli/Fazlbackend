@@ -9,6 +9,9 @@ export type ShopDocument = Shop & Document;
   toObject: { virtuals: true },
 })
 export class Shop {
+  @Prop({ unique: true, sparse: true, required: false })
+  shopCode?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   ownerId: Types.ObjectId;
 

@@ -11,6 +11,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { Product, ProductDocument } from "./schema/product.schema";
+import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
@@ -24,12 +25,17 @@ import { PromotionService } from "src/promotion/promotion.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
 import { ReviewService } from "src/reviews/reviews.service";
+import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
+import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Counter.name)
+    private readonly counterModel: Model<CounterDocument>,
     @Inject(forwardRef(() => ShopService))
     private readonly shopService: ShopService,
     private readonly listingUtils: ListingUtilsService,
@@ -42,6 +48,7 @@ export class ProductsService {
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
     private readonly reviewService: ReviewService,
+    private readonly activityLogService: ActivityLogService,
   ) { }
 
   private get lang(): string {
@@ -80,6 +87,26 @@ export class ProductsService {
       type: "Point",
       coordinates: [parsed.coordinates[0], parsed.coordinates[1]],
     };
+  }
+
+  /** Atomically reserves the next sequential listing code (e.g. LST-000052). */
+  private async generateNextListingCode(): Promise<string> {
+    const counter = await this.counterModel.findByIdAndUpdate(
+      "listingCode",
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+    return `LST-${String(counter.seq).padStart(6, "0")}`;
+  }
+
+  /** Atomically reserves the next sequential video code (e.g. VID-000001), for products that have a video (feed videos). */
+  private async generateNextVideoCode(): Promise<string> {
+    const counter = await this.counterModel.findByIdAndUpdate(
+      "videoCode",
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+    return `VID-${String(counter.seq).padStart(6, "0")}`;
   }
 
   async create(
@@ -157,9 +184,11 @@ export class ProductsService {
       }
 
       console.log("Product Payload:", productPayload);
+      const listingCode = await this.generateNextListingCode();
 
       const createdProduct = new this.productModel({
         ...productPayload,
+        listingCode,
         location, // always a proper object now
         images: [],
         video: "",
@@ -178,7 +207,6 @@ export class ProductsService {
         imageUrls = uploadedFiles.map((file) => file.url);
         createdProduct.images = imageUrls;
       }
-
       console.log(dto?.video, "Video Length", dto?.video);
       if (dto?.video) {
         const uploadedVideo = await this.fileUploadService.uploadProductFiles(
@@ -190,6 +218,7 @@ export class ProductsService {
         );
         console.log("Uploaded Video:", uploadedVideo);
         createdProduct.video = uploadedVideo[0].url;
+        createdProduct.videoCode = await this.generateNextVideoCode();
       }
 
       if (createdProduct.parameters && createdProduct.parameters.length > 0) {
@@ -201,7 +230,6 @@ export class ProductsService {
       }
 
       const result = await createdProduct.save();
-
       return {
         message: this.i18n.translate("auth.products.created_success", {
           lang: this.lang,
@@ -316,8 +344,10 @@ export class ProductsService {
       );
 
     console.log("userId", userId);
+    // If there's no logged-in user, return product as-is
     if (!userId) return product;
 
+    // Otherwise include whether the user liked / reviewed this product
     const [isLiked, userReview] = await Promise.all([
       this.likeService.isLiked(userId, id, "product"),
       this.reviewService.findOne(userId, id, "product"),
@@ -328,7 +358,6 @@ export class ProductsService {
     console.log("Product Details:", plain);
     console.log("Is Liked by User:", isLiked);
     console.log("User's Review:", userReview);
-
     return {
       ...plain,
       isLiked: !!isLiked,
@@ -336,7 +365,11 @@ export class ProductsService {
     } as any;
   }
 
-  async update(productId: string, updateDto: UpdateProductDto): Promise<any> {
+  async update(
+    productId: string,
+    updateDto: UpdateProductDto,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ): Promise<any> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
         this.i18n.translate("auth.products.shop_cant_update", {
@@ -380,6 +413,13 @@ export class ProductsService {
       );
     }
 
+    if (currentUser) {
+      const resolvedOwnerId = existingProduct.shopId
+        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+        : existingProduct.ownerId?.toString();
+      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "edit");
+    }
+
     if (updateDto.images && updateDto.images.length > 0) {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
         updateDto.images,
@@ -408,6 +448,9 @@ export class ProductsService {
 
       console.log("Uploaded Video:", uploadedVideo);
       updateDto.video = uploadedVideo[0].url;
+      if (!existingProduct.videoCode) {
+        (updateDto as any).videoCode = await this.generateNextVideoCode();
+      }
     }
 
     // Also update searchableTags if parameters changed
@@ -448,7 +491,12 @@ export class ProductsService {
     };
   }
 
-  async delete(productId: string, lang: string = "en"): Promise<void> {
+  async delete(
+    productId: string,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+    lang: string = "en",
+    ipAddress?: string,
+  ) {
     const existingProduct = await this.productModel.findOne({
       _id: new Types.ObjectId(productId),
       isDeleted: false,
@@ -465,6 +513,15 @@ export class ProductsService {
     const entityId = existingProduct.shopId
       ? existingProduct.shopId.toString()
       : existingProduct.ownerId!.toString();
+
+    let resolvedOwnerId: string | undefined;
+    if (currentUser) {
+      resolvedOwnerId = existingProduct.shopId
+        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+        : existingProduct.ownerId?.toString();
+      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "delete");
+    }
+
     await this.fileUploadService.deleteEntityProducts(
       type,
       entityId,
@@ -480,9 +537,26 @@ export class ProductsService {
           lang: this.lang,
         }),
       );
+
+    if (currentUser && resolvedOwnerId && resolvedOwnerId !== currentUser.sub) {
+      await this.activityLogService.record(
+        currentUser.sub,
+        "listing_deleted",
+        "Product",
+        productId,
+        existingProduct.title,
+        ipAddress,
+      );
+    }
+
+    return existingProduct;
   }
 
-  async deleteProductMedia(productId: string, media: string[]) {
+  async deleteProductMedia(
+    productId: string,
+    media: string[],
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
     const existingProduct = await this.productModel.findOne({
       _id: new Types.ObjectId(productId),
       isDeleted: false,
@@ -503,17 +577,29 @@ export class ProductsService {
       );
     }
 
+    if (currentUser) {
+      const resolvedOwnerId = existingProduct.shopId
+        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
+        : existingProduct.ownerId?.toString();
+      assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "edit");
+    }
+
+    // Remove media files from storage
     await this.fileUploadService.deleteFiles(media);
 
+    // Remove media from product document
     let images = existingProduct.images || [];
     let video = existingProduct.video;
 
+    // Remove any images that match the URLs
     images = images.filter((imgUrl) => !media.includes(imgUrl));
 
+    // Remove video if its URL is in the media array
     if (media.includes(video)) {
       video = "";
     }
 
+    // Update the product
     existingProduct.images = images;
     existingProduct.video = video;
     await existingProduct.save();
@@ -703,6 +789,19 @@ export class ProductsService {
       baseFilter.category = new Types.ObjectId(query.category);
     }
 
+    if (query.startDate || query.endDate) {
+      const createdAt: Record<string, Date> = {};
+      if (query.startDate) {
+        createdAt.$gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const endOfDay = new Date(query.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAt.$lte = endOfDay;
+      }
+      baseFilter.createdAt = createdAt;
+    }
+
     const searchTerm = query.name?.trim();
 
     // === Promoted Products ===
@@ -731,6 +830,7 @@ export class ProductsService {
         { description: { $regex: searchTerm, $options: "i" } },
         { "parameters.name": { $regex: searchTerm, $options: "i" } },
         { "parameters.variants": { $regex: searchTerm, $options: "i" } },
+        { listingCode: { $regex: searchTerm, $options: "i" } },
       ];
     }
 
@@ -738,6 +838,7 @@ export class ProductsService {
       this.productModel
         .find(regularFilter)
         .populate("category")
+        // IMPORTANT: Do NOT select or sort by textScore when using $or + regex
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -802,11 +903,11 @@ export class ProductsService {
   }
 
   async getProductsWithVideos(
-    paginationDto: PaginationDto,
+    paginationDto: PaginationDto & { search?: string },
     userId?: string,
     category?: string,
   ): Promise<PaginatedResponseDto<any>> {
-    const { page = 1, limit = 10 } = paginationDto;
+    const { page = 1, limit = 10, search } = paginationDto;
     const skip = (page - 1) * limit;
 
     const filter: FilterQuery<ProductDocument> = {
@@ -817,6 +918,9 @@ export class ProductsService {
     if (category) {
       filter.category = new Types.ObjectId(category);
     }
+    if (search?.trim()) {
+      filter.title = { $regex: search.trim(), $options: "i" };
+    }
 
     const [items, total] = await Promise.all([
       this.productModel
@@ -824,16 +928,16 @@ export class ProductsService {
         .populate("category")
         .populate({
           path: "shopId",
-          select: "_id title image address description ownerId banner",
+          select: "_id title image address description ownerId banner", // be explicit
         })
         .populate({
           path: "ownerId",
-          select: "_id name image address phone",
+          select: "_id name image address phone", // be explicit
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean()
+        .lean()                    // keep it for performance
         .exec(),
 
       this.productModel.countDocuments(filter).exec(),
@@ -870,7 +974,7 @@ export class ProductsService {
     console.log("Liked Product IDs:", likedProductIds);
 
     const data = items.map((item: any) => ({
-      ...item,
+      ...item, // Now safe because of .lean()
       isLiked: likedProductIds.has(item._id.toString()),
     }));
 
@@ -883,5 +987,86 @@ export class ProductsService {
       },
       data,
     };
+  }
+
+  /** Admin-only: same as getProductsWithVideos but includes suspended (isDisabled) videos too, so they can be reviewed/re-enabled. */
+  async getProductsWithVideosForAdmin(
+    page = 1,
+    limit = 10,
+    search?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const filter: FilterQuery<ProductDocument> = {
+      video: { $exists: true, $nin: ["", null] },
+      isDeleted: false,
+    };
+    if (search?.trim()) {
+      filter.title = { $regex: search.trim(), $options: "i" };
+    }
+    if (startDate || endDate) {
+      const createdAt: Record<string, Date> = {};
+      if (startDate) {
+        createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAt.$lte = endOfDay;
+      }
+      filter.createdAt = createdAt;
+    }
+
+    const [items, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate("category")
+        .populate({
+          path: "shopId",
+          select: "_id title image address ownerId",
+        })
+        .populate({
+          path: "ownerId",
+          select: "_id name image",
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .exec(),
+
+      this.productModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+      data: items,
+    };
+  }
+
+  /** Suspend/enable a single product (e.g. a feed video). Mirrors ShopService.setShopDisabled. */
+  async setProductDisabled(productId: string, disabled: boolean) {
+    const product = await this.productModel.findByIdAndUpdate(
+      productId,
+      { $set: { isDisabled: disabled } },
+      { new: true },
+    );
+    if (!product) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+    return product;
   }
 }

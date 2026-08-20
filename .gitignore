@@ -4,3 +4,4 @@ dist/tsconfig.tsbuildinfo
 dist
 tsconfig.tsbuildinfo
 .env
+.DS_Store

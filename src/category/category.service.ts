@@ -186,9 +186,33 @@ export class CategoryService {
     }
   }
 
+  /** A sort number must be unique within its own type (product/service) — the two
+   *  types are sorted/displayed independently, so the same number can be reused
+   *  across types but not within one. */
+  private async checkDuplicateSortNumber(
+    sortNumber: number | undefined,
+    type: string | undefined,
+    excludeId?: string,
+  ) {
+    if (sortNumber === undefined || sortNumber === null || !type) return;
+
+    const query: any = { isDisabled: false, type, sortNumber };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+
+    const existing = await this.categoryModel.findOne(query);
+    if (existing) {
+      throw new ConflictException(
+        `Sort number ${sortNumber} is already used by another ${type} category`,
+      );
+    }
+  }
+
   async create(dto: CreateUpdateCategoryDto) {
     try {
       await this.checkDuplicateName(dto.name);
+      await this.checkDuplicateSortNumber(dto.sortNumber, dto.type);
 
       const normalizedDto = {
         ...dto,
@@ -217,6 +241,7 @@ export class CategoryService {
   ): Promise<Category> {
     try {
       await this.checkDuplicateName(dto.name, id);
+      await this.checkDuplicateSortNumber(dto.sortNumber, dto.type, id);
 
       const normalizedDto = {
         ...dto,
@@ -251,8 +276,20 @@ export class CategoryService {
     }
   }
 
-  async findAllForAdmin() {
-    return this.categoryModel.find().sort({ sortNumber: 1 }).lean().exec();
+  async findAllForAdmin(startDate?: string, endDate?: string) {
+    const filter: FilterQuery<CategoryDocument> = {};
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endOfDay;
+      }
+    }
+    return this.categoryModel.find(filter).sort({ sortNumber: 1 }).lean().exec();
   }
 
   async findAll(type?: string) {
@@ -352,5 +389,27 @@ export class CategoryService {
 
   async getUserRequests(userId: string) {
     return this.categoryRequestModel.find({ requestedBy: userId });
+  }
+
+  /** English -> Urdu translation via MyMemory's free public API (no API key required). */
+  async translate(text: string): Promise<string> {
+    const trimmed = text?.trim();
+    if (!trimmed) return "";
+
+    const params = new URLSearchParams({
+      q: trimmed,
+      langpair: "en|ur",
+      de: "amitywise18@gmail.com",
+    });
+    const response = await fetch(`https://api.mymemory.translated.net/get?${params.toString()}`);
+    if (!response.ok) {
+      throw new BadRequestException("Translation service is unavailable right now");
+    }
+    const data = await response.json();
+    const translated = data?.responseData?.translatedText;
+    if (typeof translated !== "string" || !translated) {
+      throw new BadRequestException("Translation failed");
+    }
+    return translated;
   }
 }

@@ -16,6 +16,7 @@ describe("BroadcastService", () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     expect(service).toBeDefined();
@@ -37,6 +38,7 @@ describe("BroadcastService", () => {
     const service = new BroadcastService(
       {} as any,
       messageModel,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,

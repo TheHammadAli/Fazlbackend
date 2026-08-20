@@ -3,6 +3,7 @@ import { ServicesService } from "./services.service";
 import { ServicesController } from "./services.controller";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Service, ServiceSchema } from "./schema/services.schema";
+import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { SharedModule } from "src/shared/shared.module";
 import { UsersModule } from "src/users/users.module";
 import {
@@ -23,6 +24,7 @@ import { ReviewsModule } from "src/reviews/reviews.module";
     MongooseModule.forFeature([
       { name: Service.name, schema: ServiceSchema },
       { name: ServiceRequest.name, schema: ServiceRequestSchema },
+      { name: Counter.name, schema: CounterSchema },
     ]),
   ],
   providers: [ServicesService],

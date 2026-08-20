@@ -14,13 +14,13 @@ import { UserDocument } from "src/users/schema/users.schema";
 import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
 import { EmailService } from "src/common/email-service/email-service";
-import { user } from "node_modules/@getbrevo/brevo/dist/cjs/api/resources";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 
 @Injectable()
 export class AuthService {
-
+  private twilioClient: Twilio;
   private googleClient: OAuth2Client;
-
+  private audience: string[];
   constructor(
     @InjectModel(Otp.name) private otpModel: Model<OtpDocument>,
     private readonly userService: UsersService,
@@ -29,7 +29,7 @@ export class AuthService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly emailService: EmailService,
-
+    private readonly activityLogService: ActivityLogService,
   ) {
     this.googleClient = new OAuth2Client();
     // this.twilioClient = new Twilio(
@@ -42,7 +42,7 @@ export class AuthService {
     return this.cls.get("lang") || "en";
   }
 
-  async loginUser(loginDto: LoginDto) {
+  async loginUser(loginDto: LoginDto, ipAddress?: string) {
     const user = await this.userService.validateUserForLogin(
       loginDto.email,
       loginDto.password,
@@ -54,8 +54,6 @@ export class AuthService {
         }),
       );
     }
-
-
 
     if (user.isDisabled) {
       throw new UnauthorizedException(
@@ -69,6 +67,7 @@ export class AuthService {
       sub: user.id, // or user.id
       email: user.email,
       roles: user.roles, // if you have roles
+      permissions: user.permissions,
       location: user.location,
       image: user.image,
       isDisabled: user.isDisabled,
@@ -84,6 +83,18 @@ export class AuthService {
 
     // Save refresh token in DB (optionally hashed)
     await this.userService.updateUser(user.id, { refreshToken });
+
+    const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
+    if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
+      await this.activityLogService.record(
+        user.id,
+        "admin_login",
+        undefined,
+        undefined,
+        undefined,
+        ipAddress,
+      );
+    }
 
     return {
       message: this.i18n.translate("auth.auth.login_success", {
@@ -115,6 +126,7 @@ export class AuthService {
         sub: user._id, // Or user.id if you’ve transformed it
         email: user.email,
         roles: user.roles,
+        permissions: user.permissions,
         location: user.location,
         image: user.image,
         isDisabled: user.isDisabled,
@@ -150,7 +162,7 @@ export class AuthService {
       );
     }
   }
-  async logout(refreshToken: string) {
+  async logout(refreshToken: string, ipAddress?: string) {
     try {
       const payload = this.jwtService.verify(refreshToken);
       const user = await this.userService.findByIdWithToken(payload.sub);
@@ -159,6 +171,18 @@ export class AuthService {
 
       // Invalidate refresh token in DB
       await this.userService.updateUser(user.id, { refreshToken: null });
+
+      const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
+      if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
+        await this.activityLogService.record(
+          user.id,
+          "admin_logout",
+          undefined,
+          undefined,
+          undefined,
+          ipAddress,
+        );
+      }
 
       return {
         message: this.i18n.translate("auth.auth.logout_success", {
@@ -172,8 +196,6 @@ export class AuthService {
 
   async sendOtp(phoneNumber: string): Promise<void> {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
-    //COMMENT
-
 
     // await this.twilioClient.messages.create({
     //   body: `Your verification code is: ${otpCode}`,
@@ -197,7 +219,6 @@ export class AuthService {
 
   async sendEmailVerificationLink(email: string, lang: string = "en") {
     // Generate a token
-    // Generate token
     const token = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -219,7 +240,6 @@ export class AuthService {
       '<h1>Verify your email</h1> <p>Use this code to verify your email: <strong>' + token + '</strong></p>',
     );
     return {
-
       message: this.i18n.translate("auth.auth.verification_email_sent", {
         lang: this.getLang(),
       }),
@@ -331,7 +351,6 @@ export class AuthService {
 
     return {
       message: this.i18n.translate("auth.auth.reset_link_sent", { lang }),
-
     };
   }
 
@@ -370,9 +389,6 @@ export class AuthService {
         user,
         accessToken: newAccessToken,
       },
-
-
-
     };
   }
 

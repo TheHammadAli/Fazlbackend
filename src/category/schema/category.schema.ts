@@ -29,22 +29,28 @@ export class Category {
     type: {
       en: [
         {
-          name: { type: String, required: true },
-          values: { type: [String], default: [] },
+          name: { type: String },
+          values: [{ type: String }],
+          isOptional: { type: Boolean, default: false },
+          allowCustomValue: { type: Boolean, default: false },
+          allowMultiple: { type: Boolean, default: false },
         },
       ],
       ur: [
         {
-          name: { type: String, required: true },
-          values: { type: [String], default: [] },
+          name: { type: String },
+          values: [{ type: String }],
+          isOptional: { type: Boolean, default: false },
+          allowCustomValue: { type: Boolean, default: false },
+          allowMultiple: { type: Boolean, default: false },
         },
       ],
     },
     default: { en: [], ur: [] },
   })
   parameters?: {
-    en: Array<{ name: string; values: string[] }>;
-    ur: Array<{ name: string; values: string[] }>;
+    en: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean; allowMultiple?: boolean }[];
+    ur: { name: string; values: string[]; isOptional?: boolean; allowCustomValue?: boolean; allowMultiple?: boolean }[];
   };
 
   @Prop({ default: 0 })

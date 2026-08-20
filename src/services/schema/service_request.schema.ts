@@ -17,6 +17,9 @@ export type JobStatus =
 
 @Schema({ timestamps: true })
 export class ServiceRequest {
+  @Prop({ unique: true, sparse: true, required: false })
+  jobCode?: string;
+
   @Prop({ type: Types.ObjectId, ref: "Service", required: true })
   service!: Types.ObjectId;
 

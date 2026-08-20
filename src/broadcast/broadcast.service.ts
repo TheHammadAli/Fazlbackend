@@ -10,9 +10,11 @@ import { I18nService } from "nestjs-i18n";
 import { Broadcast } from "./schema/broadcast.schema";
 import { BroadcastMessage } from "./schema/broadcast-message.schema";
 import { BroadcastThread } from "./schema/broadcast-thread.schema";
+import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 
 import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import { PaginationDto } from "src/common/dto/pagination.dto";
 
 import { ShopService } from "../shop/shop.service";
 import { UsersService } from "src/users/users.service";
@@ -35,6 +37,9 @@ export class BroadcastService {
     @InjectModel(BroadcastThread.name)
     private readonly threadModel: Model<BroadcastThread>,
 
+    @InjectModel(Counter.name)
+    private readonly counterModel: Model<CounterDocument>,
+
     private readonly shopService: ShopService,
     private readonly categoryService: CategoryService,
     private readonly userService: UsersService,
@@ -48,6 +53,16 @@ export class BroadcastService {
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /** Atomically reserves the next sequential broadcast code (e.g. ECH-000001). */
+  private async generateNextBroadcastCode(): Promise<string> {
+    const counter = await this.counterModel.findByIdAndUpdate(
+      "broadcastCode",
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+    return `ECH-${String(counter.seq).padStart(6, "0")}`;
   }
 
   // -----------------------------
@@ -69,7 +84,10 @@ export class BroadcastService {
       );
     }
 
+    const broadcastCode = await this.generateNextBroadcastCode();
+
     return this.broadcastModel.create({
+      broadcastCode,
       buyer: new Types.ObjectId(buyerId),
       message: dto.message,
       address: dto.address,
@@ -315,9 +333,6 @@ export class BroadcastService {
     };
   }
 
-  // -----------------------------
-  // SEND MESSAGE (THREAD SAFE)
-  // -----------------------------
   // -----------------------------
   // SEND MESSAGE (THREAD SAFE)
   // -----------------------------
@@ -702,6 +717,7 @@ export class BroadcastService {
     const broadcasts = await this.broadcastModel.aggregate([
       { $match: { buyer: buyerObjectId } },
 
+      // 1. Threads count
       {
         $lookup: {
           from: "broadcastthreads",
@@ -712,6 +728,7 @@ export class BroadcastService {
       },
       { $addFields: { threadCount: { $size: "$threads" } } },
 
+      // 2. Category
       {
         $lookup: {
           from: "categories",
@@ -754,6 +771,7 @@ export class BroadcastService {
         },
       },
 
+      // 3. Latest Message (with imageUrls)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -788,6 +806,7 @@ export class BroadcastService {
         $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true },
       },
 
+      // 4. Extract imageUrls from latest message (fallback to empty array)
       {
         $addFields: {
           imageUrls: {
@@ -796,6 +815,8 @@ export class BroadcastService {
         },
       },
 
+      // Optional: Keep initial SYSTEM message if you still need it for something else
+      // (you can remove this block if not needed)
       {
         $lookup: {
           from: "broadcastmessages",
@@ -817,9 +838,11 @@ export class BroadcastService {
         $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true },
       },
 
+      // Final Projection
       {
         $project: {
           _id: 1,
+          broadcastCode: 1,
           message: 1,
           address: 1,
           purpose: 1,
@@ -833,6 +856,7 @@ export class BroadcastService {
           imageUrls: 1,
           latestMessage: 1,
           category: 1,
+          // initialMessage: 1, // remove if not needed
         },
       },
       { $sort: { createdAt: -1 } },
@@ -924,6 +948,7 @@ export class BroadcastService {
       .populate("category")
       .exec();
 
+    // Maintain order and add threadId
     const broadcastIdOrder = threads.map((thread) =>
       thread.broadcast.toString(),
     );
@@ -951,5 +976,313 @@ export class BroadcastService {
       },
       data: orderedData,
     };
+  }
+
+  async getAllBroadcastsForAdmin(
+    page = 1,
+    limit = 10,
+    search?: string,
+    status?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const dateMatchStage: Record<string, any> = { isDeleted: { $ne: true } };
+    if (startDate || endDate) {
+      dateMatchStage.createdAt = {};
+      if (startDate) {
+        dateMatchStage.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        dateMatchStage.createdAt.$lte = endOfDay;
+      }
+    }
+
+    const pipeline: any[] = [
+      { $match: dateMatchStage },
+      {
+        $lookup: {
+          from: "users",
+          localField: "buyer",
+          foreignField: "_id",
+          as: "buyerInfo",
+        },
+      },
+      { $unwind: { path: "$buyerInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "broadcastthreads",
+          localField: "_id",
+          foreignField: "broadcast",
+          as: "threads",
+        },
+      },
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { broadcastId: "$_id", buyerId: "$buyer" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$broadcast", "$$broadcastId"] },
+                    { $ne: ["$sender", "$$buyerId"] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "sellerMessages",
+        },
+      },
+      {
+        $addFields: {
+          sentTo: { $size: "$threads" },
+          repliedSellers: {
+            $size: { $setUnion: ["$sellerMessages.sender", []] },
+          },
+        },
+      },
+    ];
+
+    const matchStage: Record<string, any> = {};
+    if (status?.trim()) {
+      matchStage.status = status.trim().toLowerCase();
+    }
+    if (search?.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      matchStage.$or = [{ message: regex }, { "buyerInfo.name": regex }];
+    }
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    pipeline.push(
+      { $sort: { createdAt: -1 } },
+      {
+        $project: {
+          broadcastCode: 1,
+          message: 1,
+          purpose: 1,
+          type: 1,
+          status: 1,
+          createdAt: 1,
+          sentTo: 1,
+          repliedSellers: 1,
+          "buyerInfo._id": 1,
+          "buyerInfo.name": 1,
+        },
+      },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: limitNum }],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    );
+
+    const result = await this.broadcastModel.aggregate(pipeline).exec();
+    const data = result[0]?.data ?? [];
+    const total = result[0]?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
+  async getBroadcastDetailForAdmin(broadcastId: string) {
+    if (!Types.ObjectId.isValid(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+
+    const broadcastObjectId = new Types.ObjectId(broadcastId);
+
+    const broadcast = await this.broadcastModel
+      .findOne({ _id: broadcastObjectId, isDeleted: { $ne: true } })
+      .populate("buyer", "name email phone image")
+      .populate("category")
+      .lean();
+
+    if (!broadcast) {
+      throw new NotFoundException("Broadcast not found");
+    }
+
+    const [threadCount, repliedSellers, initialMessage] = await Promise.all([
+      this.threadModel.countDocuments({ broadcast: broadcastObjectId }),
+      this.messageModel.distinct("sender", {
+        broadcast: broadcastObjectId,
+        sender: { $ne: (broadcast as any).buyer?._id },
+      }),
+      this.messageModel
+        .findOne({ broadcast: broadcastObjectId, type: "SYSTEM" })
+        .sort({ createdAt: 1 })
+        .lean(),
+    ]);
+
+    return {
+      data: {
+        ...broadcast,
+        sentTo: threadCount,
+        repliedSellers: repliedSellers.length,
+        imageUrls: initialMessage?.imageUrls ?? [],
+      },
+    };
+  }
+
+  async getBroadcastRecipients(broadcastId: string) {
+    if (!Types.ObjectId.isValid(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+
+    const broadcastExists = await this.broadcastModel.exists({
+      _id: broadcastId,
+      isDeleted: { $ne: true },
+    });
+    if (!broadcastExists) {
+      throw new NotFoundException("Broadcast not found");
+    }
+
+    const recipients = await this.threadModel.aggregate([
+      { $match: { broadcast: new Types.ObjectId(broadcastId) } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "seller",
+          foreignField: "_id",
+          as: "sellerInfo",
+        },
+      },
+      { $unwind: { path: "$sellerInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "broadcastmessages",
+          let: { threadId: "$_id", sellerId: "$seller" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$thread", "$$threadId"] },
+                    { $eq: ["$sender", "$$sellerId"] },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: 1 } },
+            { $limit: 1 },
+            { $project: { createdAt: 1 } },
+          ],
+          as: "firstReply",
+        },
+      },
+      {
+        $addFields: {
+          hasReplied: { $gt: [{ $size: "$firstReply" }, 0] },
+          repliedAt: { $arrayElemAt: ["$firstReply.createdAt", 0] },
+        },
+      },
+      {
+        $project: {
+          sellerId: "$sellerInfo._id",
+          name: "$sellerInfo.name",
+          email: "$sellerInfo.email",
+          image: "$sellerInfo.image",
+          phone: "$sellerInfo.phone",
+          sentAt: "$createdAt",
+          hasReplied: 1,
+          repliedAt: 1,
+        },
+      },
+      { $sort: { sentAt: -1 } },
+    ]);
+
+    return {
+      data: recipients,
+      meta: { total: recipients.length },
+    };
+  }
+
+  /** Admin: paginated messages in the thread for one recipient (seller) of a broadcast. */
+  async getAdminThreadMessages(
+    broadcastId: string,
+    sellerId: string,
+    paginationDto: PaginationDto,
+  ) {
+    if (!Types.ObjectId.isValid(broadcastId) || !Types.ObjectId.isValid(sellerId)) {
+      throw new BadRequestException("Invalid broadcast or seller id");
+    }
+
+    const { page = 1, limit = 10 } = paginationDto;
+
+    const thread = await this.threadModel.findOne({
+      broadcast: new Types.ObjectId(broadcastId),
+      seller: new Types.ObjectId(sellerId),
+    });
+
+    if (!thread) {
+      return {
+        thread: null,
+        messages: [],
+        meta: { total: 0, page, limit, totalPages: 0 },
+      };
+    }
+
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.messageModel
+        .find({ thread: thread._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      this.messageModel.countDocuments({ thread: thread._id }),
+    ]);
+
+    return {
+      thread: { _id: thread._id },
+      messages: data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async closeBroadcast(broadcastId: string) {
+    if (!Types.ObjectId.isValid(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+    const broadcast = await this.broadcastModel.findByIdAndUpdate(
+      broadcastId,
+      { $set: { status: "closed" } },
+      { new: true },
+    );
+    if (!broadcast) {
+      throw new NotFoundException("Broadcast not found");
+    }
+    return { message: "Broadcast closed successfully", data: broadcast };
+  }
+
+  async deleteBroadcast(broadcastId: string) {
+    if (!Types.ObjectId.isValid(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+    const broadcast = await this.broadcastModel.findByIdAndUpdate(
+      broadcastId,
+      { $set: { isDeleted: true } },
+      { new: true },
+    );
+    if (!broadcast) {
+      throw new NotFoundException("Broadcast not found");
+    }
+    return { message: "Broadcast deleted successfully", data: broadcast };
   }
 }

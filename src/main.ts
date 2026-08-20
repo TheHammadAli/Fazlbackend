@@ -9,7 +9,6 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import * as express from "express";
 import { join } from "path";
 
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
@@ -54,6 +53,5 @@ async function bootstrap() {
   server.headersTimeout = Number(process.env.HEADERS_TIMEOUT_MS ?? 660000);
   server.timeout = Number(process.env.SO_TIMEOUT_MS ?? 600000);
   server.requestTimeout = Number(process.env.REQUEST_TIMEOUT_MS ?? 300000);
-
 }
 bootstrap();
