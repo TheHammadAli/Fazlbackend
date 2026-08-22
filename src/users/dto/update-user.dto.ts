@@ -31,6 +31,11 @@ class LocationDto implements Location {
 }
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({ example: "user@example.com" })
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
   @ApiPropertyOptional({ example: "secret123" })
   @IsString()
   @IsOptional()

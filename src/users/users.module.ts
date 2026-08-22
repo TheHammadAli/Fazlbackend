@@ -10,6 +10,7 @@ import { ProductsModule } from "src/products/products.module";
 import { ServicesModule } from "src/services/services.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
 import { ChatModule } from "src/chat/chat.module";
+import { PresenceModule } from "src/presence/presence.module";
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -22,6 +23,7 @@ import { ChatModule } from "src/chat/chat.module";
     forwardRef(() => ServicesModule),
     forwardRef(() => ChatModule),
     ActivityLogModule,
+    PresenceModule,
   ],
   controllers: [UsersController],
   exports: [UsersService],

@@ -8,6 +8,7 @@ import {
   Patch,
   UploadedFile,
   UseInterceptors,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
@@ -24,6 +25,7 @@ import {
 import { CreateMessageDto } from "./dto/create-message.dto";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { Request } from "express";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
@@ -34,7 +36,7 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly fileUploadService: FileUploadService,
-  ) {}
+  ) { }
 
   @Post("conversation")
   @ApiOperation({
@@ -111,6 +113,18 @@ export class ChatController {
     return this.chatService.getMessages(conversationId, paginationDto);
   }
 
+  @Patch("conversations/:conversationId/read")
+  @ApiOperation({
+    summary: "Mark all unread messages in a conversation as read",
+  })
+  async markConversationAsRead(
+    @Param("conversationId") conversationId: string,
+    @Req() req: Request,
+  ) {
+    const user = req.user as { sub: string };
+    return this.chatService.markAsRead(conversationId, user.sub);
+  }
+
   @Patch("messages/mark-read")
   @ApiOperation({
     summary: "Mark all messages as read for a user in a conversation",
@@ -181,6 +195,22 @@ export class ChatController {
               lastMessageAt: { type: "string", format: "date-time" },
               createdAt: { type: "string", format: "date-time" },
               updatedAt: { type: "string", format: "date-time" },
+              latestMessage: {
+                type: "object",
+                properties: {
+                  text: { type: "string" },
+                  read: { type: "boolean" },
+                  createdAt: { type: "string", format: "date-time" },
+                  sender: {
+                    type: "object",
+                    properties: {
+                      _id: { type: "string" },
+                      name: { type: "string" },
+                    },
+                  },
+                },
+              },
+              unreadCount: { type: "number", example: 0 },
             },
           },
         },

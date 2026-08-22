@@ -132,8 +132,8 @@ export class UsersController {
   @Get("detail/:id")
   @ApiOperation({ summary: "Get user detail by ID (protected)" })
   @ApiParam({ name: "id", type: String })
-  async getUser(@Param("id") userId: string): Promise<User> {
-    return this.usersService.findUserById(userId);
+  async getUser(@Param("id") userId: string) {
+    return this.usersService.getUserDetailForAdmin(userId);
   }
   @Get(":id/stats")
   @UseGuards(PermissionsGuard)
@@ -160,6 +160,14 @@ export class UsersController {
     @Query('endDate') endDate?: string,
   ) {
     return this.usersService.getAllUsers({ page, limit, search, startDate, endDate });
+  }
+
+  @Get("online-count")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("users")
+  @ApiOperation({ summary: "Get count of currently online users (protected)" })
+  async getOnlineUsersCount() {
+    return { count: this.usersService.getOnlineUsersCount() };
   }
 
   @Post("register-fcm-token")

@@ -1,0 +1,46 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ProductsModule = void 0;
+const common_1 = require("@nestjs/common");
+const products_controller_1 = require("./products.controller");
+const products_service_1 = require("./products.service");
+const mongoose_1 = require("@nestjs/mongoose");
+const product_schema_1 = require("./schema/product.schema");
+const counter_schema_1 = require("../common/schema/counter.schema");
+const shop_module_1 = require("../shop/shop.module");
+const shared_module_1 = require("../shared/shared.module");
+const users_module_1 = require("../users/users.module");
+const promotion_module_1 = require("../promotion/promotion.module");
+const like_module_1 = require("../like/like.module");
+const reviews_module_1 = require("../reviews/reviews.module");
+const activity_log_module_1 = require("../activity-log/activity-log.module");
+let ProductsModule = class ProductsModule {
+};
+exports.ProductsModule = ProductsModule;
+exports.ProductsModule = ProductsModule = __decorate([
+    (0, common_1.Module)({
+        imports: [
+            mongoose_1.MongooseModule.forFeature([
+                { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
+                { name: counter_schema_1.Counter.name, schema: counter_schema_1.CounterSchema },
+            ]),
+            (0, common_1.forwardRef)(() => like_module_1.LikeModule),
+            (0, common_1.forwardRef)(() => shop_module_1.ShopModule),
+            (0, common_1.forwardRef)(() => shared_module_1.SharedModule),
+            (0, common_1.forwardRef)(() => users_module_1.UsersModule),
+            (0, common_1.forwardRef)(() => promotion_module_1.PromotionModule),
+            (0, common_1.forwardRef)(() => reviews_module_1.ReviewsModule),
+            activity_log_module_1.ActivityLogModule,
+        ],
+        controllers: [products_controller_1.ProductsController],
+        providers: [products_service_1.ProductsService],
+        exports: [products_service_1.ProductsService],
+    })
+], ProductsModule);
+//# sourceMappingURL=products.module.js.map

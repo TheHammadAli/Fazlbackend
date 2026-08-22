@@ -88,8 +88,14 @@ export class CreateUpdateCategoryDto {
 
   @ApiPropertyOptional({
     example: {
-      en: [{ name: "Size", values: ["S", "M", "L"] }, { name: "Color", values: ["Red", "Blue"] }],
-      ur: [{ name: "سائز", values: ["S", "M", "L"] }, { name: "رنگ", values: ["Red", "Blue"] }],
+      en: [
+        { name: "Size", values: ["S", "M", "L"] },
+        { name: "Color", values: ["Red", "Blue"] },
+      ],
+      ur: [
+        { name: "سائز", values: ["S", "M", "L"] },
+        { name: "رنگ", values: ["Red", "Blue"] },
+      ],
     },
     type: CategoryParametersDto,
   })

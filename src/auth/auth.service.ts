@@ -13,7 +13,9 @@ import * as crypto from "crypto";
 import { UserDocument } from "src/users/schema/users.schema";
 import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
+import { EmailService } from "src/common/email-service/email-service";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
+
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
@@ -26,6 +28,7 @@ export class AuthService {
     private readonly configService: ConfigService, // ✅ Add this
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
+    private readonly emailService: EmailService,
     private readonly activityLogService: ActivityLogService,
   ) {
     this.googleClient = new OAuth2Client();
@@ -148,8 +151,8 @@ export class AuthService {
         data: {
           accessToken: newAccessToken,
           user,
-          refreshToken: refreshToken.token
-        }
+          refreshToken: newRefreshToken,
+        },
       };
     } catch (err) {
       throw new UnauthorizedException(
@@ -216,7 +219,7 @@ export class AuthService {
 
   async sendEmailVerificationLink(email: string, lang: string = "en") {
     // Generate a token
-    const token = crypto.randomBytes(32).toString("hex");
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Upsert OTP for email verification
@@ -231,9 +234,12 @@ export class AuthService {
       },
       { upsert: true, new: true },
     );
-
+    await this.emailService.sendEmail(
+      email,
+      'Verify your email',
+      '<h1>Verify your email</h1> <p>Use this code to verify your email: <strong>' + token + '</strong></p>',
+    );
     return {
-      data: token,
       message: this.i18n.translate("auth.auth.verification_email_sent", {
         lang: this.getLang(),
       }),
@@ -330,6 +336,12 @@ export class AuthService {
 
     // Send email (adjust URL as needed)
 
+    await this.emailService.sendEmail(
+      user.email,
+      'Reset your password',
+      '<h1>Reset your password</h1> <p>Use this code to reset your password: <strong>' + token + '</strong></p>',
+    );
+
     // await this.mailerService.sendMail({
     //   to: user.email,
     //   subject: 'Reset your password',
@@ -339,7 +351,6 @@ export class AuthService {
 
     return {
       message: this.i18n.translate("auth.auth.reset_link_sent", { lang }),
-      data: token,
     };
   }
 
@@ -360,12 +371,30 @@ export class AuthService {
         }),
       );
     }
-    return user;
+
+    const newPayload = {
+      sub: user._id, // Or user.id if you’ve transformed it
+      email: user.email,
+      roles: user.roles,
+      location: user.location,
+      image: user.image,
+      isDisabled: user.isDisabled,
+    };
+
+    const newAccessToken = this.jwtService.sign(newPayload, {
+      expiresIn: "1d",
+    });
+    return {
+      data: {
+        user,
+        accessToken: newAccessToken,
+      },
+    };
   }
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.verifyResetPasswordToken(token);
-    await this.userService.updateUser(user.id, {
+    await this.userService.updateUser(String(user.data.user._id), {
       password: newPassword,
       resetPasswordToken: null,
       resetPasswordExpires: null,
@@ -463,7 +492,7 @@ export class AuthService {
 
       const payload = ticket.getPayload();
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // await new Promise((resolve) => setTimeout(resolve, 2000));
       if (!payload) {
         throw new UnauthorizedException("Invalid Google token");
       }

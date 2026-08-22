@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   ValidateNested,
+  IsMongoId,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -34,7 +35,7 @@ export class CreateUpdateShopDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: "Address of shop" })
+  @ApiProperty({ example: "Shop #12, Ground Floor, Singapore Plaza" })
   @IsString()
   @IsNotEmpty()
   address: string;
@@ -44,40 +45,50 @@ export class CreateUpdateShopDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiPropertyOptional({ example: "New Makki Market" })
-  @IsString()
-  @IsOptional()
-  marketName?: string;
+  // ========== NEW FIELDS ==========
+  @ApiProperty({
+    example: "685c611cbcf37e8c78f97f84",
+    description: "Category ID (ObjectId)",
+  })
+  @IsMongoId()
+  @IsNotEmpty()
+  category: string;
 
-  @ApiPropertyOptional({ example: "Chakwal" })
-  @IsString()
+  @ApiPropertyOptional({
+    example: "685c611cbcf37e8c78f97f85",
+    description: "Subcategory ID (ObjectId) - optional",
+  })
   @IsOptional()
-  city?: string;
-
-  @ApiPropertyOptional({ example: "Talagang Road" })
-  @IsString()
-  @IsOptional()
-  area?: string;
-
-  @ApiPropertyOptional({ example: "+923001234567" })
-  @IsString()
-  @IsOptional()
-  contact?: string;
-
-  @ApiPropertyOptional({ example: "689e387f45330caa85c1e19b", description: "Category ObjectId" })
-  @IsString()
-  @IsOptional()
-  category?: string;
-
-  @ApiPropertyOptional({ example: "689e387f45330caa85c1e19b", description: "Subcategory ObjectId" })
-  @IsString()
-  @IsOptional()
+  @IsMongoId()
   subcategory?: string;
 
-  @ApiPropertyOptional({ example: "Mon-Fri, 9:00 AM - 6:00 PM" })
-  @IsString()
+  @ApiPropertyOptional({ example: "Singapore Plaza" })
   @IsOptional()
+  @IsString()
+  marketName?: string;
+
+  @ApiProperty({ example: "Saddar" })
+  @IsString()
+  @IsNotEmpty()
+  area: string;
+
+  @ApiProperty({ example: "Karachi" })
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @ApiProperty({ example: "+923001234567" })
+  @IsString()
+  @IsNotEmpty()
+  contact: string;
+
+  @ApiPropertyOptional({
+    example: "Mon-Sat 10:00 AM - 9:00 PM, Sunday Closed",
+  })
+  @IsOptional()
+  @IsString()
   openingHours?: string;
+  // ================================
 
   @ApiPropertyOptional({
     type: "string",

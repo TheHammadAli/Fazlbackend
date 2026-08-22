@@ -3,6 +3,10 @@ import { ShopService } from "./shop.service";
 import { ShopController } from "./shop.controller";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Shop, ShopSchema } from "./schema/shop.schema";
+import { ShopView, ShopViewSchema } from "./schema/shop-view.schema";
+import { ShopProductView, ShopProductViewSchema } from "./schema/shop-product-view.schema";
+import { ShopContactClick, ShopContactClickSchema } from "./schema/shop-contact-click.schema";
+import { ShopWhatsappClick, ShopWhatsappClickSchema } from "./schema/shop-whatsapp-click.schema";
 import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { SharedModule } from "src/shared/shared.module";
 import { ProductsModule } from "src/products/products.module";
@@ -15,13 +19,17 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
   imports: [
     MongooseModule.forFeature([
       { name: Shop.name, schema: ShopSchema },
+      { name: ShopView.name, schema: ShopViewSchema },
+      { name: ShopProductView.name, schema: ShopProductViewSchema },
+      { name: ShopContactClick.name, schema: ShopContactClickSchema },
+      { name: ShopWhatsappClick.name, schema: ShopWhatsappClickSchema },
       { name: Counter.name, schema: CounterSchema },
     ]),
     forwardRef(() => SharedModule),
     forwardRef(() => ProductsModule),
     forwardRef(() => UsersModule),
     forwardRef(() => ServicesModule),
-  forwardRef(() => OrdersModule),
+    forwardRef(() => OrdersModule),
     ActivityLogModule,
   ],
   providers: [ShopService],

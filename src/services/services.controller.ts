@@ -38,6 +38,7 @@ import {
 import { CreateRequestDto } from "./dto/create-request-dto";
 import { UpdateRequestStatusDto } from "./dto/update-request-dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
+import { UpdateServiceStatusDto } from "./dto/update-service-status.dto";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
@@ -60,7 +61,6 @@ export class ServicesController {
     return this.servicesService.createServiceRequest(dto);
   }
 
-  
   @Patch("status")
   @ApiOperation({
     summary:
@@ -173,6 +173,22 @@ export class ServicesController {
   @ApiResponse({ status: 200, description: "Service found" })
   async getById(@Param("serviceId") serviceId: string, @Query("userId") userId?: string): Promise<any> {
     return await this.servicesService.getById(serviceId, userId);
+  }
+
+  @Get(':serviceId/check-review')
+  @ApiOperation({ summary: 'Check if a user can review a service' })
+  @ApiParam({ name: 'serviceId', required: true })
+  @ApiQuery({ name: 'userId', required: false })
+  async checkReviewEligibility(
+    @Param('serviceId') serviceId: string,
+    @Query('userId') userId?: string,
+    @CurrentUser('sub') currentUserId?: string,
+  ) {
+    const uid = userId || currentUserId;
+    if (!uid) {
+      throw new BadRequestException('userId is required');
+    }
+    return this.servicesService.checkReviewEligibility(uid, serviceId);
   }
 
   @Get("/user/:userId")
@@ -331,7 +347,6 @@ export class ServicesController {
     return this.servicesService.getServiceRequestDetail(requestId);
   }
 
-
   @Public()
   @Get("with-videos/all")
   @ApiOperation({ summary: "Get all services with videos (paginated)" })
@@ -383,6 +398,29 @@ export class ServicesController {
     }
     await this.servicesService.deleteServiceMedia(serviceId, media, currentUser);
     return { message: "Selected service media deleted successfully" };
+  }
+
+  @Get("admin/all")
+  @ApiOperation({ summary: "Get paginated services for admin, including disabled and deleted" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String })
+  async getAllForAdmin(
+    @Query() paginationDto: PaginationDto,
+    @Query("search") search?: string,
+  ): Promise<PaginatedResponseDto<any>> {
+    return this.servicesService.getAllForAdmin(paginationDto, search);
+  }
+
+  @Patch(":id/status")
+  @ApiOperation({ summary: "Enable or disable a service" })
+  @ApiParam({ name: "id", required: true, description: "Service ID" })
+  @ApiBody({ type: UpdateServiceStatusDto })
+  async updateServiceStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateServiceStatusDto,
+  ) {
+    return this.servicesService.updateStatus(id, dto.isDisabled);
   }
 
   @Public()

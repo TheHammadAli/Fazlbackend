@@ -188,6 +188,32 @@ export class ReviewService {
     ]);
   }
 
+  /** Ids (from itemIds) that this user has already reviewed — one query, not N+1. */
+  async getReviewedItemIdsForUser(
+    userId: string,
+    itemIds: Array<string | Types.ObjectId>,
+    itemType: "product" | "service",
+  ): Promise<Set<string>> {
+    if (!userId || !itemIds || itemIds.length === 0) {
+      return new Set();
+    }
+
+    const objectIds = itemIds.map((itemId) =>
+      itemId instanceof Types.ObjectId ? itemId : new Types.ObjectId(itemId),
+    );
+
+    const docs = await this.reviewModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        itemId: { $in: objectIds },
+        itemType,
+      })
+      .select("itemId")
+      .lean();
+
+    return new Set(docs.map((doc) => doc.itemId.toString()));
+  }
+
   async findOne(
     userId: string,
     itemId: string,

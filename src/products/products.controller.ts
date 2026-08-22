@@ -29,6 +29,7 @@ import { RequirePermission } from "src/common/decorators/require-permission.deco
 import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import { UpdateProductStatusDto } from "./dto/update-product-status.dto";
 import {
   ApiTags,
   ApiOperation,
@@ -103,6 +104,17 @@ export class ProductsController {
     createProductDto.parameters = JSON.parse(
       createProductDto.parameters?.toString() || "{}",
     );
+
+    if (createProductDto.location) {
+      try {
+        createProductDto.location =
+          typeof createProductDto.location === "string"
+            ? JSON.parse(createProductDto.location)
+            : createProductDto.location;
+      } catch {
+        throw new BadRequestException("Invalid location JSON");
+      }
+    }
 
     return this.productsService.create(entityId, type, createProductDto);
   }
@@ -319,5 +331,28 @@ export class ProductsController {
   ): Promise<{ message: string }> {
     await this.productsService.delete(id, currentUser, undefined, req.ip);
     return { message: "Product deleted successfully" };
+  }
+
+  @Get("admin/all")
+  @ApiOperation({ summary: "Get paginated products for admin, including disabled and deleted" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "search", required: false, type: String })
+  async getAllForAdmin(
+    @Query() paginationDto: PaginationDto,
+    @Query("search") search?: string,
+  ): Promise<PaginatedResponseDto<Product>> {
+    return this.productsService.getAllForAdmin(paginationDto, search);
+  }
+
+  @Patch(":id/status")
+  @ApiOperation({ summary: "Enable or disable a product" })
+  @ApiParam({ name: "id", required: true, description: "Product ID" })
+  @ApiBody({ type: UpdateProductStatusDto })
+  async updateStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateProductStatusDto,
+  ) {
+    return this.productsService.updateStatus(id, dto.isDisabled);
   }
 }

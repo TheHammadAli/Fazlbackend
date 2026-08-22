@@ -24,6 +24,7 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { PromotionService } from "src/promotion/promotion.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ShareService } from "src/share/share.service";
 import { ReviewService } from "src/reviews/reviews.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
@@ -47,12 +48,47 @@ export class ProductsService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
+    private readonly shareService: ShareService,
     private readonly reviewService: ReviewService,
     private readonly activityLogService: ActivityLogService,
   ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /** Helper: parse + validate GeoJSON Point */
+  private parseAndValidateLocation(location: any): {
+    type: "Point";
+    coordinates: [number, number];
+  } {
+    let parsed = location;
+
+    if (typeof location === "string") {
+      try {
+        parsed = JSON.parse(location);
+      } catch {
+        throw new BadRequestException("Invalid location format (must be valid JSON)");
+      }
+    }
+
+    if (
+      !parsed ||
+      parsed.type !== "Point" ||
+      !Array.isArray(parsed.coordinates) ||
+      parsed.coordinates.length !== 2 ||
+      typeof parsed.coordinates[0] !== "number" ||
+      typeof parsed.coordinates[1] !== "number"
+    ) {
+      throw new BadRequestException(
+        "location must be a valid GeoJSON Point: { type: 'Point', coordinates: [lng, lat] }",
+      );
+    }
+
+    return {
+      type: "Point",
+      coordinates: [parsed.coordinates[0], parsed.coordinates[1]],
+    };
   }
 
   /** Atomically reserves the next sequential listing code (e.g. LST-000052). */
@@ -81,7 +117,10 @@ export class ProductsService {
     dto: CreateProductDto,
   ): Promise<{ message: string; data: { product: Product } }> {
     try {
+      console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
+
       let location: { type: "Point"; coordinates: [number, number] };
+
       const productPayload: Partial<Product> = {
         ...dto,
         category: new Types.ObjectId(dto.category),
@@ -121,39 +160,43 @@ export class ProductsService {
             }),
           );
         }
-        console.log("User:", user);
+
         productPayload.ownerId = user._id as Types.ObjectId;
-        if (
-          !user.location ||
-          !user.location.coordinates ||
-          user.location.coordinates.length !== 2
-        ) {
+
+        // Location is required for personal listings
+        if (!dto.location) {
           throw new BadRequestException(
-            this.i18n.translate("auth.products.user_location_missing", {
+            this.i18n.translate("auth.products.location_required_for_personal", {
               lang: this.lang,
-            }),
+            }) || "Location coordinates are required for personal listings",
           );
         }
 
-        location = {
-          type: "Point",
-          coordinates: user.location.coordinates,
-        };
+        // Parse + validate (handles both string and object)
+        location = this.parseAndValidateLocation(dto.location);
+
+        // Address is optional but recommended
+        if (dto.address) {
+          productPayload.address = dto.address.trim();
+        }
       } else {
         throw new BadRequestException(
           'Invalid type. Must be "shop" or "personal".',
         );
       }
+
       console.log("Product Payload:", productPayload);
       const listingCode = await this.generateNextListingCode();
+
       const createdProduct = new this.productModel({
         ...productPayload,
         listingCode,
-        location,
+        location, // always a proper object now
         images: [],
         video: "",
         category: new Types.ObjectId(dto.category),
       });
+
       let imageUrls: string[] = [];
       if (dto?.images?.length) {
         const uploadedFiles = await this.fileUploadService.uploadProductFiles(
@@ -176,13 +219,13 @@ export class ProductsService {
           "video",
         );
         console.log("Uploaded Video:", uploadedVideo);
-        createdProduct.video = uploadedVideo[0].url; // Assuming only one video is uploaded
+        createdProduct.video = uploadedVideo[0].url;
         createdProduct.videoCode = await this.generateNextVideoCode();
       }
-      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
 
+      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
         createdProduct.searchableTags = [
-          ...createdProduct.parameters.flatMap(p => [p.name, ...p.variants])
+          ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
         ];
       } else {
         createdProduct.searchableTags = [];
@@ -198,6 +241,14 @@ export class ProductsService {
         },
       };
     } catch (err) {
+      // re-throw known Nest exceptions, wrap the rest
+      if (
+        err instanceof NotFoundException ||
+        err instanceof BadRequestException ||
+        err instanceof ForbiddenException
+      ) {
+        throw err;
+      }
       throw new InternalServerErrorException(err);
     }
   }
@@ -211,13 +262,21 @@ export class ProductsService {
 
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ shopId: new Types.ObjectId(shopId), isDeleted: false, isDisabled: false })
+        .find({
+          shopId: new Types.ObjectId(shopId),
+          isDeleted: false,
+          isDisabled: false,
+        })
         .populate("category")
         .populate("shopId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ shopId: new Types.ObjectId(shopId), isDeleted: false, isDisabled: false }),
+      this.productModel.countDocuments({
+        shopId: new Types.ObjectId(shopId),
+        isDeleted: false,
+        isDisabled: false,
+      }),
     ]);
 
     return {
@@ -236,13 +295,21 @@ export class ProductsService {
     console.log("Fetching products for user:", ownerId);
     const [items, total] = await Promise.all([
       this.productModel
-        .find({ ownerId: new Types.ObjectId(ownerId), isDeleted: false, isDisabled: false })
+        .find({
+          ownerId: new Types.ObjectId(ownerId),
+          isDeleted: false,
+          isDisabled: false,
+        })
         .populate("category")
         .populate("ownerId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({ ownerId, isDeleted: false, isDisabled: false }),
+      this.productModel.countDocuments({
+        ownerId,
+        isDeleted: false,
+        isDisabled: false,
+      }),
     ]);
 
     return {
@@ -263,12 +330,13 @@ export class ProductsService {
         path: "shopId",
         populate: {
           path: "ownerId",
-          select: "_id name phone"
+          select: "_id name phone",
         },
       })
       .populate({
         path: "ownerId",
-      }).lean();
+      })
+      .lean();
 
     if (!product)
       throw new NotFoundException(
@@ -276,7 +344,8 @@ export class ProductsService {
           lang: this.lang,
         }),
       );
-    console.log("userId", userId)
+
+    console.log("userId", userId);
     // If there's no logged-in user, return product as-is
     if (!userId) return product;
 
@@ -310,20 +379,34 @@ export class ProductsService {
         }),
       );
     }
+
     if (updateDto.category) {
       (updateDto as any).category = new Types.ObjectId(updateDto.category);
     }
+
+    // Remove empty / null / undefined fields
     Object.keys(updateDto).forEach((key) => {
       if (
-        updateDto[key] === "" || // empty string
-        updateDto[key] === null || // null
+        updateDto[key] === "" ||
+        updateDto[key] === null ||
         typeof updateDto[key] === "undefined"
       ) {
-        delete updateDto[key]; // remove it from updateData
+        delete updateDto[key];
       }
     });
 
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+    // ---------- LOCATION FIX ----------
+    if (updateDto.location) {
+      updateDto.location = this.parseAndValidateLocation(updateDto.location);
+    }
+    // ----------------------------------
+
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
+
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -343,7 +426,9 @@ export class ProductsService {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
         updateDto.images,
         "shop",
-        existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString(),
+        existingProduct.shopId
+          ? existingProduct.shopId.toString()
+          : existingProduct.ownerId!.toString(),
         productId,
         "images",
       );
@@ -351,24 +436,42 @@ export class ProductsService {
       const newImages = uploadedFiles.map((file) => file.url);
       updateDto.images = [...(existingProduct.images || []), ...newImages];
     }
+
     if (updateDto.video) {
       const uploadedVideo = await this.fileUploadService.uploadProductFiles(
         [updateDto.video],
         "shop",
-        existingProduct.shopId ? existingProduct.shopId.toString() : existingProduct.ownerId!.toString(),
+        existingProduct.shopId
+          ? existingProduct.shopId.toString()
+          : existingProduct.ownerId!.toString(),
         productId,
         "video",
       );
 
       console.log("Uploaded Video:", uploadedVideo);
-      updateDto.video = uploadedVideo[0].url; // Assuming only one video is uploaded
+      updateDto.video = uploadedVideo[0].url;
       if (!existingProduct.videoCode) {
         (updateDto as any).videoCode = await this.generateNextVideoCode();
       }
     }
 
+    // Also update searchableTags if parameters changed
+    if (updateDto.parameters) {
+      (updateDto as any).searchableTags = updateDto.parameters.flatMap(
+        (p: any) => [p.name, ...p.variants],
+      );
+    }
+
     const updated = await this.productModel
-      .findOneAndUpdate({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false }, updateDto, { new: true })
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(productId),
+          isDeleted: false,
+          isDisabled: false,
+        },
+        updateDto,
+        { new: true },
+      )
       .exec();
 
     if (!updated) {
@@ -378,6 +481,7 @@ export class ProductsService {
         }),
       );
     }
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       message: this.i18n.translate("auth.products.updated_success", {
@@ -395,7 +499,11 @@ export class ProductsService {
     lang: string = "en",
     ipAddress?: string,
   ) {
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -421,7 +529,10 @@ export class ProductsService {
       entityId,
       productId,
     );
-    const result = await this.productModel.findByIdAndUpdate(new Types.ObjectId(productId), { isDeleted: true, images: [], video: "" });
+    const result = await this.productModel.findByIdAndUpdate(
+      new Types.ObjectId(productId),
+      { isDeleted: true, images: [], video: "" },
+    );
     if (!result)
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -448,7 +559,11 @@ export class ProductsService {
     media: string[],
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
   ) {
-    const existingProduct = await this.productModel.findOne({ _id: new Types.ObjectId(productId), isDeleted: false, isDisabled: false });
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
     if (!existingProduct) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
@@ -507,6 +622,71 @@ export class ProductsService {
       radius,
       pagination,
     );
+  }
+
+  async getAllForAdmin(
+    paginationDto: PaginationDto,
+    search?: string,
+  ): Promise<PaginatedResponseDto<Product>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const filter: FilterQuery<ProductDocument> = {};
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { title: { $regex: term, $options: "i" } },
+        { description: { $regex: term, $options: "i" } },
+        { "category.name.en": { $regex: term, $options: "i" } },
+        { "category.name.ur": { $regex: term, $options: "i" } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate("category")
+        .populate("shopId")
+        .populate("ownerId")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items,
+    };
+  }
+
+  async updateStatus(productId: string, isDisabled: boolean) {
+    const updated = await this.productModel.findByIdAndUpdate(
+      new Types.ObjectId(productId),
+      { isDisabled },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    return {
+      message: isDisabled
+        ? this.i18n.translate("auth.products.product_disabled_success", {
+          lang: this.lang,
+        })
+        : this.i18n.translate("auth.products.product_enabled_success", {
+          lang: this.lang,
+        }),
+      data: updated,
+    };
   }
 
   async findNearbyProductShopOwnerIds(
@@ -594,13 +774,13 @@ export class ProductsService {
     );
   }
 
-
   async searchProducts(query: SearchAllProductsServiceDto) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.max(1, query.limit || 10);
     const skip = (page - 1) * limit;
 
-    const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
+    const allPromotedIds =
+      await this.promotionService.getActivePromotionProductIds();
 
     const baseFilter: FilterQuery<ProductDocument> = {
       isDeleted: false,
@@ -637,7 +817,7 @@ export class ProductsService {
       .exec();
 
     const promotedProductIds = promotedProducts.map((p: any) =>
-      new Types.ObjectId(p._id).toString()
+      new Types.ObjectId(p._id).toString(),
     );
 
     // === Regular Products ===
@@ -648,17 +828,18 @@ export class ProductsService {
 
     if (searchTerm) {
       regularFilter.$or = [
-        { title: { $regex: searchTerm, $options: 'i' } },
-        { description: { $regex: searchTerm, $options: 'i' } },
-        { 'parameters.name': { $regex: searchTerm, $options: 'i' } },
-        { 'parameters.variants': { $regex: searchTerm, $options: 'i' } },
-        { listingCode: { $regex: searchTerm, $options: 'i' } },
+        { title: { $regex: searchTerm, $options: "i" } },
+        { description: { $regex: searchTerm, $options: "i" } },
+        { "parameters.name": { $regex: searchTerm, $options: "i" } },
+        { "parameters.variants": { $regex: searchTerm, $options: "i" } },
+        { listingCode: { $regex: searchTerm, $options: "i" } },
       ];
     }
 
     const [regularProducts, total] = await Promise.all([
       this.productModel
-        .find(regularFilter).populate("category")
+        .find(regularFilter)
+        .populate("category")
         // IMPORTANT: Do NOT select or sort by textScore when using $or + regex
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -687,6 +868,7 @@ export class ProductsService {
       },
     };
   }
+
   private async enrichProductsWithReviewStats(products: any[]) {
     if (!products || products.length === 0) {
       return products;
@@ -736,7 +918,7 @@ export class ProductsService {
       isDisabled: false,
     };
     if (category) {
-      filter.category = new Types.ObjectId(category)
+      filter.category = new Types.ObjectId(category);
     }
     if (search?.trim()) {
       filter.title = { $regex: search.trim(), $options: "i" };
@@ -779,7 +961,6 @@ export class ProductsService {
       );
     }
 
-
     const productIds = items.map((item: any) => new Types.ObjectId(item._id));
     const likes = await this.likeService.getLikesByUser(
       userId,
@@ -793,6 +974,7 @@ export class ProductsService {
       likes.map((like: any) => like.itemId.toString()),
     );
     console.log("Liked Product IDs:", likedProductIds);
+
     const data = items.map((item: any) => ({
       ...item, // Now safe because of .lean()
       isLiked: likedProductIds.has(item._id.toString()),
@@ -862,6 +1044,21 @@ export class ProductsService {
       this.productModel.countDocuments(filter).exec(),
     ]);
 
+    const itemIds = items.map((item) => (item._id as Types.ObjectId).toString());
+    const [likeCounts, shareCounts] = await Promise.all([
+      this.likeService.getLikeCountsForItems(itemIds, "product"),
+      this.shareService.getShareCountsForItems(itemIds, "product"),
+    ]);
+
+    const enrichedItems = items.map((item) => {
+      const id = (item._id as Types.ObjectId).toString();
+      return {
+        ...item,
+        likesCount: likeCounts.get(id) ?? 0,
+        sharesCount: shareCounts.get(id) ?? 0,
+      };
+    });
+
     return {
       meta: {
         total,
@@ -869,7 +1066,7 @@ export class ProductsService {
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
       },
-      data: items,
+      data: enrichedItems,
     };
   }
 

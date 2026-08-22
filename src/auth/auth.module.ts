@@ -9,6 +9,8 @@ import { UsersModule } from "src/users/users.module";
 import { Otp, OtpSchema } from "./schema/otp.schema";
 import { MongooseModule } from "@nestjs/mongoose";
 import { GoogleStrategy } from "./strategies/google.strategy";
+import { EmailService } from "src/common/email-service/email-service";
+import { SmsService } from "src/common/sms-service/sms-service";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
 
 @Module({
@@ -33,7 +35,7 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService, SmsService],
   exports: [AuthService], // Export AuthService if needed elsewhere
 })
 export class AuthModule {}

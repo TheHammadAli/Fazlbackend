@@ -1,0 +1,520 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ServicesController = void 0;
+const common_1 = require("@nestjs/common");
+const services_service_1 = require("./services.service");
+const create_service_dto_1 = require("./dto/create-service.dto");
+const update_service_dto_1 = require("./dto/update-service.dto");
+const jwt_auth_guard_1 = require("../auth/guard/jwt-auth-guard");
+const permissions_guard_1 = require("../auth/guard/permissions-guard");
+const require_permission_decorator_1 = require("../common/decorators/require-permission.decorator");
+const swagger_1 = require("@nestjs/swagger");
+const create_request_dto_1 = require("./dto/create-request-dto");
+const update_request_dto_1 = require("./dto/update-request-dto");
+const update_job_dto_1 = require("./dto/update-job-dto");
+const update_service_status_dto_1 = require("./dto/update-service-status.dto");
+const platform_express_1 = require("@nestjs/platform-express");
+const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
+const public_decorator_1 = require("../common/decorators/public.decorator");
+const video_with_dto_1 = require("./dto/video-with-dto");
+const Get_paginated_dto_1 = require("../orders/dto/Get-paginated-dto");
+const search_nearby_service_dto_1 = require("./dto/search-nearby-service.dto");
+let ServicesController = class ServicesController {
+    servicesService;
+    constructor(servicesService) {
+        this.servicesService = servicesService;
+    }
+    createRequest(dto) {
+        return this.servicesService.createServiceRequest(dto);
+    }
+    updateStatus(dto) {
+        return this.servicesService.updateRequestStatus(dto);
+    }
+    updateJobStatus(dto) {
+        return this.servicesService.updateJobStatus(dto);
+    }
+    async create(req, dto, files) {
+        const user = req.user;
+        if (files?.images && files.images.length > 0) {
+            dto.images = files.images;
+        }
+        else {
+            dto.images = [];
+        }
+        if (files?.video && files.video.length > 0) {
+            dto.video = files.video;
+        }
+        else {
+            dto.video = [];
+        }
+        dto.parameters = JSON.parse(dto.parameters?.toString() || "{}");
+        return await this.servicesService.create(user.sub, dto);
+    }
+    async update(serviceId, dto, files, currentUser) {
+        if (files?.images && files.images.length > 0) {
+            dto.images = files.images;
+        }
+        if (files?.video && files.video.length > 0) {
+            dto.video = files.video;
+        }
+        dto.parameters = JSON.parse(dto.parameters?.toString() || "{}");
+        return await this.servicesService.update(serviceId, dto, currentUser);
+    }
+    async delete(serviceId, currentUser) {
+        const results = await this.servicesService.delete(serviceId, currentUser);
+        console.log("Results", results);
+        return { message: results.message };
+    }
+    async getById(serviceId, userId) {
+        return await this.servicesService.getById(serviceId, userId);
+    }
+    async checkReviewEligibility(serviceId, userId, currentUserId) {
+        const uid = userId || currentUserId;
+        if (!uid) {
+            throw new common_1.BadRequestException('userId is required');
+        }
+        return this.servicesService.checkReviewEligibility(uid, serviceId);
+    }
+    async getByUser(userId, page = 1, limit = 10) {
+        return this.servicesService.getByUser(userId, page, limit);
+    }
+    async getServiceRequestsByUser(userId, role, page = 1, limit = 10, jobStatus, status) {
+        return this.servicesService.getServiceRequestsByUser(userId, role, page, limit, jobStatus, status);
+    }
+    async getServicesByUserForAdmin(userId, page = 1, limit = 5) {
+        return this.servicesService.getByUser(userId, page, limit);
+    }
+    async getBookingsByUserForAdmin(userId, page = 1, limit = 5) {
+        try {
+            return await this.servicesService.getServiceRequestsByUser(userId, "customer", page, limit);
+        }
+        catch (err) {
+            if (err instanceof common_1.NotFoundException) {
+                return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+            }
+            throw err;
+        }
+    }
+    async getAllServiceRequests(page = 1, limit = 10, search, bookingStatus, startDate, endDate) {
+        return this.servicesService.getAllServiceRequests(page, limit, search, bookingStatus, startDate, endDate);
+    }
+    async getServiceRequestStatusCounts(startDate, endDate) {
+        return this.servicesService.getServiceRequestStatusCounts(startDate, endDate);
+    }
+    async getServiceRequestDetail(requestId) {
+        return this.servicesService.getServiceRequestDetail(requestId);
+    }
+    async getServicesWithVideos(query, userId) {
+        console.log("Recieved pagination", query);
+        return this.servicesService.getServicesWithVideos(query, userId, query.category);
+    }
+    async deleteProductMedia(serviceId, media, currentUser) {
+        if (!Array.isArray(media) || media.length === 0) {
+            throw new common_1.BadRequestException("No media files provided for deletion");
+        }
+        await this.servicesService.deleteServiceMedia(serviceId, media, currentUser);
+        return { message: "Selected service media deleted successfully" };
+    }
+    async getAllForAdmin(paginationDto, search) {
+        return this.servicesService.getAllForAdmin(paginationDto, search);
+    }
+    async updateServiceStatus(id, dto) {
+        return this.servicesService.updateStatus(id, dto.isDisabled);
+    }
+    async searchNearbyServices(query) {
+        console.log("Searching nearby services with query:", query);
+        return this.servicesService.searchNearbyServices(query);
+    }
+    async getServiceRequestsForCustomer(customerId, paginationDto, jobStatus, status) {
+        return this.servicesService.getServicesRequestsForCustomer(customerId, paginationDto, jobStatus, status);
+    }
+};
+exports.ServicesController = ServicesController;
+__decorate([
+    (0, common_1.Post)("create-request"),
+    (0, swagger_1.ApiOperation)({ summary: "Create a new service request" }),
+    (0, swagger_1.ApiBody)({ type: create_request_dto_1.CreateRequestDto }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_request_dto_1.CreateRequestDto]),
+    __metadata("design:returntype", void 0)
+], ServicesController.prototype, "createRequest", null);
+__decorate([
+    (0, common_1.Patch)("status"),
+    (0, swagger_1.ApiOperation)({
+        summary: "Update the status of a request (accept, reject, cancel, confirm, propose)",
+    }),
+    (0, swagger_1.ApiBody)({ type: update_request_dto_1.UpdateRequestStatusDto }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [update_request_dto_1.UpdateRequestStatusDto]),
+    __metadata("design:returntype", void 0)
+], ServicesController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Patch)("job-status"),
+    (0, swagger_1.ApiOperation)({
+        summary: "Update the job status of a request (start_job, complete_job)",
+    }),
+    (0, swagger_1.ApiBody)({ type: update_job_dto_1.UpdateJobStatusDto }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [update_job_dto_1.UpdateJobStatusDto]),
+    __metadata("design:returntype", void 0)
+], ServicesController.prototype, "updateJobStatus", null);
+__decorate([
+    (0, common_1.Post)("create"),
+    (0, swagger_1.ApiOperation)({ summary: "Create a new service for a user" }),
+    (0, swagger_1.ApiConsumes)("multipart/form-data"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: "images", maxCount: 5 },
+        { name: "video", maxCount: 1 },
+    ])),
+    (0, swagger_1.ApiBody)({ type: create_service_dto_1.CreateServiceDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "Service created successfully" }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFiles)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, create_service_dto_1.CreateServiceDto, Object]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "create", null);
+__decorate([
+    (0, common_1.Put)("update/:serviceId"),
+    (0, swagger_1.ApiOperation)({ summary: "Update an existing service (own service, or requires 'services' edit permission for others)" }),
+    (0, swagger_1.ApiParam)({ name: "serviceId", required: true }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Service updated successfully" }),
+    (0, swagger_1.ApiConsumes)("multipart/form-data"),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: "images", maxCount: 5 },
+        { name: "video", maxCount: 1 },
+    ])),
+    (0, swagger_1.ApiBody)({ type: update_service_dto_1.UpdateServiceDto }),
+    __param(0, (0, common_1.Param)("serviceId")),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFiles)()),
+    __param(3, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_service_dto_1.UpdateServiceDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':serviceId'),
+    (0, swagger_1.ApiOperation)({ summary: "Delete a service (own service, or requires 'services' delete permission for others)" }),
+    (0, swagger_1.ApiParam)({ name: 'serviceId', required: true }),
+    (0, swagger_1.ApiResponse)({ status: 204, description: 'Service deleted successfully' }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('serviceId')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "delete", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)(":serviceId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get service by ID" }),
+    (0, swagger_1.ApiParam)({ name: "serviceId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "userId", required: false }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Service found" }),
+    __param(0, (0, common_1.Param)("serviceId")),
+    __param(1, (0, common_1.Query)("userId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getById", null);
+__decorate([
+    (0, common_1.Get)(':serviceId/check-review'),
+    (0, swagger_1.ApiOperation)({ summary: 'Check if a user can review a service' }),
+    (0, swagger_1.ApiParam)({ name: 'serviceId', required: true }),
+    (0, swagger_1.ApiQuery)({ name: 'userId', required: false }),
+    __param(0, (0, common_1.Param)('serviceId')),
+    __param(1, (0, common_1.Query)('userId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "checkReviewEligibility", null);
+__decorate([
+    (0, common_1.Get)("/user/:userId"),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated services by user ID" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of services",
+    }),
+    __param(0, (0, common_1.Param)("userId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getByUser", null);
+__decorate([
+    (0, common_1.Get)("/requests/:userId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated service requests for a user" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({
+        name: "jobStatus",
+        required: false,
+        type: String,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "status",
+        required: false,
+        type: String,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "role",
+        required: true,
+        enum: ["customer", "provider"],
+        description: "Return requests where the user is acting as the customer or provider",
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of service requests",
+    }),
+    __param(0, (0, common_1.Param)("userId")),
+    __param(1, (0, common_1.Query)("role")),
+    __param(2, (0, common_1.Query)("page")),
+    __param(3, (0, common_1.Query)("limit")),
+    __param(4, (0, common_1.Query)("jobStatus")),
+    __param(5, (0, common_1.Query)("status")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Number, Number, String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServiceRequestsByUser", null);
+__decorate([
+    (0, common_1.Get)("admin/user/:userId"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("services"),
+    (0, swagger_1.ApiOperation)({ summary: "Get a specific user's services (admin, for User Profile modal)" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Param)("userId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServicesByUserForAdmin", null);
+__decorate([
+    (0, common_1.Get)("admin/user/:userId/bookings"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("bookings"),
+    (0, swagger_1.ApiOperation)({ summary: "Get a specific user's service bookings as customer (admin, for User Profile modal)" }),
+    (0, swagger_1.ApiParam)({ name: "userId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Param)("userId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getBookingsByUserForAdmin", null);
+__decorate([
+    (0, common_1.Get)("bookings/all"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("bookings"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all service bookings across all users (admin)" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({
+        name: "search",
+        required: false,
+        type: String,
+        description: "Search by customer name, provider name, or service title",
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "bookingStatus",
+        required: false,
+        enum: ["pending", "accepted", "completed", "cancelled"],
+        description: "Simplified admin-facing status, derived from status + jobStatus",
+    }),
+    (0, swagger_1.ApiQuery)({ name: "startDate", required: false, type: String, description: "Filter by createdAt >= startDate (YYYY-MM-DD)" }),
+    (0, swagger_1.ApiQuery)({ name: "endDate", required: false, type: String, description: "Filter by createdAt <= endDate (YYYY-MM-DD)" }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of all service bookings",
+    }),
+    __param(0, (0, common_1.Query)("page")),
+    __param(1, (0, common_1.Query)("limit")),
+    __param(2, (0, common_1.Query)("search")),
+    __param(3, (0, common_1.Query)("bookingStatus")),
+    __param(4, (0, common_1.Query)("startDate")),
+    __param(5, (0, common_1.Query)("endDate")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, Number, String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getAllServiceRequests", null);
+__decorate([
+    (0, common_1.Get)("bookings/stats"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("bookings"),
+    (0, swagger_1.ApiOperation)({ summary: "Get booking counts by status, for admin summary cards" }),
+    (0, swagger_1.ApiQuery)({ name: "startDate", required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: "endDate", required: false, type: String }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Total + per-status booking counts",
+    }),
+    __param(0, (0, common_1.Query)("startDate")),
+    __param(1, (0, common_1.Query)("endDate")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServiceRequestStatusCounts", null);
+__decorate([
+    (0, common_1.Get)("requests/detail/:requestId"),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, require_permission_decorator_1.RequirePermission)("bookings"),
+    (0, swagger_1.ApiOperation)({ summary: "Get a single booking's full details (admin)" }),
+    (0, swagger_1.ApiParam)({ name: "requestId", required: true }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Full booking detail",
+    }),
+    __param(0, (0, common_1.Param)("requestId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServiceRequestDetail", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)("with-videos/all"),
+    (0, swagger_1.ApiOperation)({ summary: "Get all services with videos (paginated)" }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of services with videos",
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Query)("userId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [video_with_dto_1.GetWithVideosDto, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServicesWithVideos", null);
+__decorate([
+    (0, common_1.Delete)(":id/media"),
+    (0, swagger_1.ApiOperation)({ summary: "Delete selected media files for a service" }),
+    (0, swagger_1.ApiParam)({ name: "id", description: "Service ID" }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            properties: {
+                media: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Array of media file URLs to delete",
+                },
+            },
+            required: ["media"],
+        },
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Selected service media deleted successfully",
+    }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: "Service not found" }),
+    (0, swagger_1.ApiResponse)({
+        status: 400,
+        description: "No media files provided for deletion",
+    }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)("media")),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Array, Object]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "deleteProductMedia", null);
+__decorate([
+    (0, common_1.Get)("admin/all"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated services for admin, including disabled and deleted" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "search", required: false, type: String }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Query)("search")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Get_paginated_dto_1.PaginationDto, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getAllForAdmin", null);
+__decorate([
+    (0, common_1.Patch)(":id/status"),
+    (0, swagger_1.ApiOperation)({ summary: "Enable or disable a service" }),
+    (0, swagger_1.ApiParam)({ name: "id", required: true, description: "Service ID" }),
+    (0, swagger_1.ApiBody)({ type: update_service_status_dto_1.UpdateServiceStatusDto }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_service_status_dto_1.UpdateServiceStatusDto]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "updateServiceStatus", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)("search/nearby"),
+    (0, swagger_1.ApiOperation)({ summary: "Search services near a coordinate within a radius" }),
+    (0, swagger_1.ApiQuery)({ name: "lat", required: true, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "lng", required: true, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "radius", required: true, type: Number, description: "Distance in kilometers" }),
+    (0, swagger_1.ApiQuery)({ name: "category", required: false, type: String, description: "Optional category id to filter services" }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [search_nearby_service_dto_1.SearchNearbyServiceDto]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "searchNearbyServices", null);
+__decorate([
+    (0, common_1.Get)("/customer/:customerId"),
+    (0, swagger_1.ApiOperation)({ summary: "Get paginated services for a customer" }),
+    (0, swagger_1.ApiParam)({ name: "customerId", required: true }),
+    (0, swagger_1.ApiQuery)({ name: "page", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: "limit", required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({
+        name: "jobStatus",
+        required: false,
+        type: String,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: "status",
+        required: false,
+        type: String,
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: "Paginated list of services for the customer",
+    }),
+    __param(0, (0, common_1.Param)("customerId")),
+    __param(1, (0, common_1.Query)()),
+    __param(2, (0, common_1.Query)("jobStatus")),
+    __param(3, (0, common_1.Query)("status")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Get_paginated_dto_1.PaginationDto, String, String]),
+    __metadata("design:returntype", Promise)
+], ServicesController.prototype, "getServiceRequestsForCustomer", null);
+exports.ServicesController = ServicesController = __decorate([
+    (0, swagger_1.ApiTags)("Services"),
+    (0, swagger_1.ApiBearerAuth)("jwt"),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Controller)("services"),
+    __metadata("design:paramtypes", [services_service_1.ServicesService])
+], ServicesController);
+//# sourceMappingURL=services.controller.js.map

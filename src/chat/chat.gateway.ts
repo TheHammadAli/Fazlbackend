@@ -13,6 +13,7 @@ import { ChatService } from "./chat.service";
 import { forwardRef, Inject, Logger } from "@nestjs/common";
 
 @WebSocketGateway({
+  namespace: "/chat",
   cors: {
     origin: "*", // Adjust in production
   },
@@ -72,7 +73,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       data.text,
     );
 
-     this.server.to(data.conversationId).emit("receiveMessage", message);
+    this.server.to(data.conversationId).emit("receiveMessage", message);
 
 
     return message;

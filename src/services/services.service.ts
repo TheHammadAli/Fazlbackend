@@ -60,9 +60,9 @@ export class ServicesService {
     return this.cls?.get("lang") ?? "en";
   }
 
-  private async delayResponse(ms = 2000): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  }
+  // private async delayResponse(ms = 2000): Promise<void> {
+  //   await new Promise((resolve) => setTimeout(resolve, ms));
+  // }
 
   // Expose service model for use in other services (e.g., broadcast)
   getServiceModel(): Model<ServiceDocument> {
@@ -248,6 +248,7 @@ export class ServicesService {
         }),
       );
     }
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Updated Service:", video);
     return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
   }
@@ -391,6 +392,66 @@ export class ServicesService {
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       data: data,
+    };
+  }
+
+  async getAllForAdmin(
+    paginationDto: PaginationDto,
+    search?: string,
+  ): Promise<PaginatedResponseDto<Service>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const filter: FilterQuery<ServiceDocument> = {};
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { title: { $regex: term, $options: "i" } },
+        { description: { $regex: term, $options: "i" } },
+        { "category.name.en": { $regex: term, $options: "i" } },
+        { "category.name.ur": { $regex: term, $options: "i" } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.serviceModel
+        .find(filter)
+        .populate("category")
+        .populate("ownerId")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.serviceModel.countDocuments(filter),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items,
+    };
+  }
+
+  async updateStatus(serviceId: string, isDisabled: boolean) {
+    const updated = await this.serviceModel.findByIdAndUpdate(
+      new Types.ObjectId(serviceId),
+      { isDisabled },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.services.service_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    return {
+      message: isDisabled ?
+        this.i18n.translate("auth.services.service_disabled_success", { lang: this.lang }) :
+        this.i18n.translate("auth.services.service_enabled_success", { lang: this.lang }),
+      data: updated,
     };
   }
 
@@ -632,7 +693,7 @@ export class ServicesService {
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
-    await this.delayResponse();
+    // await this.delayResponse();
 
     return {
       data: results,
@@ -752,7 +813,7 @@ export class ServicesService {
       );
     }
     // Give Android a brief window to settle the connection before the response completes.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,
@@ -818,7 +879,7 @@ export class ServicesService {
 
     const result = await request.save();
     // Give Android a brief window to settle the connection before the response completes.
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,
@@ -1261,7 +1322,7 @@ export class ServicesService {
       filter.jobStatus = jobStatus;
     }
     if (status) {
-      filter.status = status;
+      filter.status = status.includes(",") ? { $in: status.split(",") } : status;
     }
 
     console.log("Filter for customer requests:", filter);
@@ -1288,9 +1349,93 @@ export class ServicesService {
       .exec();
     const total = await this.requestModel.countDocuments(filter).exec();
 
+    const serviceIds = requests
+      .map((request) => (request as any)?.service?._id)
+      .filter(Boolean);
+    const reviewedIds = await this.reviewService.getReviewedItemIdsForUser(
+      customerId,
+      serviceIds,
+      "service",
+    );
+    const data = requests.map((request) => ({
+      ...request,
+      alreadyReviewed: reviewedIds.has(
+        String((request as any)?.service?._id),
+      ),
+    }));
+
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: requests,
+      data,
+    };
+  }
+
+  /**
+   * Check whether a user is eligible to review a service.
+   * Returns flags and message explaining the reason.
+   */
+  async checkReviewEligibility(userId: string, serviceId: string) {
+    if (!userId) throw new BadRequestException("userId is required");
+
+    // 1) Check if the user already submitted a review for this service
+    const existingReview = await this.reviewService.findOne(
+      userId,
+      serviceId,
+      "service",
+    );
+    if (existingReview) {
+      return {
+        data: {
+          canReview: false,
+          alreadyReviewed: true,
+        },
+        message: this.i18n.translate("auth.reviews.duplicate_review", {
+          lang: this.lang,
+        }),
+      };
+    }
+
+    // 2) Check service requests made by this user for the service
+    const request = await this.requestModel
+      .findOne({
+        service: new Types.ObjectId(serviceId),
+        customer: new Types.ObjectId(userId),
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!request) {
+      return {
+        data: {
+          canReview: false,
+          notBooked: true,
+        },
+        message: this.i18n.translate("auth.services.no_requests_found", {
+          lang: this.lang,
+        }),
+      };
+    }
+
+    // Only allow review if request was accepted/confirmed
+    const acceptedStatuses = ["accepted", "confirmed"];
+    if (!acceptedStatuses.includes(request.status)) {
+      return {
+        data: {
+          canReview: false,
+          notAccepted: true,
+          requestStatus: request.status,
+        },
+        message: this.i18n.translate("auth.services.request_not_accepted", {
+          lang: this.lang,
+        }) || "Service request has not been accepted",
+      };
+    }
+
+    return {
+      data: {
+        canReview: true,
+      },
+      message: "User is eligible to review",
     };
   }
 }

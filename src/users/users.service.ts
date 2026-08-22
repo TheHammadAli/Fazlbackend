@@ -34,6 +34,7 @@ import { ShopService } from "src/shop/shop.service";
 import { ProductsService } from "src/products/products.service";
 import { ServicesService } from "src/services/services.service";
 import { ChatService } from "src/chat/chat.service";
+import { PresenceService } from "src/presence/presence.service";
 
 @Injectable()
 export class UsersService {
@@ -51,6 +52,7 @@ export class UsersService {
     private readonly servicesService: ServicesService,
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
+    private readonly presenceService: PresenceService,
   ) { }
 
   private get lang(): string {
@@ -69,22 +71,32 @@ export class UsersService {
 
   async createUser(createUserDto: CreateUpdateUserDto) {
     try {
+      const normalizedEmail = createUserDto.email?.trim().toLowerCase();
+      const normalizedPhone = createUserDto.phone?.trim();
+
       const existingUser = await this.userModel.findOne({
-        email: createUserDto.email,
+        $or: [
+          ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+          ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+        ],
       });
+
       if (existingUser) {
         throw new ConflictException(
-          this.i18n.translate("auth.users.email_already_registered", {
+          this.i18n.translate("auth.users.email_or_phone_already_registered", {
             lang: this.lang,
           }),
         );
       }
+
       const hashedPassword = await this.hashPassword(createUserDto.password);
       let imageUrl = "default-avatar.png"; // Default image URL
       const userCode = await this.generateNextUserCode();
 
       const newUser = new this.userModel({
         ...createUserDto,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         userCode,
         image: "default-avatar.png", // Default image if none provided
         password: hashedPassword,
@@ -100,11 +112,31 @@ export class UsersService {
         savedUser.image = imageUrl; // Ensure the image is stored as a filename
       }
       await savedUser.save(); // Save the user again to update the image field
-      return { message: this.i18n.translate("auth.users.created_success", { lang: this.lang }), data: savedUser.toJSON() };
+      return {
+        message: this.i18n.translate("auth.users.created_success", {
+          lang: this.lang,
+        }),
+        data: savedUser.toJSON(),
+      };
     } catch (err) {
-      throw err instanceof HttpException
-        ? err
-        : new AppError(err?.message || "Internal server error");
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        (err as any).code === 11000
+      ) {
+        throw new ConflictException(
+          this.i18n.translate("auth.users.email_or_phone_already_registered", {
+            lang: this.lang,
+          }),
+        );
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -154,17 +186,6 @@ export class UsersService {
     updateData: Partial<UpdateUserDto>,
   ): Promise<{ message: string; data: User }> {
     try {
-      // Remove empty, null, or undefined fields
-      Object.keys(updateData).forEach((key) => {
-        if (
-          updateData[key] === "" ||
-          updateData[key] === null ||
-          typeof updateData[key] === "undefined"
-        ) {
-          delete updateData[key];
-        }
-      });
-
       // Defense-in-depth: no global ValidationPipe enforces the DTO's shape, so a raw
       // request body could carry fields the DTO never declares. This is a generic
       // self-service endpoint — it must never be able to grant privileges.
@@ -184,18 +205,13 @@ export class UsersService {
         }
       }
 
-      // Handle password hashing
-      if (updateData.password) {
-        const salt = await bcrypt.genSalt();
-        updateData.password = await bcrypt.hash(updateData.password, salt);
-      }
-
       const existingUser = await this.userModel.findById(userId).exec();
       if (!existingUser) {
         throw new NotFoundException(
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
+
       // Only block attempts to change roles on a super_admin account — this method
       // is also used internally (login/refresh-token/password-reset flows), which
       // only ever touch refreshToken/password and must keep working.
@@ -204,34 +220,100 @@ export class UsersService {
           "The Super Admin account's roles cannot be changed through this endpoint",
         );
       }
-      console.log("Existing User:", existingUser);
 
-      // Handle image only if a new one is provided
+      const sanitizedData = { ...updateData };
+
+      Object.keys(sanitizedData).forEach((key) => {
+        if (
+          sanitizedData[key] === "" ||
+          sanitizedData[key] === null ||
+          typeof sanitizedData[key] === "undefined"
+        ) {
+          delete sanitizedData[key];
+        }
+      });
+
+      const updatePayload: Partial<UpdateUserDto> = {};
+
+      Object.entries(sanitizedData).forEach(([key, value]) => {
+        const currentValue = (existingUser as Record<string, any>)[key];
+
+        if (Array.isArray(currentValue) && Array.isArray(value)) {
+          const sameArray =
+            currentValue.length === value.length &&
+            currentValue.every((item, index) => item === value[index]);
+          if (sameArray) {
+            return;
+          }
+        } else if (typeof currentValue === "object" && currentValue !== null && typeof value === "object" && value !== null) {
+          if (JSON.stringify(currentValue) === JSON.stringify(value)) {
+            return;
+          }
+        } else if (currentValue === value) {
+          return;
+        }
+
+        (updatePayload as Record<string, any>)[key] = value;
+      });
+
+      // Handle password hashing
+      if (updatePayload.password) {
+        const salt = await bcrypt.genSalt();
+        updatePayload.password = await bcrypt.hash(updatePayload.password, salt);
+      }
+
+      const normalizedEmail = updatePayload.email?.trim().toLowerCase();
+      const normalizedPhone = updatePayload.phone?.trim();
+
+      if (normalizedEmail || normalizedPhone) {
+        const duplicateUser = await this.userModel
+          .findOne({
+            _id: { $ne: userId },
+            $or: [
+              ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+              ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+            ],
+          })
+          .exec();
+
+        if (duplicateUser) {
+          throw new ConflictException(
+            this.i18n.translate("auth.users.email_or_phone_already_registered", {
+              lang: this.lang,
+            }),
+          );
+        }
+      }
+
+      if (normalizedEmail) {
+        updatePayload.email = normalizedEmail;
+      }
+
+      if (normalizedPhone) {
+        updatePayload.phone = normalizedPhone;
+      }
+
       let imageUrl = existingUser.image || "default-avatar.png";
-      console.log("Image URL:", imageUrl);
-      console.log("Update Data Image:", updateData.image);
       if (
-        updateData.image &&
-        typeof updateData.image === "object" &&
-        "buffer" in updateData.image &&
-        "originalname" in updateData.image
+        updatePayload.image &&
+        typeof updatePayload.image === "object" &&
+        "buffer" in updatePayload.image &&
+        "originalname" in updatePayload.image
       ) {
-        // It's a file object (from Multer)
         imageUrl = await this.fileUploadService.uploadUserImage(
           userId,
-          updateData.image,
+          updatePayload.image,
         );
       }
 
-      // Preserve location if not updated
-      if (!updateData.location) {
-        updateData.location = existingUser.location;
+      if (!updatePayload.location) {
+        updatePayload.location = existingUser.location;
       }
 
-      updateData.image = imageUrl;
+      updatePayload.image = imageUrl;
 
       const updatedUser = await this.userModel.findByIdAndUpdate(userId, {
-        $set: updateData,
+        $set: updatePayload,
       });
 
       if (!updatedUser) {
@@ -247,7 +329,24 @@ export class UsersService {
         data: updatedUser,
       };
     } catch (err) {
-      throw new AppError(err);
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        (err as any).code === 11000
+      ) {
+        throw new ConflictException(
+          this.i18n.translate("auth.users.email_or_phone_already_registered", {
+            lang: this.lang,
+          }),
+        );
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -359,8 +458,16 @@ export class UsersService {
       this.userModel.countDocuments(query),
     ]);
 
+    const userIds = users.map((user) => user._id.toString());
+    const onlineIds = this.presenceService.getOnlineUserIds(userIds);
+    const enrichedUsers = users.map((user) => ({
+      ...user,
+      isOnline: onlineIds.has(user._id.toString()),
+      lastSeenAt: user.lastSeenAt ?? null,
+    }));
+
     return {
-      data: users,
+      data: enrichedUsers,
       meta: {
         total,
         page,
@@ -369,8 +476,29 @@ export class UsersService {
       },
     };
   }
+
+  /** Cheap, side-channel field touched by the presence gateway — not part of the self-service update flow. */
+  async touchLastSeen(userId: string): Promise<void> {
+    await this.userModel
+      .updateOne({ _id: userId }, { $set: { lastSeenAt: new Date() } })
+      .exec();
+  }
+
+  async getUserDetailForAdmin(userId: string) {
+    const user = await this.findUserById(userId);
+    return {
+      ...user.toObject(),
+      isOnline: this.presenceService.isOnline(userId),
+      lastSeenAt: user.lastSeenAt ?? null,
+    };
+  }
+
+  getOnlineUsersCount(): number {
+    return this.presenceService.getOnlineCount();
+  }
+
   async saveFcmToken(userId: string, token: string) {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // await new Promise(resolve => setTimeout(resolve, 2000));
     return this.userModel.findByIdAndUpdate(
       userId,
       { fcmToken: token },
@@ -415,9 +543,12 @@ export class UsersService {
         data: user,
       };
     } catch (err) {
-      throw err instanceof HttpException
-        ? err
-        : new AppError(err);
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -458,9 +589,12 @@ export class UsersService {
         data: user,
       };
     } catch (err) {
-      throw err instanceof HttpException
-        ? err
-        : new AppError(err?.message || "Internal server error");
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      const errorMessage = err instanceof Error ? err.message : "Internal server error";
+      throw new AppError(errorMessage);
     }
   }
 
@@ -505,6 +639,21 @@ export class UsersService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /** Ids of all non-disabled users, optionally filtered by role. Empty/undefined roles = all users. */
+  async getUserIdsByRoles(roles?: string[]): Promise<string[]> {
+    const query: any = { isDisabled: { $ne: true } };
+    if (roles && roles.length > 0) {
+      query.roles = { $in: roles };
+    }
+
+    const users = await this.userModel
+      .find(query, { _id: 1 })
+      .lean()
+      .exec();
+
+    return users.map((user) => user._id.toString());
   }
 
   /** No global ValidationPipe is registered in this app, so class-validator decorators on the

@@ -72,6 +72,9 @@ export class User {
 
   @Prop({ type: Boolean, default: false })
   isDisabled: boolean;
+
+  @Prop({ type: Date, required: false, default: null })
+  lastSeenAt?: Date | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

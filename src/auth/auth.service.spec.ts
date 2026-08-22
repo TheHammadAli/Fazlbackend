@@ -7,6 +7,8 @@ import { I18nService } from "nestjs-i18n";
 import { ClsService } from "nestjs-cls";
 import { getModelToken } from "@nestjs/mongoose";
 import { Otp } from "./schema/otp.schema";
+import { EmailService } from "src/common/email-service/email-service";
+import { ActivityLogService } from "src/activity-log/activity-log.service";
 
 describe("AuthService", () => {
   let service: AuthService;
@@ -30,6 +32,8 @@ describe("AuthService", () => {
         { provide: ConfigService, useValue: { get: jest.fn() } },
         { provide: I18nService, useValue: { translate: jest.fn() } },
         { provide: ClsService, useValue: { get: jest.fn() } },
+        { provide: EmailService, useValue: { sendEmail: jest.fn() } },
+        { provide: ActivityLogService, useValue: { record: jest.fn() } },
         { provide: getModelToken(Otp.name), useValue: {} },
       ],
     }).compile();

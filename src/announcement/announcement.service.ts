@@ -7,6 +7,8 @@ import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateAnnouncementDto } from "./dto/create-announcement.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
+import { UsersService } from "src/users/users.service";
+import { NotificationsService } from "src/notifications/notifications.service";
 
 const STATUS_MESSAGE: Record<string, string> = {
   sent: "Announcement sent successfully",
@@ -21,6 +23,8 @@ export class AnnouncementService {
     private readonly announcementModel: Model<Announcement>,
     @InjectModel(Counter.name)
     private readonly counterModel: Model<CounterDocument>,
+    private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /** Atomically reserves the next sequential announcement code (e.g. ANN-000001). */
@@ -31,6 +35,35 @@ export class AnnouncementService {
       { new: true, upsert: true },
     );
     return `ANN-${String(counter.seq).padStart(6, "0")}`;
+  }
+
+  /** Fans out a sent announcement to targeted users: in-app notification, realtime socket, and push. */
+  private async fanOutToUsers(announcement: Announcement, roles?: string[]) {
+    const userIds = await this.usersService.getUserIdsByRoles(roles);
+
+    const payload = {
+      announcementId: (announcement as any)._id?.toString?.(),
+      announcementCode: announcement.announcementCode,
+      image: announcement.image,
+      ctaLabel: announcement.ctaLabel,
+      ctaDestination: announcement.ctaDestination,
+      priority: announcement.priority,
+      location: announcement.location,
+      category: announcement.category?.toString?.(),
+      expiresAt: announcement.expiresAt,
+    };
+
+    await Promise.allSettled(
+      userIds.map((userId) =>
+        this.notificationsService.notifyRaw(
+          userId,
+          announcement.title,
+          announcement.message,
+          "ANNOUNCEMENT",
+          payload,
+        ),
+      ),
+    );
   }
 
   // No global ValidationPipe is registered in this app, so class-validator decorators on the
@@ -84,6 +117,10 @@ export class AnnouncementService {
       createdBy: new Types.ObjectId(createdBy),
     });
 
+    if (status === "sent") {
+      await this.fanOutToUsers(announcement, announcement.targetAudience);
+    }
+
     return {
       message: STATUS_MESSAGE[status],
       data: announcement,
@@ -125,6 +162,10 @@ export class AnnouncementService {
     }
 
     await announcement.save();
+
+    if (status === "sent") {
+      await this.fanOutToUsers(announcement, announcement.targetAudience);
+    }
 
     return {
       message: STATUS_MESSAGE[status],
