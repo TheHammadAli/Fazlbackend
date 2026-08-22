@@ -12,6 +12,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { UsersModule } from "src/users/users.module";
 import { NotificationsGateway } from "./notification.gateway";
 import { ConfigModule } from "@nestjs/config";
+import { PresenceModule } from "src/presence/presence.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ConfigModule } from "@nestjs/config";
     ]),
     forwardRef(() => UsersModule),
     ConfigModule,
+    PresenceModule,
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway, FirebaseService],

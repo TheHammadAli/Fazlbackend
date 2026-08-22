@@ -34,6 +34,7 @@ import { ShopService } from "src/shop/shop.service";
 import { ProductsService } from "src/products/products.service";
 import { ServicesService } from "src/services/services.service";
 import { ChatService } from "src/chat/chat.service";
+import { PresenceService } from "src/presence/presence.service";
 
 @Injectable()
 export class UsersService {
@@ -51,6 +52,7 @@ export class UsersService {
     private readonly servicesService: ServicesService,
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
+    private readonly presenceService: PresenceService,
   ) { }
 
   private get lang(): string {
@@ -456,8 +458,16 @@ export class UsersService {
       this.userModel.countDocuments(query),
     ]);
 
+    const userIds = users.map((user) => user._id.toString());
+    const onlineIds = this.presenceService.getOnlineUserIds(userIds);
+    const enrichedUsers = users.map((user) => ({
+      ...user,
+      isOnline: onlineIds.has(user._id.toString()),
+      lastSeenAt: user.lastSeenAt ?? null,
+    }));
+
     return {
-      data: users,
+      data: enrichedUsers,
       meta: {
         total,
         page,
@@ -466,6 +476,27 @@ export class UsersService {
       },
     };
   }
+
+  /** Cheap, side-channel field touched by the presence gateway — not part of the self-service update flow. */
+  async touchLastSeen(userId: string): Promise<void> {
+    await this.userModel
+      .updateOne({ _id: userId }, { $set: { lastSeenAt: new Date() } })
+      .exec();
+  }
+
+  async getUserDetailForAdmin(userId: string) {
+    const user = await this.findUserById(userId);
+    return {
+      ...user.toObject(),
+      isOnline: this.presenceService.isOnline(userId),
+      lastSeenAt: user.lastSeenAt ?? null,
+    };
+  }
+
+  getOnlineUsersCount(): number {
+    return this.presenceService.getOnlineCount();
+  }
+
   async saveFcmToken(userId: string, token: string) {
     // await new Promise(resolve => setTimeout(resolve, 2000));
     return this.userModel.findByIdAndUpdate(
@@ -608,6 +639,21 @@ export class UsersService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /** Ids of all non-disabled users, optionally filtered by role. Empty/undefined roles = all users. */
+  async getUserIdsByRoles(roles?: string[]): Promise<string[]> {
+    const query: any = { isDisabled: { $ne: true } };
+    if (roles && roles.length > 0) {
+      query.roles = { $in: roles };
+    }
+
+    const users = await this.userModel
+      .find(query, { _id: 1 })
+      .lean()
+      .exec();
+
+    return users.map((user) => user._id.toString());
   }
 
   /** No global ValidationPipe is registered in this app, so class-validator decorators on the

@@ -28,6 +28,9 @@ import { TaskModule } from "./task/task.module";
 import * as path from "path";
 import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
 import { LikeModule } from "./like/like.module";
+import { ShareModule } from "./share/share.module";
+import { SettingsModule } from "./settings/settings.module";
+import { PresenceModule } from "./presence/presence.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -77,6 +80,9 @@ const isProduction = process.env.NODE_ENV === "production";
     BroadcastModule,
     AnnouncementModule,
     LikeModule,
+    ShareModule,
+    SettingsModule,
+    PresenceModule,
     ActivityLogModule,
     TaskModule,
   ],

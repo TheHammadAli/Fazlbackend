@@ -9,7 +9,7 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
-import { Notification } from "./schema/notifications.schema";
+import { Notification, NotificationType } from "./schema/notifications.schema";
 import { UsersService } from "src/users/users.service";
 import { Server } from "socket.io";
 import { FirebaseService } from "./firebase.service";
@@ -52,7 +52,7 @@ export class NotificationsService {
   async create<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     message: string,
-    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | "BROADCAST" = "MESSAGE",
+    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | "BROADCAST" | "ANNOUNCEMENT" = "MESSAGE",
     payload: T,
   ) {
     const user = await this.usersService.findUserById(userId.toString());
@@ -80,7 +80,7 @@ export class NotificationsService {
   async createAndNotify<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     messageKey: string,
-    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | "BROADCAST",
+    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | "BROADCAST" | "ANNOUNCEMENT",
     payload: T,
     i18nArgs: Record<string, any> = {},
     titleOverride?: string,
@@ -148,6 +148,46 @@ export class NotificationsService {
           ...(notificationId ? { notificationId } : {}),
         },
       );
+    }
+
+    return notif;
+  }
+
+  /**
+   * Same delivery path as createAndNotify (DB row + socket emit + FCM push),
+   * but for callers that already have a final title/message and no i18n key —
+   * e.g. admin-authored announcement text.
+   */
+  async notifyRaw<T = Record<string, any>>(
+    userId: string | Types.ObjectId,
+    title: string,
+    message: string,
+    type: NotificationType,
+    payload: T,
+  ) {
+    const user = await this.usersService.findUserById(userId.toString());
+    if (!user) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.notifications.user_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    const notifPayload = this.buildNotificationPayload(payload);
+    const notif = await this.create<T>(userId, message, type, notifPayload as T);
+
+    if (this.server) {
+      this.server.to(userId.toString()).emit("notification", notif);
+    }
+
+    if (user?.fcmToken) {
+      const notificationId = notif?.["_id"]?.toString() || "";
+      await this.firebaseService.sendNotification(user.fcmToken, title, message, {
+        type,
+        ...notifPayload,
+        ...(notificationId ? { notificationId } : {}),
+      });
     }
 
     return notif;

@@ -10,6 +10,10 @@ import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { I18nService } from "nestjs-i18n";
 import { Shop, ShopDocument } from "./schema/shop.schema";
+import { ShopView, ShopViewDocument } from "./schema/shop-view.schema";
+import { ShopProductView, ShopProductViewDocument } from "./schema/shop-product-view.schema";
+import { ShopContactClick, ShopContactClickDocument } from "./schema/shop-contact-click.schema";
+import { ShopWhatsappClick, ShopWhatsappClickDocument } from "./schema/shop-whatsapp-click.schema";
 import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
 import { ProductsService } from "src/products/products.service";
@@ -24,6 +28,10 @@ import { PermissionEntry } from "src/common/constants/admin-permissions.constant
 export class ShopService {
   constructor(
     @InjectModel(Shop.name) private shopModel: Model<ShopDocument>,
+    @InjectModel(ShopView.name) private shopViewModel: Model<ShopViewDocument>,
+    @InjectModel(ShopProductView.name) private shopProductViewModel: Model<ShopProductViewDocument>,
+    @InjectModel(ShopContactClick.name) private shopContactClickModel: Model<ShopContactClickDocument>,
+    @InjectModel(ShopWhatsappClick.name) private shopWhatsappClickModel: Model<ShopWhatsappClickDocument>,
     @InjectModel(Counter.name) private counterModel: Model<CounterDocument>,
     @Inject(forwardRef(() => ProductsService))
     private readonly productsService: ProductsService,
@@ -203,12 +211,101 @@ export class ShopService {
       1,
       1,
     );
+    // Total Views: distinct users who have opened the shop's own page (deduped, forever).
+    const totalViews = await this.shopViewModel.countDocuments({
+      shopId: new Types.ObjectId(shopId),
+    });
+    // Unique Visitors: distinct users who have opened at least one product from this shop.
+    const uniqueVisitorsCount = await this.shopProductViewModel.countDocuments({
+      shopId: new Types.ObjectId(shopId),
+    });
+    // Contact/WhatsApp Clicks: distinct users who've clicked, deduped forever (repeat clicks don't recount).
+    const contactClicks = await this.shopContactClickModel.countDocuments({
+      shopId: new Types.ObjectId(shopId),
+    });
+    const whatsappClicks = await this.shopWhatsappClickModel.countDocuments({
+      shopId: new Types.ObjectId(shopId),
+    });
 
     return {
       ...shop.toJSON(),
       productsCount: productsCount.meta.total,
       ordersCount: ordersCount.meta.total,
+      totalViews,
+      uniqueVisitorsCount,
+      contactClicks,
+      whatsappClicks,
     };
+  }
+
+  /** Records a shop-page view: always increments the raw totalViews counter,
+   *  and dedupes into a per-(shop,user) row so unique visitors can be counted
+   *  by row count. Skips the shop owner viewing their own shop entirely. */
+  async trackView(shopId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(shopId)) return;
+
+    const shop = await this.shopModel
+      .findById(shopId)
+      .select("ownerId")
+      .lean();
+    if (!shop || shop.ownerId.toString() === userId) return;
+
+    await this.shopViewModel.updateOne(
+      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
+  }
+
+  /** Records that a user opened a product belonging to this shop (deduped per shop+user, regardless of which product). */
+  async trackProductView(shopId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(shopId)) return;
+
+    const shop = await this.shopModel
+      .findById(shopId)
+      .select("ownerId")
+      .lean();
+    if (!shop || shop.ownerId.toString() === userId) return;
+
+    await this.shopProductViewModel.updateOne(
+      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
+  }
+
+  /** Records a "Chat Store" click attributed to the shop. Deduped per (shop, user) — repeat clicks by the same user don't recount. */
+  async trackContactClick(shopId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(shopId)) return;
+
+    const shop = await this.shopModel
+      .findById(shopId)
+      .select("ownerId")
+      .lean();
+    if (!shop || shop.ownerId.toString() === userId) return;
+
+    await this.shopContactClickModel.updateOne(
+      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
+  }
+
+  /** Records a "WhatsApp" click attributed to the shop. Deduped per (shop, user) — repeat clicks by the same user don't recount. */
+  async trackWhatsappClick(shopId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(shopId)) return;
+
+    const shop = await this.shopModel
+      .findById(shopId)
+      .select("ownerId")
+      .lean();
+    if (!shop || shop.ownerId.toString() === userId) return;
+
+    await this.shopWhatsappClickModel.updateOne(
+      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
   }
 
   async getAllShopsByUser(userId: string): Promise<Shop[]> {

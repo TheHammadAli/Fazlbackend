@@ -116,6 +116,50 @@ export class ShopController {
     return this.shopService.getShopById(id);
   }
 
+  @Post(":id/track-view")
+  @ApiOperation({ summary: "Record a shop page view for Total Views (deduped per user)" })
+  @ApiParam({ name: "id", type: String })
+  async trackView(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.shopService.trackView(id, user.sub);
+    return { success: true };
+  }
+
+  @Post(":id/track-product-view")
+  @ApiOperation({ summary: "Record a product view for Unique Visitors (deduped per shop+user)" })
+  @ApiParam({ name: "id", type: String })
+  async trackProductView(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.shopService.trackProductView(id, user.sub);
+    return { success: true };
+  }
+
+  @Post(":id/track-contact-click")
+  @ApiOperation({ summary: "Record a 'Chat Store' click attributed to a shop (deduped per user)" })
+  @ApiParam({ name: "id", type: String })
+  async trackContactClick(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.shopService.trackContactClick(id, user.sub);
+    return { success: true };
+  }
+
+  @Post(":id/track-whatsapp-click")
+  @ApiOperation({ summary: "Record a 'WhatsApp' click attributed to a shop (deduped per user)" })
+  @ApiParam({ name: "id", type: String })
+  async trackWhatsappClick(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    await this.shopService.trackWhatsappClick(id, user.sub);
+    return { success: true };
+  }
+
   @Get("userShops")
   @ApiOperation({ summary: "Get all shops owned by current user" })
   async getMyShops(@CurrentUser() user: JwtPayload) {

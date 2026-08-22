@@ -10,6 +10,7 @@ import { UsersModule } from "src/users/users.module";
 
 import { PromotionModule } from "src/promotion/promotion.module";
 import { LikeModule } from "src/like/like.module";
+import { ShareModule } from "src/share/share.module";
 import { ReviewsModule } from "src/reviews/reviews.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
 
@@ -20,6 +21,7 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
       { name: Counter.name, schema: CounterSchema },
     ]),
     forwardRef(() => LikeModule),
+    ShareModule,
     forwardRef(() => ShopModule), // If circular dependency
     forwardRef(() => SharedModule),
     forwardRef(() => UsersModule),

@@ -1322,7 +1322,7 @@ export class ServicesService {
       filter.jobStatus = jobStatus;
     }
     if (status) {
-      filter.status = status;
+      filter.status = status.includes(",") ? { $in: status.split(",") } : status;
     }
 
     console.log("Filter for customer requests:", filter);
@@ -1349,9 +1349,24 @@ export class ServicesService {
       .exec();
     const total = await this.requestModel.countDocuments(filter).exec();
 
+    const serviceIds = requests
+      .map((request) => (request as any)?.service?._id)
+      .filter(Boolean);
+    const reviewedIds = await this.reviewService.getReviewedItemIdsForUser(
+      customerId,
+      serviceIds,
+      "service",
+    );
+    const data = requests.map((request) => ({
+      ...request,
+      alreadyReviewed: reviewedIds.has(
+        String((request as any)?.service?._id),
+      ),
+    }));
+
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: requests,
+      data,
     };
   }
 

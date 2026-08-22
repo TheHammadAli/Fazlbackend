@@ -193,6 +193,28 @@ export class LikeService {
   }
 
   /**
+   * Bulk like counts for a page of items, in one aggregation query.
+   */
+  async getLikeCountsForItems(
+    itemIds: string[],
+    itemType: "product" | "service",
+  ): Promise<Map<string, number>> {
+    if (itemIds.length === 0) return new Map();
+
+    const results = await this.likeModel.aggregate([
+      {
+        $match: {
+          itemId: { $in: itemIds.map((id) => new Types.ObjectId(id)) },
+          itemType,
+        },
+      },
+      { $group: { _id: "$itemId", count: { $sum: 1 } } },
+    ]);
+
+    return new Map(results.map((r) => [r._id.toString(), r.count as number]));
+  }
+
+  /**
    * Validate item exists
    */
   private async validateItemExists(

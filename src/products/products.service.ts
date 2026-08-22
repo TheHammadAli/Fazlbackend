@@ -24,6 +24,7 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { PromotionService } from "src/promotion/promotion.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ShareService } from "src/share/share.service";
 import { ReviewService } from "src/reviews/reviews.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
@@ -47,6 +48,7 @@ export class ProductsService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
+    private readonly shareService: ShareService,
     private readonly reviewService: ReviewService,
     private readonly activityLogService: ActivityLogService,
   ) { }
@@ -1042,6 +1044,21 @@ export class ProductsService {
       this.productModel.countDocuments(filter).exec(),
     ]);
 
+    const itemIds = items.map((item) => (item._id as Types.ObjectId).toString());
+    const [likeCounts, shareCounts] = await Promise.all([
+      this.likeService.getLikeCountsForItems(itemIds, "product"),
+      this.shareService.getShareCountsForItems(itemIds, "product"),
+    ]);
+
+    const enrichedItems = items.map((item) => {
+      const id = (item._id as Types.ObjectId).toString();
+      return {
+        ...item,
+        likesCount: likeCounts.get(id) ?? 0,
+        sharesCount: shareCounts.get(id) ?? 0,
+      };
+    });
+
     return {
       meta: {
         total,
@@ -1049,7 +1066,7 @@ export class ProductsService {
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
       },
-      data: items,
+      data: enrichedItems,
     };
   }
 
