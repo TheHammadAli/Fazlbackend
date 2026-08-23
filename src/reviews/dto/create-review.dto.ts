@@ -22,6 +22,14 @@ export class CreateReviewDto {
   @IsIn(["product", "service"])
   itemType: "product" | "service";
 
+  @ApiPropertyOptional({
+    example: "requestId789",
+    description: "Booking/service-request this review is scoped to — omit for a per-item review",
+  })
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
   @ApiProperty({ minimum: 1, maximum: 5, example: 4 })
   @IsInt()
   @Min(1)
