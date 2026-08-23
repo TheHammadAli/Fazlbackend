@@ -3,6 +3,9 @@ import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Product, ProductSchema } from "./schema/product.schema";
+import { ProductView, ProductViewSchema } from "./schema/product-view.schema";
+import { ProductContactClick, ProductContactClickSchema } from "./schema/product-contact-click.schema";
+import { ProductWhatsappClick, ProductWhatsappClickSchema } from "./schema/product-whatsapp-click.schema";
 import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { ShopModule } from "src/shop/shop.module";
 import { SharedModule } from "src/shared/shared.module";
@@ -18,6 +21,9 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
   imports: [
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
+      { name: ProductView.name, schema: ProductViewSchema },
+      { name: ProductContactClick.name, schema: ProductContactClickSchema },
+      { name: ProductWhatsappClick.name, schema: ProductWhatsappClickSchema },
       { name: Counter.name, schema: CounterSchema },
     ]),
     forwardRef(() => LikeModule),

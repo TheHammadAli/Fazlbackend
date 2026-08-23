@@ -22,6 +22,9 @@ import {
   ServiceRequest,
   ServiceRequestDocument,
 } from "./schema/service_request.schema";
+import { ServiceView, ServiceViewDocument } from "./schema/service-view.schema";
+import { ServiceContactClick, ServiceContactClickDocument } from "./schema/service-contact-click.schema";
+import { ServiceWhatsappClick, ServiceWhatsappClickDocument } from "./schema/service-whatsapp-click.schema";
 import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
 import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
@@ -49,6 +52,12 @@ export class ServicesService {
     private readonly fileUploadService: FileUploadService,
     @InjectModel(ServiceRequest.name)
     private readonly requestModel: Model<ServiceRequestDocument>,
+    @InjectModel(ServiceView.name)
+    private readonly serviceViewModel: Model<ServiceViewDocument>,
+    @InjectModel(ServiceContactClick.name)
+    private readonly serviceContactClickModel: Model<ServiceContactClickDocument>,
+    @InjectModel(ServiceWhatsappClick.name)
+    private readonly serviceWhatsappClickModel: Model<ServiceWhatsappClickDocument>,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
@@ -352,7 +361,9 @@ export class ServicesService {
       );
     }
 
-    if (!userId) return service;
+    const listingAnalytics = await this.getServiceAnalytics(serviceId);
+
+    if (!userId) return { ...service, ...listingAnalytics };
 
     const [isLiked, userReview] = await Promise.all([
       this.likeService.isLiked(userId, serviceId, "service"),
@@ -362,9 +373,78 @@ export class ServicesService {
     const plain = service.toObject ? service.toObject() : service;
     return {
       ...plain,
+      ...listingAnalytics,
       isLiked: !!isLiked,
       userReview: userReview || null,
     } as any;
+  }
+
+  /** Real-value counterpart to the admin Service detail modal's "Service Analytics" tiles —
+   *  Total Views / Unique Visitors both read off the same day-deduped ServiceView collection
+   *  (Total Views = row count, Unique Visitors = distinct userId count), Contact/WhatsApp
+   *  Clicks read off their own lifetime-deduped collections. No raw counters anywhere. */
+  private async getServiceAnalytics(serviceId: string) {
+    const serviceObjectId = new Types.ObjectId(serviceId);
+
+    const [totalViews, uniqueVisitorIds, contactClicks, whatsappClicks] = await Promise.all([
+      this.serviceViewModel.countDocuments({ serviceId: serviceObjectId }),
+      this.serviceViewModel.distinct("userId", { serviceId: serviceObjectId }),
+      this.serviceContactClickModel.countDocuments({ serviceId: serviceObjectId }),
+      this.serviceWhatsappClickModel.countDocuments({ serviceId: serviceObjectId }),
+    ]);
+
+    return {
+      totalViews,
+      uniqueVisitorsCount: uniqueVisitorIds.length,
+      contactClicks,
+      whatsappClicks,
+    };
+  }
+
+  /** Records a service view: day-deduped per (service, user) — a page refresh within the same
+   *  day never recounts, but a return visit on a later day does. Skips the service's own owner. */
+  async trackView(serviceId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(serviceId)) return;
+
+    const service = await this.serviceModel.findById(serviceId).select("ownerId").lean();
+    if (!service || service.ownerId.toString() === userId) return;
+
+    const day = new Date().toISOString().slice(0, 10);
+    await this.serviceViewModel.updateOne(
+      { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId), day },
+      { $setOnInsert: { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId), day } },
+      { upsert: true },
+    );
+  }
+
+  /** Records a "Chat / Message Provider" click on a service. Deduped per (service, user)
+   *  forever — repeat clicks by the same user don't recount. Skips the service's own owner. */
+  async trackContactClick(serviceId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(serviceId)) return;
+
+    const service = await this.serviceModel.findById(serviceId).select("ownerId").lean();
+    if (!service || service.ownerId.toString() === userId) return;
+
+    await this.serviceContactClickModel.updateOne(
+      { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
+  }
+
+  /** Records a "WhatsApp" click on a service. Deduped per (service, user) forever — repeat
+   *  clicks by the same user don't recount. Skips the service's own owner. */
+  async trackWhatsappClick(serviceId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(serviceId)) return;
+
+    const service = await this.serviceModel.findById(serviceId).select("ownerId").lean();
+    if (!service || service.ownerId.toString() === userId) return;
+
+    await this.serviceWhatsappClickModel.updateOne(
+      { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
   }
 
   async getByUser(

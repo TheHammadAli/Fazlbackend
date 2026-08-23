@@ -175,6 +175,30 @@ export class ServicesController {
     return await this.servicesService.getById(serviceId, userId);
   }
 
+  @Post(":serviceId/track-view")
+  @ApiOperation({ summary: "Record a service view for Total Views / Unique Visitors (day-deduped per user)" })
+  @ApiParam({ name: "serviceId", required: true })
+  async trackView(@Param("serviceId") serviceId: string, @CurrentUser() user: JwtPayload) {
+    await this.servicesService.trackView(serviceId, user.sub);
+    return { success: true };
+  }
+
+  @Post(":serviceId/track-contact-click")
+  @ApiOperation({ summary: "Record a Contact/Chat Provider click on a service (deduped per user)" })
+  @ApiParam({ name: "serviceId", required: true })
+  async trackContactClick(@Param("serviceId") serviceId: string, @CurrentUser() user: JwtPayload) {
+    await this.servicesService.trackContactClick(serviceId, user.sub);
+    return { success: true };
+  }
+
+  @Post(":serviceId/track-whatsapp-click")
+  @ApiOperation({ summary: "Record a WhatsApp click on a service (deduped per user)" })
+  @ApiParam({ name: "serviceId", required: true })
+  async trackWhatsappClick(@Param("serviceId") serviceId: string, @CurrentUser() user: JwtPayload) {
+    await this.servicesService.trackWhatsappClick(serviceId, user.sub);
+    return { success: true };
+  }
+
   @Get(':serviceId/check-review')
   @ApiOperation({ summary: 'Check if a user can review a service' })
   @ApiParam({ name: 'serviceId', required: true })

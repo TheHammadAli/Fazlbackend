@@ -56,6 +56,34 @@ export class ProductsController {
     private readonly activityLogService: ActivityLogService,
   ) { }
 
+  // These 3 must be registered before ":entityId/:type" below — Express/Nest matches routes
+  // in registration order, and ":entityId/:type" would otherwise greedily match
+  // "/products/<id>/track-view" too (entityId=<id>, type="track-view"), routing tracking
+  // calls into createProduct() instead of ever reaching these handlers.
+  @Post(":id/track-view")
+  @ApiOperation({ summary: "Record a listing view for Total Views / Unique Visitors (day-deduped per user)" })
+  @ApiParam({ name: "id", required: true })
+  async trackView(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    await this.productsService.trackView(id, user.sub);
+    return { success: true };
+  }
+
+  @Post(":id/track-contact-click")
+  @ApiOperation({ summary: "Record a Contact/Chat Seller click on a listing (deduped per user)" })
+  @ApiParam({ name: "id", required: true })
+  async trackContactClick(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    await this.productsService.trackContactClick(id, user.sub);
+    return { success: true };
+  }
+
+  @Post(":id/track-whatsapp-click")
+  @ApiOperation({ summary: "Record a WhatsApp click on a listing (deduped per user)" })
+  @ApiParam({ name: "id", required: true })
+  async trackWhatsappClick(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    await this.productsService.trackWhatsappClick(id, user.sub);
+    return { success: true };
+  }
+
   @Post(":entityId/:type")
   @UseInterceptors(
     FileFieldsInterceptor([
