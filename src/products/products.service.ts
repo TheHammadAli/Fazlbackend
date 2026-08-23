@@ -1089,7 +1089,15 @@ export class ProductsService {
     };
   }
 
-  /** Admin-only: same as getProductsWithVideos but includes suspended (isDisabled) videos too, so they can be reviewed/re-enabled. */
+  /**
+   * Admin-only: the unified Feed — every video across Products (shop-owned or individual)
+   * AND Services, including suspended ones, in one sorted/paginated list. Joins the "services"
+   * collection in via $unionWith rather than injecting ServicesService, matching this codebase's
+   * established pattern of cross-collection $lookup instead of new cross-module DI (see
+   * ReviewsService.getAllReviewsForAdmin). Each row is tagged with itemType ("shop" | "product" |
+   * "service") and the resolved uploader: a shop's product resolves to the shop owner, an
+   * individual product/service resolves to its direct ownerId.
+   */
   async getProductsWithVideosForAdmin(
     page = 1,
     limit = 10,
@@ -1101,12 +1109,12 @@ export class ProductsService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const filter: FilterQuery<ProductDocument> = {
+    const videoFilter: Record<string, unknown> = {
       video: { $exists: true, $nin: ["", null] },
       isDeleted: false,
     };
     if (search?.trim()) {
-      filter.title = { $regex: search.trim(), $options: "i" };
+      videoFilter.title = { $regex: search.trim(), $options: "i" };
     }
     if (startDate || endDate) {
       const createdAt: Record<string, Date> = {};
@@ -1118,42 +1126,124 @@ export class ProductsService {
         endOfDay.setHours(23, 59, 59, 999);
         createdAt.$lte = endOfDay;
       }
-      filter.createdAt = createdAt;
+      videoFilter.createdAt = createdAt;
     }
 
-    const [items, total] = await Promise.all([
+    const basePipeline: any[] = [
+      { $match: videoFilter },
+      { $addFields: { sourceCollection: "product" } },
+      {
+        $unionWith: {
+          coll: "services",
+          pipeline: [
+            { $match: videoFilter },
+            { $addFields: { sourceCollection: "service" } },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          itemType: {
+            $cond: [
+              { $eq: ["$sourceCollection", "service"] },
+              "service",
+              { $cond: [{ $ifNull: ["$shopId", false] }, "shop", "product"] },
+            ],
+          },
+          displayCode: { $ifNull: ["$videoCode", "$serviceCode"] },
+        },
+      },
+      {
+        $lookup: {
+          from: "shops",
+          localField: "shopId",
+          foreignField: "_id",
+          as: "shopInfo",
+        },
+      },
+      { $unwind: { path: "$shopInfo", preserveNullAndEmptyArrays: true } },
+      { $addFields: { uploaderUserId: { $ifNull: ["$shopInfo.ownerId", "$ownerId"] } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "uploaderUserId",
+          foreignField: "_id",
+          as: "uploaderInfo",
+        },
+      },
+      { $unwind: { path: "$uploaderInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "categoryInfo",
+        },
+      },
+      { $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true } },
+      { $sort: { createdAt: -1 } },
+    ];
+
+    const [rows, countResult] = await Promise.all([
       this.productModel
-        .find(filter)
-        .populate("category")
-        .populate({
-          path: "shopId",
-          select: "_id title image address ownerId",
-        })
-        .populate({
-          path: "ownerId",
-          select: "_id name image",
-        })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean()
+        .aggregate([
+          ...basePipeline,
+          { $skip: skip },
+          { $limit: limitNum },
+          {
+            $project: {
+              _id: 1,
+              displayCode: 1,
+              title: 1,
+              video: 1,
+              images: 1,
+              itemType: 1,
+              isDisabled: 1,
+              createdAt: 1,
+              category: "$categoryInfo",
+              shopTitle: "$shopInfo.title",
+              uploader: {
+                $cond: [
+                  { $ifNull: ["$uploaderInfo", false] },
+                  {
+                    _id: "$uploaderInfo._id",
+                    name: "$uploaderInfo.name",
+                    email: "$uploaderInfo.email",
+                  },
+                  null,
+                ],
+              },
+            },
+          },
+        ])
         .exec(),
-
-      this.productModel.countDocuments(filter).exec(),
+      this.productModel.aggregate([...basePipeline, { $count: "total" }]).exec(),
     ]);
 
-    const itemIds = items.map((item) => (item._id as Types.ObjectId).toString());
-    const [likeCounts, shareCounts] = await Promise.all([
-      this.likeService.getLikeCountsForItems(itemIds, "product"),
-      this.shareService.getShareCountsForItems(itemIds, "product"),
+    const total = countResult[0]?.total ?? 0;
+
+    const productItemIds: string[] = [];
+    const serviceItemIds: string[] = [];
+    for (const row of rows) {
+      const id = (row._id as Types.ObjectId).toString();
+      if (row.itemType === "service") serviceItemIds.push(id);
+      else productItemIds.push(id);
+    }
+
+    const [productLikes, productShares, serviceLikes, serviceShares] = await Promise.all([
+      this.likeService.getLikeCountsForItems(productItemIds, "product"),
+      this.shareService.getShareCountsForItems(productItemIds, "product"),
+      this.likeService.getLikeCountsForItems(serviceItemIds, "service"),
+      this.shareService.getShareCountsForItems(serviceItemIds, "service"),
     ]);
 
-    const enrichedItems = items.map((item) => {
-      const id = (item._id as Types.ObjectId).toString();
+    const enrichedItems = rows.map((row) => {
+      const id = (row._id as Types.ObjectId).toString();
+      const isService = row.itemType === "service";
       return {
-        ...item,
-        likesCount: likeCounts.get(id) ?? 0,
-        sharesCount: shareCounts.get(id) ?? 0,
+        ...row,
+        likesCount: (isService ? serviceLikes : productLikes).get(id) ?? 0,
+        sharesCount: (isService ? serviceShares : productShares).get(id) ?? 0,
       };
     });
 

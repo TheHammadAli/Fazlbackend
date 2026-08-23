@@ -24,6 +24,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { Request } from "express";
 import {
   ApiBearerAuth,
@@ -437,7 +438,10 @@ export class ServicesController {
   }
 
   @Patch(":id/status")
-  @ApiOperation({ summary: "Enable or disable a service" })
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("services")
+  @RequireAction("edit")
+  @ApiOperation({ summary: "Enable or disable a service (admin)" })
   @ApiParam({ name: "id", required: true, description: "Service ID" })
   @ApiBody({ type: UpdateServiceStatusDto })
   async updateServiceStatus(
