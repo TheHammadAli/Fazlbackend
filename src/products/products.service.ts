@@ -11,6 +11,9 @@ import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { Product, ProductDocument } from "./schema/product.schema";
+import { ProductView, ProductViewDocument } from "./schema/product-view.schema";
+import { ProductContactClick, ProductContactClickDocument } from "./schema/product-contact-click.schema";
+import { ProductWhatsappClick, ProductWhatsappClickDocument } from "./schema/product-whatsapp-click.schema";
 import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -35,6 +38,12 @@ export class ProductsService {
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    @InjectModel(ProductView.name)
+    private readonly productViewModel: Model<ProductViewDocument>,
+    @InjectModel(ProductContactClick.name)
+    private readonly productContactClickModel: Model<ProductContactClickDocument>,
+    @InjectModel(ProductWhatsappClick.name)
+    private readonly productWhatsappClickModel: Model<ProductWhatsappClickDocument>,
     @InjectModel(Counter.name)
     private readonly counterModel: Model<CounterDocument>,
     @Inject(forwardRef(() => ShopService))
@@ -345,9 +354,11 @@ export class ProductsService {
         }),
       );
 
+    const listingAnalytics = await this.getListingAnalytics(id);
+
     console.log("userId", userId);
-    // If there's no logged-in user, return product as-is
-    if (!userId) return product;
+    // If there's no logged-in user, return product as-is (still with real analytics)
+    if (!userId) return { ...product, ...listingAnalytics };
 
     // Otherwise include whether the user liked / reviewed this product
     const [isLiked, userReview] = await Promise.all([
@@ -362,9 +373,96 @@ export class ProductsService {
     console.log("User's Review:", userReview);
     return {
       ...plain,
+      ...listingAnalytics,
       isLiked: !!isLiked,
       isReviewed: userReview || null,
     } as any;
+  }
+
+  /** Resolves the User who actually owns this listing — the Shop's owner if it belongs to a
+   *  shop, otherwise the product's own `ownerId` (personal/individual listing). Mirrors the
+   *  identical shop-vs-personal resolution already used by update()/delete() for permissions. */
+  private async resolveProductOwnerId(product: {
+    shopId?: Types.ObjectId | null;
+    ownerId?: Types.ObjectId | null;
+  }): Promise<string | undefined> {
+    return product.shopId
+      ? (await this.shopService.getShopOwnerId(product.shopId.toString())) ?? undefined
+      : product.ownerId?.toString();
+  }
+
+  /** Real-value counterpart to the admin Listing detail modal's "Listing Analytics" tiles —
+   *  Total Views / Unique Visitors both read off the same day-deduped ProductView collection
+   *  (Total Views = row count, Unique Visitors = distinct userId count), Contact/WhatsApp
+   *  Clicks read off their own lifetime-deduped collections. No raw counters anywhere. */
+  private async getListingAnalytics(productId: string) {
+    const productObjectId = new Types.ObjectId(productId);
+
+    const [totalViews, uniqueVisitorIds, contactClicks, whatsappClicks] = await Promise.all([
+      this.productViewModel.countDocuments({ productId: productObjectId }),
+      this.productViewModel.distinct("userId", { productId: productObjectId }),
+      this.productContactClickModel.countDocuments({ productId: productObjectId }),
+      this.productWhatsappClickModel.countDocuments({ productId: productObjectId }),
+    ]);
+
+    return {
+      totalViews,
+      uniqueVisitorsCount: uniqueVisitorIds.length,
+      contactClicks,
+      whatsappClicks,
+    };
+  }
+
+  /** Records a listing view: day-deduped per (product, user) — a page refresh within the same
+   *  day never recounts, but a return visit on a later day does. Skips the listing's own owner. */
+  async trackView(productId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(productId)) return;
+
+    const product = await this.productModel.findById(productId).select("shopId ownerId").lean();
+    if (!product) return;
+    const ownerId = await this.resolveProductOwnerId(product);
+    if (!ownerId || ownerId === userId) return;
+
+    const day = new Date().toISOString().slice(0, 10);
+    await this.productViewModel.updateOne(
+      { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId), day },
+      { $setOnInsert: { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId), day } },
+      { upsert: true },
+    );
+  }
+
+  /** Records a "Chat / Message Seller" click on a listing. Deduped per (product, user) forever —
+   *  repeat clicks by the same user don't recount. Skips the listing's own owner. */
+  async trackContactClick(productId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(productId)) return;
+
+    const product = await this.productModel.findById(productId).select("shopId ownerId").lean();
+    if (!product) return;
+    const ownerId = await this.resolveProductOwnerId(product);
+    if (!ownerId || ownerId === userId) return;
+
+    await this.productContactClickModel.updateOne(
+      { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
+  }
+
+  /** Records a "WhatsApp" click on a listing. Deduped per (product, user) forever — repeat
+   *  clicks by the same user don't recount. Skips the listing's own owner. */
+  async trackWhatsappClick(productId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(productId)) return;
+
+    const product = await this.productModel.findById(productId).select("shopId ownerId").lean();
+    if (!product) return;
+    const ownerId = await this.resolveProductOwnerId(product);
+    if (!ownerId || ownerId === userId) return;
+
+    await this.productWhatsappClickModel.updateOne(
+      { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) },
+      { $setOnInsert: { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) } },
+      { upsert: true },
+    );
   }
 
   async update(

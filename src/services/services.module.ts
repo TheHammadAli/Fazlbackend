@@ -10,6 +10,9 @@ import {
   ServiceRequest,
   ServiceRequestSchema,
 } from "./schema/service_request.schema";
+import { ServiceView, ServiceViewSchema } from "./schema/service-view.schema";
+import { ServiceContactClick, ServiceContactClickSchema } from "./schema/service-contact-click.schema";
+import { ServiceWhatsappClick, ServiceWhatsappClickSchema } from "./schema/service-whatsapp-click.schema";
 import { NotificationsModule } from "src/notifications/notifications.module";
 import { LikeModule } from "src/like/like.module";
 import { ReviewsModule } from "src/reviews/reviews.module";
@@ -24,6 +27,9 @@ import { ReviewsModule } from "src/reviews/reviews.module";
     MongooseModule.forFeature([
       { name: Service.name, schema: ServiceSchema },
       { name: ServiceRequest.name, schema: ServiceRequestSchema },
+      { name: ServiceView.name, schema: ServiceViewSchema },
+      { name: ServiceContactClick.name, schema: ServiceContactClickSchema },
+      { name: ServiceWhatsappClick.name, schema: ServiceWhatsappClickSchema },
       { name: Counter.name, schema: CounterSchema },
     ]),
   ],

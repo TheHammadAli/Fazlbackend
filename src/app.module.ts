@@ -31,6 +31,7 @@ import { LikeModule } from "./like/like.module";
 import { ShareModule } from "./share/share.module";
 import { SettingsModule } from "./settings/settings.module";
 import { PresenceModule } from "./presence/presence.module";
+import { WalletModule } from "./wallet/wallet.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -85,6 +86,7 @@ const isProduction = process.env.NODE_ENV === "production";
     PresenceModule,
     ActivityLogModule,
     TaskModule,
+    WalletModule,
   ],
   controllers: [AppController],
   providers: [
