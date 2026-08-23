@@ -1429,19 +1429,16 @@ export class ServicesService {
       .exec();
     const total = await this.requestModel.countDocuments(filter).exec();
 
-    const serviceIds = requests
-      .map((request) => (request as any)?.service?._id)
-      .filter(Boolean);
-    const reviewedIds = await this.reviewService.getReviewedItemIdsForUser(
+    // Per-booking, not per-service — a customer can book (and review) the same service more
+    // than once, and each booking gets its own independent review slot.
+    const requestIds = requests.map((request) => (request as any)?._id).filter(Boolean);
+    const reviewedRequestIds = await this.reviewService.getReviewedRequestIdsForUser(
       customerId,
-      serviceIds,
-      "service",
+      requestIds,
     );
     const data = requests.map((request) => ({
       ...request,
-      alreadyReviewed: reviewedIds.has(
-        String((request as any)?.service?._id),
-      ),
+      alreadyReviewed: reviewedRequestIds.has(String((request as any)?._id)),
     }));
 
     return {
@@ -1457,25 +1454,8 @@ export class ServicesService {
   async checkReviewEligibility(userId: string, serviceId: string) {
     if (!userId) throw new BadRequestException("userId is required");
 
-    // 1) Check if the user already submitted a review for this service
-    const existingReview = await this.reviewService.findOne(
-      userId,
-      serviceId,
-      "service",
-    );
-    if (existingReview) {
-      return {
-        data: {
-          canReview: false,
-          alreadyReviewed: true,
-        },
-        message: this.i18n.translate("auth.reviews.duplicate_review", {
-          lang: this.lang,
-        }),
-      };
-    }
-
-    // 2) Check service requests made by this user for the service
+    // 1) Find this user's most recent booking of this service — per-booking review scope, so
+    // eligibility (and the review itself, once submitted) is tied to that specific booking.
     const request = await this.requestModel
       .findOne({
         service: new Types.ObjectId(serviceId),
@@ -1511,9 +1491,28 @@ export class ServicesService {
       };
     }
 
+    const requestId = String((request as any)._id);
+
+    // 2) Check if this specific booking already has a review — not "has this user ever
+    // reviewed this service", since the same service can be booked (and reviewed) again.
+    const existingReview = await this.reviewService.findOneByRequest(userId, requestId);
+    if (existingReview) {
+      return {
+        data: {
+          canReview: false,
+          alreadyReviewed: true,
+          requestId,
+        },
+        message: this.i18n.translate("auth.reviews.duplicate_review", {
+          lang: this.lang,
+        }),
+      };
+    }
+
     return {
       data: {
         canReview: true,
+        requestId,
       },
       message: "User is eligible to review",
     };

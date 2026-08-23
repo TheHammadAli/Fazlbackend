@@ -13,6 +13,8 @@ import { CreateReviewDto } from "./dto/create-review.dto";
 import { QueryReviewDto } from "./dto/query-review.dto";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
+import { PermissionsGuard } from "src/auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
 import {
   ApiTags,
   ApiOperation,
@@ -35,6 +37,28 @@ export class ReviewController {
   @ApiBody({ type: CreateReviewDto })
   async createReview(@Body() dto: CreateReviewDto) {
     return this.reviewService.createReview(dto);
+  }
+
+  /**
+   * Admin: paginated, filterable list of every review (products and services), with reviewer
+   * and item title joined in, for the admin Reviews page.
+   */
+  @Get("/admin/all")
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth("jwt")
+  @RequirePermission("reviews")
+  @ApiOperation({ summary: "Get all reviews for admin, with reviewer/item details and filters" })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  @ApiQuery({ name: "itemType", enum: ["product", "service"], required: false })
+  @ApiQuery({ name: "search", required: false })
+  async getAllReviewsForAdmin(
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+    @Query("itemType") itemType?: "product" | "service",
+    @Query("search") search?: string,
+  ) {
+    return this.reviewService.getAllReviewsForAdmin(page, limit, itemType, search);
   }
 
   /**
