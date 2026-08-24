@@ -4,4 +4,5 @@ dist/tsconfig.tsbuildinfo
 dist
 tsconfig.tsbuildinfo
 .env
+.env.bak-before-firebase-fix
 .DS_Store

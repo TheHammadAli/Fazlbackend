@@ -1181,6 +1181,39 @@ export class ProductsService {
         },
       },
       { $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "productviews",
+          let: { id: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$productId", "$$id"] } } },
+            { $count: "count" },
+          ],
+          as: "productViewAgg",
+        },
+      },
+      {
+        $lookup: {
+          from: "serviceviews",
+          let: { id: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$serviceId", "$$id"] } } },
+            { $count: "count" },
+          ],
+          as: "serviceViewAgg",
+        },
+      },
+      {
+        $addFields: {
+          viewsCount: {
+            $cond: [
+              { $eq: ["$itemType", "service"] },
+              { $ifNull: [{ $arrayElemAt: ["$serviceViewAgg.count", 0] }, 0] },
+              { $ifNull: [{ $arrayElemAt: ["$productViewAgg.count", 0] }, 0] },
+            ],
+          },
+        },
+      },
       { $sort: { createdAt: -1 } },
     ];
 
@@ -1200,6 +1233,7 @@ export class ProductsService {
               itemType: 1,
               isDisabled: 1,
               createdAt: 1,
+              viewsCount: 1,
               category: "$categoryInfo",
               shopTitle: "$shopInfo.title",
               uploader: {
