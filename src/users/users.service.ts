@@ -164,11 +164,28 @@ export class UsersService {
     return results;
   }
 
+  /**
+   * Bypasses updateUser's generic "strip null/empty values" sanitizer — that
+   * behavior is correct for self-service profile updates, but it silently
+   * swallows the null writes needed here, leaving a used reset token/expiry
+   * in place (and therefore reusable) until it naturally expires.
+   */
+  async clearPasswordResetToken(userId: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(userId, {
+      $unset: { resetPasswordToken: "", resetPasswordExpires: "" },
+    });
+  }
+
   async validateUserForLogin(
     email: string,
     password: string,
   ): Promise<UserDocument | false> {
-    const user = await this.userModel.findOne({ email }).select("+password");
+    // Emails are stored trimmed + lowercased at signup — the lookup must match
+    // that or any casing/whitespace difference at login silently fails here.
+    const normalizedEmail = email?.trim().toLowerCase();
+    const user = await this.userModel
+      .findOne({ email: normalizedEmail })
+      .select("+password");
     if (!user) {
       return false;
     }
