@@ -453,7 +453,11 @@ export class AuthService {
         refreshToken,
       };
     } else {
-      returnPayload = { ...user.toObject(), sub: user._id };
+      // Existing Google users also need a refresh token — without one, the
+      // access token expiring (or any transient 401) has no recovery path
+      // and silently logs the user back out to signin.
+      const refreshToken = this.jwtService.sign({}, { expiresIn: "3d" });
+      returnPayload = { ...user.toObject(), sub: user._id, refreshToken };
     }
 
     const accessToken = this.jwtService.sign(returnPayload, {

@@ -196,12 +196,16 @@ export class AuthController {
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
   async googleAuthRedirect(@Req() req, @Res() res: Response) {
-    const payload = await this.authService.findOrCreateUserByEmail(req.user);
+    const payload: any = await this.authService.findOrCreateUserByEmail(req.user);
+
+    const refreshTokenParam = payload.refreshToken
+      ? `&refreshToken=${payload.refreshToken}`
+      : "";
 
     return res.redirect(
       `${this.configService.get<string>(
         "FRONTEND_URL",
-      )}/google/auth/success?token=${payload.accessToken}`,
+      )}/google/auth/success?token=${payload.accessToken}${refreshTokenParam}`,
     );
   }
 
