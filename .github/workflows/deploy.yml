@@ -1,4 +1,4 @@
-name: Deploy Fazl Admin Backend
+name: Deploy Fazl Admin Backend - Production
 
 on:
   push:
