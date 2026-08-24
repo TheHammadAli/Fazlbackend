@@ -394,11 +394,12 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.verifyResetPasswordToken(token);
-    await this.userService.updateUser(String(user.data.user._id), {
-      password: newPassword,
-      resetPasswordToken: null,
-      resetPasswordExpires: null,
-    });
+    const userId = String(user.data.user._id);
+    await this.userService.updateUser(userId, { password: newPassword });
+    // updateUser's generic sanitizer strips null values, so clearing the
+    // token/expiry needs a direct write — otherwise the same code stays
+    // usable again until it naturally expires.
+    await this.userService.clearPasswordResetToken(userId);
     return {
       message: this.i18n.translate("auth.auth.password_reset_success", {
         lang: this.getLang(),
