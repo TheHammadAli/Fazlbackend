@@ -52,13 +52,17 @@ export class ReviewController {
   @ApiQuery({ name: "limit", required: false })
   @ApiQuery({ name: "itemType", enum: ["product", "service"], required: false })
   @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "startDate", required: false })
+  @ApiQuery({ name: "endDate", required: false })
   async getAllReviewsForAdmin(
     @Query("page") page?: number,
     @Query("limit") limit?: number,
     @Query("itemType") itemType?: "product" | "service",
     @Query("search") search?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
   ) {
-    return this.reviewService.getAllReviewsForAdmin(page, limit, itemType, search);
+    return this.reviewService.getAllReviewsForAdmin(page, limit, itemType, search, startDate, endDate);
   }
 
   /**
