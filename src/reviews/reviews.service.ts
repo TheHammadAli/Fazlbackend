@@ -282,6 +282,8 @@ export class ReviewService {
     limit = 20,
     itemType?: "product" | "service",
     search?: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<{
     data: unknown[];
     meta: { total: number; page: number; limit: number; totalPages: number };
@@ -292,6 +294,16 @@ export class ReviewService {
 
     const match: Record<string, unknown> = {};
     if (itemType) match.itemType = itemType;
+    if (startDate || endDate) {
+      const createdAt: Record<string, Date> = {};
+      if (startDate) createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        createdAt.$lte = endOfDay;
+      }
+      match.createdAt = createdAt;
+    }
 
     const basePipeline: any[] = [
       { $match: match },
