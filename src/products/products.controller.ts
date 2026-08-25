@@ -343,7 +343,7 @@ export class ProductsController {
       updateProductDto.video = files.video[0];
     }
     updateProductDto.parameters = JSON.parse(
-      updateProductDto.parameters?.toString() || "",
+      updateProductDto.parameters?.toString() || "{}",
     );
 
     return this.productsService.update(id, updateProductDto, currentUser);
