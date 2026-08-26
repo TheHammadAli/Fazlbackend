@@ -152,14 +152,16 @@ export class UsersController {
   @ApiQuery({ name: "search", required: false, type: String, description: "Search by user name, email, phone, or userCode (partial, case-insensitive)" })
   @ApiQuery({ name: "startDate", required: false, type: String, description: "Filter by join date, inclusive lower bound (ISO date)" })
   @ApiQuery({ name: "endDate", required: false, type: String, description: "Filter by join date, inclusive upper bound (ISO date)" })
+  @ApiQuery({ name: "online", required: false, type: Boolean, description: "When true, only return users currently online" })
   async getAllUsers(
     @Query('page') page = 1,
     @Query('limit') limit = 10,
     @Query('search') search?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('online') online?: string,
   ) {
-    return this.usersService.getAllUsers({ page, limit, search, startDate, endDate });
+    return this.usersService.getAllUsers({ page, limit, search, startDate, endDate }, online === "true");
   }
 
   @Get("online-count")

@@ -229,6 +229,60 @@ export class FileUploadService {
     }
   }
 
+  // ========== Task Submission Attachments ==========
+  async uploadTaskSubmissionFiles(
+    taskId: string,
+    files: any[],
+  ): Promise<{ url: string; name: string }[]> {
+    const uploaded: { url: string; name: string }[] = [];
+
+    for (const file of files) {
+      const fileExt = extname(file.originalname);
+      const uniqueName = `${uuidv4()}${fileExt}`;
+      const key = `task-submissions/${taskId}/${uniqueName}`;
+
+      try {
+        const command = new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        });
+
+        await this.s3.send(command);
+        uploaded.push({ url: this.getFileUrl(key, false), name: file.originalname });
+      } catch (err) {
+        console.error("S3 upload error:", err);
+        throw new InternalServerErrorException("Task attachment upload failed");
+      }
+    }
+
+    return uploaded;
+  }
+
+  // ========== Announcement Video ==========
+  async uploadAnnouncementVideo(file: any) {
+    const fileExt = extname(file.originalname);
+    const uniqueName = `${uuidv4()}${fileExt}`;
+    const key = `announcements/videos/${uniqueName}`;
+
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        CacheControl: "max-age=31536000",
+      });
+
+      await this.s3.send(command);
+      return this.getFileUrl(key, true);
+    } catch (err) {
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Announcement video upload failed");
+    }
+  }
+
   // ========== Shop Banner ==========
   async uploadShopBanner(shopId: string, file: Express.Multer.File) {
     const key = `shop/${shopId}/images/banner`;

@@ -11,6 +11,7 @@ import { ServicesModule } from "src/services/services.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
 import { ChatModule } from "src/chat/chat.module";
 import { PresenceModule } from "src/presence/presence.module";
+import { EmailService } from "src/common/email-service/email-service";
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -27,6 +28,6 @@ import { PresenceModule } from "src/presence/presence.module";
   ],
   controllers: [UsersController],
   exports: [UsersService],
-  providers: [UsersService],
+  providers: [UsersService, EmailService],
 })
 export class UsersModule { }

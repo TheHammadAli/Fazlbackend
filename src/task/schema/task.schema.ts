@@ -4,8 +4,39 @@ import { Document, Types } from "mongoose";
 export const TASK_PRIORITIES = ["low", "medium", "high"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
-export const TASK_STATUSES = ["pending", "in_progress", "completed", "cancelled"] as const;
+export const TASK_STATUSES = [
+  "pending",
+  "in_progress",
+  "submitted",
+  "revision",
+  "completed",
+  "cancelled",
+] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+/** One member submission of work on a task; kept as a timeline so revision history survives resubmits. */
+@Schema({ _id: false, timestamps: false })
+export class TaskSubmissionEntry {
+  @Prop({ required: true, trim: true })
+  notes: string;
+
+  @Prop({ required: false, trim: true })
+  link?: string;
+
+  @Prop({
+    type: [{ url: { type: String, required: true }, name: { type: String, required: true }, _id: false }],
+    default: [],
+  })
+  attachments: { url: string; name: string }[];
+
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
+  submittedBy: Types.ObjectId;
+
+  @Prop({ type: Date, required: true })
+  submittedAt: Date;
+}
+
+export const TaskSubmissionEntrySchema = SchemaFactory.createForClass(TaskSubmissionEntry);
 
 @Schema({ timestamps: true })
 export class Task {
@@ -30,6 +61,13 @@ export class Task {
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: [TaskSubmissionEntrySchema], default: [] })
+  submissions: TaskSubmissionEntry[];
+
+  /** Latest admin revision reason; set on "revision" review, cleared on resubmit/approve. */
+  @Prop({ required: false, trim: true })
+  revisionReason?: string;
 }
 
 export type TaskDocument = Task & Document;

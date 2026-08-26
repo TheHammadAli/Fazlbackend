@@ -35,6 +35,7 @@ import { ProductsService } from "src/products/products.service";
 import { ServicesService } from "src/services/services.service";
 import { ChatService } from "src/chat/chat.service";
 import { PresenceService } from "src/presence/presence.service";
+import { EmailService } from "src/common/email-service/email-service";
 
 @Injectable()
 export class UsersService {
@@ -53,6 +54,7 @@ export class UsersService {
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
     private readonly presenceService: PresenceService,
+    private readonly emailService: EmailService,
   ) { }
 
   private get lang(): string {
@@ -435,12 +437,18 @@ export class UsersService {
 
   async getAllUsers(
     paginationDto: PaginationDto,
+    onlineOnly?: boolean,
   ): Promise<PaginatedResponseDto<User>> {
     const { page = 1, limit = 10, search, startDate, endDate } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build query
     const query: any = {};
+
+    if (onlineOnly) {
+      const onlineIds = this.presenceService.getAllOnlineUserIds();
+      query._id = { $in: onlineIds.map((id) => new Types.ObjectId(id)) };
+    }
 
     if (search?.trim()) {
       const trimmedSearch = search.trim();
@@ -759,10 +767,29 @@ export class UsersService {
 
     const savedUser = await newUser.save();
 
+    this.sendMemberWelcomeEmail(name, email, generatedPassword);
+
     return {
       message: "Member created successfully",
       data: { ...savedUser.toJSON(), generatedPassword },
     };
+  }
+
+  /** Fire-and-forget: creation must succeed even when the email provider is down. */
+  private sendMemberWelcomeEmail(name: string, email: string, password: string) {
+    const loginUrl = `${process.env.ADMIN_PANEL_URL}/signin`;
+    const html = `
+      <h2>Your account has been created</h2>
+      <p>Hi ${name},</p>
+      <p>Your Fazl member account has been created. You can log in with the credentials below:</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Password:</strong> ${password}</p>
+      <p>This is your password — use it to log in here:</p>
+      <p><a href="${loginUrl}">${loginUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "Your Fazl account has been created", html)
+      .catch((err) => console.error(`Member welcome email to ${email} failed:`, err));
   }
 
   async updateMemberAccount(userId: string, name?: string, email?: string) {
@@ -800,6 +827,8 @@ export class UsersService {
     await this.userModel
       .findByIdAndUpdate(userId, { $set: { password: hashedPassword } }, { new: true })
       .exec();
+
+    this.sendMemberWelcomeEmail(existingUser.name ?? "", existingUser.email, newPassword);
 
     return {
       message: "Password updated successfully",

@@ -4,16 +4,21 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { Request } from "express";
+import { FilesInterceptor } from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -22,6 +27,8 @@ import {
 import { TaskService } from "./task.service";
 import { CreateTaskDto } from "./dto/create-task.dto";
 import { UpdateTaskDto } from "./dto/update-task.dto";
+import { SubmitTaskDto } from "./dto/submit-task.dto";
+import { ReviewTaskDto } from "./dto/review-task.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { RolesGuard } from "src/auth/guard/roles-guard";
 import { Roles } from "src/common/decorators/roles.decorator";
@@ -73,6 +80,77 @@ export class TaskController {
     @Query("status") status?: string,
   ) {
     return this.taskService.getAllTasks(page, limit, search, status);
+  }
+
+  // Member routes — declared before ":id" so "my" isn't captured as a task id.
+  @Get("my")
+  @Roles("moderator")
+  @ApiOperation({ summary: "Get paginated list of the logged-in member's assigned tasks" })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "status", required: false, type: String })
+  async getMyTasks(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query("page") page = 1,
+    @Query("limit") limit = 10,
+    @Query("status") status?: string,
+  ) {
+    return this.taskService.getMyTasks(currentUser.sub, page, limit, status);
+  }
+
+  @Get("my/stats")
+  @Roles("moderator")
+  @ApiOperation({ summary: "Get the logged-in member's task counts for their dashboard" })
+  async getMyTaskStats(@CurrentUser() currentUser: JwtPayload) {
+    return this.taskService.getMyTaskStats(currentUser.sub);
+  }
+
+  @Post(":id/submit")
+  @Roles("moderator")
+  @ApiOperation({ summary: "Submit work on an assigned task for admin review (member only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FilesInterceptor("attachments", 5))
+  @ApiBody({ type: SubmitTaskDto })
+  async submitTask(
+    @Param("id") id: string,
+    @Body() dto: SubmitTaskDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+    @UploadedFiles() files?: any[],
+  ) {
+    const result = await this.taskService.submitTask(id, currentUser.sub, dto, files ?? []);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "task_submitted",
+      "Task",
+      id,
+      result.data?.title,
+      req.ip,
+    );
+    return result;
+  }
+
+  @Patch(":id/review")
+  @ApiOperation({ summary: "Approve a submitted task or send it back for revision (admin/super_admin only)" })
+  @ApiParam({ name: "id", type: String })
+  @ApiBody({ type: ReviewTaskDto })
+  async reviewTask(
+    @Param("id") id: string,
+    @Body() dto: ReviewTaskDto,
+    @CurrentUser() currentUser: JwtPayload,
+    @Req() req: Request,
+  ) {
+    const result = await this.taskService.reviewTask(id, dto);
+    await this.activityLogService.record(
+      currentUser.sub,
+      "task_reviewed",
+      "Task",
+      id,
+      result.data?.title,
+      req.ip,
+    );
+    return result;
   }
 
   @Get(":id")
