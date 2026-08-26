@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
@@ -24,9 +25,13 @@ import { ProductsService } from "src/products/products.service";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { ClsService } from "nestjs-cls";
 import { BroadcastGateway } from "./broadcast.gateway";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogService } from "src/email-log/email-log.service";
 
 @Injectable()
 export class BroadcastService {
+  private readonly logger = new Logger(BroadcastService.name);
+
   constructor(
     @InjectModel(Broadcast.name)
     private readonly broadcastModel: Model<Broadcast>,
@@ -49,7 +54,39 @@ export class BroadcastService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly broadcastGateway: BroadcastGateway,
+    private readonly emailService: EmailService,
+    private readonly emailLogService: EmailLogService,
   ) { }
+
+  /** Fire-and-forget: dispatching the broadcast must succeed even if the email provider is down. */
+  private sendBroadcastCreatedEmail(name: string, email: string, broadcastCode?: string) {
+    const broadcastUrl = `${process.env.FRONTEND_URL}/chat?tab=broadcast_messages&type=sent`;
+    const html = `
+      <h2>Your broadcast has been created</h2>
+      <p>Hi ${name},</p>
+      <p>Your broadcast request has been sent to nearby sellers. You'll be notified as replies come in.</p>
+      <p><a href="${broadcastUrl}">${broadcastUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "Your broadcast has been created", html)
+      .then(() =>
+        this.emailLogService.record({
+          eventType: "broadcast_created",
+          recipient: email,
+          relatedRecordId: broadcastCode,
+          deliveryStatus: "sent",
+        }),
+      )
+      .catch((err) => {
+        this.logger.error(`Broadcast-created email to ${email} failed`, err);
+        void this.emailLogService.record({
+          eventType: "broadcast_created",
+          recipient: email,
+          relatedRecordId: broadcastCode,
+          deliveryStatus: "failed",
+        });
+      });
+  }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -292,6 +329,10 @@ export class BroadcastService {
 
     // 3. GET BUYER AND CATEGORY INFO FOR NOTIFICATIONS
     const buyer = await this.userService.findUserById(buyerId);
+
+    if (buyer?.email) {
+      this.sendBroadcastCreatedEmail(buyer.name ?? "", buyer.email, broadcast.broadcastCode);
+    }
 
     console.log("Buyer info for notifications:", buyer, isCategoryValid);
     // 4. SEND NOTIFICATIONS TO ALL SELLERS

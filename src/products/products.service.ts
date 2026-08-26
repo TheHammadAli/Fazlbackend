@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Inject,
+  Logger,
   forwardRef,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -32,9 +33,13 @@ import { ReviewService } from "src/reviews/reviews.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogService } from "src/email-log/email-log.service";
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
@@ -60,10 +65,48 @@ export class ProductsService {
     private readonly shareService: ShareService,
     private readonly reviewService: ReviewService,
     private readonly activityLogService: ActivityLogService,
+    private readonly emailService: EmailService,
+    private readonly emailLogService: EmailLogService,
   ) { }
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /** Fire-and-forget: creation must succeed even if the email provider is down. */
+  private sendListingCreatedEmail(
+    name: string,
+    email: string,
+    title: string,
+    productId: string,
+    listingCode?: string,
+  ) {
+    const listingUrl = `${process.env.FRONTEND_URL}/buy-product?id=${productId}`;
+    const html = `
+      <h2>Your listing has been created</h2>
+      <p>Hi ${name},</p>
+      <p>Your listing "${title}" has been created successfully.</p>
+      <p><a href="${listingUrl}">${listingUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "Your listing has been created", html)
+      .then(() =>
+        this.emailLogService.record({
+          eventType: "listing_created",
+          recipient: email,
+          relatedRecordId: listingCode,
+          deliveryStatus: "sent",
+        }),
+      )
+      .catch((err) => {
+        this.logger.error(`Listing-created email to ${email} failed`, err);
+        void this.emailLogService.record({
+          eventType: "listing_created",
+          recipient: email,
+          relatedRecordId: listingCode,
+          deliveryStatus: "failed",
+        });
+      });
   }
 
   /** Helper: parse + validate GeoJSON Point */
@@ -129,6 +172,8 @@ export class ProductsService {
       console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
 
       let location: { type: "Point"; coordinates: [number, number] };
+      let ownerName = "";
+      let ownerEmail = "";
 
       const productPayload: Partial<Product> = {
         ...dto,
@@ -144,6 +189,9 @@ export class ProductsService {
             }),
           );
         }
+
+        ownerName = (shop.ownerId as any)?.name ?? "";
+        ownerEmail = (shop.ownerId as any)?.email ?? "";
 
         if (
           !shop.location ||
@@ -171,6 +219,8 @@ export class ProductsService {
         }
 
         productPayload.ownerId = user._id as Types.ObjectId;
+        ownerName = user.name;
+        ownerEmail = user.email;
 
         // Location is required for personal listings
         if (!dto.location) {
@@ -241,6 +291,17 @@ export class ProductsService {
       }
 
       const result = await createdProduct.save();
+
+      if (ownerEmail) {
+        this.sendListingCreatedEmail(
+          ownerName,
+          ownerEmail,
+          result.title,
+          (result._id as Types.ObjectId).toString(),
+          result.listingCode,
+        );
+      }
+
       return {
         message: this.i18n.translate("auth.products.created_success", {
           lang: this.lang,
