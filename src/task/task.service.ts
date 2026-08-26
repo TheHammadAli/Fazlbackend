@@ -238,8 +238,9 @@ export class TaskService {
 
   async getMyTaskStats(userId: string) {
     const base = { assignees: new Types.ObjectId(userId) };
+    // "assigned" = still on the member's plate; a completed/cancelled task leaves that count.
     const [assigned, completed, revision, submitted] = await Promise.all([
-      this.taskModel.countDocuments(base),
+      this.taskModel.countDocuments({ ...base, status: { $nin: ["completed", "cancelled"] } }),
       this.taskModel.countDocuments({ ...base, status: "completed" }),
       this.taskModel.countDocuments({ ...base, status: "revision" }),
       this.taskModel.countDocuments({ ...base, status: "submitted" }),
