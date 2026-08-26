@@ -363,9 +363,12 @@ export class ServicesService {
       );
     }
 
-    const listingAnalytics = await this.getServiceAnalytics(serviceId);
+    const [listingAnalytics, likesCount] = await Promise.all([
+      this.getServiceAnalytics(serviceId),
+      this.likeService.getLikeCount(serviceId, "service"),
+    ]);
 
-    if (!userId) return { ...service, ...listingAnalytics };
+    if (!userId) return { ...service, ...listingAnalytics, likesCount };
 
     const [isLiked, userReview] = await Promise.all([
       this.likeService.isLiked(userId, serviceId, "service"),
@@ -376,6 +379,7 @@ export class ServicesService {
     return {
       ...plain,
       ...listingAnalytics,
+      likesCount,
       isLiked: !!isLiked,
       userReview: userReview || null,
     } as any;

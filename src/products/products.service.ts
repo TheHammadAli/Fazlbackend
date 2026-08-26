@@ -354,11 +354,13 @@ export class ProductsService {
         }),
       );
 
-    const listingAnalytics = await this.getListingAnalytics(id);
+    const [listingAnalytics, likesCount] = await Promise.all([
+      this.getListingAnalytics(id),
+      this.likeService.getLikeCount(id, "product"),
+    ]);
 
-    console.log("userId", userId);
     // If there's no logged-in user, return product as-is (still with real analytics)
-    if (!userId) return { ...product, ...listingAnalytics };
+    if (!userId) return { ...product, ...listingAnalytics, likesCount };
 
     // Otherwise include whether the user liked / reviewed this product
     const [isLiked, userReview] = await Promise.all([
@@ -368,12 +370,10 @@ export class ProductsService {
 
     const plain = product.toObject ? product.toObject() : product;
 
-    console.log("Product Details:", plain);
-    console.log("Is Liked by User:", isLiked);
-    console.log("User's Review:", userReview);
     return {
       ...plain,
       ...listingAnalytics,
+      likesCount,
       isLiked: !!isLiked,
       isReviewed: userReview || null,
     } as any;
