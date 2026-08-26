@@ -47,15 +47,30 @@ export class TaskController {
     private readonly activityLogService: ActivityLogService,
   ) {}
 
+  /** With multipart form-data every field arrives as a string — arrays come JSON-encoded. */
+  private parseAssignees(dto: { assignees?: unknown }) {
+    if (typeof dto.assignees === "string") {
+      try {
+        dto.assignees = JSON.parse(dto.assignees);
+      } catch {
+        dto.assignees = [];
+      }
+    }
+  }
+
   @Post()
-  @ApiOperation({ summary: "Create and assign a new task to members (admin/super_admin only)" })
+  @ApiOperation({ summary: "Create and assign a new task to members, with optional attachment files (admin/super_admin only)" })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FilesInterceptor("attachments", 5))
   @ApiBody({ type: CreateTaskDto })
   async createTask(
     @Body() dto: CreateTaskDto,
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
+    @UploadedFiles() files?: any[],
   ) {
-    const result = await this.taskService.createTask(dto, currentUser.sub);
+    this.parseAssignees(dto);
+    const result = await this.taskService.createTask(dto, currentUser.sub, files ?? []);
     await this.activityLogService.record(
       currentUser.sub,
       "task_assigned",
@@ -161,16 +176,20 @@ export class TaskController {
   }
 
   @Put(":id")
-  @ApiOperation({ summary: "Update a task, including reassignment or status (admin/super_admin only)" })
+  @ApiOperation({ summary: "Update a task, including reassignment, status, or added attachment files (admin/super_admin only)" })
   @ApiParam({ name: "id", type: String })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(FilesInterceptor("attachments", 5))
   @ApiBody({ type: UpdateTaskDto })
   async updateTask(
     @Param("id") id: string,
     @Body() dto: UpdateTaskDto,
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
+    @UploadedFiles() files?: any[],
   ) {
-    const result = await this.taskService.updateTask(id, dto);
+    this.parseAssignees(dto);
+    const result = await this.taskService.updateTask(id, dto, files ?? []);
     await this.activityLogService.record(
       currentUser.sub,
       "task_updated",

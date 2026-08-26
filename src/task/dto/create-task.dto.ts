@@ -41,4 +41,8 @@ export class CreateTaskDto {
   @IsDateString()
   @IsOptional()
   dueDate?: string;
+
+  @ApiPropertyOptional({ type: "array", items: { type: "string", format: "binary" }, description: "Attachment files for the task (up to 5)" })
+  @IsOptional()
+  attachments?: any;
 }
