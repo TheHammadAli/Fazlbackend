@@ -437,6 +437,21 @@ export class ServicesController {
     return this.servicesService.getAllForAdmin(paginationDto, search);
   }
 
+  @Get(":id/admin/viewers")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("feed")
+  @ApiOperation({ summary: "Get the users who viewed one service (admin)" })
+  @ApiParam({ name: "id", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getViewersForService(
+    @Param("id") id: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.servicesService.getViewersForService(id, page, limit);
+  }
+
   @Patch(":id/status")
   @UseGuards(PermissionsGuard)
   @RequirePermission("services")

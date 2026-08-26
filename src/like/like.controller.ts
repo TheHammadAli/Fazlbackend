@@ -18,6 +18,8 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth-guard";
+import { PermissionsGuard } from "../auth/guard/permissions-guard";
+import { RequirePermission } from "src/common/decorators/require-permission.decorator";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 
 @ApiTags("Likes")
@@ -26,6 +28,21 @@ import { CurrentUser } from "src/common/decorators/current-user.decorator";
 @Controller("likes")
 export class LikeController {
   constructor(private readonly likeService: LikeService) {}
+
+  @Get("admin/:itemType/:itemId")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("feed")
+  @ApiOperation({ summary: "Get the users who liked one item (admin)" })
+  @ApiQuery({ name: "page", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  async getLikersForItem(
+    @Param("itemType") itemType: "product" | "service",
+    @Param("itemId") itemId: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.likeService.getLikersForItem(itemId, itemType, page, limit);
+  }
 
   @Post()
   @ApiOperation({ summary: "Like a product or service" })

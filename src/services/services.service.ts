@@ -34,6 +34,7 @@ import { NotificationsService } from "src/notifications/notifications.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ClsService } from "nestjs-cls";
 import { LikeService } from "src/like/like.service";
+import { ShareService } from "src/share/share.service";
 import { ReviewService } from "src/reviews/reviews.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
@@ -62,6 +63,7 @@ export class ServicesService {
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
     private readonly likeService: LikeService,
+    private readonly shareService: ShareService,
     private readonly reviewService: ReviewService,
   ) { }
 
@@ -398,6 +400,63 @@ export class ServicesService {
       uniqueVisitorsCount: uniqueVisitorIds.length,
       contactClicks,
       whatsappClicks,
+    };
+  }
+
+  /**
+   * Admin: paginated list of the distinct users who viewed one service, most
+   * recent view first — powers the "who viewed this" drill-down on the admin
+   * Feed page. ServiceView is day-deduped, so this groups by user first.
+   */
+  async getViewersForService(
+    serviceId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+    const match = { serviceId: new Types.ObjectId(serviceId) };
+
+    const basePipeline: any[] = [
+      { $match: match },
+      { $group: { _id: "$userId", lastViewedAt: { $max: "$createdAt" } } },
+      { $sort: { lastViewedAt: -1 } },
+    ];
+
+    const [rows, countResult] = await Promise.all([
+      this.serviceViewModel.aggregate([
+        ...basePipeline,
+        { $skip: skip },
+        { $limit: limitNum },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 0,
+            createdAt: "$lastViewedAt",
+            "user._id": 1,
+            "user.name": 1,
+            "user.email": 1,
+            "user.image": 1,
+          },
+        },
+      ]),
+      this.serviceViewModel.aggregate([...basePipeline, { $count: "total" }]),
+    ]);
+
+    const total = countResult[0]?.total ?? 0;
+
+    return {
+      data: rows,
+      meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     };
   }
 
@@ -1334,11 +1393,20 @@ export class ServicesService {
       this.serviceModel.countDocuments(filter).exec(),
     ]);
     const productIds = items.map((item: any) => new Types.ObjectId(item._id));
+    const itemIds = items.map((item: any) => item._id.toString());
+    const [likeCounts, shareCounts] = await Promise.all([
+      this.likeService.getLikeCountsForItems(itemIds, "service"),
+      this.shareService.getShareCountsForItems(itemIds, "service"),
+    ]);
 
     if (!userId) {
       return {
         meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-        data: items,
+        data: items.map((item: any) => ({
+          ...item,
+          likesCount: likeCounts.get(item._id.toString()) ?? 0,
+          sharesCount: shareCounts.get(item._id.toString()) ?? 0,
+        })),
       };
     }
 
@@ -1357,15 +1425,14 @@ export class ServicesService {
       productIds,
     );
 
-    console.log("Services with Likes:", likes);
-
     const likedServiceIds = new Set(
       likes.map((like: any) => like.itemId.toString()),
     );
-    console.log("Liked Service IDs:", likedServiceIds);
     const data = items.map((item: any) => ({
       ...item, // Now safe because of .lean()
       isLiked: likedServiceIds.has(item._id.toString()),
+      likesCount: likeCounts.get(item._id.toString()) ?? 0,
+      sharesCount: shareCounts.get(item._id.toString()) ?? 0,
     }));
 
     return {

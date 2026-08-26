@@ -15,11 +15,13 @@ import { ServiceContactClick, ServiceContactClickSchema } from "./schema/service
 import { ServiceWhatsappClick, ServiceWhatsappClickSchema } from "./schema/service-whatsapp-click.schema";
 import { NotificationsModule } from "src/notifications/notifications.module";
 import { LikeModule } from "src/like/like.module";
+import { ShareModule } from "src/share/share.module";
 import { ReviewsModule } from "src/reviews/reviews.module";
 @Module({
   imports: [
     forwardRef(() => UsersModule),
     forwardRef(() => LikeModule),
+    ShareModule,
     forwardRef(() => SharedModule),
     forwardRef(() => NotificationsModule),
     forwardRef(() => ReviewsModule),
