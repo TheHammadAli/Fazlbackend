@@ -229,17 +229,18 @@ export class FileUploadService {
     }
   }
 
-  // ========== Task Submission Attachments ==========
+  // ========== Task Files (admin-attached briefs & member submissions) ==========
   async uploadTaskSubmissionFiles(
     taskId: string,
     files: any[],
+    folder: "task-submissions" | "task-files" = "task-submissions",
   ): Promise<{ url: string; name: string }[]> {
     const uploaded: { url: string; name: string }[] = [];
 
     for (const file of files) {
       const fileExt = extname(file.originalname);
       const uniqueName = `${uuidv4()}${fileExt}`;
-      const key = `task-submissions/${taskId}/${uniqueName}`;
+      const key = `${folder}/${taskId}/${uniqueName}`;
 
       try {
         const command = new PutObjectCommand({

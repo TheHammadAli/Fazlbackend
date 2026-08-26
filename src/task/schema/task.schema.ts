@@ -62,6 +62,13 @@ export class Task {
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
+  /** Files the admin attached when assigning the task (briefs, specs, etc.). */
+  @Prop({
+    type: [{ url: { type: String, required: true }, name: { type: String, required: true }, _id: false }],
+    default: [],
+  })
+  attachments: { url: string; name: string }[];
+
   @Prop({ type: [TaskSubmissionEntrySchema], default: [] })
   submissions: TaskSubmissionEntry[];
 

@@ -57,7 +57,7 @@ export class TaskService {
     }
   }
 
-  async createTask(dto: CreateTaskDto, createdBy: string) {
+  async createTask(dto: CreateTaskDto, createdBy: string, files: any[] = []) {
     const assignees = await this.usersService.assertMemberIds(dto.assignees);
 
     const task = await this.taskModel.create({
@@ -68,6 +68,15 @@ export class TaskService {
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       createdBy: new Types.ObjectId(createdBy),
     });
+
+    if (files.length > 0) {
+      const attachments = await this.fileUploadService.uploadTaskSubmissionFiles(
+        String(task._id),
+        files,
+        "task-files",
+      );
+      await this.taskModel.findByIdAndUpdate(task._id, { $set: { attachments } }).exec();
+    }
 
     const populated = await this.getTaskById(String(task._id));
     this.sendTaskAssignedEmails(populated as any, (populated as any).assignees ?? []);
@@ -146,7 +155,7 @@ export class TaskService {
     return task;
   }
 
-  async updateTask(id: string, dto: UpdateTaskDto) {
+  async updateTask(id: string, dto: UpdateTaskDto, files: any[] = []) {
     const existing = await this.findTaskOrThrow(id);
     const previousAssigneeIds = new Set(existing.assignees.map((a) => a.toString()));
 
@@ -163,7 +172,17 @@ export class TaskService {
       updateData.assignees = await this.usersService.assertMemberIds(dto.assignees);
     }
 
-    await this.taskModel.findByIdAndUpdate(id, { $set: updateData }, { new: true }).exec();
+    const update: Record<string, unknown> = { $set: updateData };
+    if (files.length > 0) {
+      const newAttachments = await this.fileUploadService.uploadTaskSubmissionFiles(
+        id,
+        files,
+        "task-files",
+      );
+      update.$push = { attachments: { $each: newAttachments } };
+    }
+
+    await this.taskModel.findByIdAndUpdate(id, update, { new: true }).exec();
 
     const populated = await this.getTaskById(id);
 
