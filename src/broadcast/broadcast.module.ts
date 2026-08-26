@@ -24,6 +24,8 @@ import { NotificationsModule } from "src/notifications/notifications.module";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ConfigService } from "@nestjs/config";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogModule } from "src/email-log/email-log.module";
 
 @Module({
   imports: [
@@ -46,6 +48,7 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     ProductsModule,
     NotificationsModule,
     ActivityLogModule,
+    EmailLogModule,
   ],
   controllers: [BroadcastController],
   providers: [
@@ -53,6 +56,7 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     BroadcastGateway,
     FileUploadService,
     ConfigService,
+    EmailService,
   ],
   exports: [BroadcastService],
 })

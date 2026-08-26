@@ -3,6 +3,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -38,9 +39,13 @@ import { ShareService } from "src/share/share.service";
 import { ReviewService } from "src/reviews/reviews.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogService } from "src/email-log/email-log.service";
 
 @Injectable()
 export class ServicesService {
+  private readonly logger = new Logger(ServicesService.name);
+
   constructor(
     @InjectModel(Service.name)
     private readonly serviceModel: Model<ServiceDocument>,
@@ -65,10 +70,72 @@ export class ServicesService {
     private readonly likeService: LikeService,
     private readonly shareService: ShareService,
     private readonly reviewService: ReviewService,
+    private readonly emailService: EmailService,
+    private readonly emailLogService: EmailLogService,
   ) { }
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
+  }
+
+  /** Fire-and-forget: creation must succeed even if the email provider is down. */
+  private sendServiceCreatedEmail(name: string, email: string, title: string, serviceId: string, serviceCode?: string) {
+    const serviceUrl = `${process.env.FRONTEND_URL}/book-service?id=${serviceId}`;
+    const html = `
+      <h2>Your service has been created</h2>
+      <p>Hi ${name},</p>
+      <p>Your service "${title}" has been created successfully.</p>
+      <p><a href="${serviceUrl}">${serviceUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "Your service has been created", html)
+      .then(() =>
+        this.emailLogService.record({
+          eventType: "service_created",
+          recipient: email,
+          relatedRecordId: serviceCode,
+          deliveryStatus: "sent",
+        }),
+      )
+      .catch((err) => {
+        this.logger.error(`Service-created email to ${email} failed`, err);
+        void this.emailLogService.record({
+          eventType: "service_created",
+          recipient: email,
+          relatedRecordId: serviceCode,
+          deliveryStatus: "failed",
+        });
+      });
+  }
+
+  /** Fire-and-forget: the status update must succeed even if the email provider is down. */
+  private sendBookingAcceptedEmail(name: string, email: string, serviceName: string, jobCode?: string) {
+    const bookingUrl = `${process.env.FRONTEND_URL}/profile?tab=my_requests`;
+    const html = `
+      <h2>Your booking has been accepted</h2>
+      <p>Hi ${name},</p>
+      <p>Your booking for "${serviceName}" has been accepted by the service provider.</p>
+      <p><a href="${bookingUrl}">${bookingUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "Your booking has been accepted", html)
+      .then(() =>
+        this.emailLogService.record({
+          eventType: "booking_accepted",
+          recipient: email,
+          relatedRecordId: jobCode,
+          deliveryStatus: "sent",
+        }),
+      )
+      .catch((err) => {
+        this.logger.error(`Booking-accepted email to ${email} failed`, err);
+        void this.emailLogService.record({
+          eventType: "booking_accepted",
+          recipient: email,
+          relatedRecordId: jobCode,
+          deliveryStatus: "failed",
+        });
+      });
   }
 
   // private async delayResponse(ms = 2000): Promise<void> {
@@ -185,6 +252,15 @@ export class ServicesService {
       created.video = video[0]; // Assuming only one video file is uploaded
     }
     await created.save(); // Save the service again to update the images and video fields
+
+    this.sendServiceCreatedEmail(
+      user.name,
+      user.email,
+      created.title,
+      (created._id as Types.ObjectId).toString(),
+      created.serviceCode,
+    );
+
     return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
   }
 
@@ -873,6 +949,7 @@ export class ServicesService {
     // 1. Prepare variables at the top
     let notificationKey: string | null = null;
     let recipientId: string = request.customer._id.toString();
+    let shouldSendBookingAcceptedEmail = false;
     const notificationPayload = { requestId: request._id, action, request, actionType: "recieved" };
 
     // 2. The Switch logic (ONLY updates status and picks the message key)
@@ -889,6 +966,7 @@ export class ServicesService {
         } else {
           request.status = "accepted";
           notificationKey = "request_accepted";
+          shouldSendBookingAcceptedEmail = true;
         }
         break;
 
@@ -954,6 +1032,13 @@ export class ServicesService {
         notificationPayload, // Mandatory Payload
         i18nArgs, // i18n Args
       );
+    }
+
+    if (shouldSendBookingAcceptedEmail) {
+      const customer = request.customer as any;
+      if (customer?.email) {
+        this.sendBookingAcceptedEmail(customer.name ?? "", customer.email, serviceName, request.jobCode);
+      }
     }
     // Give Android a brief window to settle the connection before the response completes.
     // await new Promise((resolve) => setTimeout(resolve, 2000));

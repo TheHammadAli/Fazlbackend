@@ -16,6 +16,8 @@ import { LikeModule } from "src/like/like.module";
 import { ShareModule } from "src/share/share.module";
 import { ReviewsModule } from "src/reviews/reviews.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogModule } from "src/email-log/email-log.module";
 
 @Module({
   imports: [
@@ -35,9 +37,10 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     forwardRef(() => PromotionModule), // If PromotionService is used in ProductsService
     forwardRef(() => ReviewsModule),
     ActivityLogModule,
+    EmailLogModule,
   ],
   controllers: [ProductsController],
-  providers: [ProductsService],
+  providers: [ProductsService, EmailService],
   exports: [ProductsService],
 })
 export class ProductsModule { }

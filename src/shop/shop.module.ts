@@ -14,6 +14,8 @@ import { ServicesModule } from "src/services/services.module";
 import { UsersModule } from "src/users/users.module";
 import { OrdersModule } from "src/orders/orders.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogModule } from "src/email-log/email-log.module";
 
 @Module({
   imports: [
@@ -31,8 +33,9 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     forwardRef(() => ServicesModule),
     forwardRef(() => OrdersModule),
     ActivityLogModule,
+    EmailLogModule,
   ],
-  providers: [ShopService],
+  providers: [ShopService, EmailService],
   controllers: [ShopController],
   exports: [ShopService],
 })

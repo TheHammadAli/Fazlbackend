@@ -24,6 +24,7 @@ import { AnnouncementModule } from "./announcement/announcement.module";
 import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { ClsConfigModule } from "./core/cls/cls.module";
 import { TaskModule } from "./task/task.module";
+import { EmailLogModule } from "./email-log/email-log.module";
 
 import * as path from "path";
 import { LanguageInterceptor } from "./common/interceptors/language.interceptor";
@@ -87,6 +88,7 @@ const isProduction = process.env.NODE_ENV === "production";
     ActivityLogModule,
     TaskModule,
     WalletModule,
+    EmailLogModule,
   ],
   controllers: [AppController],
   providers: [

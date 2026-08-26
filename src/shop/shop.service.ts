@@ -2,6 +2,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -23,9 +24,13 @@ import { ClsService } from "nestjs-cls";
 import { OrdersService } from "src/orders/orders.service";
 import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogService } from "src/email-log/email-log.service";
 
 @Injectable()
 export class ShopService {
+  private readonly logger = new Logger(ShopService.name);
+
   constructor(
     @InjectModel(Shop.name) private shopModel: Model<ShopDocument>,
     @InjectModel(ShopView.name) private shopViewModel: Model<ShopViewDocument>,
@@ -42,10 +47,42 @@ export class ShopService {
     private readonly ordersService: OrdersService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
+    private readonly emailService: EmailService,
+    private readonly emailLogService: EmailLogService,
   ) { }
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
+  }
+
+  /** Fire-and-forget: creation must succeed even if the email provider is down. */
+  private sendShopCreatedEmail(name: string, email: string, shopId: string, shopCode?: string) {
+    const shopUrl = `${process.env.FRONTEND_URL}/selling/shop-detail?id=${shopId}`;
+    const html = `
+      <h2>Your shop has been created</h2>
+      <p>Hi ${name},</p>
+      <p>Your shop has been created successfully. You can now start listing products for sale.</p>
+      <p><a href="${shopUrl}">${shopUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "Your shop has been created", html)
+      .then(() =>
+        this.emailLogService.record({
+          eventType: "shop_created",
+          recipient: email,
+          relatedRecordId: shopCode,
+          deliveryStatus: "sent",
+        }),
+      )
+      .catch((err) => {
+        this.logger.error(`Shop-created email to ${email} failed`, err);
+        void this.emailLogService.record({
+          eventType: "shop_created",
+          recipient: email,
+          relatedRecordId: shopCode,
+          deliveryStatus: "failed",
+        });
+      });
   }
   /** Atomically reserves the next sequential shop code (e.g. SHP-000083). */
   private async generateNextShopCode(): Promise<string> {
@@ -101,6 +138,13 @@ export class ShopService {
       Object.assign(results, updatePayload);
       await results.save();
     }
+
+    this.sendShopCreatedEmail(
+      existingUser.name,
+      existingUser.email,
+      (results._id as Types.ObjectId).toString(),
+      results.shopCode,
+    );
 
     return {
       message: this.i18n.translate("auth.shop.created_success", {

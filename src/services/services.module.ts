@@ -17,6 +17,8 @@ import { NotificationsModule } from "src/notifications/notifications.module";
 import { LikeModule } from "src/like/like.module";
 import { ShareModule } from "src/share/share.module";
 import { ReviewsModule } from "src/reviews/reviews.module";
+import { EmailService } from "src/common/email-service/email-service";
+import { EmailLogModule } from "src/email-log/email-log.module";
 @Module({
   imports: [
     forwardRef(() => UsersModule),
@@ -25,6 +27,7 @@ import { ReviewsModule } from "src/reviews/reviews.module";
     forwardRef(() => SharedModule),
     forwardRef(() => NotificationsModule),
     forwardRef(() => ReviewsModule),
+    EmailLogModule,
 
     MongooseModule.forFeature([
       { name: Service.name, schema: ServiceSchema },
@@ -35,7 +38,7 @@ import { ReviewsModule } from "src/reviews/reviews.module";
       { name: Counter.name, schema: CounterSchema },
     ]),
   ],
-  providers: [ServicesService],
+  providers: [ServicesService, EmailService],
   controllers: [ServicesController],
   exports: [ServicesService],
 })
