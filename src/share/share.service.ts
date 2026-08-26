@@ -50,6 +50,56 @@ export class ShareService {
     });
   }
 
+  /**
+   * Admin: paginated list of the users who shared one item, newest first —
+   * powers the "who shared this" drill-down on the admin Feed page.
+   */
+  async getSharersForItem(
+    itemId: string,
+    itemType: "product" | "service",
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+    const match = { itemId: new Types.ObjectId(itemId), itemType };
+
+    const [rows, total] = await Promise.all([
+      this.shareModel.aggregate([
+        { $match: match },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limitNum },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 1,
+            createdAt: 1,
+            "user._id": 1,
+            "user.name": 1,
+            "user.email": 1,
+            "user.image": 1,
+          },
+        },
+      ]),
+      this.shareModel.countDocuments(match),
+    ]);
+
+    return {
+      data: rows,
+      meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+    };
+  }
+
   /** Bulk share counts for a page of items, in one aggregation query. */
   async getShareCountsForItems(
     itemIds: string[],

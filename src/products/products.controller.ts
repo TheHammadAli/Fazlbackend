@@ -257,6 +257,21 @@ export class ProductsController {
     return this.productsService.getProductsWithVideosForAdmin(page, limit, search, startDate, endDate);
   }
 
+  @Get(":id/admin/viewers")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("feed")
+  @ApiOperation({ summary: "Get the users who viewed one product (admin)" })
+  @ApiParam({ name: "id", required: true })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getViewersForProduct(
+    @Param("id") id: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.productsService.getViewersForProduct(id, page, limit);
+  }
+
   @Patch(":id/disable")
   @UseGuards(PermissionsGuard)
   @RequirePermission("listings")

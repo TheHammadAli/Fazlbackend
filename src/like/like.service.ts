@@ -193,6 +193,56 @@ export class LikeService {
   }
 
   /**
+   * Admin: paginated list of the users who liked one item, newest first —
+   * powers the "who liked this" drill-down on the admin Feed page.
+   */
+  async getLikersForItem(
+    itemId: string,
+    itemType: "product" | "service",
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+    const match = { itemId: new Types.ObjectId(itemId), itemType };
+
+    const [rows, total] = await Promise.all([
+      this.likeModel.aggregate([
+        { $match: match },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limitNum },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 1,
+            createdAt: 1,
+            "user._id": 1,
+            "user.name": 1,
+            "user.email": 1,
+            "user.image": 1,
+          },
+        },
+      ]),
+      this.likeModel.countDocuments(match),
+    ]);
+
+    return {
+      data: rows,
+      meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+    };
+  }
+
+  /**
    * Bulk like counts for a page of items, in one aggregation query.
    */
   async getLikeCountsForItems(

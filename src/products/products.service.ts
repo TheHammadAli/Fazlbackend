@@ -413,6 +413,63 @@ export class ProductsService {
     };
   }
 
+  /**
+   * Admin: paginated list of the distinct users who viewed one product, most
+   * recent view first — powers the "who viewed this" drill-down on the admin
+   * Feed page. ProductView is day-deduped, so this groups by user first.
+   */
+  async getViewersForProduct(
+    productId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+    const match = { productId: new Types.ObjectId(productId) };
+
+    const basePipeline: any[] = [
+      { $match: match },
+      { $group: { _id: "$userId", lastViewedAt: { $max: "$createdAt" } } },
+      { $sort: { lastViewedAt: -1 } },
+    ];
+
+    const [rows, countResult] = await Promise.all([
+      this.productViewModel.aggregate([
+        ...basePipeline,
+        { $skip: skip },
+        { $limit: limitNum },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 0,
+            createdAt: "$lastViewedAt",
+            "user._id": 1,
+            "user.name": 1,
+            "user.email": 1,
+            "user.image": 1,
+          },
+        },
+      ]),
+      this.productViewModel.aggregate([...basePipeline, { $count: "total" }]),
+    ]);
+
+    const total = countResult[0]?.total ?? 0;
+
+    return {
+      data: rows,
+      meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+    };
+  }
+
   /** Records a listing view: day-deduped per (product, user) — a page refresh within the same
    *  day never recounts, but a return visit on a later day does. Skips the listing's own owner. */
   async trackView(productId: string, userId: string): Promise<void> {
@@ -1043,10 +1100,20 @@ export class ProductsService {
       this.productModel.countDocuments(filter).exec(),
     ]);
 
+    const itemIds = items.map((item: any) => item._id.toString());
+    const [likeCounts, shareCounts] = await Promise.all([
+      this.likeService.getLikeCountsForItems(itemIds, "product"),
+      this.shareService.getShareCountsForItems(itemIds, "product"),
+    ]);
+
     if (!userId) {
       return {
         meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-        data: items,
+        data: items.map((item: any) => ({
+          ...item,
+          likesCount: likeCounts.get(item._id.toString()) ?? 0,
+          sharesCount: shareCounts.get(item._id.toString()) ?? 0,
+        })),
       };
     }
 
@@ -1066,16 +1133,15 @@ export class ProductsService {
       productIds,
     );
 
-    console.log("Products with Likes:", likes);
-
     const likedProductIds = new Set(
       likes.map((like: any) => like.itemId.toString()),
     );
-    console.log("Liked Product IDs:", likedProductIds);
 
     const data = items.map((item: any) => ({
       ...item, // Now safe because of .lean()
       isLiked: likedProductIds.has(item._id.toString()),
+      likesCount: likeCounts.get(item._id.toString()) ?? 0,
+      sharesCount: shareCounts.get(item._id.toString()) ?? 0,
     }));
 
     return {
