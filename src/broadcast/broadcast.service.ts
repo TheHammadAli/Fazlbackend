@@ -461,6 +461,7 @@ export class BroadcastService {
             seller: thread.seller,
             broadcast: thread.broadcast,
           },
+          broadcastSubTab: actualReceiverId === thread.buyer.toString() ? "sent" : "received",
           message: {
             id: messageResults._id,
             text: messageResults.message,

@@ -43,4 +43,9 @@ export class PresenceService {
   getOnlineCount(): number {
     return this.userSockets.size;
   }
+
+  /** All currently online user ids, for filtering a user list down to who's online. */
+  getAllOnlineUserIds(): string[] {
+    return Array.from(this.userSockets.keys());
+  }
 }

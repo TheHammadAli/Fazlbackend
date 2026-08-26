@@ -44,7 +44,9 @@ export class AnnouncementService {
     const payload = {
       announcementId: (announcement as any)._id?.toString?.(),
       announcementCode: announcement.announcementCode,
+      title: announcement.title,
       image: announcement.image,
+      video: announcement.video,
       ctaLabel: announcement.ctaLabel,
       ctaDestination: announcement.ctaDestination,
       priority: announcement.priority,
@@ -104,6 +106,7 @@ export class AnnouncementService {
       title,
       message,
       image: dto.image,
+      video: dto.video,
       targetAudience: dto.targetAudience ?? [],
       category: dto.category ? new Types.ObjectId(dto.category) : undefined,
       location: dto.location?.trim() || undefined,
@@ -147,6 +150,9 @@ export class AnnouncementService {
     announcement.message = message;
     if (dto.image) {
       announcement.image = dto.image;
+    }
+    if (dto.video) {
+      announcement.video = dto.video;
     }
     announcement.targetAudience = dto.targetAudience ?? [];
     announcement.category = dto.category ? new Types.ObjectId(dto.category) : undefined;

@@ -16,6 +16,10 @@ export class CreateAnnouncementDto {
   @IsOptional()
   image?: any;
 
+  @ApiPropertyOptional({ type: "string", format: "binary" })
+  @IsOptional()
+  video?: any;
+
   @ApiPropertyOptional({ example: ["buyer", "seller"], description: "Empty/omitted means all users" })
   @IsOptional()
   @IsArray()

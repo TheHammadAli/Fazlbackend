@@ -21,6 +21,8 @@ export const ACTIVITY_LOG_ACTIONS = [
   "task_assigned",
   "task_updated",
   "task_deleted",
+  "task_submitted",
+  "task_reviewed",
   "admin_password_reset",
 ] as const;
 export type ActivityLogAction = (typeof ACTIVITY_LOG_ACTIONS)[number];

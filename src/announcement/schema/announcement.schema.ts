@@ -17,6 +17,9 @@ export class Announcement {
   @Prop({ type: String })
   image?: string;
 
+  @Prop({ type: String })
+  video?: string;
+
   /** Roles to notify, e.g. ["buyer","seller"]. Empty/omitted means all users. */
   @Prop({ type: [String], default: [] })
   targetAudience?: string[];

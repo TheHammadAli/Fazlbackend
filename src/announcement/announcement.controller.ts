@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from "@nestjs/swagger";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileFieldsInterceptor } from "@nestjs/platform-express";
 
 import { AnnouncementService } from "./announcement.service";
 import { CreateAnnouncementDto } from "./dto/create-announcement.dto";
@@ -28,18 +28,26 @@ export class AnnouncementController {
   @RequireAction("edit")
   @ApiOperation({ summary: "Create an announcement as draft, scheduled, or sent now (admin only)" })
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("image"))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: "image", maxCount: 1 },
+      { name: "video", maxCount: 1 },
+    ]),
+  )
   @ApiBody({ type: CreateAnnouncementDto })
   async create(
     @Body() dto: CreateAnnouncementDto,
     @CurrentUser() currentUser: JwtPayload,
-    @UploadedFile() image?: any,
+    @UploadedFiles() files?: { image?: any[]; video?: any[] },
   ) {
     if (dto.targetAudience && typeof dto.targetAudience === "string") {
       dto.targetAudience = JSON.parse(dto.targetAudience);
     }
-    if (image) {
-      dto.image = await this.fileUploadService.uploadAnnouncementImage(image);
+    if (files?.image?.[0]) {
+      dto.image = await this.fileUploadService.uploadAnnouncementImage(files.image[0]);
+    }
+    if (files?.video?.[0]) {
+      dto.video = await this.fileUploadService.uploadAnnouncementVideo(files.video[0]);
     }
     return this.announcementService.create(dto, currentUser.sub);
   }
@@ -50,18 +58,26 @@ export class AnnouncementController {
   @RequireAction("edit")
   @ApiOperation({ summary: "Update a draft announcement (admin only)" })
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("image"))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: "image", maxCount: 1 },
+      { name: "video", maxCount: 1 },
+    ]),
+  )
   @ApiBody({ type: CreateAnnouncementDto })
   async update(
     @Param("id") id: string,
     @Body() dto: CreateAnnouncementDto,
-    @UploadedFile() image?: any,
+    @UploadedFiles() files?: { image?: any[]; video?: any[] },
   ) {
     if (dto.targetAudience && typeof dto.targetAudience === "string") {
       dto.targetAudience = JSON.parse(dto.targetAudience);
     }
-    if (image) {
-      dto.image = await this.fileUploadService.uploadAnnouncementImage(image);
+    if (files?.image?.[0]) {
+      dto.image = await this.fileUploadService.uploadAnnouncementImage(files.image[0]);
+    }
+    if (files?.video?.[0]) {
+      dto.video = await this.fileUploadService.uploadAnnouncementVideo(files.video[0]);
     }
     return this.announcementService.update(id, dto);
   }
