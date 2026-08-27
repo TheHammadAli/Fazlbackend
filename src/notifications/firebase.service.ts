@@ -24,9 +24,7 @@ export class FirebaseService {
         serviceAccount = this.parseServiceAccountEnv(serviceAccountEnv);
       }
 
-      if (!serviceAccount) {
-        serviceAccount = this.buildServiceAccountFromEnv();
-      }
+
 
       if (!serviceAccount) {
         throw new Error("Firebase service account could not be loaded.");
