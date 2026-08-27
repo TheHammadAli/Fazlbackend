@@ -8,9 +8,30 @@ import * as path from "path";
 export class FirebaseService {
   private readonly logger = new Logger(FirebaseService.name);
   private initialized = false;
+  private lastError: string | null = null;
+  private lastSendError: string | null = null;
+  private projectIdUsed: string | null = null;
 
   constructor() {
     this.initFirebase();
+  }
+
+  // Non-secret diagnostics for /notifications/debug/firebase-status — no key
+  // material, just enough to tell which code path ran and whether it worked.
+  getStatus() {
+    return {
+      initialized: this.initialized,
+      adminAppsCount: admin.apps.length,
+      projectIdUsed: this.projectIdUsed,
+      lastInitError: this.lastError,
+      lastSendError: this.lastSendError,
+      env: {
+        hasServiceAccountJson: !!process.env.FIREBASE_SERVICE_ACCOUNT?.trim(),
+        hasProjectId: !!(process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID),
+        hasPrivateKey: !!(process.env.FIREBASE_PRIVATE_KEY || process.env.PRIVATE_KEY),
+        hasClientEmail: !!(process.env.FIREBASE_CLIENT_EMAIL || process.env.CLIENT_EMAIL),
+      },
+    };
   }
 
   private initFirebase() {
@@ -37,8 +58,10 @@ export class FirebaseService {
       });
 
       this.initialized = true;
+      this.projectIdUsed = (serviceAccount as any).project_id || (serviceAccount as any).projectId || null;
       this.logger.log("Firebase initialized successfully");
     } catch (err) {
+      this.lastError = err instanceof Error ? err.message : String(err);
       this.logger.error("Firebase initialization failed", err);
     }
   }
@@ -164,7 +187,7 @@ export class FirebaseService {
 
       // 3️⃣ Send message (FCM reads top-level android/apns; Frontend reads data)
       // Send message (FCM reads top-level android/apns; Frontend reads data)
-      return await admin.messaging().send({
+      const messageId = await admin.messaging().send({
         token,
         notification: { title, body },
         data: sanitizedData,
@@ -192,6 +215,9 @@ export class FirebaseService {
         },
       });
 
+      this.lastSendError = null;
+      return messageId;
+
       //  {
       //   "messageId": "1783857377129001",
       //   "from": "1042475957024",
@@ -209,6 +235,7 @@ export class FirebaseService {
 
 
     } catch (err) {
+      this.lastSendError = err instanceof Error ? err.message : String(err);
       this.logger.error("FCM error (notification skipped)", err);
       return null;
     }
