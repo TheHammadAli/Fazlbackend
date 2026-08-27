@@ -22,27 +22,13 @@ import {
 import { NotificationsService } from "./notifications.service";
 import { GetNotificationsQueryDto } from "./dto/get-notifications-query.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
-import { FirebaseService } from "./firebase.service";
 
 @ApiTags("Notifications")
 @ApiBearerAuth("jwt")
 @UseGuards(JwtAuthGuard)
 @Controller("notifications")
 export class NotificationsController {
-  constructor(
-    private readonly notificationsService: NotificationsService,
-    private readonly firebaseService: FirebaseService,
-  ) {}
-
-  // Temporary diagnostic: no key material, just whether Firebase Admin
-  // actually initialized on this running instance and which env vars are
-  // present, so a push-delivery failure can be told apart from a config gap
-  // without shell access to the server.
-  @Get("debug/firebase-status")
-  @ApiOperation({ summary: "Firebase Admin init/send diagnostics (temporary)" })
-  getFirebaseStatus() {
-    return this.firebaseService.getStatus();
-  }
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get(":userId")
   @ApiOperation({ summary: "Get paginated notifications for a user" })
