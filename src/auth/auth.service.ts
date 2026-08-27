@@ -46,6 +46,7 @@ export class AuthService {
     const user = await this.userService.validateUserForLogin(
       loginDto.email,
       loginDto.password,
+      loginDto.loginContext ?? "web",
     );
     if (!user) {
       throw new UnauthorizedException(
