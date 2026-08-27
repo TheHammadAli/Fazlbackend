@@ -3,6 +3,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
 import { Announcement } from "./schema/announcement.schema";
+import { AnnouncementView, AnnouncementViewDocument } from "./schema/announcement-view.schema";
 import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateAnnouncementDto } from "./dto/create-announcement.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
@@ -23,6 +24,8 @@ export class AnnouncementService {
     private readonly announcementModel: Model<Announcement>,
     @InjectModel(Counter.name)
     private readonly counterModel: Model<CounterDocument>,
+    @InjectModel(AnnouncementView.name)
+    private readonly announcementViewModel: Model<AnnouncementViewDocument>,
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
   ) {}
@@ -204,6 +207,79 @@ export class AnnouncementService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  /** Records that a user opened an announcement: day-deduped per (announcement, user) —
+   *  reopening it later the same day never recounts, a later day does. */
+  async trackView(announcementId: string, userId: string): Promise<void> {
+    if (!Types.ObjectId.isValid(announcementId)) return;
+
+    const day = new Date().toISOString().slice(0, 10);
+    await this.announcementViewModel.updateOne(
+      { announcementId: new Types.ObjectId(announcementId), userId: new Types.ObjectId(userId), day },
+      {
+        $setOnInsert: {
+          announcementId: new Types.ObjectId(announcementId),
+          userId: new Types.ObjectId(userId),
+          day,
+        },
+      },
+      { upsert: true },
+    );
+  }
+
+  /** Admin: paginated list of the distinct users who viewed one announcement, most recent
+   *  view first — powers the "who viewed this" drill-down on the admin Announcements page. */
+  async getViewersForAnnouncement(
+    announcementId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+    const match = { announcementId: new Types.ObjectId(announcementId) };
+
+    const basePipeline: any[] = [
+      { $match: match },
+      { $group: { _id: "$userId", lastViewedAt: { $max: "$createdAt" } } },
+      { $sort: { lastViewedAt: -1 } },
+    ];
+
+    const [rows, countResult] = await Promise.all([
+      this.announcementViewModel.aggregate([
+        ...basePipeline,
+        { $skip: skip },
+        { $limit: limitNum },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 0,
+            createdAt: "$lastViewedAt",
+            "user._id": 1,
+            "user.name": 1,
+            "user.email": 1,
+            "user.image": 1,
+          },
+        },
+      ]),
+      this.announcementViewModel.aggregate([...basePipeline, { $count: "total" }]),
+    ]);
+
+    const total = countResult[0]?.total ?? 0;
+
+    return {
+      data: rows,
+      meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     };
   }
 }

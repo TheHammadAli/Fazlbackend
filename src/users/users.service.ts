@@ -181,18 +181,26 @@ export class UsersService {
   async validateUserForLogin(
     email: string,
     password: string,
+    loginContext: "web" | "admin" = "web",
   ): Promise<UserDocument | false> {
     // Emails are stored trimmed + lowercased at signup — the lookup must match
     // that or any casing/whitespace difference at login silently fails here.
     const normalizedEmail = email?.trim().toLowerCase();
     const user = await this.userModel
       .findOne({ email: normalizedEmail })
-      .select("+password");
+      .select("+password +memberPassword");
     if (!user) {
       return false;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // A user promoted to member gets a separate admin-panel password (memberPassword),
+    // scoped to that context — their original `password` keeps working only on the main
+    // app. Member-only accounts created fresh never have memberPassword, so "admin"
+    // logins for them fall back to the single password they were created with.
+    const passwordField =
+      loginContext === "admin" && user.memberPassword ? user.memberPassword : user.password;
+
+    const isMatch = await bcrypt.compare(password, passwordField);
     if (!isMatch) {
       return false;
     }
@@ -743,12 +751,32 @@ export class UsersService {
    *  member management is a separate, less-privileged capability. */
   async createMemberAccount(name: string, email: string) {
     const existingUser = await this.userModel.findOne({ email });
+
     if (existingUser) {
-      throw new ConflictException(
-        this.i18n.translate("auth.users.email_already_registered", {
-          lang: this.lang,
-        }),
-      );
+      if (existingUser.roles?.includes("moderator")) {
+        throw new ConflictException(
+          this.i18n.translate("auth.users.already_a_member", {
+            lang: this.lang,
+          }),
+        );
+      }
+
+      // Not a member yet, but already has a regular account (buyer/seller/etc.) —
+      // add member access on top of it rather than creating a duplicate account.
+      // They get a SEPARATE admin-panel password so the two logins never collide:
+      // their original password keeps working on the main app (loginContext "web"),
+      // this new one only works on the admin panel (loginContext "admin").
+      const generatedMemberPassword = this.generateRandomPassword();
+      existingUser.memberPassword = await this.hashPassword(generatedMemberPassword);
+      existingUser.roles = [...new Set([...(existingUser.roles ?? []), "moderator"])];
+      const savedExistingUser = await existingUser.save();
+
+      this.sendMemberAddedEmail(savedExistingUser.name, savedExistingUser.email, generatedMemberPassword);
+
+      return {
+        message: "Existing user added as a member successfully",
+        data: { ...savedExistingUser.toJSON(), generatedPassword: generatedMemberPassword },
+      };
     }
 
     const generatedPassword = this.generateRandomPassword();
@@ -792,6 +820,24 @@ export class UsersService {
       .catch((err) => console.error(`Member welcome email to ${email} failed:`, err));
   }
 
+  /** Fire-and-forget: for an existing account promoted to member — they get a second,
+   *  admin-panel-only password; their original account password is untouched. */
+  private sendMemberAddedEmail(name: string, email: string, memberPassword: string) {
+    const loginUrl = `${process.env.ADMIN_PANEL_URL}/signin`;
+    const html = `
+      <h2>You've been added as a member</h2>
+      <p>Hi ${name},</p>
+      <p>Your existing Fazl account now also has member access on the admin panel. Your password there is separate from your regular account — use the credentials below:</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Admin panel password:</strong> ${memberPassword}</p>
+      <p>Your existing password still works as before on the main Fazl app — only the admin panel uses this new one.</p>
+      <p><a href="${loginUrl}">${loginUrl}</a></p>
+    `;
+    this.emailService
+      .sendEmail(email, "You've been added as a member on Fazl", html)
+      .catch((err) => console.error(`Member-added email to ${email} failed:`, err));
+  }
+
   async updateMemberAccount(userId: string, name?: string, email?: string) {
     const existingUser = await this.userModel.findById(userId);
     if (!existingUser || !existingUser.roles?.includes("moderator")) {
@@ -810,7 +856,7 @@ export class UsersService {
   }
 
   async resetMemberPassword(userId: string, dto: ResetMemberPasswordDto) {
-    const existingUser = await this.userModel.findById(userId);
+    const existingUser = await this.userModel.findById(userId).select("+memberPassword");
     if (!existingUser || !existingUser.roles?.includes("moderator")) {
       throw new NotFoundException("Member not found");
     }
@@ -824,11 +870,21 @@ export class UsersService {
     const newPassword = trimmed || this.generateRandomPassword();
     const hashedPassword = await this.hashPassword(newPassword);
 
+    // A promoted account (has memberPassword) keeps its admin-panel password separate from
+    // its regular one — reset that field, not the account's main password. A member-only
+    // account created fresh has just the one password field.
+    const isDualPersona = Boolean(existingUser.memberPassword);
+    const updateField = isDualPersona ? "memberPassword" : "password";
+
     await this.userModel
-      .findByIdAndUpdate(userId, { $set: { password: hashedPassword } }, { new: true })
+      .findByIdAndUpdate(userId, { $set: { [updateField]: hashedPassword } }, { new: true })
       .exec();
 
-    this.sendMemberWelcomeEmail(existingUser.name ?? "", existingUser.email, newPassword);
+    if (isDualPersona) {
+      this.sendMemberAddedEmail(existingUser.name ?? "", existingUser.email, newPassword);
+    } else {
+      this.sendMemberWelcomeEmail(existingUser.name ?? "", existingUser.email, newPassword);
+    }
 
     return {
       message: "Password updated successfully",
@@ -840,6 +896,24 @@ export class UsersService {
     const existingUser = await this.userModel.findById(userId);
     if (!existingUser || !existingUser.roles?.includes("moderator")) {
       throw new NotFoundException("Member not found");
+    }
+
+    const otherRoles = (existingUser.roles ?? []).filter((role) => role !== "moderator");
+
+    if (otherRoles.length > 0) {
+      // This account existed before it was made a member (buyer/seller/etc.) — removing
+      // member access must only demote it, never delete the account those other roles rely on.
+      await this.userModel
+        .findByIdAndUpdate(userId, {
+          $set: { roles: otherRoles },
+          $unset: { memberPassword: "" },
+        })
+        .exec();
+
+      return {
+        message: "Member access removed successfully",
+        data: { _id: existingUser._id, name: existingUser.name },
+      };
     }
 
     await this.userModel.findByIdAndDelete(userId).exec();

@@ -20,6 +20,13 @@ export class User {
   @Prop({ required: false, select: false }) // Hide password in queries
   password: string;
 
+  /** Separate admin-panel password for a user account that was later promoted to member —
+   *  keeps their original account password working on the main app while giving them a
+   *  distinct credential for the admin panel. Unset for member accounts created fresh
+   *  (those only ever have one password: `password`). */
+  @Prop({ required: false, select: false })
+  memberPassword?: string;
+
   @Prop({
     type: [String],
     enum: ["buyer", "seller", "admin", "subadmin", "super_admin", "moderator"],
@@ -82,6 +89,7 @@ export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
+  delete user.memberPassword;
   delete user.__v;
   return user;
 };
