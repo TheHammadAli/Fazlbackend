@@ -223,8 +223,14 @@ export class UsersService {
       // Admin-tier roles are managed exclusively via updateAdminAccount, which has
       // its own super_admin protection.
       if (updateData.roles) {
+        // This endpoint accepts multipart/form-data (for the image upload), where a
+        // single-value field arrives as a plain string rather than an array — only
+        // 2+ repeated parts with the same name get parsed into an array.
+        const rolesArray = Array.isArray(updateData.roles)
+          ? updateData.roles
+          : [updateData.roles];
         const SELF_ASSIGNABLE_ROLES = ["buyer", "seller"] as const;
-        updateData.roles = updateData.roles.filter((role) =>
+        updateData.roles = rolesArray.filter((role) =>
           (SELF_ASSIGNABLE_ROLES as readonly string[]).includes(role),
         ) as typeof updateData.roles;
         if (updateData.roles.length === 0) {
