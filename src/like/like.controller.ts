@@ -29,6 +29,16 @@ import { CurrentUser } from "src/common/decorators/current-user.decorator";
 export class LikeController {
   constructor(private readonly likeService: LikeService) {}
 
+  // Declared before "admin/:itemType/:itemId" — otherwise that route would
+  // greedily match this path too (itemType="total-count").
+  @Get("admin/total-count")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("feed")
+  @ApiOperation({ summary: "Get the total like count across all products and services (admin)" })
+  async getTotalLikeCount() {
+    return { data: await this.likeService.getTotalLikeCount() };
+  }
+
   @Get("admin/:itemType/:itemId")
   @UseGuards(PermissionsGuard)
   @RequirePermission("feed")

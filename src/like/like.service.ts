@@ -193,6 +193,18 @@ export class LikeService {
   }
 
   /**
+   * Admin: total like count across the whole platform (products + services combined) —
+   * powers the "Total Likes" card on the admin dashboard.
+   */
+  async getTotalLikeCount(): Promise<{ total: number; product: number; service: number }> {
+    const [product, service] = await Promise.all([
+      this.likeModel.countDocuments({ itemType: "product" }),
+      this.likeModel.countDocuments({ itemType: "service" }),
+    ]);
+    return { total: product + service, product, service };
+  }
+
+  /**
    * Admin: paginated list of the users who liked one item, newest first —
    * powers the "who liked this" drill-down on the admin Feed page.
    */
