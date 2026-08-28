@@ -74,8 +74,16 @@ export class User {
   @Prop({ type: String })
   address?: string | null;
 
+  // Legacy single-device field. Kept so devices registered before multi-device
+  // support still receive pushes; new registrations go into fcmTokens.
   @Prop({ type: String, required: false })
-  fcmToken?: string; // st
+  fcmToken?: string;
+
+  // One entry per signed-in device (the phone app, plus each browser). A single
+  // string here meant whichever client registered last replaced every other
+  // device's token, so only one of them could ever receive a push.
+  @Prop({ type: [String], default: [] })
+  fcmTokens?: string[];
 
   @Prop({ type: Boolean, default: false })
   isDisabled: boolean;

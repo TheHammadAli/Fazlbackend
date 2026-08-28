@@ -49,6 +49,40 @@ export class NotificationsService {
     } as Record<string, any>;
   }
 
+  /**
+   * Every push target for a user: the multi-device list plus the legacy
+   * single-token field, so devices that registered before multi-device support
+   * keep working until they next re-register.
+   */
+  private collectFcmTokens(user: any): string[] {
+    const tokens: string[] = [...(user?.fcmTokens ?? [])];
+    if (user?.fcmToken) tokens.push(user.fcmToken);
+    return [...new Set(tokens.filter(Boolean))];
+  }
+
+  /** Delivers one notification to all of a user's devices, pruning dead tokens. */
+  private async pushToUserDevices(
+    userId: string,
+    user: any,
+    title: string,
+    body: string,
+    payload: Record<string, any>,
+  ) {
+    const tokens = this.collectFcmTokens(user);
+    if (tokens.length === 0) return;
+
+    const { staleTokens } = await this.firebaseService.sendNotificationToTokens(
+      tokens,
+      title,
+      body,
+      payload,
+    );
+
+    if (staleTokens.length) {
+      await this.usersService.removeFcmTokens(userId, staleTokens);
+    }
+  }
+
   async create<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     message: string,
@@ -122,7 +156,12 @@ export class NotificationsService {
       this.server.to(userId.toString()).emit("notification", notif);
     }
 
-    console.log("Notification worked for user:", userId, "with FCM token:", user.fcmToken);
+    console.log(
+      "Notification worked for user:",
+      userId,
+      "devices:",
+      this.collectFcmTokens(user).length,
+    );
 
     const notificationTitle =
       titleOverride ||
@@ -131,21 +170,19 @@ export class NotificationsService {
       }) as string) ||
       "Notification";
 
-    if (user?.fcmToken) {
-      const notificationId =
-        notif?.['_id']?.toString() || String((notif as any)?.id || "");
-      console.log("Sending FCM notification to user:", userId, "with notification ID:", notificationId);
-      await this.firebaseService.sendNotification(
-        user.fcmToken,
-        notificationTitle,
-        translatedMessage,
-        {
-          type,
-          ...notifPayload,
-          ...(notificationId ? { notificationId } : {}),
-        },
-      );
-    }
+    const notificationId =
+      notif?.['_id']?.toString() || String((notif as any)?.id || "");
+    await this.pushToUserDevices(
+      userId.toString(),
+      user,
+      notificationTitle,
+      translatedMessage,
+      {
+        type,
+        ...notifPayload,
+        ...(notificationId ? { notificationId } : {}),
+      },
+    );
 
     return notif;
   }
@@ -178,14 +215,12 @@ export class NotificationsService {
       this.server.to(userId.toString()).emit("notification", notif);
     }
 
-    if (user?.fcmToken) {
-      const notificationId = notif?.["_id"]?.toString() || "";
-      await this.firebaseService.sendNotification(user.fcmToken, title, message, {
-        type,
-        ...notifPayload,
-        ...(notificationId ? { notificationId } : {}),
-      });
-    }
+    const notificationId = notif?.["_id"]?.toString() || "";
+    await this.pushToUserDevices(userId.toString(), user, title, message, {
+      type,
+      ...notifPayload,
+      ...(notificationId ? { notificationId } : {}),
+    });
 
     return notif;
   }

@@ -536,12 +536,56 @@ export class UsersService {
     return this.presenceService.getOnlineCount();
   }
 
+  /**
+   * Registers one device's push token for a user.
+   *
+   * A user can be signed in on the phone app and in one or more browsers at the
+   * same time, and every client posts its own token to this same endpoint.
+   * Overwriting a single field meant the last client to register silently wiped
+   * all the others, so only one device could receive pushes — hence $addToSet
+   * into a list rather than an assignment.
+   *
+   * The token is pulled off every *other* account first: an FCM token identifies
+   * a device install, not a person, so when a second account signs in on that
+   * device the token has to move rather than stay duplicated on both accounts
+   * (which would send the first account's notifications to the new user).
+   */
   async saveFcmToken(userId: string, token: string) {
-    // await new Promise(resolve => setTimeout(resolve, 2000));
+    const trimmed = token?.trim();
+    if (!trimmed) {
+      throw new BadRequestException("FCM token is required.");
+    }
+
+    await this.userModel.updateMany(
+      { _id: { $ne: userId }, fcmTokens: trimmed },
+      { $pull: { fcmTokens: trimmed } },
+    );
+    await this.userModel.updateMany(
+      { _id: { $ne: userId }, fcmToken: trimmed },
+      { $unset: { fcmToken: "" } },
+    );
+
     return this.userModel.findByIdAndUpdate(
       userId,
-      { fcmToken: token },
+      { $addToSet: { fcmTokens: trimmed } },
       { new: true },
+    );
+  }
+
+  /**
+   * Drops tokens FCM reported as permanently dead (app uninstalled, token
+   * rotated, browser storage cleared) so the list doesn't grow without bound.
+   */
+  async removeFcmTokens(userId: string, tokens: string[]) {
+    if (!tokens?.length) return;
+
+    await this.userModel.updateOne(
+      { _id: userId },
+      { $pull: { fcmTokens: { $in: tokens } } },
+    );
+    await this.userModel.updateOne(
+      { _id: userId, fcmToken: { $in: tokens } },
+      { $unset: { fcmToken: "" } },
     );
   }
 
