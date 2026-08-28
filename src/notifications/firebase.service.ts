@@ -24,10 +24,24 @@ export class FirebaseService {
         serviceAccount = this.parseServiceAccountEnv(serviceAccountEnv);
       }
 
-
+      if (!serviceAccount) {
+        serviceAccount = this.buildServiceAccountFromEnv();
+      }
 
       if (!serviceAccount) {
         throw new Error("Firebase service account could not be loaded.");
+      }
+
+      // Whichever source produced it, the JSON's private_key still has literal "\n" pairs
+      // (escaped for single-line env storage) instead of real line breaks — Firebase's PEM
+      // parser needs actual newlines, so this is applied unconditionally, not just on the
+      // buildServiceAccountFromEnv() fallback path.
+      const raw = serviceAccount as unknown as Record<string, string>;
+      const rawPrivateKey = raw.private_key ?? raw.privateKey;
+      if (rawPrivateKey) {
+        const normalizedKey = this.normalizePrivateKey(rawPrivateKey);
+        raw.private_key = normalizedKey!;
+        raw.privateKey = normalizedKey!;
       }
 
       admin.initializeApp({
