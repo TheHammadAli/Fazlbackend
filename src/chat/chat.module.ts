@@ -10,6 +10,7 @@ import { ShopModule } from "src/shop/shop.module";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { ConfigService } from "@nestjs/config";
 import { NotificationsModule } from "src/notifications/notifications.module";
+import { PresenceModule } from "src/presence/presence.module";
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -19,6 +20,7 @@ import { NotificationsModule } from "src/notifications/notifications.module";
     forwardRef(() => UsersModule),
     ShopModule,
     NotificationsModule,
+    PresenceModule,
   ],
   providers: [ChatService, ChatGateway, FileUploadService, ConfigService],
   controllers: [ChatController],

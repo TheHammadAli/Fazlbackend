@@ -12,6 +12,7 @@ import { ShopService } from "src/shop/shop.service";
 import { ClsService } from "nestjs-cls";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { ChatGateway } from "./chat.gateway";
+import { PresenceService } from "src/presence/presence.service";
 
 @Injectable()
 export class ChatService {
@@ -26,7 +27,8 @@ export class ChatService {
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     private readonly notificationsService: NotificationsService,
-    private readonly chatGateway: ChatGateway
+    private readonly chatGateway: ChatGateway,
+    private readonly presenceService: PresenceService,
   ) { }
 
   /** Dynamic getter to retrieve the current request language safely */
@@ -423,8 +425,8 @@ export class ChatService {
         {
           $project: {
             _id: 1,
-            buyer: { _id: 1, name: 1, email: 1, image: 1 },
-            seller: { _id: 1, name: 1, email: 1, image: 1 },
+            buyer: { _id: 1, name: 1, email: 1, image: 1, lastSeenAt: 1 },
+            seller: { _id: 1, name: 1, email: 1, image: 1, lastSeenAt: 1 },
             status: 1,
             lastMessageAt: 1,
             createdAt: 1,
@@ -448,8 +450,29 @@ export class ChatService {
       }),
     ]);
 
+    // Online state lives in memory, not the database, so it is stamped on after
+    // the aggregation. This gives the inbox its initial dots without a second
+    // request; live changes then arrive over the socket.
+    const participantIds = data.flatMap((c: any) =>
+      [c?.buyer?._id, c?.seller?._id].filter(Boolean).map(String),
+    );
+    const onlineIds = this.presenceService.getOnlineUserIds(participantIds);
+    const withPresence = data.map((conversation: any) => ({
+      ...conversation,
+      buyer: conversation.buyer && {
+        ...conversation.buyer,
+        isOnline: onlineIds.has(String(conversation.buyer._id)),
+        lastSeenAt: conversation.buyer.lastSeenAt ?? null,
+      },
+      seller: conversation.seller && {
+        ...conversation.seller,
+        isOnline: onlineIds.has(String(conversation.seller._id)),
+        lastSeenAt: conversation.seller.lastSeenAt ?? null,
+      },
+    }));
+
     return {
-      data,
+      data: withPresence,
       meta: {
         total: totalResult,
         page,
