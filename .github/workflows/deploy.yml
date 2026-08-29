@@ -1,13 +1,13 @@
-name: Deploy Fazl Production Backend
+name: Deploy Fazl Staging Backend
 
 on:
   push:
     branches:
-      - main
+      - hammad
 
 jobs:
   deploy:
-    name: Production Backend Deployment
+    name: Staging Backend Deployment
     runs-on: ubuntu-latest
 
     steps:
@@ -21,30 +21,30 @@ jobs:
           script: |
             set -e
 
-            APP_DIR="/var/www/buy-sell/production/backend"
+            APP_DIR="/var/www/buy-sell/staging/backend"
 
             echo "======================================"
-            echo "FAZL PRODUCTION BACKEND DEPLOYMENT"
+            echo "FAZL STAGING BACKEND DEPLOYMENT"
             echo "======================================"
 
             cd "$APP_DIR"
 
-            echo "Fetching main branch..."
-            git fetch origin main
+            echo "Fetching hammad branch..."
+            git fetch origin hammad
 
-            echo "Updating production code..."
-            git reset --hard origin/main
+            echo "Updating staging code..."
+            git reset --hard origin/hammad
 
             echo "Installing dependencies..."
             npm ci
 
-            echo "Creating production build..."
+            echo "Creating staging build..."
             npm run build
 
-            echo "Production build successful."
+            echo "Staging build successful."
 
-            echo "Restarting backend..."
-            pm2 restart buy-sell-production-api --update-env
+            echo "Restarting staging backend..."
+            pm2 restart staging-api-buy-sell --update-env
 
             echo "Saving PM2 configuration..."
             pm2 save
@@ -53,9 +53,9 @@ jobs:
             sleep 5
 
             echo "Running health check..."
-            curl -f http://127.0.0.1:3000/ > /dev/null
+            curl -f http://127.0.0.1:3003/ > /dev/null
 
             echo "======================================"
-            echo "DEPLOYMENT SUCCESSFUL"
-            echo "API: https://api.fazlapp.com"
+            echo "STAGING DEPLOYMENT SUCCESSFUL"
+            echo "API: https://staging-api.fazlapp.com"
             echo "======================================"

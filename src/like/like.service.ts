@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ConflictException,
   forwardRef,
@@ -13,6 +14,8 @@ import { ProductsService } from "src/products/products.service";
 import { ServicesService } from "src/services/services.service";
 import { I18nService } from "nestjs-i18n";
 import { ClsService } from "nestjs-cls";
+import { NotificationsService } from "src/notifications/notifications.service";
+import { UsersService } from "src/users/users.service";
 
 export interface LikeItem {
   _id: Types.ObjectId;
@@ -36,7 +39,12 @@ export class LikeService {
     private readonly servicesService: ServicesService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
+    private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
   ) { }
+
+  private readonly logger = new Logger(LikeService.name);
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
@@ -52,7 +60,7 @@ export class LikeService {
     const userObjectId = new Types.ObjectId(userId);
     const itemObjectId = new Types.ObjectId(dto.itemId);
 
-    await this.validateItemExists(dto.itemId, dto.itemType);
+    const item = await this.validateItemExists(dto.itemId, dto.itemType);
 
     const existingLike = await this.likeModel.findOne({
       userId: userObjectId,
@@ -74,7 +82,9 @@ export class LikeService {
     });
 
     const results = await like.save();
-    // await new Promise(resolve => setTimeout(resolve, 2000));
+
+    this.notifyOwnerOfLike(userId, dto, item);
+
     return {
       message: this.i18n.translate("auth.like.created_success", {
         lang: this.lang,
@@ -277,12 +287,59 @@ export class LikeService {
   }
 
   /**
-   * Validate item exists
+   * Tells the owner that someone liked their listing or service.
+   *
+   * Deliberately not awaited: a notification problem must never fail the like the
+   * user actually asked for, and createAndNotify throws when the recipient no
+   * longer exists. Same fire-and-forget shape orders.service uses.
+   *
+   * The payload is flat scalars on purpose — a tapped tray notification arrives
+   * as a flat object of strings, so anything nested would have to be JSON-parsed
+   * again on the device.
+   */
+  private notifyOwnerOfLike(
+    likerId: string,
+    dto: CreateLikeDto,
+    item: any,
+  ): void {
+    const ownerUserId = this.resolveOwnerUserId(item, dto.itemType);
+
+    // Nothing to say when the item has no owner, or when someone likes their own.
+    if (!ownerUserId || ownerUserId === String(likerId)) return;
+
+    void (async () => {
+      try {
+        const liker = await this.usersService.findUserById(String(likerId));
+
+        await this.notificationsService.createAndNotify(
+          ownerUserId,
+          dto.itemType === "product" ? "like_product" : "like_service",
+          "LIKE",
+          { itemType: dto.itemType, itemId: String(dto.itemId) },
+          {
+            likerName: liker?.name || "Someone",
+            title: item?.title || "",
+          },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Like notification not sent for ${dto.itemType} ${dto.itemId}: ${(err as Error)?.message}`,
+        );
+      }
+    })();
+  }
+
+  /**
+   * Validate item exists, and hand the caller the item it just fetched.
+   *
+   * Returning it rather than discarding it is what lets addLike name the item and
+   * find its owner without a second round trip — both getById calls already
+   * populate the owner.
    */
   private async validateItemExists(
     itemId: string,
     itemType: "product" | "service",
-  ): Promise<void> {
+  ): Promise<any> {
     if (itemType === "product") {
       const product = await this.productsService.getById(itemId);
 
@@ -293,18 +350,37 @@ export class LikeService {
           }),
         );
       }
+      return product;
     }
 
-    if (itemType === "service") {
-      const service = await this.servicesService.getById(itemId);
+    const service = await this.servicesService.getById(itemId);
 
-      if (!service) {
-        throw new NotFoundException(
-          this.i18n.translate("auth.like.service_not_found", {
-            lang: this.lang,
-          }),
-        );
-      }
+    if (!service) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.like.service_not_found", {
+          lang: this.lang,
+        }),
+      );
     }
+    return service;
+  }
+
+  /**
+   * The user who should hear about a like on this item.
+   *
+   * A service always has an ownerId. A product's is optional: one listed under a
+   * shop carries the real user on the shop instead, the same split orders.service
+   * has to handle when it notifies a seller.
+   */
+  private resolveOwnerUserId(
+    item: any,
+    itemType: "product" | "service",
+  ): string | null {
+    const owner =
+      itemType === "product"
+        ? (item?.ownerId?._id ?? item?.ownerId ?? item?.shopId?.ownerId?._id)
+        : (item?.ownerId?._id ?? item?.ownerId);
+
+    return owner ? String(owner) : null;
   }
 }
