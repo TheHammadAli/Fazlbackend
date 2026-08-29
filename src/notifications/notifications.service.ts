@@ -69,18 +69,57 @@ export class NotificationsService {
     payload: Record<string, any>,
   ) {
     const tokens = this.collectFcmTokens(user);
-    if (tokens.length === 0) return;
+    if (tokens.length === 0) {
+      return { tokenCount: 0, successCount: 0, staleTokens: [], errors: [] };
+    }
 
-    const { staleTokens } = await this.firebaseService.sendNotificationToTokens(
+    const result = await this.firebaseService.sendNotificationToTokens(
       tokens,
       title,
       body,
       payload,
     );
 
-    if (staleTokens.length) {
-      await this.usersService.removeFcmTokens(userId, staleTokens);
+    if (result.staleTokens.length) {
+      await this.usersService.removeFcmTokens(userId, result.staleTokens);
     }
+
+    return { tokenCount: tokens.length, ...result };
+  }
+
+  /**
+   * Push-only probe for the /notifications/test endpoint.
+   *
+   * The normal send path swallows FCM failures so a delivery problem can never
+   * break the caller's request — which also means a broken credential looks
+   * exactly like success from outside. This reports what actually happened, so
+   * the cause can be read off an HTTP response instead of the server's log.
+   */
+  async sendTestPush(userId: string, message: string) {
+    const user = await this.usersService.findUserById(userId.toString());
+    if (!user) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.notifications.user_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    const tokens = this.collectFcmTokens(user);
+    const result = await this.pushToUserDevices(
+      userId,
+      user,
+      "Push diagnostic",
+      message || "test",
+      { type: "ANNOUNCEMENT" },
+    );
+
+    return {
+      userId,
+      tokensStored: tokens.length,
+      tokenPreviews: tokens.map((t) => `${t.slice(0, 10)}...${t.slice(-6)}`),
+      ...result,
+    };
   }
 
   async create<T = Record<string, any>>(
