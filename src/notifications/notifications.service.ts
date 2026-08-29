@@ -116,6 +116,7 @@ export class NotificationsService {
 
     return {
       userId,
+      firebase: this.firebaseService.getCredentialInfo(),
       tokensStored: tokens.length,
       tokenPreviews: tokens.map((t) => `${t.slice(0, 10)}...${t.slice(-6)}`),
       ...result,

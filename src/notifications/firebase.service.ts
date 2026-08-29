@@ -15,6 +15,12 @@ export type PushResult = {
 export class FirebaseService {
   private readonly logger = new Logger(FirebaseService.name);
   private initialized = false;
+  // Which credential the running process ended up with. An invalid one still
+  // initializes cleanly — cert() never contacts Google — so identifying it after
+  // the fact is the only way to tell which env var is actually in play.
+  private credentialSource = "none";
+  private credentialProjectId = "unknown";
+  private credentialKeyId = "unknown";
 
   constructor() {
     this.initFirebase();
@@ -29,10 +35,12 @@ export class FirebaseService {
 
       if (serviceAccountEnv) {
         serviceAccount = this.parseServiceAccountEnv(serviceAccountEnv);
+        if (serviceAccount) this.credentialSource = "FIREBASE_SERVICE_ACCOUNT";
       }
 
       if (!serviceAccount) {
         serviceAccount = this.buildServiceAccountFromEnv();
+        if (serviceAccount) this.credentialSource = "individual FIREBASE_* vars";
       }
 
       if (!serviceAccount) {
@@ -51,15 +59,32 @@ export class FirebaseService {
         raw.privateKey = normalizedKey!;
       }
 
+      this.credentialProjectId =
+        raw.project_id ?? raw.projectId ?? "unknown";
+      this.credentialKeyId = raw.private_key_id ?? "unknown";
+
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
 
       this.initialized = true;
-      this.logger.log("Firebase initialized successfully");
+      this.logger.log(
+        `Firebase initialized successfully from ${this.credentialSource} ` +
+          `(project: ${this.credentialProjectId}, key: ${this.credentialKeyId})`,
+      );
     } catch (err) {
       this.logger.error("Firebase initialization failed", err);
     }
+  }
+
+  /** Non-secret identifiers for whichever credential this process loaded. */
+  getCredentialInfo() {
+    return {
+      initialized: admin.apps.length > 0,
+      source: this.credentialSource,
+      projectId: this.credentialProjectId,
+      privateKeyId: this.credentialKeyId,
+    };
   }
 
   private parseServiceAccountEnv(value: string): admin.ServiceAccount | undefined {
@@ -295,7 +320,7 @@ export class FirebaseService {
         response.responses.forEach((result, index) => {
           if (result.success) return;
           const code = result.error?.code ?? "unknown-error";
-          errors.push(code);
+          errors.push(`${code}: ${result.error?.message ?? "no message"}`);
           if (
             code === "messaging/registration-token-not-registered" ||
             code === "messaging/invalid-registration-token" ||
