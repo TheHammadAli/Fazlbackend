@@ -8,7 +8,8 @@ export type NotificationType =
   | "PROMOTION"
   | "SERVICE_REQUEST"
   | "BROADCAST"
-  | "ANNOUNCEMENT";
+  | "ANNOUNCEMENT"
+  | "LIKE";
 
 @Schema({ timestamps: true })
 export class Notification extends Document {
@@ -17,7 +18,17 @@ export class Notification extends Document {
 
   @Prop({
     required: true,
-    enum: ["ORDER", "MESSAGE", "PROMOTION", "SERVICE_REQUEST", "BROADCAST", "ANNOUNCEMENT"],
+    // Kept in step with NotificationType above by hand — Mongoose validates this
+    // enum on save, so a type missing here throws at write time, not compile time.
+    enum: [
+      "ORDER",
+      "MESSAGE",
+      "PROMOTION",
+      "SERVICE_REQUEST",
+      "BROADCAST",
+      "ANNOUNCEMENT",
+      "LIKE",
+    ],
   })
   type!: NotificationType;
 

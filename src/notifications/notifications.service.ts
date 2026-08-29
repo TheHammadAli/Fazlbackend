@@ -126,7 +126,7 @@ export class NotificationsService {
   async create<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     message: string,
-    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | "BROADCAST" | "ANNOUNCEMENT" = "MESSAGE",
+    type: NotificationType = "MESSAGE",
     payload: T,
   ) {
     const user = await this.usersService.findUserById(userId.toString());
@@ -154,7 +154,7 @@ export class NotificationsService {
   async createAndNotify<T = Record<string, any>>(
     userId: string | Types.ObjectId,
     messageKey: string,
-    type: "ORDER" | "MESSAGE" | "PROMOTION" | "SERVICE_REQUEST" | "BROADCAST" | "ANNOUNCEMENT",
+    type: NotificationType,
     payload: T,
     i18nArgs: Record<string, any> = {},
     titleOverride?: string,

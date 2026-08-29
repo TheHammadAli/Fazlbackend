@@ -6,6 +6,8 @@ import { Like, LikeSchema } from "./schema/like.schema";
 
 import { ProductsModule } from "src/products/products.module";
 import { ServicesModule } from "src/services/services.module";
+import { NotificationsModule } from "src/notifications/notifications.module";
+import { UsersModule } from "src/users/users.module";
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { ServicesModule } from "src/services/services.module";
 
     forwardRef(() => ProductsModule),
     forwardRef(() => ServicesModule),
+    NotificationsModule,
+    forwardRef(() => UsersModule),
   ],
   controllers: [LikeController],
   providers: [LikeService],
