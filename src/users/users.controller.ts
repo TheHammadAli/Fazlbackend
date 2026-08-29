@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -184,6 +185,32 @@ export class UsersController {
     @Body("token") token: string,
   ) {
     return this.usersService.saveFcmToken(user.sub, token);
+  }
+
+  @Post("unregister-fcm-token")
+  @ApiOperation({
+    summary: "Drop this device's FCM token when the user signs out",
+  })
+  @ApiResponse({ status: 200, description: "FCM token removed" })
+  @ApiBody({
+    schema: { properties: { token: { type: "string" } } },
+    required: true,
+  })
+  async unregisterFcmToken(
+    @CurrentUser() user: JwtPayload,
+    @Body("token") token: string,
+  ) {
+    // Signing out has to take the device's token with it: the token outlives the
+    // session, so leaving it attached means this user's notifications keep
+    // arriving on a phone they have signed out of — and land in front of whoever
+    // signs in next.
+    const trimmed = token?.trim();
+    if (!trimmed) {
+      throw new BadRequestException("FCM token is required.");
+    }
+
+    await this.usersService.removeFcmTokens(user.sub, [trimmed]);
+    return { message: "FCM token removed" };
   }
 
   @Delete(":id/deactivate")
