@@ -4,6 +4,13 @@ import * as admin from "firebase-admin";
 import * as fs from "fs";
 import * as path from "path";
 
+/** Outcome of one fan-out, including the FCM error codes for anything that failed. */
+export type PushResult = {
+  successCount: number;
+  staleTokens: string[];
+  errors: string[];
+};
+
 @Injectable()
 export class FirebaseService {
   private readonly logger = new Logger(FirebaseService.name);
@@ -253,19 +260,26 @@ export class FirebaseService {
     title: string,
     body: string,
     payload: Record<string, any> = {},
-  ): Promise<{ successCount: number; staleTokens: string[] }> {
+  ): Promise<PushResult> {
     const uniqueTokens = [...new Set(tokens.filter(Boolean))];
     if (uniqueTokens.length === 0) {
-      return { successCount: 0, staleTokens: [] };
+      return { successCount: 0, staleTokens: [], errors: [] };
     }
 
     try {
       if (!admin.apps.length) {
-        this.logger.warn("Firebase not initialized. Skipping notification.");
-        return { successCount: 0, staleTokens: [] };
+        this.logger.error(
+          "Firebase not initialized — push notifications skipped. Check the FIREBASE_* env vars.",
+        );
+        return {
+          successCount: 0,
+          staleTokens: [],
+          errors: ["firebase-not-initialized"],
+        };
       }
 
       const staleTokens: string[] = [];
+      const errors: string[] = [];
       let successCount = 0;
 
       // sendEachForMulticast caps at 500 tokens per call.
@@ -280,7 +294,8 @@ export class FirebaseService {
 
         response.responses.forEach((result, index) => {
           if (result.success) return;
-          const code = result.error?.code;
+          const code = result.error?.code ?? "unknown-error";
+          errors.push(code);
           if (
             code === "messaging/registration-token-not-registered" ||
             code === "messaging/invalid-registration-token" ||
@@ -288,17 +303,20 @@ export class FirebaseService {
           ) {
             staleTokens.push(batch[index]);
           } else {
-            this.logger.warn(
-              `FCM delivery failed for one token: ${code ?? "unknown error"}`,
-            );
+            this.logger.warn(`FCM delivery failed for one token: ${code}`);
           }
         });
       }
 
-      return { successCount, staleTokens };
+      return { successCount, staleTokens, errors };
     } catch (err) {
       this.logger.error("FCM error (notification skipped)", err);
-      return { successCount: 0, staleTokens: [] };
+      const e = err as { code?: string; message?: string };
+      return {
+        successCount: 0,
+        staleTokens: [],
+        errors: [`${e?.code ?? "send-threw"}: ${e?.message ?? String(err)}`],
+      };
     }
   }
 }

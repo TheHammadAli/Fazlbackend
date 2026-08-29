@@ -114,6 +114,12 @@ export class NotificationsController {
     status: 201,
     description: "Notification created and sent successfully",
   })
+  async testPush(@Body() body: { userId: string; message: string }) {
+    return this.notificationsService.sendTestPush(body.userId, body.message);
+  }
+
+  @Post("test-legacy")
+  @ApiOperation({ summary: "Send test notification to a user (creates a row too)" })
   async testNotification(@Body() body: { userId: string; message: string }) {
     return this.notificationsService.createAndNotify(
       body.userId, // Recipient
