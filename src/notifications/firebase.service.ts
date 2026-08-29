@@ -106,16 +106,34 @@ export class FirebaseService {
     } as admin.ServiceAccount;
   }
 
+  /**
+   * Turns whatever shape the key arrived in into a real PEM.
+   *
+   * Besides the usual escaped newlines, the value can carry wrappers left over
+   * from having been pasted through a JSON string into .env — a leading \" and a
+   * trailing \"," have both been seen in practice. Those survive into the PEM and
+   * make it undecodable, but credential.cert() still accepts it at startup because
+   * it only checks the shape and never contacts Google. The damage then surfaces
+   * much later, as app/invalid-credential on every single send, with a clean
+   * "initialized successfully" line sitting in the log.
+   */
   private normalizePrivateKey(key?: string): string | undefined {
     if (!key) return undefined;
 
-    const trimmed = key.trim();
-    const withoutQuotes =
-      trimmed.startsWith('"') && trimmed.endsWith('"')
-        ? trimmed.slice(1, -1)
-        : trimmed;
+    let value = key.trim();
 
-    return withoutQuotes.replace(/\\n/g, "\n");
+    // Escaped quote wrappers from a mis-quoted .env value.
+    value = value.replace(/^\\+"/, "").replace(/\\+",?"?$/, "");
+
+    // Plain surrounding quotes.
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    return value.replace(/\\n/g, "\n").trim();
   }
 
   /**
