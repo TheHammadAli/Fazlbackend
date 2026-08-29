@@ -73,7 +73,7 @@ export class NotificationsGateway
    * people it is actually showing.
    */
   @SubscribeMessage("watchPresence")
-  handleWatchPresence(
+  async handleWatchPresence(
     @MessageBody() data: { userIds?: string[] },
     @ConnectedSocket() client: Socket,
   ) {
@@ -82,10 +82,19 @@ export class NotificationsGateway
       client.join(PresenceService.room(id));
     }
 
+    // The snapshot carries lastSeenAt as well as online state: a client that
+    // opened a chat directly has no other source for the timestamp, and would
+    // otherwise show nothing under the name until the peer happened to go
+    // offline while it was watching.
     const online = this.presenceService.getOnlineUserIds(userIds);
+    const lastSeen = await this.usersService.getLastSeenFor(userIds);
     client.emit(
       "presenceSnapshot",
-      userIds.map((userId) => ({ userId, isOnline: online.has(userId) })),
+      userIds.map((userId) => ({
+        userId,
+        isOnline: online.has(userId),
+        lastSeenAt: lastSeen[userId] ?? null,
+      })),
     );
   }
 }

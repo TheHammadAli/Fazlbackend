@@ -77,7 +77,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   /** See NotificationsGateway.handleWatchPresence — same contract on this namespace. */
   @SubscribeMessage("watchPresence")
-  handleWatchPresence(
+  async handleWatchPresence(
     @MessageBody() data: { userIds?: string[] },
     @ConnectedSocket() client: Socket,
   ) {
@@ -87,9 +87,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     const online = this.presenceService.getOnlineUserIds(userIds);
+    const lastSeen = await this.usersService.getLastSeenFor(userIds);
     client.emit(
       "presenceSnapshot",
-      userIds.map((userId) => ({ userId, isOnline: online.has(userId) })),
+      userIds.map((userId) => ({
+        userId,
+        isOnline: online.has(userId),
+        lastSeenAt: lastSeen[userId] ?? null,
+      })),
     );
   }
 

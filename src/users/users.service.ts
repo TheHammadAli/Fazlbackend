@@ -523,6 +523,27 @@ export class UsersService {
       .exec();
   }
 
+  /**
+   * `lastSeenAt` for a set of users, keyed by id.
+   *
+   * Used to answer a presence subscription: online state is in memory, but the
+   * timestamp is not, and a client opening a chat directly has no other source
+   * for it.
+   */
+  async getLastSeenFor(userIds: string[]): Promise<Record<string, Date | null>> {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    if (ids.length === 0) return {};
+
+    const rows = await this.userModel
+      .find({ _id: { $in: ids } }, { _id: 1, lastSeenAt: 1 })
+      .lean()
+      .exec();
+
+    return Object.fromEntries(
+      rows.map((row: any) => [String(row._id), row.lastSeenAt ?? null]),
+    );
+  }
+
   async getUserDetailForAdmin(userId: string) {
     const user = await this.findUserById(userId);
     return {
