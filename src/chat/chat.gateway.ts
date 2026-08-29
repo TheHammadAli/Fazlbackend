@@ -11,6 +11,8 @@ import {
 import { Server, Socket } from "socket.io";
 import { ChatService } from "./chat.service";
 import { forwardRef, Inject, Logger } from "@nestjs/common";
+import { PresenceService } from "src/presence/presence.service";
+import { UsersService } from "src/users/users.service";
 
 @WebSocketGateway({
   namespace: "/chat",
@@ -25,23 +27,70 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   afterInit(server: Server) {
     ChatGateway.serverInstance = server;
+    this.presenceService.registerServer(server);
   }
-
-
 
   private logger: Logger = new Logger("ChatGateway");
 
   constructor(
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
+    private readonly presenceService: PresenceService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
   ) { }
 
+  // Presence is tracked here as well as on the notifications gateway. The mobile
+  // app only ever connects to /chat, so without this it never registered as
+  // online at all. PresenceService counts sockets per user, so a client on both
+  // namespaces is simply two connections and stays online until the last drops.
   handleConnection(client: Socket) {
-    console.log("Client connected", client.id);
+    const userId = client.handshake.query.userId as string;
+    if (!userId) return;
+
+    client.join(userId);
+    const cameOnline = this.presenceService.addConnection(userId, client.id);
+    if (cameOnline) {
+      this.presenceService.broadcastChange({
+        userId,
+        isOnline: true,
+        lastSeenAt: null,
+      });
+    }
   }
 
-  handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected: ${client.id}`);
+  async handleDisconnect(client: Socket) {
+    const userId = client.handshake.query.userId as string;
+    if (!userId) return;
+
+    const wentOffline = this.presenceService.removeConnection(userId, client.id);
+    if (wentOffline) {
+      const lastSeenAt = new Date();
+      await this.usersService.touchLastSeen(userId);
+      this.presenceService.broadcastChange({
+        userId,
+        isOnline: false,
+        lastSeenAt,
+      });
+    }
+  }
+
+  /** See NotificationsGateway.handleWatchPresence — same contract on this namespace. */
+  @SubscribeMessage("watchPresence")
+  handleWatchPresence(
+    @MessageBody() data: { userIds?: string[] },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const userIds = (data?.userIds ?? []).filter(Boolean);
+    for (const id of userIds) {
+      client.join(PresenceService.room(id));
+    }
+
+    const online = this.presenceService.getOnlineUserIds(userIds);
+    client.emit(
+      "presenceSnapshot",
+      userIds.map((userId) => ({ userId, isOnline: online.has(userId) })),
+    );
   }
 
   @SubscribeMessage("joinConversation")

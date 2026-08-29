@@ -4,6 +4,9 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { NotificationsService } from "./notifications.service";
@@ -25,17 +28,23 @@ export class NotificationsGateway
 
   afterInit(server: Server) {
     this.notificationsService.setServer(server);
+    this.presenceService.registerServer(server);
   }
 
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
     if (userId) {
       client.join(userId);
-      this.presenceService.addConnection(userId, client.id);
-      console.log(`User ${userId} connected`);
+      const cameOnline = this.presenceService.addConnection(userId, client.id);
+      if (cameOnline) {
+        this.presenceService.broadcastChange({
+          userId,
+          isOnline: true,
+          lastSeenAt: null,
+        });
+      }
     } else {
       client.disconnect();
-      console.log("Client without userId disconnected");
     }
   }
 
@@ -43,10 +52,40 @@ export class NotificationsGateway
     const userId = client.handshake.query.userId as string;
     if (!userId) return;
 
-    console.log(`User ${userId} disconnected`);
     const wentOffline = this.presenceService.removeConnection(userId, client.id);
     if (wentOffline) {
+      const lastSeenAt = new Date();
       await this.usersService.touchLastSeen(userId);
+      this.presenceService.broadcastChange({
+        userId,
+        isOnline: false,
+        lastSeenAt,
+      });
     }
+  }
+
+  /**
+   * Subscribes this socket to presence changes for a specific set of users, and
+   * answers with their current state.
+   *
+   * Scoped on purpose: broadcasting every connect and disconnect to every socket
+   * would tell the whole user base who is online. A client only ever asks for the
+   * people it is actually showing.
+   */
+  @SubscribeMessage("watchPresence")
+  handleWatchPresence(
+    @MessageBody() data: { userIds?: string[] },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const userIds = (data?.userIds ?? []).filter(Boolean);
+    for (const id of userIds) {
+      client.join(PresenceService.room(id));
+    }
+
+    const online = this.presenceService.getOnlineUserIds(userIds);
+    client.emit(
+      "presenceSnapshot",
+      userIds.map((userId) => ({ userId, isOnline: online.has(userId) })),
+    );
   }
 }

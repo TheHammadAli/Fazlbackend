@@ -1,9 +1,39 @@
 import { Injectable } from "@nestjs/common";
+import { Server } from "socket.io";
+
+export type PresenceChange = {
+  userId: string;
+  isOnline: boolean;
+  lastSeenAt: Date | null;
+};
 
 /** In-memory presence tracker: userId -> set of live socket ids across all their connections (tabs/devices). */
 @Injectable()
 export class PresenceService {
   private readonly userSockets = new Map<string, Set<string>>();
+
+  // Presence is written from more than one gateway, and each gateway is its own
+  // Socket.IO namespace with its own rooms — an emit on one is invisible to the
+  // other. So every gateway registers its server here and a change fans out to
+  // all of them, letting a client watch presence from whichever namespace it is
+  // already connected to.
+  private readonly servers = new Set<Server>();
+
+  /** Room a socket joins to receive one user's presence changes. */
+  static room(userId: string): string {
+    return `presence:${userId}`;
+  }
+
+  registerServer(server: Server): void {
+    if (server) this.servers.add(server);
+  }
+
+  /** Tells everyone watching this user that they came online or went offline. */
+  broadcastChange(change: PresenceChange): void {
+    for (const server of this.servers) {
+      server.to(PresenceService.room(change.userId)).emit("presenceChanged", change);
+    }
+  }
 
   /** Returns true if this is the user's first connection (they just went online). */
   addConnection(userId: string, socketId: string): boolean {
