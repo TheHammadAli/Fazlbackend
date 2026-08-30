@@ -788,11 +788,31 @@ export class UsersService {
 
     const existingUser = await this.userModel.findOne({ email: dto.email });
     if (existingUser) {
-      throw new ConflictException(
-        this.i18n.translate("auth.users.email_already_registered", {
-          lang: this.lang,
-        }),
-      );
+      if (existingUser.roles?.includes(dto.role)) {
+        throw new ConflictException(
+          this.i18n.translate("auth.users.email_already_registered", {
+            lang: this.lang,
+          }),
+        );
+      }
+
+      // Not this role yet, but already has a regular account (buyer/seller/etc. on the
+      // main app) — add admin access on top of it rather than blocking, same as
+      // createMemberAccount below. Separate admin-panel password so the two logins
+      // never collide: their original password keeps working on the main app
+      // (loginContext "web"), this new one only works on the admin panel ("admin").
+      const generatedMemberPassword = this.generateRandomPassword();
+      existingUser.memberPassword = await this.hashPassword(generatedMemberPassword);
+      existingUser.roles = [...new Set([...(existingUser.roles ?? []), dto.role])];
+      existingUser.permissions = this.sanitizePermissions(dto.permissions);
+      const savedExistingUser = await existingUser.save();
+
+      this.sendMemberAddedEmail(savedExistingUser.name, savedExistingUser.email, generatedMemberPassword);
+
+      return {
+        message: "Existing user granted admin access successfully",
+        data: { ...savedExistingUser.toJSON(), generatedPassword: generatedMemberPassword },
+      };
     }
 
     const generatedPassword = this.generateRandomPassword();
