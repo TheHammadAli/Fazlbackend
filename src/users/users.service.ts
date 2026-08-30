@@ -786,37 +786,35 @@ export class UsersService {
       throw new ForbiddenException("A new Super Admin cannot be created this way");
     }
 
+    const trimmedPassword = dto.password?.trim();
+    if (trimmedPassword && trimmedPassword.length < 8) {
+      throw new BadRequestException("Password must be at least 8 characters long");
+    }
+
     const existingUser = await this.userModel.findOne({ email: dto.email });
     if (existingUser) {
-      if (existingUser.roles?.includes(dto.role)) {
-        throw new ConflictException(
-          this.i18n.translate("auth.users.email_already_registered", {
-            lang: this.lang,
-          }),
-        );
-      }
-
-      // Not this role yet, but already has a regular account (buyer/seller/etc. on the
-      // main app) — add admin access on top of it rather than blocking, same as
-      // createMemberAccount below. Separate admin-panel password so the two logins
-      // never collide: their original password keeps working on the main app
-      // (loginContext "web"), this new one only works on the admin panel ("admin").
-      const generatedMemberPassword = this.generateRandomPassword();
-      existingUser.memberPassword = await this.hashPassword(generatedMemberPassword);
+      // Already registered (a regular buyer/seller account, or already an admin/moderator
+      // from an earlier attempt) — grant/refresh admin-panel access instead of blocking.
+      // Separate admin-panel password so the two logins never collide: their original
+      // password keeps working on the main app (loginContext "web"), this one only works
+      // on the admin panel ("admin"), and it's whatever was entered on this form (or a
+      // generated one, if left blank).
+      const adminPassword = trimmedPassword || this.generateRandomPassword();
+      existingUser.memberPassword = await this.hashPassword(adminPassword);
       existingUser.roles = [...new Set([...(existingUser.roles ?? []), dto.role])];
       existingUser.permissions = this.sanitizePermissions(dto.permissions);
       const savedExistingUser = await existingUser.save();
 
-      this.sendMemberAddedEmail(savedExistingUser.name, savedExistingUser.email, generatedMemberPassword);
+      this.sendMemberAddedEmail(savedExistingUser.name, savedExistingUser.email, adminPassword);
 
       return {
-        message: "Existing user granted admin access successfully",
-        data: { ...savedExistingUser.toJSON(), generatedPassword: generatedMemberPassword },
+        message: "Admin account created successfully",
+        data: { ...savedExistingUser.toJSON(), generatedPassword: adminPassword },
       };
     }
 
-    const generatedPassword = this.generateRandomPassword();
-    const hashedPassword = await this.hashPassword(generatedPassword);
+    const adminPassword = trimmedPassword || this.generateRandomPassword();
+    const hashedPassword = await this.hashPassword(adminPassword);
     const userCode = await this.generateNextUserCode();
 
     const newUser = new this.userModel({
@@ -833,7 +831,7 @@ export class UsersService {
 
     return {
       message: "Admin account created successfully",
-      data: { ...savedUser.toJSON(), generatedPassword },
+      data: { ...savedUser.toJSON(), generatedPassword: adminPassword },
     };
   }
 
