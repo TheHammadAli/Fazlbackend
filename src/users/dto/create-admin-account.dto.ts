@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MinLength,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -46,6 +47,16 @@ export class CreateAdminAccountDto {
   @ApiProperty({ example: "ayesha@fazl.com" })
   @IsEmail()
   email: string;
+
+  @ApiPropertyOptional({
+    example: "Kj8#mPz2Qx",
+    description:
+      "Password for the admin-panel login. Omit to auto-generate one server-side. This is always a separate credential from the account's main-app (web) password.",
+  })
+  @IsString()
+  @IsOptional()
+  @MinLength(8)
+  password?: string;
 
   @ApiProperty({ enum: CREATABLE_ADMIN_ROLES, example: "admin" })
   @IsEnum(CREATABLE_ADMIN_ROLES)
