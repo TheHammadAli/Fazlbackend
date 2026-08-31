@@ -12,6 +12,7 @@ import { CategoryModule } from "./category/category.module";
 import { ServicesModule } from "./services/services.module";
 import { ChatModule } from "./chat/chat.module";
 import { ReviewsModule } from "./reviews/reviews.module";
+import { ReportsModule } from "./reports/reports.module";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { AcceptLanguageResolver, I18nModule, QueryResolver } from "nestjs-i18n";
@@ -75,6 +76,7 @@ const isProduction = process.env.NODE_ENV === "production";
     CategoryModule,
     ChatModule,
     ReviewsModule,
+    ReportsModule,
     OrdersModule,
     SubscriptionModule,
     PromotionModule,
