@@ -141,7 +141,7 @@ export class ReportsService {
       <p>You can track its status any time from your Profile → My Reports page.</p>
     `;
     this.emailService
-      .sendEmail(email, "Your report has been submitted", html)
+      .sendEmail(email, `Your report has been submitted (${reportCode})`, html)
       .catch((err) =>
         console.error(`Report-submitted email to ${email} failed:`, err),
       );
@@ -184,7 +184,7 @@ export class ReportsService {
       this.emailService
         .sendEmail(
           admin.email,
-          `New report: ${report.entityType} — ${report.reason}`,
+          `New report (${report.reportCode}): ${report.entityType} — ${report.reason}`,
           html,
         )
         .catch((err) =>
