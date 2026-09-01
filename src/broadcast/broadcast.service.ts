@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
@@ -11,6 +12,7 @@ import { I18nService } from "nestjs-i18n";
 import { Broadcast } from "./schema/broadcast.schema";
 import { BroadcastMessage } from "./schema/broadcast-message.schema";
 import { BroadcastThread } from "./schema/broadcast-thread.schema";
+import { BroadcastOffer } from "./schema/broadcast-offer.schema";
 import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 
 import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
@@ -41,6 +43,9 @@ export class BroadcastService {
 
     @InjectModel(BroadcastThread.name)
     private readonly threadModel: Model<BroadcastThread>,
+
+    @InjectModel(BroadcastOffer.name)
+    private readonly offerModel: Model<BroadcastOffer>,
 
     @InjectModel(Counter.name)
     private readonly counterModel: Model<CounterDocument>,
@@ -457,6 +462,18 @@ export class BroadcastService {
       );
     }
 
+    // 6.5. Gate: real chat requires an accepted offer on this thread — recipients must make a
+    // formal offer first, and neither side can free-chat until the creator accepts it.
+    const acceptedOffer = await this.offerModel.exists({
+      thread: thread._id,
+      status: "accepted",
+    });
+    if (!acceptedOffer) {
+      throw new ForbiddenException(
+        this.i18n.translate("auth.broadcast.offer_not_accepted", { lang: this.lang }),
+      );
+    }
+
     // 7. Derive the true thread recipient
     const computedReceiverId =
       senderId === thread.buyer.toString()
@@ -607,6 +624,21 @@ export class BroadcastService {
             preserveNullAndEmptyArrays: true,
           },
         },
+        // Lookup this thread's offer (recipient must make one before real chat unlocks)
+        {
+          $lookup: {
+            from: "broadcastoffers",
+            localField: "_id",
+            foreignField: "thread",
+            as: "offer",
+          },
+        },
+        {
+          $unwind: {
+            path: "$offer",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
         // Lookup latest message in this thread
         {
           $lookup: {
@@ -696,6 +728,7 @@ export class BroadcastService {
             updatedAt: 1,
             latestMessage: 1,
             unreadCount: 1,
+            offer: 1,
           },
         },
         {
@@ -985,6 +1018,14 @@ export class BroadcastService {
       }
     });
 
+    const myOffers = await this.offerModel
+      .find({ thread: { $in: threadIds }, offerer: userObjectId })
+      .lean()
+      .exec();
+    const offerByThreadId = new Map(
+      myOffers.map((offer: any) => [String(offer.thread), offer]),
+    );
+
     const data = await this.broadcastModel
       .find({ _id: { $in: uniqueBroadcastIds } })
       .populate("category")
@@ -1006,6 +1047,7 @@ export class BroadcastService {
           location: (broadcast as any).location ?? null,
           threadId,
           unreadCount: threadId ? unreadMap.get(threadId) ?? 0 : 0,
+          offer: threadId ? offerByThreadId.get(threadId) ?? null : null,
         };
       });
 

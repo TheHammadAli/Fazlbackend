@@ -18,6 +18,7 @@ import {
   BroadcastThread,
   BroadcastThreadSchema,
 } from "./schema/broadcast-thread.schema";
+import { BroadcastOffer, BroadcastOfferSchema } from "./schema/broadcast-offer.schema";
 import { ServicesModule } from "src/services/services.module";
 import { ProductsModule } from "src/products/products.module";
 import { NotificationsModule } from "src/notifications/notifications.module";
@@ -39,6 +40,7 @@ import { EmailLogModule } from "src/email-log/email-log.module";
         schema: BroadcastMessageSchema,
       },
       { name: BroadcastThread.name, schema: BroadcastThreadSchema },
+      { name: BroadcastOffer.name, schema: BroadcastOfferSchema },
       { name: Counter.name, schema: CounterSchema },
     ]),
     ShopModule,
@@ -58,6 +60,6 @@ import { EmailLogModule } from "src/email-log/email-log.module";
     ConfigService,
     EmailService,
   ],
-  exports: [BroadcastService],
+  exports: [BroadcastService, BroadcastGateway],
 })
 export class BroadcastModule { }
