@@ -360,14 +360,22 @@ export class BroadcastService {
         },
         {
           broadcastType: dto.type === "product" ? "Product" : "Service",
-          buyer: buyer?.name,
+          buyerName: buyer?.name,
           categoryName: isCategoryValid?.name?.[this.lang] || "Unknown Category",
           purpose: dto.purpose,
         },
       ),
     );
 
-    await Promise.allSettled(notificationPromises);
+    const notificationResults = await Promise.allSettled(notificationPromises);
+    notificationResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        this.logger.error(
+          `Failed to notify seller ${sellerIds[index]} about broadcast ${broadcast._id}:`,
+          result.reason,
+        );
+      }
+    });
 
     return {
       message: this.i18n.translate("auth.broadcast.created_success", {
