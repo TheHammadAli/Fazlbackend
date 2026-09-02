@@ -1031,7 +1031,17 @@ export class UsersService {
     const updateData: Record<string, unknown> = {};
     if (dto.name) updateData.name = dto.name;
     if (dto.email) updateData.email = dto.email;
-    if (dto.role) updateData.roles = [dto.role];
+    if (dto.role) {
+      // Replace only the admin-tier role (admin/subadmin/moderator) being reassigned here —
+      // never drop the account's underlying buyer/seller roles, which this form doesn't
+      // manage at all. Previously this overwrote the whole roles array with just [dto.role],
+      // silently deleting "buyer" (and any other non-admin role) from a dual-persona account.
+      const ADMIN_TIER_ROLES = ["admin", "subadmin", "moderator", "super_admin"];
+      const nonAdminRoles = (existingUser.roles ?? []).filter(
+        (role) => !ADMIN_TIER_ROLES.includes(role),
+      );
+      updateData.roles = [...new Set([...nonAdminRoles, dto.role])];
+    }
     if (dto.permissions) updateData.permissions = this.sanitizePermissions(dto.permissions);
 
     const updatedUser = await this.userModel
