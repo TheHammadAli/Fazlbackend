@@ -9,7 +9,9 @@ export type NotificationType =
   | "SERVICE_REQUEST"
   | "BROADCAST"
   | "ANNOUNCEMENT"
-  | "LIKE";
+  | "LIKE"
+  | "REPORT"
+  | "PRODUCT_OFFER";
 
 @Schema({ timestamps: true })
 export class Notification extends Document {
@@ -28,6 +30,8 @@ export class Notification extends Document {
       "BROADCAST",
       "ANNOUNCEMENT",
       "LIKE",
+      "REPORT",
+      "PRODUCT_OFFER",
     ],
   })
   type!: NotificationType;

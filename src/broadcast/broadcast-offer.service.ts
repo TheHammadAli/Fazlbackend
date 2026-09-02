@@ -166,6 +166,35 @@ export class BroadcastOfferService {
     };
   }
 
+  /** Offers the current user has submitted (as a broadcast recipient), flat and newest-first. */
+  async getMySentOffers(offererId: string, page = 1, limit = 10) {
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+    const offererObjectId = new Types.ObjectId(offererId);
+
+    const [offers, total] = await Promise.all([
+      this.offerModel
+        .find({ offerer: offererObjectId })
+        .populate("broadcast", "message type")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .exec(),
+      this.offerModel.countDocuments({ offerer: offererObjectId }),
+    ]);
+
+    return {
+      data: offers,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
   /** All offers on one broadcast — only the broadcast's own creator may view them. */
   async getOffersForBroadcast(broadcastId: string, requesterId: string) {
     if (!Types.ObjectId.isValid(broadcastId)) {

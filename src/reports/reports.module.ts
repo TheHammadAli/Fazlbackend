@@ -6,6 +6,7 @@ import { Report, ReportSchema } from "./schema/report.schema";
 import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { User, UserSchema } from "src/users/schema/users.schema";
 import { EmailService } from "src/common/email-service/email-service";
+import { NotificationsModule } from "src/notifications/notifications.module";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EmailService } from "src/common/email-service/email-service";
       { name: Counter.name, schema: CounterSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    NotificationsModule,
   ],
   providers: [ReportsService, EmailService],
   controllers: [ReportsController],

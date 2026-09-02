@@ -443,7 +443,7 @@ export class ProductsService {
   /** Resolves the User who actually owns this listing — the Shop's owner if it belongs to a
    *  shop, otherwise the product's own `ownerId` (personal/individual listing). Mirrors the
    *  identical shop-vs-personal resolution already used by update()/delete() for permissions. */
-  private async resolveProductOwnerId(product: {
+  async resolveProductOwnerId(product: {
     shopId?: Types.ObjectId | null;
     ownerId?: Types.ObjectId | null;
   }): Promise<string | undefined> {

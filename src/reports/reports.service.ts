@@ -12,6 +12,7 @@ import { Report, ReportDocument } from "./schema/report.schema";
 import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { User, UserDocument } from "src/users/schema/users.schema";
 import { EmailService } from "src/common/email-service/email-service";
+import { NotificationsService } from "src/notifications/notifications.service";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { UpdateReportDto } from "./dto/update-report.dto";
 
@@ -24,6 +25,7 @@ export class ReportsService {
     private readonly counterModel: Model<CounterDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly emailService: EmailService,
+    private readonly notificationsService: NotificationsService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
   ) {}
@@ -442,6 +444,26 @@ export class ReportsService {
     report.respondedBy = new Types.ObjectId(adminId);
     report.respondedAt = new Date();
     await report.save();
+
+    this.notificationsService
+      .createAndNotify(
+        report.reporterId.toString(),
+        "report_responded",
+        "REPORT",
+        {
+          id: (report._id as Types.ObjectId).toString(),
+          reportId: (report._id as Types.ObjectId).toString(),
+          reportCode: report.reportCode,
+        },
+        { reportCode: report.reportCode ?? "" },
+      )
+      .catch((err) =>
+        console.error(
+          `Failed to notify reporter about response on ${report.reportCode}:`,
+          err,
+        ),
+      );
+
     return { data: { report } };
   }
 }
