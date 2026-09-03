@@ -1,15 +1,16 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsNumber, IsPositive, IsString, MaxLength, MinLength } from "class-validator";
+import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
+import { IsNumber, IsOptional, IsPositive, IsString, MaxLength, MinLength } from "class-validator";
 
 export class CreateBroadcastOfferDto {
   @ApiProperty({ example: "64f0c2abc1234567890abcd" })
   @IsString()
   broadcastId: string;
 
-  @ApiProperty({ example: 1500 })
+  @ApiPropertyOptional({ example: 1500 })
+  @IsOptional()
   @IsNumber()
   @IsPositive()
-  price: number;
+  price?: number;
 
   @ApiProperty({ maxLength: 1000, example: "I can deliver this today, cash on delivery." })
   @IsString()

@@ -15,6 +15,9 @@ import { ProductsService } from "./products.service";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { CreateProductOfferDto } from "./dto/create-product-offer.dto";
 
+/** Max times a buyer may be declined on the same listing before they're locked out of re-offering. */
+const MAX_DECLINED_OFFERS = 3;
+
 @Injectable()
 export class ProductOfferService {
   constructor(
@@ -30,6 +33,16 @@ export class ProductOfferService {
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /** Consecutive declines since the last accepted offer (an accept resets the streak to 0). */
+  private getActiveDeclineCount(offers: ProductOffer[]): number {
+    let declinedCount = 0;
+    for (const offer of offers) {
+      if (offer.status === "accepted") declinedCount = 0;
+      else if (offer.status === "declined") declinedCount += 1;
+    }
+    return declinedCount;
   }
 
   async submitOffer(offererId: string, dto: CreateProductOfferDto) {
@@ -61,17 +74,24 @@ export class ProductOfferService {
       );
     }
 
-    const existing = await this.offerModel.findOne({
-      product: product._id,
-      offerer: new Types.ObjectId(offererId),
-    });
-    if (existing) {
+    const priorOffers = await this.offerModel
+      .find({ product: product._id, offerer: new Types.ObjectId(offererId) })
+      .sort({ createdAt: 1 });
+    if (priorOffers.some((o) => o.status === "pending")) {
       throw new BadRequestException(
         this.i18n.translate("auth.products.offer_already_submitted", { lang: this.lang }),
       );
     }
+    const declinedCount = this.getActiveDeclineCount(priorOffers);
+    if (declinedCount >= MAX_DECLINED_OFFERS) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.products.offer_limit_reached", { lang: this.lang }),
+      );
+    }
 
-    if (!Number.isFinite(dto.price) || dto.price <= 0) {
+    // Price is optional — an offer can be just a message. If given, it must
+    // still be a positive number.
+    if (dto.price != null && (!Number.isFinite(dto.price) || dto.price <= 0)) {
       throw new BadRequestException(
         this.i18n.translate("auth.products.offer_price_invalid", { lang: this.lang }),
       );
@@ -87,7 +107,7 @@ export class ProductOfferService {
       product: product._id,
       offerer: new Types.ObjectId(offererId),
       seller: new Types.ObjectId(sellerId),
-      price: dto.price,
+      price: dto.price ?? null,
       message,
       status: "pending",
     });
@@ -106,7 +126,12 @@ export class ProductOfferService {
       )
       .catch((err) => console.error("Failed to send product-offer-submitted notification:", err));
 
-    return { data: { offer } };
+    return {
+      data: {
+        offer,
+        remainingOffers: MAX_DECLINED_OFFERS - declinedCount - 1,
+      },
+    };
   }
 
   /** Products the current user owns that have at least one offer — grouped with a count. */
@@ -267,6 +292,19 @@ export class ProductOfferService {
         {},
       )
       .catch((err) => console.error("Failed to send product-offer-response notification:", err));
+
+    if (action === "decline") {
+      const priorOffers = await this.offerModel
+        .find({ product: offer.product, offerer: offer.offerer })
+        .sort({ createdAt: 1 });
+      const declinedCount = this.getActiveDeclineCount(priorOffers);
+      return {
+        data: {
+          offer,
+          remainingOffers: Math.max(0, MAX_DECLINED_OFFERS - declinedCount),
+        },
+      };
+    }
 
     return { data: { offer } };
   }

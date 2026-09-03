@@ -15,8 +15,8 @@ export class ProductOffer extends Document {
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   seller: Types.ObjectId;
 
-  @Prop({ type: Number, required: true })
-  price: number;
+  @Prop({ type: Number, default: null })
+  price: number | null;
 
   @Prop({ type: String, required: true, maxlength: 1000 })
   message: string;
@@ -30,6 +30,6 @@ export class ProductOffer extends Document {
 
 export const ProductOfferSchema = SchemaFactory.createForClass(ProductOffer);
 
-ProductOfferSchema.index({ product: 1, offerer: 1 }, { unique: true });
+ProductOfferSchema.index({ product: 1, offerer: 1 });
 ProductOfferSchema.index({ seller: 1, status: 1, updatedAt: -1 });
 ProductOfferSchema.index({ offerer: 1, updatedAt: -1 });

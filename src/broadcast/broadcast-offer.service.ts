@@ -65,7 +65,9 @@ export class BroadcastOfferService {
       );
     }
 
-    if (!Number.isFinite(dto.price) || dto.price <= 0) {
+    // Price is optional — an offer can be just a message. If given, it must
+    // still be a positive number.
+    if (dto.price != null && (!Number.isFinite(dto.price) || dto.price <= 0)) {
       throw new BadRequestException(
         this.i18n.translate("auth.broadcast.offer_price_invalid", { lang: this.lang }),
       );
@@ -82,7 +84,7 @@ export class BroadcastOfferService {
       thread: thread._id,
       offerer: new Types.ObjectId(offererId),
       creator: thread.buyer,
-      price: dto.price,
+      price: dto.price ?? null,
       message,
       status: "pending",
     });

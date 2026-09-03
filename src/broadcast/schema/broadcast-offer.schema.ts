@@ -18,8 +18,8 @@ export class BroadcastOffer extends Document {
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   creator: Types.ObjectId;
 
-  @Prop({ type: Number, required: true })
-  price: number;
+  @Prop({ type: Number, default: null })
+  price: number | null;
 
   @Prop({ type: String, required: true, maxlength: 1000 })
   message: string;
