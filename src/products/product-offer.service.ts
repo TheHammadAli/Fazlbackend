@@ -302,15 +302,33 @@ export class ProductOfferService {
       )
       .catch((err) => console.error("Failed to send product-offer-response notification:", err));
 
+    let remainingOffers: number | undefined;
+    if (action === "decline") {
+      const priorOffers = await this.offerModel
+        .find({ product: offer.product, offerer: offer.offerer })
+        .sort({ createdAt: 1 });
+      remainingOffers = Math.max(0, MAX_DECLINED_OFFERS - this.getActiveDeclineCount(priorOffers));
+    }
+
     const priceText = offer.price != null ? String(offer.price) : null;
     const chatMessageKey =
       action === "accept"
         ? priceText ? "offer_accepted_chat_with_price" : "offer_accepted_chat_no_price"
         : priceText ? "offer_declined_chat_with_price" : "offer_declined_chat_no_price";
-    const chatText = this.i18n.translate(`auth.products.${chatMessageKey}`, {
+    let chatText = this.i18n.translate(`auth.products.${chatMessageKey}`, {
       lang: this.lang,
       args: { price: priceText },
     }) as string;
+
+    if (action === "decline" && remainingOffers !== undefined) {
+      const remainingKey =
+        remainingOffers > 0 ? "offer_declined_remaining_chances" : "offer_declined_no_more_chances";
+      const remainingText = this.i18n.translate(`auth.products.${remainingKey}`, {
+        lang: this.lang,
+        args: { remainingOffers },
+      }) as string;
+      chatText = `${chatText} ${remainingText}`;
+    }
 
     this.chatService
       .getOrCreateConversation(
@@ -334,16 +352,7 @@ export class ProductOfferService {
       .catch((err) => console.error("Failed to send offer-response chat message:", err));
 
     if (action === "decline") {
-      const priorOffers = await this.offerModel
-        .find({ product: offer.product, offerer: offer.offerer })
-        .sort({ createdAt: 1 });
-      const declinedCount = this.getActiveDeclineCount(priorOffers);
-      return {
-        data: {
-          offer,
-          remainingOffers: Math.max(0, MAX_DECLINED_OFFERS - declinedCount),
-        },
-      };
+      return { data: { offer, remainingOffers } };
     }
 
     return { data: { offer } };
