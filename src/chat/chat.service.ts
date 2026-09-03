@@ -214,6 +214,10 @@ export class ChatService {
         message,
         sender,
         conversation,
+        // An offer accept/decline already sent its own "notification" event
+        // with the same news — tells the frontend not to toast this message
+        // a second time, while still delivering it live to an open chat window.
+        silent: !!options?.skipNotification,
       });
 
     return {
