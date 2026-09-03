@@ -71,14 +71,15 @@ export class ChatService {
       seller: buyerObjectId,
       product: productObjectId,
     });
-    if (reversedConvo) {
-      reversedConvo.buyer = buyerObjectId;
-      reversedConvo.seller = sellerObjectId;
-      await reversedConvo.save();
-      return reversedConvo;
-    }
 
     try {
+      if (reversedConvo) {
+        reversedConvo.buyer = buyerObjectId;
+        reversedConvo.seller = sellerObjectId;
+        await reversedConvo.save();
+        return reversedConvo;
+      }
+
       convo = await this.conversationModel.create({
         buyer: buyerObjectId,
         seller: sellerObjectId,
@@ -87,11 +88,25 @@ export class ChatService {
         locked: !!productObjectId,
       });
 
-      // await new Promise(resolve => setTimeout(resolve, 2000));
-
       return convo;
     } catch (err: any) {
-      throw new AppError(err);
+      // A duplicate-key race (concurrent calls, or a stray reversed-role
+      // duplicate left over from before callers consistently passed
+      // buyer/seller in order) means the conversation we want already
+      // exists under the other document — fetch and return that instead
+      // of surfacing a raw error.
+      const existing = await this.conversationModel.findOne({
+        buyer: buyerObjectId,
+        seller: sellerObjectId,
+        product: productObjectId,
+      });
+      if (existing) return existing;
+      throw new AppError(
+        err?.message ?? "Failed to get or create conversation",
+        "CONVERSATION_ERROR",
+        500,
+        err,
+      );
     }
   }
 
