@@ -48,15 +48,22 @@ export class ChatController {
       properties: {
         buyerId: { type: "string", example: "6645f1d8a8c02c2b8f5a9df0" },
         sellerId: { type: "string", example: "6645f1d8a8c02c2b8f5a9df1" },
+        productId: {
+          type: "string",
+          nullable: true,
+          description: "Scopes the conversation to this listing's offer thread instead of the general chat",
+          example: "64f0c2abc1234567890abcd",
+        },
       },
     },
   })
   async getOrCreateConversation(
-    @Body() body: { buyerId: string; sellerId: string },
+    @Body() body: { buyerId: string; sellerId: string; productId?: string },
   ) {
     return this.chatService.getOrCreateConversation(
       body.buyerId,
       body.sellerId,
+      body.productId,
     );
   }
 

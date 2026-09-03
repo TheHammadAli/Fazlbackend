@@ -13,6 +13,7 @@ import { Product } from "./schema/product.schema";
 import { ProductOffer } from "./schema/product-offer.schema";
 import { ProductsService } from "./products.service";
 import { NotificationsService } from "src/notifications/notifications.service";
+import { ChatService } from "src/chat/chat.service";
 import { CreateProductOfferDto } from "./dto/create-product-offer.dto";
 
 /** Max times a buyer may be declined on the same listing before they're locked out of re-offering. */
@@ -27,6 +28,7 @@ export class ProductOfferService {
     private readonly offerModel: Model<ProductOffer>,
     private readonly productsService: ProductsService,
     private readonly notificationsService: NotificationsService,
+    private readonly chatService: ChatService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
   ) {}
@@ -125,6 +127,13 @@ export class ProductOfferService {
         { productTitle: product.title ?? "" },
       )
       .catch((err) => console.error("Failed to send product-offer-submitted notification:", err));
+
+    this.chatService
+      .getOrCreateConversation(offererId, sellerId, product._id.toString())
+      .then((conversation) =>
+        this.chatService.setLock((conversation._id as Types.ObjectId).toString(), true),
+      )
+      .catch((err) => console.error("Failed to lock product chat on new offer:", err));
 
     return {
       data: {
@@ -292,6 +301,37 @@ export class ProductOfferService {
         {},
       )
       .catch((err) => console.error("Failed to send product-offer-response notification:", err));
+
+    const priceText = offer.price != null ? String(offer.price) : null;
+    const chatMessageKey =
+      action === "accept"
+        ? priceText ? "offer_accepted_chat_with_price" : "offer_accepted_chat_no_price"
+        : priceText ? "offer_declined_chat_with_price" : "offer_declined_chat_no_price";
+    const chatText = this.i18n.translate(`auth.products.${chatMessageKey}`, {
+      lang: this.lang,
+      args: { price: priceText },
+    }) as string;
+
+    this.chatService
+      .getOrCreateConversation(
+        offer.offerer.toString(),
+        offer.seller.toString(),
+        offer.product.toString(),
+      )
+      .then(async (conversation) => {
+        const conversationId = (conversation._id as Types.ObjectId).toString();
+        // Accepting opens the chat; declining keeps (or puts) it locked until a future offer is accepted.
+        await this.chatService.setLock(conversationId, action !== "accept");
+        await this.chatService.sendMessage(
+          conversationId,
+          offer.seller.toString(),
+          offer.offerer.toString(),
+          chatText,
+          undefined,
+          { bypassLock: true, skipNotification: true },
+        );
+      })
+      .catch((err) => console.error("Failed to send offer-response chat message:", err));
 
     if (action === "decline") {
       const priorOffers = await this.offerModel

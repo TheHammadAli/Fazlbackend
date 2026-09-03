@@ -7,6 +7,7 @@ import { Product, ProductSchema } from "./schema/product.schema";
 import { ProductOffer, ProductOfferSchema } from "./schema/product-offer.schema";
 import { NotificationsModule } from "src/notifications/notifications.module";
 import { ProductsModule } from "./products.module";
+import { ChatModule } from "src/chat/chat.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ProductsModule } from "./products.module";
     ]),
     NotificationsModule,
     ProductsModule,
+    ChatModule,
   ],
   controllers: [ProductOfferController],
   providers: [ProductOfferService],

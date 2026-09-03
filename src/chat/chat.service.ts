@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException, forwardRef } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
@@ -36,7 +36,12 @@ export class ChatService {
     return this.cls.get("lang") || "en";
   }
 
-  async getOrCreateConversation(buyerId: string, sellerId: string) {
+  /**
+   * `productId` scopes the conversation to one listing's offer negotiation (its own thread,
+   * separate from the buyer/seller's general chat) and starts it locked. Omit it for the
+   * general buyer/seller conversation, which is never locked.
+   */
+  async getOrCreateConversation(buyerId: string, sellerId: string, productId?: string) {
     const buyer = await this.userService.findUserById(buyerId);
     const seller = await this.userService.findUserById(sellerId);
 
@@ -48,11 +53,13 @@ export class ChatService {
 
     const buyerObjectId = new Types.ObjectId(buyerId);
     const sellerObjectId = new Types.ObjectId(sellerId);
+    const productObjectId = productId ? new Types.ObjectId(productId) : null;
 
     // First, try to find a conversation with the exact requested buyer/seller roles.
     let convo = await this.conversationModel.findOne({
       buyer: buyerObjectId,
       seller: sellerObjectId,
+      product: productObjectId,
     });
     if (convo) {
       return convo;
@@ -62,6 +69,7 @@ export class ChatService {
     const reversedConvo = await this.conversationModel.findOne({
       buyer: sellerObjectId,
       seller: buyerObjectId,
+      product: productObjectId,
     });
     if (reversedConvo) {
       reversedConvo.buyer = buyerObjectId;
@@ -74,7 +82,9 @@ export class ChatService {
       convo = await this.conversationModel.create({
         buyer: buyerObjectId,
         seller: sellerObjectId,
+        product: productObjectId,
         status: "open",
+        locked: !!productObjectId,
       });
 
       // await new Promise(resolve => setTimeout(resolve, 2000));
@@ -85,6 +95,11 @@ export class ChatService {
     }
   }
 
+  /** Locks/unlocks a product-scoped conversation. No-op semantically on a general (product-less) one. */
+  async setLock(conversationId: string, locked: boolean) {
+    await this.conversationModel.findByIdAndUpdate(conversationId, { locked });
+  }
+
   /** Read-only lookup — unlike getOrCreateConversation, never creates one. */
   async findConversationBetween(userIdA: string, userIdB: string) {
     const [user1, user2] =
@@ -93,6 +108,7 @@ export class ChatService {
     return this.conversationModel.findOne({
       buyer: new Types.ObjectId(user1),
       seller: new Types.ObjectId(user2),
+      product: null,
     });
   }
 
@@ -102,6 +118,7 @@ export class ChatService {
     receiverId: string,
     text: string,
     imageUrl?: string,
+    options?: { bypassLock?: boolean; skipNotification?: boolean },
   ) {
     const conversation = await this.conversationModel.findById(conversationId);
 
@@ -110,6 +127,12 @@ export class ChatService {
         this.i18n.translate("auth.chat.conversation_not_found", {
           lang: this.lang,
         }),
+      );
+    }
+
+    if (conversation.product && conversation.locked && !options?.bypassLock) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.chat.conversation_locked", { lang: this.lang }),
       );
     }
 
@@ -161,32 +184,34 @@ export class ChatService {
       lastMessageAt: new Date(),
     });
 
-    await this.notificationsService.createAndNotify(
-      computedReceiverId,
-      "chat.new_message",
-      "MESSAGE",
-      {
-        conversation: {
-          id: conversation._id,
-          buyer: conversation.buyer,
-          seller: conversation.seller,
-          status: conversation.status,
+    if (!options?.skipNotification) {
+      await this.notificationsService.createAndNotify(
+        computedReceiverId,
+        "chat.new_message",
+        "MESSAGE",
+        {
+          conversation: {
+            id: conversation._id,
+            buyer: conversation.buyer,
+            seller: conversation.seller,
+            status: conversation.status,
+          },
+          message: {
+            id: message._id,
+            text: message.text,
+            imageUrl: message.imageUrl,
+            createdAt: message.createdAt,
+          },
+          sender: {
+            id: sender._id,
+            name: sender.name,
+            image: sender.image,
+          },
         },
-        message: {
-          id: message._id,
-          text: message.text,
-          imageUrl: message.imageUrl,
-          createdAt: message.createdAt,
-        },
-        sender: {
-          id: sender._id,
-          name: sender.name,
-          image: sender.image,
-        },
-      },
-      { senderName: sender.name },
-      sender.name,
-    );
+        { senderName: sender.name },
+        sender.name,
+      );
+    }
 
     this.chatGateway.server
       .to(conversationId)
@@ -428,6 +453,8 @@ export class ChatService {
             buyer: { _id: 1, name: 1, email: 1, image: 1, lastSeenAt: 1 },
             seller: { _id: 1, name: 1, email: 1, image: 1, lastSeenAt: 1 },
             status: 1,
+            product: 1,
+            locked: 1,
             lastMessageAt: 1,
             createdAt: 1,
             updatedAt: 1,
