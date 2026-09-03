@@ -130,10 +130,7 @@ export class ProductOfferService {
 
     this.chatService
       .getOrCreateConversation(offererId, sellerId, product._id.toString())
-      .then((conversation) =>
-        this.chatService.setLock((conversation._id as Types.ObjectId).toString(), true),
-      )
-      .catch((err) => console.error("Failed to lock product chat on new offer:", err));
+      .catch((err) => console.error("Failed to create product chat on new offer:", err));
 
     return {
       data: {
@@ -338,15 +335,13 @@ export class ProductOfferService {
       )
       .then(async (conversation) => {
         const conversationId = (conversation._id as Types.ObjectId).toString();
-        // Accepting opens the chat; declining keeps (or puts) it locked until a future offer is accepted.
-        await this.chatService.setLock(conversationId, action !== "accept");
         await this.chatService.sendMessage(
           conversationId,
           offer.seller.toString(),
           offer.offerer.toString(),
           chatText,
           undefined,
-          { bypassLock: true, skipNotification: true },
+          { skipNotification: true },
         );
       })
       .catch((err) => console.error("Failed to send offer-response chat message:", err));

@@ -34,13 +34,11 @@ export class ChatModule implements OnModuleInit {
     private readonly conversationModel: Model<Conversation>,
   ) {}
 
-  /** The conversation-uniqueness index used to be {buyer, seller} only, from before
-   *  product-scoped (offer) conversations existed alongside the general one. Mongoose's
-   *  autoIndex only ever adds missing indexes — it never drops ones removed from the
-   *  schema — so a database created under the old schema still enforces uniqueness on
-   *  {buyer, seller} alone and rejects a second, product-scoped conversation between the
-   *  same two users with a raw duplicate-key error. Sync once on boot so the stale index
-   *  is dropped and rebuilt to match the current {buyer, seller, product} schema. */
+  /** Mongoose's autoIndex only ever adds missing indexes on boot — it never drops ones
+   *  removed from the schema — so any past schema change (e.g. the now-reverted
+   *  {buyer, seller, product} index from when offers briefly got their own conversation)
+   *  can leave a stale index enforcing rules the current schema no longer declares. Sync
+   *  once on boot so the database's indexes always match what's actually in the schema. */
   async onModuleInit() {
     await this.conversationModel.syncIndexes();
   }
