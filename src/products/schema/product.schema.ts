@@ -77,6 +77,12 @@ export class Product {
 
   @Prop({ type: Boolean, default: false })
   isDisabled?: boolean;
+
+  /** True for a lightweight "just a video" shop post (no real category/price) —
+   *  distinguishes it from a normal listing for the feed's CTA and any place
+   *  that shouldn't treat it like a real product for sale. */
+  @Prop({ type: Boolean, default: false })
+  isVideoPost?: boolean;
   @Prop({ trim: true })
   address?: string;   // human-readable address (e.g. "123 Main St, Karachi")
 

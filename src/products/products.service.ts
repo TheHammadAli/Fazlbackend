@@ -306,7 +306,8 @@ export class ProductsService {
 
       const result = await createdProduct.save();
 
-      if (ownerEmail) {
+      // A video post isn't a real listing — don't send the "listing created" email for it.
+      if (ownerEmail && !isVideoPost) {
         this.sendListingCreatedEmail(
           ownerName,
           ownerEmail,
