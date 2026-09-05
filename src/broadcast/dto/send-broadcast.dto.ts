@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional } from "class-validator";
 
 export class SendBroadcastMessageDto {
   @ApiProperty({
@@ -20,11 +20,18 @@ export class SendBroadcastMessageDto {
 
   @ApiProperty({
     example: "I can supply at best price",
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   message: string;
 
   @ApiProperty({ type: "string", format: "binary", required: false })
   file?: any;
+
+  @ApiProperty({ type: "string", format: "binary", required: false })
+  voice?: any;
+
+  @ApiProperty({ required: false, description: "Voice message length in seconds" })
+  duration?: string;
 }

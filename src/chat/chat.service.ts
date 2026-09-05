@@ -119,7 +119,7 @@ export class ChatService {
     receiverId: string,
     text: string,
     imageUrl?: string,
-    options?: { skipNotification?: boolean },
+    options?: { skipNotification?: boolean; audioUrl?: string; audioDuration?: number },
   ) {
     const conversation = await this.conversationModel.findById(conversationId);
 
@@ -172,6 +172,8 @@ export class ChatService {
       receiver: new Types.ObjectId(computedReceiverId),
       text,
       imageUrl,
+      audioUrl: options?.audioUrl,
+      audioDuration: options?.audioDuration,
       read: false,
     });
 

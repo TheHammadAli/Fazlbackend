@@ -8,6 +8,13 @@ import {
 } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import { extname } from "path";
+import * as path from "path";
+import * as os from "os";
+import * as fs from "fs/promises";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
+
+ffmpeg.setFfmpegPath(ffmpegPath as unknown as string);
 
 @Injectable()
 export class FileUploadService {
@@ -48,6 +55,32 @@ export class FileUploadService {
 
     // Images still use S3
     return `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
+  }
+
+  /**
+   * Normalizes any recorded voice-message format (web's webm/opus, native's m4a/aac,
+   * etc.) to a single AAC-in-.m4a file, so a clip recorded on one platform always
+   * plays back on every other platform — native iOS/Android players and web <audio>
+   * all decode AAC/.m4a universally, but iOS has no Opus/WebM decoder at all.
+   */
+  private async transcodeToM4a(buffer: Buffer, sourceExt: string): Promise<Buffer> {
+    const inputPath = path.join(os.tmpdir(), `${uuidv4()}${sourceExt || ".webm"}`);
+    const outputPath = path.join(os.tmpdir(), `${uuidv4()}.m4a`);
+    await fs.writeFile(inputPath, buffer);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(inputPath)
+          .audioCodec("aac")
+          .toFormat("mp4")
+          .on("end", () => resolve())
+          .on("error", reject)
+          .save(outputPath);
+      });
+      return await fs.readFile(outputPath);
+    } finally {
+      await fs.unlink(inputPath).catch(() => {});
+      await fs.unlink(outputPath).catch(() => {});
+    }
   }
 
   // ========== Product Files ==========
@@ -329,6 +362,31 @@ export class FileUploadService {
     }
   }
 
+  // ========== Chat Voice Message ==========
+  async uploadChatVoiceMessage(
+    conversationId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const transcoded = await this.transcodeToM4a(file.buffer, extname(file.originalname));
+      const key = `chats/${conversationId}/voice/${uuidv4()}.m4a`;
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: transcoded,
+        ContentType: "audio/mp4",
+        CacheControl: "max-age=31536000",
+      });
+
+      await this.s3.send(command);
+      return this.getFileUrl(key, true);
+    } catch (err) {
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Chat voice message upload failed");
+    }
+  }
+
   // ========== Broadcast Image ==========
   async uploadBroadcastImage(
     buyerId: string,
@@ -376,6 +434,31 @@ export class FileUploadService {
     } catch (err) {
       console.error("S3 upload error:", err);
       throw new InternalServerErrorException("Thread image upload failed");
+    }
+  }
+
+  // ========== Broadcast Thread Voice Message ==========
+  async uploadBroadcastThreadAudio(
+    threadId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const transcoded = await this.transcodeToM4a(file.buffer, extname(file.originalname));
+      const key = `broadcasts/threads/${threadId}/voice/${uuidv4()}.m4a`;
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: transcoded,
+        ContentType: "audio/mp4",
+        CacheControl: "max-age=31536000",
+      });
+
+      await this.s3.send(command);
+      return this.getFileUrl(key, true);
+    } catch (err) {
+      console.error("S3 upload error:", err);
+      throw new InternalServerErrorException("Broadcast voice message upload failed");
     }
   }
 

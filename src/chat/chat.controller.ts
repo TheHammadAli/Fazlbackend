@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -6,7 +7,7 @@ import {
   Param,
   Query,
   Patch,
-  UploadedFile,
+  UploadedFiles,
   UseInterceptors,
   Req,
   UseGuards,
@@ -23,7 +24,7 @@ import {
   ApiParam,
 } from "@nestjs/swagger";
 import { CreateMessageDto } from "./dto/create-message.dto";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { Request } from "express";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
@@ -83,22 +84,53 @@ export class ChatController {
           format: "binary",
           nullable: true,
         },
+        voice: {
+          type: "string",
+          format: "binary",
+          nullable: true,
+        },
+        duration: {
+          type: "string",
+          nullable: true,
+          description: "Voice message length in seconds",
+        },
       },
     },
   }) // Required for Swagger to show file upload
-  @UseInterceptors(FileInterceptor("file")) // 'file' is the key in form-data
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: "file", maxCount: 1 },
+        { name: "voice", maxCount: 1 },
+      ],
+      { limits: { fileSize: 20 * 1024 * 1024 } },
+    ),
+  )
   async sendMessage(
     @Body() body: CreateMessageDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFiles()
+    files?: { file?: Express.Multer.File[]; voice?: Express.Multer.File[] },
   ) {
-    console.log("File received in controller:", file);
-    // If a file is provided, upload it first
-    let imageUrl: string | undefined;
+    const imageFile = files?.file?.[0];
+    const voiceFile = files?.voice?.[0];
 
-    if (file && file.size > 0) {
+    if (voiceFile && !voiceFile.mimetype?.startsWith("audio/")) {
+      throw new BadRequestException("voice field must be an audio file");
+    }
+
+    let imageUrl: string | undefined;
+    let audioUrl: string | undefined;
+
+    if (imageFile && imageFile.size > 0) {
       imageUrl = await this.fileUploadService.uploadChatMessage(
         body.conversationId,
-        file,
+        imageFile,
+      );
+    }
+    if (voiceFile && voiceFile.size > 0) {
+      audioUrl = await this.fileUploadService.uploadChatVoiceMessage(
+        body.conversationId,
+        voiceFile,
       );
     }
 
@@ -108,6 +140,10 @@ export class ChatController {
       body.receiverId,
       body.text,
       imageUrl,
+      {
+        audioUrl,
+        audioDuration: body.duration ? Number(body.duration) : undefined,
+      },
     );
   }
 

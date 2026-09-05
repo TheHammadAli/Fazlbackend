@@ -19,6 +19,13 @@ export class Message extends Document {
   // message.schema.ts
   @Prop({ type: String })
   imageUrl?: string; // Optional field for S3 link
+
+  @Prop({ type: String })
+  audioUrl?: string; // Optional field for S3/CDN link to a voice message
+
+  @Prop({ type: Number })
+  audioDuration?: number; // Voice message length in seconds
+
   @Prop({ default: false })
   read: boolean;
 

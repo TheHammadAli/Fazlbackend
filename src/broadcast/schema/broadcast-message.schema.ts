@@ -23,6 +23,12 @@ export class BroadcastMessage {
   @Prop({ required: false })
   imageUrls?: string[]; // Optional field for S3 link
 
+  @Prop({ type: String })
+  audioUrl?: string; // Optional field for S3/CDN link to a voice message
+
+  @Prop({ type: Number })
+  audioDuration?: number; // Voice message length in seconds
+
   @Prop({ type: Boolean, default: false })
   isRead!: boolean;
 }

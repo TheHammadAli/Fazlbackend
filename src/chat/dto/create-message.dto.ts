@@ -10,6 +10,9 @@ export class CreateMessageDto {
   @ApiProperty({ example: "6645f1d8a8c02c2b8f5a9df3" })
   receiverId: string;
 
-  @ApiProperty({ example: "Hello! Is this still available?" })
+  @ApiProperty({ example: "Hello! Is this still available?", required: false })
   text: string;
+
+  @ApiProperty({ required: false, description: "Voice message length in seconds" })
+  duration?: string;
 }

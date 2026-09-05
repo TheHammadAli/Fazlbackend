@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Body,
@@ -38,7 +39,7 @@ import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
-import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
+import { FileFieldsInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 
 @ApiTags("Broadcast")
@@ -104,24 +105,47 @@ export class BroadcastController {
   @ApiOperation({ summary: "Send message in broadcast thread" })
   @ApiParam({ name: "id", description: "Broadcast ID" })
   @ApiConsumes("application/json", "multipart/form-data") // Allow file upload in Swagger
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: "file", maxCount: 1 },
+        { name: "voice", maxCount: 1 },
+      ],
+      { limits: { fileSize: 20 * 1024 * 1024 } },
+    ),
+  )
   async sendMessage(
     @Param("id") broadcastId: string,
     @Body() dto: SendBroadcastMessageDto,
     @Req() req: Request,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFiles()
+    files?: { file?: Express.Multer.File[]; voice?: Express.Multer.File[] },
   ) {
     const user = req.user as { sub: string };
     const senderId = user.sub;
     const lang = (req.headers["accept-language"] || "en").split(",")[0];
 
-    let imageUrl: string | undefined;
+    const imageFile = files?.file?.[0];
+    const voiceFile = files?.voice?.[0];
 
-    if (file) {
+    if (voiceFile && !voiceFile.mimetype?.startsWith("audio/")) {
+      throw new BadRequestException("voice field must be an audio file");
+    }
+
+    let imageUrl: string | undefined;
+    let audioUrl: string | undefined;
+
+    if (imageFile) {
       // We use the threadId from the DTO to organize the file path
       imageUrl = await this.fileUploadService.uploadBroadcastThreadImage(
         dto.threadId,
-        file,
+        imageFile,
+      );
+    }
+    if (voiceFile) {
+      audioUrl = await this.fileUploadService.uploadBroadcastThreadAudio(
+        dto.threadId,
+        voiceFile,
       );
     }
 
@@ -131,7 +155,11 @@ export class BroadcastController {
       dto.receiverId,
       dto.threadId,
       dto.message,
-      imageUrl, // Pass the new URL to your service
+      imageUrl,
+      {
+        audioUrl,
+        audioDuration: dto.duration ? Number(dto.duration) : undefined,
+      },
     );
   }
 

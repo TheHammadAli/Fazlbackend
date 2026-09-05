@@ -397,6 +397,7 @@ export class BroadcastService {
     threadId: string,
     message: string,
     imageUrl?: string,
+    options?: { audioUrl?: string; audioDuration?: number },
   ) {
     const broadcastObjectId = new Types.ObjectId(broadcastId);
 
@@ -511,6 +512,8 @@ export class BroadcastService {
       receiver: new Types.ObjectId(actualReceiverId),
       message,
       imageUrls: imageUrl ? [imageUrl] : [],
+      audioUrl: options?.audioUrl,
+      audioDuration: options?.audioDuration,
       isRead: false,
     });
 
