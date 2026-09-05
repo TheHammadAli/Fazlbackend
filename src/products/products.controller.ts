@@ -129,8 +129,12 @@ export class ProductsController {
     } else {
       createProductDto.video = null; // Set to null if no video is uploaded
     }
+    // `parameters` is an array field on the schema (default []) — "{}" here was
+    // never valid for it, it just went unnoticed because every prior caller
+    // always sent a real parameters array; a video-only post is the first to
+    // legitimately omit it.
     createProductDto.parameters = JSON.parse(
-      createProductDto.parameters?.toString() || "{}",
+      createProductDto.parameters?.toString() || "[]",
     );
 
     createProductDto.isVideoPost =
