@@ -169,20 +169,21 @@ export class ChatController {
   }
 
   @Patch("messages/mark-read")
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
-    summary: "Mark all messages as read for a user in a conversation",
+    summary: "Mark all messages as read for the authenticated user in a conversation",
   })
   @ApiBody({
     schema: {
       type: "object",
       properties: {
         conversationId: { type: "string", example: "665f6d9a3ef12a0c4c122d23" },
-        userId: { type: "string", example: "6645f1d8a8c02c2b8f5a9df2" },
       },
     },
   })
-  async markAsRead(@Body() body: { conversationId: string; userId: string }) {
-    return this.chatService.markAsRead(body.conversationId, body.userId);
+  async markAsRead(@Body() body: { conversationId: string }, @Req() req: Request) {
+    const user = req.user as { sub: string };
+    return this.chatService.markAsRead(body.conversationId, user.sub);
   }
 
   @Get("messages/unread/:userId")

@@ -32,6 +32,8 @@ export class ChatModule implements OnModuleInit {
   constructor(
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<Conversation>,
+    @InjectModel(Message.name)
+    private readonly messageModel: Model<Message>,
   ) {}
 
   /** Mongoose's autoIndex only ever adds missing indexes on boot — it never drops ones
@@ -41,5 +43,15 @@ export class ChatModule implements OnModuleInit {
    *  once on boot so the database's indexes always match what's actually in the schema. */
   async onModuleInit() {
     await this.conversationModel.syncIndexes();
+    await this.messageModel.syncIndexes();
+
+    // Mongoose schema defaults only apply to newly-constructed documents, never
+    // retroactively to rows already in the database — so every message sent before
+    // `status` existed would otherwise read back as `status: undefined` forever.
+    // One-time, idempotent (guarded by $exists:false) backfill derived from the
+    // existing `read` boolean.
+    await this.messageModel.updateMany({ status: { $exists: false } }, [
+      { $set: { status: { $cond: ["$read", "read", "sent"] } } },
+    ]);
   }
 }

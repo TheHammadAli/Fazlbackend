@@ -317,16 +317,30 @@ export class ProductOfferService {
     }
 
     const priceText = offer.price != null ? this.formatPrice(offer.price) : null;
+    // Buyer sent the offer, seller responded to it — the two sides need different
+    // wording for the same event ("You sent an offer (Accepted)" is only true for
+    // the buyer). `chatText` is what the buyer (message.receiver) sees; `senderText`
+    // is what the seller (message.sender) sees instead.
     const chatMessageKey =
       action === "accept"
         ? priceText ? "offer_accepted_chat_with_price" : "offer_accepted_chat_no_price"
         : priceText ? "offer_declined_chat_with_price" : "offer_declined_chat_no_price";
+    const sellerChatMessageKey =
+      action === "accept"
+        ? priceText ? "offer_accepted_chat_seller_with_price" : "offer_accepted_chat_seller_no_price"
+        : priceText ? "offer_declined_chat_seller_with_price" : "offer_declined_chat_seller_no_price";
     let chatText = this.i18n.translate(`auth.products.${chatMessageKey}`, {
+      lang: this.lang,
+      args: { price: priceText },
+    }) as string;
+    const sellerText = this.i18n.translate(`auth.products.${sellerChatMessageKey}`, {
       lang: this.lang,
       args: { price: priceText },
     }) as string;
 
     if (action === "decline" && remainingOffers !== undefined) {
+      // Only the buyer can make another offer, so this addendum is buyer-only —
+      // it never gets appended to the seller-facing `senderText`.
       const remainingKey =
         remainingOffers > 0 ? "offer_declined_remaining_chances" : "offer_declined_no_more_chances";
       const remainingText = this.i18n.translate(`auth.products.${remainingKey}`, {
@@ -350,7 +364,7 @@ export class ProductOfferService {
           offer.offerer.toString(),
           chatText,
           undefined,
-          { skipNotification: true },
+          { skipNotification: true, senderText: sellerText },
         );
       })
       .catch((err) => console.error("Failed to send offer-response chat message:", err));
@@ -400,6 +414,10 @@ export class ProductOfferService {
         `auth.products.${priceText ? "offer_expired_chat_with_price" : "offer_expired_chat_no_price"}`,
         { lang: "en", args: { price: priceText } },
       ) as string;
+      const sellerText = this.i18n.translate(
+        `auth.products.${priceText ? "offer_expired_chat_seller_with_price" : "offer_expired_chat_seller_no_price"}`,
+        { lang: "en", args: { price: priceText } },
+      ) as string;
 
       this.chatService
         .getOrCreateConversation(offer.offerer.toString(), offer.seller.toString())
@@ -410,7 +428,7 @@ export class ProductOfferService {
             offer.offerer.toString(),
             chatText,
             undefined,
-            { skipNotification: true },
+            { skipNotification: true, senderText: sellerText },
           ),
         )
         .catch((err) => console.error("Failed to send offer-expired chat message:", err));

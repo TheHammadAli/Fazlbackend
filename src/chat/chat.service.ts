@@ -119,7 +119,12 @@ export class ChatService {
     receiverId: string,
     text: string,
     imageUrl?: string,
-    options?: { skipNotification?: boolean; audioUrl?: string; audioDuration?: number },
+    options?: {
+      skipNotification?: boolean;
+      audioUrl?: string;
+      audioDuration?: number;
+      senderText?: string;
+    },
   ) {
     const conversation = await this.conversationModel.findById(conversationId);
 
@@ -174,12 +179,21 @@ export class ChatService {
       imageUrl,
       audioUrl: options?.audioUrl,
       audioDuration: options?.audioDuration,
+      senderText: options?.senderText,
       read: false,
+      status: "sent",
     });
 
     await this.conversationModel.findByIdAndUpdate(conversationId, {
       lastMessageAt: new Date(),
     });
+
+    // Receiver is already connected — deliver immediately so the response/broadcast
+    // below already carries the final status, and any other tab/device of the
+    // sender is told over the socket too.
+    if (this.presenceService.isOnline(computedReceiverId)) {
+      await this.markDelivered([message]);
+    }
 
     if (!options?.skipNotification) {
       await this.notificationsService.createAndNotify(
@@ -230,6 +244,62 @@ export class ChatService {
       },
     };
   }
+
+  /** Bulk-flips a set of "sent" messages to "delivered" and tells each sender over
+   *  their personal room (auto-joined by every socket on connect), regardless of
+   *  whether that sender currently has the conversation open. Filtered on
+   *  status:'sent' in the update itself, so calling this twice for the same
+   *  message (e.g. the synchronous send-time check racing the connect-time flush)
+   *  is a harmless no-op the second time. */
+  private async markDelivered(messages: Message[]): Promise<void> {
+    const pending = messages.filter((m) => m.status === "sent");
+    if (pending.length === 0) return;
+
+    const deliveredAt = new Date();
+    const ids = pending.map((m) => m._id);
+
+    await this.messageModel.updateMany(
+      { _id: { $in: ids }, status: "sent" },
+      { $set: { status: "delivered", deliveredAt } },
+    );
+
+    for (const m of pending) {
+      m.status = "delivered";
+      m.deliveredAt = deliveredAt;
+    }
+
+    const byConversation = new Map<string, { senderId: string; messageIds: string[] }>();
+    for (const m of pending) {
+      const conversationId = m.conversationId.toString();
+      const senderId = m.sender.toString();
+      const entry = byConversation.get(conversationId);
+      if (entry) {
+        entry.messageIds.push(m._id.toString());
+      } else {
+        byConversation.set(conversationId, { senderId, messageIds: [m._id.toString()] });
+      }
+    }
+
+    for (const [conversationId, { senderId, messageIds }] of byConversation) {
+      this.chatGateway.server.to(senderId).emit("messagesDelivered", {
+        conversationId,
+        messageIds,
+        deliveredAt,
+      });
+    }
+  }
+
+  /** Called when a user's presence transitions to online (PresenceService reports
+   *  `cameOnline`) — flushes every message addressed to them that is still waiting
+   *  on delivery. Being connected is enough; the conversation does not need to be open. */
+  async deliverPendingMessagesForUser(userId: string): Promise<void> {
+    const pending = await this.messageModel.find({
+      receiver: new Types.ObjectId(userId),
+      status: "sent",
+    });
+    await this.markDelivered(pending);
+  }
+
   async getMessages(
     conversationId: string,
     paginationDto: PaginationDto,
@@ -280,17 +350,42 @@ export class ChatService {
       );
     }
 
+    if (userId !== convo.buyer.toString() && userId !== convo.seller.toString()) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.chat.user_not_in_conversation", {
+          lang: this.lang,
+        }),
+      );
+    }
+
     const conversationObjectId = new Types.ObjectId(conversationId);
     const receiverObjectId = new Types.ObjectId(userId);
 
-    await this.messageModel.updateMany(
-      {
+    const unread = await this.messageModel
+      .find({
         conversationId: conversationObjectId,
         receiver: receiverObjectId,
-        read: false,
-      },
-      { $set: { read: true } },
-    );
+        status: { $ne: "read" },
+      })
+      .select("_id sender");
+
+    if (unread.length > 0) {
+      const readAt = new Date();
+      const ids = unread.map((m) => m._id);
+
+      await this.messageModel.updateMany(
+        { _id: { $in: ids } },
+        { $set: { status: "read", read: true, readAt } },
+      );
+
+      // 1:1 conversation — every matched message's sender is the same "other" party.
+      const senderId = unread[0].sender.toString();
+      this.chatGateway.server.to(senderId).emit("messagesRead", {
+        conversationId,
+        messageIds: ids.map((id) => id.toString()),
+        readAt,
+      });
+    }
 
     return { success: true };
   }

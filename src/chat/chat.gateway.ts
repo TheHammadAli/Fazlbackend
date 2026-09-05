@@ -56,6 +56,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         isOnline: true,
         lastSeenAt: null,
       });
+      // Being connected is enough to deliver — the conversation does not need to be
+      // open. Non-blocking so a slow flush never delays the connection handshake.
+      this.chatService.deliverPendingMessagesForUser(userId).catch((err) => {
+        this.logger.error(`Failed to flush pending deliveries for ${userId}`, err);
+      });
     }
   }
 
