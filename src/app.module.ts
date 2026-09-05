@@ -15,6 +15,7 @@ import { ChatModule } from "./chat/chat.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { ReportsModule } from "./reports/reports.module";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ScheduleModule } from "@nestjs/schedule";
 import { APP_GUARD } from "@nestjs/core";
 import { AcceptLanguageResolver, I18nModule, QueryResolver } from "nestjs-i18n";
 import { OrdersModule } from "./orders/orders.module";
@@ -42,6 +43,7 @@ const isProduction = process.env.NODE_ENV === "production";
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot({
       throttlers: [
         {

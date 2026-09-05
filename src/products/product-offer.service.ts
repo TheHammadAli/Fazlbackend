@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { ClsService } from "nestjs-cls";
@@ -18,6 +19,9 @@ import { CreateProductOfferDto } from "./dto/create-product-offer.dto";
 
 /** Max times a buyer may be declined on the same listing before they're locked out of re-offering. */
 const MAX_DECLINED_OFFERS = 3;
+
+/** A pending offer nobody responds to within this many days auto-expires. */
+const OFFER_EXPIRY_DAYS = 3;
 
 @Injectable()
 export class ProductOfferService {
@@ -351,5 +355,62 @@ export class ProductOfferService {
     }
 
     return { data: { offer } };
+  }
+
+  /** Runs hourly: a pending offer nobody responded to within OFFER_EXPIRY_DAYS
+   *  auto-expires — freeing the buyer to make a new one on that listing, and
+   *  telling them it expired via a notification + chat message, the same way
+   *  an explicit accept/decline would. */
+  @Cron(CronExpression.EVERY_HOUR)
+  async expireStaleOffers() {
+    const cutoff = new Date(Date.now() - OFFER_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const staleOffers = await this.offerModel
+      .find({ status: "pending", createdAt: { $lte: cutoff } })
+      .populate<{ product: { _id: Types.ObjectId; title?: string } }>("product", "title");
+
+    for (const offer of staleOffers) {
+      offer.status = "expired";
+      offer.respondedAt = new Date();
+      await offer.save();
+
+      const productId = (offer.product as any)?._id?.toString() ?? offer.product.toString();
+      const productTitle = (offer.product as any)?.title ?? "";
+
+      this.notificationsService
+        .createAndNotify(
+          offer.offerer.toString(),
+          "product_offer_expired",
+          "PRODUCT_OFFER",
+          {
+            productId,
+            offerId: (offer._id as Types.ObjectId).toString(),
+            id: productId,
+          },
+          { productTitle },
+        )
+        .catch((err) => console.error("Failed to send product-offer-expired notification:", err));
+
+      const priceText = offer.price != null ? String(offer.price) : null;
+      const chatText = this.i18n.translate(
+        `auth.products.${priceText ? "offer_expired_chat_with_price" : "offer_expired_chat_no_price"}`,
+        { lang: "en", args: { price: priceText } },
+      ) as string;
+
+      this.chatService
+        .getOrCreateConversation(offer.offerer.toString(), offer.seller.toString())
+        .then((conversation) =>
+          this.chatService.sendMessage(
+            (conversation._id as Types.ObjectId).toString(),
+            offer.seller.toString(),
+            offer.offerer.toString(),
+            chatText,
+            undefined,
+            { skipNotification: true },
+          ),
+        )
+        .catch((err) => console.error("Failed to send offer-expired chat message:", err));
+    }
+
+    return staleOffers.length;
   }
 }

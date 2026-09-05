@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
 
-export const PRODUCT_OFFER_STATUSES = ["pending", "accepted", "declined"] as const;
+export const PRODUCT_OFFER_STATUSES = ["pending", "accepted", "declined", "expired"] as const;
 export type ProductOfferStatus = (typeof PRODUCT_OFFER_STATUSES)[number];
 
 @Schema({ timestamps: true })
