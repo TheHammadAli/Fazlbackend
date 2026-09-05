@@ -68,6 +68,7 @@ export class ProductsService {
     private readonly activityLogService: ActivityLogService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
+    @Inject(forwardRef(() => CategoryService))
     private readonly categoryService: CategoryService,
   ) { }
 

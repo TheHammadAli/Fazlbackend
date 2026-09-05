@@ -39,7 +39,10 @@ import { CategoryModule } from "src/category/category.module";
     forwardRef(() => ReviewsModule),
     ActivityLogModule,
     EmailLogModule,
-    CategoryModule,
+    // CategoryModule imports SharedModule, which imports this module back
+    // (forwardRef(() => ProductsModule) in shared.module.ts) — same cycle every
+    // other entry above is already guarded against, so this one needs it too.
+    forwardRef(() => CategoryModule),
   ],
   controllers: [ProductsController],
   providers: [ProductsService, EmailService],

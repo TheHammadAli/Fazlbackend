@@ -1,4 +1,4 @@
-import { Module, OnModuleInit, forwardRef } from "@nestjs/common";
+import { Logger, Module, OnModuleInit, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { ChatService } from "./chat.service";
@@ -29,6 +29,8 @@ import { PresenceModule } from "src/presence/presence.module";
   exports: [ChatService],
 })
 export class ChatModule implements OnModuleInit {
+  private readonly logger = new Logger(ChatModule.name);
+
   constructor(
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<Conversation>,
@@ -49,9 +51,19 @@ export class ChatModule implements OnModuleInit {
     // retroactively to rows already in the database — so every message sent before
     // `status` existed would otherwise read back as `status: undefined` forever.
     // One-time, idempotent (guarded by $exists:false) backfill derived from the
-    // existing `read` boolean.
-    await this.messageModel.updateMany({ status: { $exists: false } }, [
-      { $set: { status: { $cond: ["$read", "read", "sent"] } } },
-    ]);
+    // existing `read` boolean. Plain filter+$set (not an aggregation-pipeline
+    // update) so it works on any MongoDB version, and fire-and-forget so a slow
+    // collection scan or any failure here can never delay/block the app from
+    // starting and listening.
+    Promise.all([
+      this.messageModel.updateMany(
+        { status: { $exists: false }, read: true },
+        { $set: { status: "read" } },
+      ),
+      this.messageModel.updateMany(
+        { status: { $exists: false }, read: { $ne: true } },
+        { $set: { status: "sent" } },
+      ),
+    ]).catch((err) => this.logger.error("Message status backfill failed", err));
   }
 }

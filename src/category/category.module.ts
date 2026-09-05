@@ -1,5 +1,5 @@
 // src/categories/category.module.ts
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Category, CategorySchema } from "./schema/category.schema";
 import { CategoryService } from "./category.service";
@@ -16,7 +16,10 @@ import { SharedModule } from "src/shared/shared.module";
       { name: Category.name, schema: CategorySchema },
       { name: CategoryRequest.name, schema: CategoryRequestSchema },
     ]),
-    SharedModule,
+    // Now that ProductsModule imports CategoryModule, this closes a cycle back
+    // through SharedModule (which imports ProductsModule) — needs forwardRef
+    // like every other module on that cycle already uses.
+    forwardRef(() => SharedModule),
   ],
   providers: [CategoryService],
   controllers: [CategoryController],
