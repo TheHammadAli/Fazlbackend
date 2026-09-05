@@ -1,5 +1,6 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { ProductsController } from "./products.controller";
+import { VideoPostController } from "./video-post.controller";
 import { ProductsService } from "./products.service";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Product, ProductSchema } from "./schema/product.schema";
@@ -44,7 +45,7 @@ import { CategoryModule } from "src/category/category.module";
     // other entry above is already guarded against, so this one needs it too.
     forwardRef(() => CategoryModule),
   ],
-  controllers: [ProductsController],
+  controllers: [ProductsController, VideoPostController],
   providers: [ProductsService, EmailService],
   exports: [ProductsService],
 })

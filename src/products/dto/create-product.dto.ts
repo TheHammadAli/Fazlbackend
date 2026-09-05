@@ -57,7 +57,7 @@ export class CreateProductDto {
   })
   @ValidateIf((o) => !o.isVideoPost)
   @IsNumber()
-  price: number;
+  price?: number;
 
   @ApiPropertyOptional({
     example: "electronics",
@@ -66,7 +66,7 @@ export class CreateProductDto {
   @ValidateIf((o) => !o.isVideoPost)
   @IsString()
   @IsNotEmpty()
-  category: string;
+  category?: string;
 
   @ApiPropertyOptional({
     example: "retail",
@@ -74,7 +74,7 @@ export class CreateProductDto {
     description: "Product Type. Not required when isVideoPost is true (defaults to 'retail')",
   })
   @ValidateIf((o) => !o.isVideoPost)
-  type: "retail" | "classified";
+  type?: "retail" | "classified";
 
   @ApiPropertyOptional({
     example: false,

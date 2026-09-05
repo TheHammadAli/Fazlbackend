@@ -370,6 +370,37 @@ export class ProductsService {
     };
   }
 
+  /** A shop's own video posts — filtered on `isVideoPost`, not just "has a video",
+   *  since a normal listing can also carry a video without being a video post. */
+  async getVideoPostsByShop(
+    shopId: string,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<Product>> {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      shopId: new Types.ObjectId(shopId),
+      isVideoPost: true,
+      isDeleted: false,
+      isDisabled: false,
+    };
+
+    const [items, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items,
+    };
+  }
+
   async getAllProductsByUser(
     ownerId: string,
     paginationDto: PaginationDto,
