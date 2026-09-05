@@ -371,8 +371,10 @@ export class ProductsService {
     };
   }
 
-  /** A shop's own video posts — filtered on `isVideoPost`, not just "has a video",
-   *  since a normal listing can also carry a video without being a video post. */
+  /** A shop's own posted videos — both lightweight video posts and any real
+   *  listing that happens to carry a video. Delete behaves differently per item
+   *  (see `deleteVideoEntry`): a video post is removed entirely, a real listing
+   *  just loses its video and stays listed. */
   async getVideoPostsByShop(
     shopId: string,
     paginationDto: PaginationDto,
@@ -382,7 +384,7 @@ export class ProductsService {
 
     const filter = {
       shopId: new Types.ObjectId(shopId),
-      isVideoPost: true,
+      video: { $exists: true, $nin: ["", null] },
       isDeleted: false,
       isDisabled: false,
     };
@@ -884,6 +886,37 @@ export class ProductsService {
     await existingProduct.save();
 
     return true;
+  }
+
+  /** Delete action for one row in "My Videos", which mixes video posts and real
+   *  listings that carry a video. A video post only exists for its video, so
+   *  removing it deletes the whole entry; a real listing should stay listed
+   *  (title/price/category/images intact) with just its video removed. */
+  async deleteVideoEntry(
+    productId: string,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+    ipAddress?: string,
+  ) {
+    const existingProduct = await this.productModel.findOne({
+      _id: new Types.ObjectId(productId),
+      isDeleted: false,
+      isDisabled: false,
+    });
+    if (!existingProduct || !existingProduct.video) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+
+    if (existingProduct.isVideoPost) {
+      await this.delete(productId, currentUser, undefined, ipAddress, true);
+      return { deletedListing: true };
+    }
+
+    await this.deleteProductMedia(productId, [existingProduct.video], currentUser);
+    return { deletedListing: false };
   }
 
   async searchNearbyWithCategory(

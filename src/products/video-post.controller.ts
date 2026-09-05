@@ -80,15 +80,17 @@ export class VideoPostController {
   }
 
   @Delete(":id")
-  @ApiOperation({ summary: "Delete a posted video" })
+  @ApiOperation({
+    summary:
+      "Delete a video from 'My Videos' — a video post is removed entirely; a real listing just loses its video and stays listed",
+  })
   @ApiParam({ name: "id", required: true })
   async delete(
     @Param("id") id: string,
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string }> {
-    // Must actually be a video post — a real listing can't be deleted from here.
-    await this.productsService.delete(id, currentUser, undefined, req.ip, true);
+    await this.productsService.deleteVideoEntry(id, currentUser, req.ip);
     return { message: "Video deleted successfully" };
   }
 }
