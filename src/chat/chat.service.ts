@@ -403,6 +403,8 @@ export class ChatService {
               {
                 $project: {
                   text: 1,
+                  imageUrl: 1,
+                  audioUrl: 1,
                   read: 1,
                   createdAt: 1,
                   sender: { _id: 1, name: 1 },

@@ -684,6 +684,8 @@ export class BroadcastService {
               {
                 $project: {
                   message: 1,
+                  imageUrls: 1,
+                  audioUrl: 1,
                   createdAt: 1,
                   sender: { _id: 1, name: 1 },
                 },
