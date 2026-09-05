@@ -41,6 +41,11 @@ export class ProductOfferService {
     return this.cls.get("lang") || "en";
   }
 
+  /** Comma-separated, matching how prices are shown everywhere else in the app. */
+  private formatPrice(price: number): string {
+    return price.toLocaleString("en-US");
+  }
+
   /** Consecutive declines since the last accepted offer (an accept resets the streak to 0). */
   private getActiveDeclineCount(offers: ProductOffer[]): number {
     let declinedCount = 0;
@@ -311,7 +316,7 @@ export class ProductOfferService {
       remainingOffers = Math.max(0, MAX_DECLINED_OFFERS - this.getActiveDeclineCount(priorOffers));
     }
 
-    const priceText = offer.price != null ? String(offer.price) : null;
+    const priceText = offer.price != null ? this.formatPrice(offer.price) : null;
     const chatMessageKey =
       action === "accept"
         ? priceText ? "offer_accepted_chat_with_price" : "offer_accepted_chat_no_price"
@@ -390,7 +395,7 @@ export class ProductOfferService {
         )
         .catch((err) => console.error("Failed to send product-offer-expired notification:", err));
 
-      const priceText = offer.price != null ? String(offer.price) : null;
+      const priceText = offer.price != null ? this.formatPrice(offer.price) : null;
       const chatText = this.i18n.translate(
         `auth.products.${priceText ? "offer_expired_chat_with_price" : "offer_expired_chat_no_price"}`,
         { lang: "en", args: { price: priceText } },
