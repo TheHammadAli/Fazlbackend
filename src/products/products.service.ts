@@ -345,23 +345,24 @@ export class ProductsService {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
+    // Video posts are a separate flow from real listings (no category/price of
+    // their own) — they belong only in getVideoPostsByShop, not mixed in here.
+    const filter = {
+      shopId: new Types.ObjectId(shopId),
+      isVideoPost: { $ne: true },
+      isDeleted: false,
+      isDisabled: false,
+    };
+
     const [items, total] = await Promise.all([
       this.productModel
-        .find({
-          shopId: new Types.ObjectId(shopId),
-          isDeleted: false,
-          isDisabled: false,
-        })
+        .find(filter)
         .populate("category")
         .populate("shopId")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      this.productModel.countDocuments({
-        shopId: new Types.ObjectId(shopId),
-        isDeleted: false,
-        isDisabled: false,
-      }),
+      this.productModel.countDocuments(filter),
     ]);
 
     return {
@@ -760,6 +761,10 @@ export class ProductsService {
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
     lang: string = "en",
     ipAddress?: string,
+    // When provided, enforces that /products/:id can't delete a video post and
+    // /video-posts/:id can't delete a real listing — the two flows stay separate
+    // even though they share the same underlying document type.
+    expectedIsVideoPost?: boolean,
   ) {
     const existingProduct = await this.productModel.findOne({
       _id: new Types.ObjectId(productId),
@@ -767,6 +772,16 @@ export class ProductsService {
       isDisabled: false,
     });
     if (!existingProduct) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.products.product_not_found", {
+          lang: this.lang,
+        }),
+      );
+    }
+    if (
+      expectedIsVideoPost !== undefined &&
+      !!existingProduct.isVideoPost !== expectedIsVideoPost
+    ) {
       throw new NotFoundException(
         this.i18n.translate("auth.products.product_not_found", {
           lang: this.lang,
@@ -1047,6 +1062,8 @@ export class ProductsService {
     const baseFilter: FilterQuery<ProductDocument> = {
       isDeleted: false,
       isDisabled: false,
+      // Video posts aren't real listings — keep them out of buyer-facing search.
+      isVideoPost: { $ne: true },
     };
 
     if (query.category) {

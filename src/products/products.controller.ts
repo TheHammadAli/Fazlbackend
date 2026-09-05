@@ -380,7 +380,8 @@ export class ProductsController {
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string }> {
-    await this.productsService.delete(id, currentUser, undefined, req.ip);
+    // Not a video post — that's /video-posts/:id's job.
+    await this.productsService.delete(id, currentUser, undefined, req.ip, false);
     return { message: "Product deleted successfully" };
   }
 

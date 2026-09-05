@@ -87,7 +87,8 @@ export class VideoPostController {
     @CurrentUser() currentUser: JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string }> {
-    await this.productsService.delete(id, currentUser, undefined, req.ip);
+    // Must actually be a video post — a real listing can't be deleted from here.
+    await this.productsService.delete(id, currentUser, undefined, req.ip, true);
     return { message: "Video deleted successfully" };
   }
 }
