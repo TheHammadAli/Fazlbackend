@@ -18,6 +18,7 @@ import { ReviewsModule } from "src/reviews/reviews.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogModule } from "src/email-log/email-log.module";
+import { CategoryModule } from "src/category/category.module";
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { EmailLogModule } from "src/email-log/email-log.module";
     forwardRef(() => ReviewsModule),
     ActivityLogModule,
     EmailLogModule,
+    CategoryModule,
   ],
   controllers: [ProductsController],
   providers: [ProductsService, EmailService],

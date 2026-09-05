@@ -3,6 +3,8 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsBoolean,
+  ValidateIf,
   ValidateNested,
   IsArray,
   IsDateString,
@@ -49,21 +51,38 @@ export class CreateProductDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: 1999 })
+  @ApiPropertyOptional({
+    example: 1999,
+    description: "Not required when isVideoPost is true (defaults to 0)",
+  })
+  @ValidateIf((o) => !o.isVideoPost)
   @IsNumber()
   price: number;
 
-  @ApiProperty({ example: "electronics" })
+  @ApiPropertyOptional({
+    example: "electronics",
+    description: "Not required when isVideoPost is true (an internal 'Video Post' category is used instead)",
+  })
+  @ValidateIf((o) => !o.isVideoPost)
   @IsString()
   @IsNotEmpty()
   category: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: "retail",
     enum: ["retail", "classified"],
-    description: "Product Type",
+    description: "Product Type. Not required when isVideoPost is true (defaults to 'retail')",
   })
+  @ValidateIf((o) => !o.isVideoPost)
   type: "retail" | "classified";
+
+  @ApiPropertyOptional({
+    example: false,
+    description: "Lightweight post: just a video + title/caption, no category/price required",
+  })
+  @IsOptional()
+  @IsBoolean()
+  isVideoPost?: boolean;
 
   @ApiPropertyOptional({
     type: [String],

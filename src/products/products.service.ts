@@ -35,6 +35,7 @@ import { PermissionEntry } from "src/common/constants/admin-permissions.constant
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
+import { CategoryService } from "src/category/category.service";
 
 @Injectable()
 export class ProductsService {
@@ -67,6 +68,7 @@ export class ProductsService {
     private readonly activityLogService: ActivityLogService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
+    private readonly categoryService: CategoryService,
   ) { }
 
   private get lang(): string {
@@ -175,9 +177,20 @@ export class ProductsService {
       let ownerName = "";
       let ownerEmail = "";
 
+      // Lightweight "just a video" post: skip the category/price the owner
+      // would otherwise have to pick, using an internal sentinel category
+      // (hidden from every normal category picker) and a nominal price instead.
+      const isVideoPost = !!dto.isVideoPost;
+      const categoryId = isVideoPost
+        ? ((await this.categoryService.findOrCreateVideoPostCategory())
+            ._id as Types.ObjectId)
+        : new Types.ObjectId(dto.category);
+
       const productPayload: Partial<Product> = {
         ...dto,
-        category: new Types.ObjectId(dto.category),
+        category: categoryId,
+        price: isVideoPost ? (dto.price ?? 0) : dto.price,
+        type: isVideoPost ? dto.type || "retail" : dto.type,
       };
 
       if (type === "shop") {
@@ -253,7 +266,7 @@ export class ProductsService {
         location, // always a proper object now
         images: [],
         video: "",
-        category: new Types.ObjectId(dto.category),
+        category: categoryId,
       });
 
       let imageUrls: string[] = [];

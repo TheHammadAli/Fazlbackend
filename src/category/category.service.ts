@@ -1,7 +1,7 @@
 // src/categories/category.service.ts
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Category, CategoryDocument } from "./schema/category.schema";
+import { Category, CategoryDocument, CategoryType } from "./schema/category.schema";
 import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
@@ -411,5 +411,25 @@ export class CategoryService {
       throw new BadRequestException("Translation failed");
     }
     return translated;
+  }
+
+  /** Sentinel category for lightweight "just a video" product posts, which don't
+   *  collect a real category from the owner. Query ignores `isDisabled` so this
+   *  stays idempotent even if it were ever re-enabled; `isDisabled: true` on
+   *  create is what keeps it out of every user-facing category picker/listing
+   *  (`findAll`/`findById` above both filter on `isDisabled: false`) while still
+   *  resolving normally through `.populate("category")` elsewhere. */
+  async findOrCreateVideoPostCategory(): Promise<CategoryDocument> {
+    const existing = await this.categoryModel.findOne({
+      "name.en": "Video Post",
+      type: CategoryType.PRODUCT,
+    });
+    if (existing) return existing;
+
+    return this.categoryModel.create({
+      name: { en: "Video Post", ur: "ویڈیو پوسٹ" },
+      type: CategoryType.PRODUCT,
+      isDisabled: true,
+    });
   }
 }

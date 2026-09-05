@@ -133,6 +133,10 @@ export class ProductsController {
       createProductDto.parameters?.toString() || "{}",
     );
 
+    createProductDto.isVideoPost =
+      (createProductDto.isVideoPost as unknown) === true ||
+      (createProductDto.isVideoPost as unknown) === "true";
+
     if (createProductDto.location) {
       try {
         createProductDto.location =
