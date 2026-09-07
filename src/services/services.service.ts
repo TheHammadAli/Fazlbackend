@@ -6,10 +6,6 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Service, ServiceDocument } from "./schema/services.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
-import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { CreateServiceDto } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
@@ -17,15 +13,7 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { ListingUtilsService } from "src/shared/listing-util-service";
 import { UsersService } from "src/users/users.service";
-import { HandleRequestDto } from "./dto/handle-request.do";
 
-import {
-  ServiceRequest,
-  ServiceRequestDocument,
-} from "./schema/service_request.schema";
-import { ServiceView, ServiceViewDocument } from "./schema/service-view.schema";
-import { ServiceContactClick, ServiceContactClickDocument } from "./schema/service-contact-click.schema";
-import { ServiceWhatsappClick, ServiceWhatsappClickDocument } from "./schema/service-whatsapp-click.schema";
 import { SearchAllProductsServiceDto } from "src/search/dto/product-service-search-for.dto";
 import { SearchNearbyServiceDto } from "./dto/search-nearby-service.dto";
 import { UpdateJobStatusDto } from "./dto/update-job-dto";
@@ -41,29 +29,41 @@ import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { GeoRepository } from "src/prisma/repositories/geo.repository";
+import { FeedRepository } from "src/prisma/repositories/feed.repository";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { toLatLng, withGeoJson } from "src/common/utils/geo.util";
+import {
+  SERVICE_INCLUDE,
+  bookingStatusFilter,
+  computeBookingStatus,
+  type BookingStatus,
+  type JobStatus,
+  type RequestStatus,
+  type ServiceApi,
+  type ServicePaymentType,
+  type ServiceRequest,
+} from "./model/service.model";
+import { Prisma } from "../../generated/prisma/client";
+import { resolvePagination } from "src/common/utils/pagination.util";
+
+/** A service carries a video when the column is non-null and non-empty. */
+const HAS_VIDEO: Prisma.ServiceWhereInput = { video: { not: null, notIn: [""] } };
 
 @Injectable()
 export class ServicesService {
   private readonly logger = new Logger(ServicesService.name);
 
   constructor(
-    @InjectModel(Service.name)
-    private readonly serviceModel: Model<ServiceDocument>,
-    @InjectModel(Counter.name)
-    private readonly counterModel: Model<CounterDocument>,
+    private readonly prisma: PrismaService,
+    private readonly geoRepository: GeoRepository,
+    private readonly feedRepository: FeedRepository,
     @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
     private readonly notificationsService: NotificationsService,
     private readonly listingUtils: ListingUtilsService,
     private readonly fileUploadService: FileUploadService,
-    @InjectModel(ServiceRequest.name)
-    private readonly requestModel: Model<ServiceRequestDocument>,
-    @InjectModel(ServiceView.name)
-    private readonly serviceViewModel: Model<ServiceViewDocument>,
-    @InjectModel(ServiceContactClick.name)
-    private readonly serviceContactClickModel: Model<ServiceContactClickDocument>,
-    @InjectModel(ServiceWhatsappClick.name)
-    private readonly serviceWhatsappClickModel: Model<ServiceWhatsappClickDocument>,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
     @Inject(forwardRef(() => LikeService))
@@ -72,14 +72,38 @@ export class ServicesService {
     private readonly reviewService: ReviewService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
   }
 
+  /** Rebuilds the document shape clients expect: GeoJSON `location`, the owner
+   *  relation back under `ownerId`, and `_id` alongside `id`. */
+  private toApiShape<T extends Record<string, any>>(service: T | null): any {
+    if (!service) return service;
+    const { owner, ...rest } = service as any;
+    const shaped = withGeoJson(rest as any) as any;
+    return {
+      ...shaped,
+      _id: shaped.id,
+      ownerId: owner ?? shaped.ownerId,
+    };
+  }
+
+  /** Clients read `_id`; Prisma rows carry `id`. */
+  private withLegacyId<T extends { id: string }>(row: T): T & { _id: string } {
+    return { ...row, _id: row.id };
+  }
+
   /** Fire-and-forget: creation must succeed even if the email provider is down. */
-  private sendServiceCreatedEmail(name: string, email: string, title: string, serviceId: string, serviceCode?: string) {
+  private sendServiceCreatedEmail(
+    name: string,
+    email: string,
+    title: string,
+    serviceId: string,
+    serviceCode?: string | null,
+  ) {
     const serviceUrl = `${process.env.FRONTEND_URL}/book-service?id=${serviceId}`;
     const html = `
       <h2>Your service has been created</h2>
@@ -93,7 +117,7 @@ export class ServicesService {
         this.emailLogService.record({
           eventType: "service_created",
           recipient: email,
-          relatedRecordId: serviceCode,
+          relatedRecordId: serviceCode ?? undefined,
           deliveryStatus: "sent",
         }),
       )
@@ -102,14 +126,19 @@ export class ServicesService {
         void this.emailLogService.record({
           eventType: "service_created",
           recipient: email,
-          relatedRecordId: serviceCode,
+          relatedRecordId: serviceCode ?? undefined,
           deliveryStatus: "failed",
         });
       });
   }
 
   /** Fire-and-forget: the status update must succeed even if the email provider is down. */
-  private sendBookingAcceptedEmail(name: string, email: string, serviceName: string, jobCode?: string) {
+  private sendBookingAcceptedEmail(
+    name: string,
+    email: string,
+    serviceName: string,
+    jobCode?: string | null,
+  ) {
     const bookingUrl = `${process.env.FRONTEND_URL}/profile?tab=my_requests`;
     const html = `
       <h2>Your booking has been accepted</h2>
@@ -123,7 +152,7 @@ export class ServicesService {
         this.emailLogService.record({
           eventType: "booking_accepted",
           recipient: email,
-          relatedRecordId: jobCode,
+          relatedRecordId: jobCode ?? undefined,
           deliveryStatus: "sent",
         }),
       )
@@ -132,136 +161,147 @@ export class ServicesService {
         void this.emailLogService.record({
           eventType: "booking_accepted",
           recipient: email,
-          relatedRecordId: jobCode,
+          relatedRecordId: jobCode ?? undefined,
           deliveryStatus: "failed",
         });
       });
   }
 
-  // private async delayResponse(ms = 2000): Promise<void> {
-  //   await new Promise((resolve) => setTimeout(resolve, ms));
-  // }
-
-  // Expose service model for use in other services (e.g., broadcast)
-  getServiceModel(): Model<ServiceDocument> {
-    return this.serviceModel;
+  /**
+   * Owner ids of services in a category within a radius.
+   *
+   * Replaces `getServiceModel()`, which handed the raw Mongoose model to
+   * BroadcastService so it could run its own $near query. Exposing the model
+   * leaked the data layer across a module boundary; this is the capability that
+   * caller actually wanted.
+   */
+  async findNearbyServiceOwnerIds(
+    categoryId: string,
+    coordinates: [number, number],
+    radiusInMeters: number,
+  ): Promise<string[]> {
+    const [longitude, latitude] = coordinates;
+    return this.feedRepository.findNearbyListingOwnerIds({
+      table: "services",
+      categoryId,
+      longitude,
+      latitude,
+      radiusMeters: radiusInMeters,
+    });
   }
 
   /** Atomically reserves the next sequential service code (e.g. SVC-000010). */
   private async generateNextServiceCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "serviceCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "serviceCode" },
+      create: { id: "serviceCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `SVC-${String(counter.seq).padStart(6, "0")}`;
   }
 
   /** Atomically reserves the next sequential booking/job code (e.g. JOB-000010). */
   private async generateNextJobCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "jobCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "jobCode" },
+      create: { id: "jobCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `JOB-${String(counter.seq).padStart(6, "0")}`;
   }
 
-  async create(
-    userId: string,
-    dto: CreateServiceDto,
-
-  ) {
+  async create(userId: string, dto: CreateServiceDto) {
     const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.user_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.user_not_found", { lang: this.lang }),
       );
     }
-    const existingService = await this.serviceModel.findOne({
-      ownerId: user._id,
-      isDeleted: false,
-      isDisabled: false
+
+    const existingService = await this.prisma.service.findFirst({
+      where: { ownerId: userId, isDeleted: false, isDisabled: false },
+      select: { id: true },
     });
     if (existingService) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.user_duplicate_service", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.user_duplicate_service", { lang: this.lang }),
       );
     }
+
     if (
       !user.location ||
       !user.location.coordinates ||
       user.location.coordinates.length !== 2
     ) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.user_location_missing", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.user_location_missing", { lang: this.lang }),
       );
     }
-    let images: string[] = [];
-    let imageFiles: Express.Multer.File[] = [];
-    let videoFiles: Express.Multer.File[] = [];
-    if (dto.images) {
-      imageFiles = dto.images as Express.Multer.File[];
-    }
 
+    const imageFiles = (dto.images as Express.Multer.File[]) ?? [];
     if (imageFiles.length > 5) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.media_limit_exceeded", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.media_limit_exceeded", { lang: this.lang }),
       );
     }
-    if (dto.video) {
-      videoFiles = dto.video as Express.Multer.File[];
-    }
+    const videoFiles = (dto.video as unknown as Express.Multer.File[]) ?? [];
+
     const serviceCode = await this.generateNextServiceCode();
-    const created = await this.serviceModel.create({
-      ...dto,
-      serviceCode,
-      ownerId: new Types.ObjectId(userId),
-      category: new Types.ObjectId(dto.category),
-      location: user.location,
-      images: [],
-      video: "",
-      parameters: dto.parameters || [],
-    });
+    const serviceId = generateObjectId();
+    const { latitude, longitude } = toLatLng(user.location);
 
-
-
-    if (imageFiles && imageFiles.length > 0) {
+    let images: string[] = [];
+    if (imageFiles.length > 0) {
       images = await this.fileUploadService.uploadServiceFile(
         userId,
-        (created._id as Types.ObjectId).toString(),
+        serviceId,
         imageFiles,
       );
-      created.images = images;
     }
-    if (videoFiles && videoFiles.length > 0) {
-      const video = await this.fileUploadService.uploadServiceFile(
+
+    let video: string | null = null;
+    if (videoFiles.length > 0) {
+      const uploaded = await this.fileUploadService.uploadServiceFile(
         userId,
-        (created._id as Types.ObjectId).toString(),
+        serviceId,
         videoFiles,
         "video",
       );
-      created.video = video[0]; // Assuming only one video file is uploaded
+      video = uploaded[0]; // Assuming only one video file is uploaded
     }
-    await created.save(); // Save the service again to update the images and video fields
+
+    const created = await this.prisma.service.create({
+      data: {
+        id: serviceId,
+        serviceCode,
+        ownerId: userId,
+        title: dto.title,
+        description: dto.description ?? null,
+        price: dto.price != null ? Math.round(Number(dto.price)) : null,
+        paymentType: (dto.paymentType ?? "fixed") as ServicePaymentType,
+        requiresAppointment: dto.requiresAppointment ?? true,
+        categoryId: dto.category,
+        latitude,
+        longitude,
+        images,
+        video,
+        parameters: (dto.parameters || []) as unknown as Prisma.InputJsonValue,
+      },
+      include: { category: true },
+    });
 
     this.sendServiceCreatedEmail(
       user.name,
       user.email,
       created.title,
-      (created._id as Types.ObjectId).toString(),
+      created.id,
       created.serviceCode,
     );
 
-    return { message: this.i18n.translate("auth.services.created_success", { lang: this.lang }), data: created.populate("category") };
+    return {
+      message: this.i18n.translate("auth.services.created_success", { lang: this.lang }),
+      data: this.toApiShape(created),
+    };
   }
 
   async update(
@@ -269,113 +309,125 @@ export class ServicesService {
     dto: UpdateServiceDto,
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
   ) {
-    Object.keys(dto).forEach((key) => {
-      if (
-        dto[key] === "" || // empty string
-        dto[key] === null || // null
-        typeof dto[key] === "undefined"
-      ) {
-        delete dto[key]; // remove it from updateData
+    const clean: Record<string, any> = { ...dto };
+    Object.keys(clean).forEach((key) => {
+      if (clean[key] === "" || clean[key] === null || typeof clean[key] === "undefined") {
+        delete clean[key];
       }
     });
-    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
+
+    const existingService = await this.prisma.service.findFirst({
+      where: { id: serviceId, isDeleted: false, isDisabled: false },
+    });
     if (!existingService) {
       throw new NotFoundException("Service not found");
     }
     if (currentUser) {
-      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
+      assertOwnerOrPermission(
+        currentUser,
+        existingService.ownerId ?? "",
+        "services",
+        "edit",
+      );
     }
-    const imageFiles = dto.images as Express.Multer.File[];
+
+    const imageFiles = clean.images as Express.Multer.File[];
     let images = existingService.images; // Preserve existing images if not updated
     if (imageFiles && imageFiles.length > 0) {
       if (existingService.images && existingService.images.length > 4) {
         throw new BadRequestException("You can only upload up to 5 images");
       }
-      images = existingService.images || [];
-      const newimages = await this.fileUploadService.uploadServiceFile(
-        existingService.ownerId.toString(),
+      const newImages = await this.fileUploadService.uploadServiceFile(
+        existingService.ownerId,
         serviceId,
         imageFiles,
       );
-      images = [...images, ...newimages];
+      images = [...(existingService.images || []), ...newImages];
     }
-    const videoFiles = dto.video as Express.Multer.File[];
+
+    const videoFiles = clean.video as Express.Multer.File[];
     let video = existingService.video; // Preserve existing video if not updated
-    let videoFile: string[] = [];
     if (videoFiles && videoFiles.length > 0) {
-      videoFile = await this.fileUploadService.uploadServiceFile(
-        existingService.ownerId.toString(),
-        (existingService._id as Types.ObjectId).toString(),
+      const uploaded = await this.fileUploadService.uploadServiceFile(
+        existingService.ownerId,
+        serviceId,
         videoFiles,
         "video",
       );
+      video = uploaded[0]; // Assuming only one video file is uploaded
     }
 
-    if (videoFile && videoFile.length > 0) {
-      video = videoFile[0]; // Assuming only one video file is uploaded
+    const data: Prisma.ServiceUpdateInput = { images, video };
+    if (clean.title !== undefined) data.title = clean.title;
+    if (clean.description !== undefined) data.description = clean.description;
+    if (clean.price !== undefined) data.price = Math.round(Number(clean.price));
+    if (clean.paymentType !== undefined) {
+      data.paymentType = clean.paymentType as ServicePaymentType;
     }
-    const updated = await this.serviceModel
-      .findByIdAndUpdate(
-        serviceId,
-        {
-          ...dto,
-          ...(dto.category && { category: new Types.ObjectId(dto.category) }),
-          images: images,
-          video: video,
-          parameters: dto.parameters || existingService.parameters || [],
-        },
-        { new: true },
-      )
-      .populate("category");
+    if (clean.requiresAppointment !== undefined) {
+      data.requiresAppointment = clean.requiresAppointment;
+    }
+    if (clean.category) data.category = { connect: { id: clean.category } };
+    data.parameters = (clean.parameters ||
+      existingService.parameters ||
+      []) as unknown as Prisma.InputJsonValue;
 
-    if (!updated) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
-      );
-    }
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Updated Service:", video);
-    return { message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }), data: { ...dto, images, video } }; // Ensure the images and video are included in the returned object
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data,
+      include: { category: true },
+    });
+
+    return {
+      message: this.i18n.translate("auth.services.updated_success", { lang: this.lang }),
+      // The old version returned `{ ...dto, images, video }` — the request body,
+      // not the saved row, so any server-side default or coercion was invisible
+      // to the caller. This returns what was actually persisted.
+      data: this.toApiShape(updated),
+    };
   }
 
   async delete(
     serviceId: string,
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
   ) {
-    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
+    const existingService = await this.prisma.service.findFirst({
+      where: { id: serviceId, isDeleted: false, isDisabled: false },
+    });
     if (!existingService) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
-      // Ensure the service exists before attempting to delete
     }
     if (currentUser) {
-      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "delete");
+      assertOwnerOrPermission(
+        currentUser,
+        existingService.ownerId ?? "",
+        "services",
+        "delete",
+      );
     }
-    let media: string[] = []
-    if (existingService.images.length != 0) {
-      media = [...existingService.images];
-    }
+
+    const media: string[] = [...(existingService.images ?? [])];
     if (existingService.video) {
       media.push(existingService.video);
     }
 
-    if (media && media.length > 0) {
+    if (media.length > 0) {
       await this.fileUploadService.deleteFiles(media); // Delete associated media files
     }
-    const result = await this.serviceModel.findByIdAndUpdate(new Types.ObjectId(serviceId), { isDeleted: true, imageUrls: [], video: "" });
-    if (!result) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
-      );
-    }
-    return { status: 200, message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }) };
+
+    await this.prisma.service.update({
+      where: { id: serviceId },
+      // The old write set `imageUrls: []` — a field the schema never declared,
+      // so Mongoose dropped it and the images array was never actually cleared.
+      data: { isDeleted: true, images: [], video: "" },
+    });
+
+    return {
+      status: 200,
+      message: this.i18n.translate("auth.services.deleted_success", { lang: this.lang }),
+    };
   }
 
   async deleteServiceMedia(
@@ -383,59 +435,55 @@ export class ServicesService {
     media: string[],
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
   ) {
-    const existingService = await this.serviceModel.findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false });
+    const existingService = await this.prisma.service.findFirst({
+      where: { id: serviceId, isDeleted: false, isDisabled: false },
+    });
     if (!existingService) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.no_media_provided", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }),
       );
     }
     if (currentUser) {
-      assertOwnerOrPermission(currentUser, existingService.ownerId?.toString() ?? "", "services", "edit");
+      assertOwnerOrPermission(
+        currentUser,
+        existingService.ownerId ?? "",
+        "services",
+        "edit",
+      );
     }
 
-    // Remove media files from storage
     await this.fileUploadService.deleteFiles(media);
 
-    // Remove media from product document
-    let images = existingService.images || [];
-    let video = existingService.video;
+    const images = (existingService.images || []).filter(
+      (imgUrl) => !media.includes(imgUrl),
+    );
+    const video =
+      existingService.video && media.includes(existingService.video)
+        ? ""
+        : existingService.video;
 
-    // Remove any images that match the URLs
-    images = images.filter((imgUrl) => !media.includes(imgUrl));
-
-    // Remove video if its URL is in the media array
-    if (media.includes(video)) {
-      video = "";
-    }
-
-    // Update the product
-    existingService.images = images;
-    existingService.video = video;
-    await existingService.save();
+    await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { images, video },
+    });
 
     return true;
   }
 
   async getById(serviceId: string, userId?: string): Promise<any> {
-    const service = await this.serviceModel
-      .findOne({ _id: new Types.ObjectId(serviceId), isDeleted: false, isDisabled: false })
-      .populate("category")
-      .populate("ownerId").lean();
+    const service = await this.prisma.service.findFirst({
+      where: { id: serviceId, isDeleted: false, isDisabled: false },
+      include: SERVICE_INCLUDE,
+    });
 
     if (!service) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
 
@@ -444,40 +492,43 @@ export class ServicesService {
       this.likeService.getLikeCount(serviceId, "service"),
     ]);
 
-    if (!userId) return { ...service, ...listingAnalytics, likesCount };
+    const shaped = this.toApiShape(service);
+
+    if (!userId) return { ...shaped, ...listingAnalytics, likesCount };
 
     const [isLiked, userReview] = await Promise.all([
       this.likeService.isLiked(userId, serviceId, "service"),
       this.reviewService.findOne(userId, serviceId, "service"),
     ]);
 
-    const plain = service.toObject ? service.toObject() : service;
     return {
-      ...plain,
+      ...shaped,
       ...listingAnalytics,
       likesCount,
       isLiked: !!isLiked,
       userReview: userReview || null,
-    } as any;
+    };
   }
 
   /** Real-value counterpart to the admin Service detail modal's "Service Analytics" tiles —
-   *  Total Views / Unique Visitors both read off the same day-deduped ServiceView collection
+   *  Total Views / Unique Visitors both read off the same day-deduped ServiceView table
    *  (Total Views = row count, Unique Visitors = distinct userId count), Contact/WhatsApp
-   *  Clicks read off their own lifetime-deduped collections. No raw counters anywhere. */
+   *  Clicks read off their own lifetime-deduped tables. No raw counters anywhere. */
   private async getServiceAnalytics(serviceId: string) {
-    const serviceObjectId = new Types.ObjectId(serviceId);
-
-    const [totalViews, uniqueVisitorIds, contactClicks, whatsappClicks] = await Promise.all([
-      this.serviceViewModel.countDocuments({ serviceId: serviceObjectId }),
-      this.serviceViewModel.distinct("userId", { serviceId: serviceObjectId }),
-      this.serviceContactClickModel.countDocuments({ serviceId: serviceObjectId }),
-      this.serviceWhatsappClickModel.countDocuments({ serviceId: serviceObjectId }),
+    const [totalViews, uniqueVisitors, contactClicks, whatsappClicks] = await Promise.all([
+      this.prisma.serviceView.count({ where: { serviceId } }),
+      this.prisma.serviceView.findMany({
+        where: { serviceId },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      this.prisma.serviceContactClick.count({ where: { serviceId } }),
+      this.prisma.serviceWhatsappClick.count({ where: { serviceId } }),
     ]);
 
     return {
       totalViews,
-      uniqueVisitorsCount: uniqueVisitorIds.length,
+      uniqueVisitorsCount: uniqueVisitors.length,
       contactClicks,
       whatsappClicks,
     };
@@ -492,185 +543,193 @@ export class ServicesService {
     serviceId: string,
     page = 1,
     limit = 20,
-  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  ): Promise<{
+    data: unknown[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
-    const match = { serviceId: new Types.ObjectId(serviceId) };
 
-    const basePipeline: any[] = [
-      { $match: match },
-      { $group: { _id: "$userId", lastViewedAt: { $max: "$createdAt" } } },
-      { $sort: { lastViewedAt: -1 } },
-    ];
-
-    const [rows, countResult] = await Promise.all([
-      this.serviceViewModel.aggregate([
-        ...basePipeline,
-        { $skip: skip },
-        { $limit: limitNum },
-        {
-          $lookup: {
-            from: "users",
-            localField: "_id",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            _id: 0,
-            createdAt: "$lastViewedAt",
-            "user._id": 1,
-            "user.name": 1,
-            "user.email": 1,
-            "user.image": 1,
-          },
-        },
-      ]),
-      this.serviceViewModel.aggregate([...basePipeline, { $count: "total" }]),
+    const [groups, distinctCount] = await Promise.all([
+      this.prisma.serviceView.groupBy({
+        by: ["userId"],
+        where: { serviceId },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: "desc" } },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT count(DISTINCT user_id) AS count
+        FROM service_views
+        WHERE service_id = ${serviceId}
+      `,
     ]);
 
-    const total = countResult[0]?.total ?? 0;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: groups.map((g) => g.userId) } },
+      select: { id: true, name: true, email: true, image: true },
+    });
+    const usersById = new Map(users.map((u) => [u.id, u]));
+
+    const data = groups.map((g) => ({
+      createdAt: g._max.createdAt,
+      user: usersById.get(g.userId)
+        ? { ...usersById.get(g.userId), _id: g.userId }
+        : null,
+    }));
+
+    const total = Number(distinctCount[0]?.count ?? 0);
 
     return {
-      data: rows,
+      data,
       meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     };
   }
 
-  /** Records a service view: day-deduped per (service, user) — a page refresh within the same
-   *  day never recounts, but a return visit on a later day does. Skips the service's own owner. */
+  /**
+   * The three tracking calls below were byte-identical apart from the table.
+   * Each skips the service's own owner, and each dedupes so a count of rows is
+   * the metric — views per (service, user, day), clicks per (service, user).
+   */
+  private async trackServiceEngagement(
+    kind: "view" | "contactClick" | "whatsappClick",
+    serviceId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!isObjectIdLike(serviceId) || !isObjectIdLike(userId)) return;
+
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { ownerId: true },
+    });
+    if (!service || service.ownerId === userId) return;
+
+    if (kind === "view") {
+      const day = new Date().toISOString().slice(0, 10);
+      await this.prisma.serviceView.upsert({
+        where: { serviceId_userId_day: { serviceId, userId, day } },
+        create: { id: generateObjectId(), serviceId, userId, day },
+        update: {},
+      });
+      return;
+    }
+
+    const where = { serviceId_userId: { serviceId, userId } };
+    const create = { id: generateObjectId(), serviceId, userId };
+
+    if (kind === "contactClick") {
+      await this.prisma.serviceContactClick.upsert({ where, create, update: {} });
+    } else {
+      await this.prisma.serviceWhatsappClick.upsert({ where, create, update: {} });
+    }
+  }
+
+  /** Records a service view: day-deduped per (service, user). Skips the service's own owner. */
   async trackView(serviceId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(serviceId)) return;
-
-    const service = await this.serviceModel.findById(serviceId).select("ownerId").lean();
-    if (!service || service.ownerId.toString() === userId) return;
-
-    const day = new Date().toISOString().slice(0, 10);
-    await this.serviceViewModel.updateOne(
-      { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId), day },
-      { $setOnInsert: { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId), day } },
-      { upsert: true },
-    );
+    return this.trackServiceEngagement("view", serviceId, userId);
   }
 
-  /** Records a "Chat / Message Provider" click on a service. Deduped per (service, user)
-   *  forever — repeat clicks by the same user don't recount. Skips the service's own owner. */
+  /** Records a "Chat / Message Provider" click. Deduped per (service, user) forever. */
   async trackContactClick(serviceId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(serviceId)) return;
-
-    const service = await this.serviceModel.findById(serviceId).select("ownerId").lean();
-    if (!service || service.ownerId.toString() === userId) return;
-
-    await this.serviceContactClickModel.updateOne(
-      { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackServiceEngagement("contactClick", serviceId, userId);
   }
 
-  /** Records a "WhatsApp" click on a service. Deduped per (service, user) forever — repeat
-   *  clicks by the same user don't recount. Skips the service's own owner. */
+  /** Records a "WhatsApp" click. Deduped per (service, user) forever. */
   async trackWhatsappClick(serviceId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(serviceId)) return;
-
-    const service = await this.serviceModel.findById(serviceId).select("ownerId").lean();
-    if (!service || service.ownerId.toString() === userId) return;
-
-    await this.serviceWhatsappClickModel.updateOne(
-      { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { serviceId: new Types.ObjectId(serviceId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackServiceEngagement("whatsappClick", serviceId, userId);
   }
 
   async getByUser(
     userId: string,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<PaginatedResponseDto<Service>> {
-    const skip = (page - 1) * limit;
+    rawPage: number | string = 1,
+    rawLimit: number | string = 10,
+  ): Promise<PaginatedResponseDto<ServiceApi>> {
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    const filter: FilterQuery<ServiceDocument> = {
-      ownerId: new Types.ObjectId(userId),
+    const where: Prisma.ServiceWhereInput = {
+      ownerId: userId,
       isDeleted: false,
       isDisabled: false,
     };
+
     const [data, total] = await Promise.all([
-      this.serviceModel
-        .find(filter)
-        .populate("category").populate("ownerId")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.serviceModel.countDocuments({ ownerId: new Types.ObjectId(userId), isDeleted: false, isDisabled: false }),
+      this.prisma.service.findMany({
+        where,
+        include: SERVICE_INCLUDE,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.service.count({ where }),
     ]);
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: data,
+      data: data.map((s) => this.toApiShape(s)),
     };
   }
 
   async getAllForAdmin(
     paginationDto: PaginationDto,
     search?: string,
-  ): Promise<PaginatedResponseDto<Service>> {
-    const { page = 1, limit = 10 } = paginationDto;
+  ): Promise<PaginatedResponseDto<ServiceApi>> {
+    const pageValue = Number(paginationDto.page);
+    const limitValue = Number(paginationDto.limit);
+    const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+    const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : 10;
     const skip = (page - 1) * limit;
 
-    const filter: FilterQuery<ServiceDocument> = {};
+    const where: Prisma.ServiceWhereInput = {};
 
     if (search && search.trim()) {
       const term = search.trim();
-      filter.$or = [
-        { title: { $regex: term, $options: "i" } },
-        { description: { $regex: term, $options: "i" } },
-        { "category.name.en": { $regex: term, $options: "i" } },
-        { "category.name.ur": { $regex: term, $options: "i" } },
+      where.OR = [
+        { title: { contains: term, mode: "insensitive" } },
+        { description: { contains: term, mode: "insensitive" } },
+        // As in products: the old dotted "category.name.en" paths never matched,
+        // because category is a reference rather than an embedded document.
+        { category: { name: { path: ["en"], string_contains: term } } },
+        { category: { name: { path: ["ur"], string_contains: term } } },
       ];
     }
 
     const [items, total] = await Promise.all([
-      this.serviceModel
-        .find(filter)
-        .populate("category")
-        .populate("ownerId")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.serviceModel.countDocuments(filter),
+      this.prisma.service.findMany({
+        where,
+        include: SERVICE_INCLUDE,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.service.count({ where }),
     ]);
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      data: items.map((s) => this.toApiShape(s)),
     };
   }
 
   async updateStatus(serviceId: string, isDisabled: boolean) {
-    const updated = await this.serviceModel.findByIdAndUpdate(
-      new Types.ObjectId(serviceId),
-      { isDisabled },
-      { new: true },
-    );
-
-    if (!updated) {
+    const existing = await this.prisma.service.findUnique({ where: { id: serviceId } });
+    if (!existing) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
 
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { isDisabled },
+    });
+
     return {
-      message: isDisabled ?
-        this.i18n.translate("auth.services.service_disabled_success", { lang: this.lang }) :
-        this.i18n.translate("auth.services.service_enabled_success", { lang: this.lang }),
-      data: updated,
+      message: isDisabled
+        ? this.i18n.translate("auth.services.service_disabled_success", { lang: this.lang })
+        : this.i18n.translate("auth.services.service_enabled_success", { lang: this.lang }),
+      data: this.toApiShape(updated),
     };
   }
 
@@ -681,7 +740,7 @@ export class ServicesService {
     pagination: PaginationDto,
   ) {
     return this.listingUtils.findNearbyWithCategory(
-      this.serviceModel,
+      "services",
       category,
       coordinates,
       radius,
@@ -690,132 +749,107 @@ export class ServicesService {
   }
 
   async searchNearbyServices(query: SearchNearbyServiceDto) {
-    const coordinates: [number, number] = [Number(query.lng), Number(query.lat)];
+    const longitude = Number(query.lng);
+    const latitude = Number(query.lat);
     const radiusMeters = Number(query.radius) * 1000;
     const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
     const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 10;
     const skip = (page - 1) * limit;
 
-    const serviceQuery: Record<string, any> = { isDeleted: false, isDisabled: false };
-    if (query.category) {
-      serviceQuery.category = new Types.ObjectId(query.category);
+    const filters = [
+      Prisma.sql`is_deleted = false`,
+      Prisma.sql`is_disabled = false`,
+      ...(query.category ? [Prisma.sql`category_id = ${query.category}`] : []),
+    ];
+
+    const { ids, distances, total } = await this.geoRepository.findNearby({
+      table: "services",
+      longitude,
+      latitude,
+      radiusMeters,
+      filters,
+      skip,
+      take: limit,
+      // The old pipeline re-sorted by createdAt after $geoNear.
+      order: "newest",
+    });
+
+    if (ids.length === 0) {
+      return {
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        data: [],
+      };
     }
 
-    const [results, countAgg] = await Promise.all([
-      this.serviceModel.aggregate([
-        {
-          $geoNear: {
-            near: { type: "Point", coordinates },
-            distanceField: "distance",
-            maxDistance: radiusMeters,
-            query: serviceQuery,
-            spherical: true,
-          },
-        },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limit },
-        {
-          $lookup: {
-            from: "categories",
-            localField: "category",
-            foreignField: "_id",
-            as: "category",
-          },
-        },
-        {
-          $unwind: {
-            path: "$category",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-      ]),
-      this.serviceModel.aggregate([
-        {
-          $geoNear: {
-            near: { type: "Point", coordinates },
-            distanceField: "distance",
-            maxDistance: radiusMeters,
-            query: serviceQuery,
-            spherical: true,
-          },
-        },
-        { $count: "total" },
-      ]),
-    ]);
+    const rows = await this.prisma.service.findMany({
+      where: { id: { in: ids } },
+      include: { category: true },
+    });
 
-    const total = countAgg[0]?.total || 0;
+    const results = GeoRepository.reorder(rows, ids).map((s) => ({
+      ...this.toApiShape(s),
+      distance: distances.get(s.id),
+    }));
+
     const enrichedResults = await this.enrichServicesWithReviewStats(results);
 
     return {
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       data: enrichedResults,
     };
   }
 
-  async updateLocationByShopId(
-    shopId: string,
-    location: { type: "Point"; coordinates: [number, number] },
-  ) {
-    await this.serviceModel.updateMany({ shopId }, { $set: { location } });
-  }
-
   async setDisabledByOwner(ownerId: string, disabled: boolean) {
-    console.log("OwnerId", ownerId, "Disabled", disabled);
-    await this.serviceModel.updateMany(
-      { ownerId: new Types.ObjectId(ownerId) },
-      { $set: { isDisabled: disabled } },
-    );
+    await this.prisma.service.updateMany({
+      where: { ownerId },
+      data: { isDisabled: disabled },
+    });
   }
 
   async searchServices(query: SearchAllProductsServiceDto) {
-    // Build filter only with present fields
-    const filter: Record<string, any> = {};
+    const where: Prisma.ServiceWhereInput = {
+      isDeleted: false,
+      isDisabled: false,
+    };
 
     if (query.name) {
-      filter.$or = [
-        { title: { $regex: query.name, $options: "i" } },
-        { serviceCode: { $regex: query.name, $options: "i" } },
+      where.OR = [
+        { title: { contains: query.name, mode: "insensitive" } },
+        { serviceCode: { contains: query.name, mode: "insensitive" } },
       ];
     }
     if (query.category) {
-      filter.category = new Types.ObjectId(query.category);
+      where.categoryId = query.category;
     }
     if (query.startDate || query.endDate) {
-      filter.createdAt = {};
-      if (query.startDate) {
-        filter.createdAt.$gte = new Date(query.startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (query.startDate) createdAt.gte = new Date(query.startDate);
       if (query.endDate) {
         const endOfDay = new Date(query.endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
+      where.createdAt = createdAt;
     }
-    filter.isDeleted = false;
-    filter.isDisabled = false;
 
     const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
     const limit = query.limit && Number(query.limit) > 0 ? Number(query.limit) : 10;
     const skip = (page - 1) * limit;
 
     const [results, total] = await Promise.all([
-      this.serviceModel
-        .find(filter)
-        .skip(skip)
-        .limit(limit)
-        .populate("category").sort({ createdAt: -1 })
-        .lean()
-        .exec(),
-      this.serviceModel.countDocuments(filter),
+      this.prisma.service.findMany({
+        where,
+        include: { category: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.service.count({ where }),
     ]);
 
-    const enrichedResults = await this.enrichServicesWithReviewStats(results);
+    const enrichedResults = await this.enrichServicesWithReviewStats(
+      results.map((s) => this.toApiShape(s)),
+    );
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -828,31 +862,24 @@ export class ServicesService {
       return services;
     }
 
-    const serviceIds = services.map((service) =>
-      new Types.ObjectId(service._id),
-    );
+    const serviceIds = services.map((service) => String(service.id ?? service._id));
     const reviewStats = await this.reviewService.getAverageRatingsForItems(
       serviceIds,
       "service",
     );
 
     const reviewMap = new Map(
-      reviewStats.map((item: any) => [
-        (item._id as Types.ObjectId).toString(),
-        {
-          avgRating: item.avgRating ?? 0,
-          reviewCount: item.count ?? 0,
-        },
+      reviewStats.map((item) => [
+        item._id,
+        { avgRating: item.avgRating ?? 0, reviewCount: item.count ?? 0 },
       ]),
     );
 
     return services.map((service: any) => {
-      const stats = reviewMap.get(new Types.ObjectId(service._id).toString());
+      const stats = reviewMap.get(String(service.id ?? service._id));
       return {
         ...service,
-        averageRating: stats?.avgRating
-          ? Number(stats.avgRating.toFixed(1))
-          : 0,
+        averageRating: stats?.avgRating ? Number(stats.avgRating.toFixed(1)) : 0,
         reviewCount: stats?.reviewCount ?? 0,
       };
     });
@@ -862,135 +889,132 @@ export class ServicesService {
     const { serviceId, customerId, requestedDateTime, message } = dto;
 
     // --- Validation: User Existence ---
-    const customer = customerId
-      ? await this.userService.findUserById(customerId)
-      : null;
+    const customer = customerId ? await this.userService.findUserById(customerId) : null;
 
     if (customerId && !customer)
       throw new NotFoundException(
-        this.i18n.translate("auth.services.customer_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.customer_not_found", { lang: this.lang }),
       );
 
     // --- Creation Flow ---
-
     if (!serviceId || !requestedDateTime || !customerId) {
-      throw new BadRequestException(
-        "Missing required fields for request creation",
-      );
+      throw new BadRequestException("Missing required fields for request creation");
     }
 
-    const service = await this.serviceModel
-      .findById(serviceId)
-      .populate("ownerId");
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      include: { owner: { select: { id: true, name: true, email: true } } },
+    });
     if (!service)
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
 
     const jobCode = await this.generateNextJobCode();
-    const request = new this.requestModel({
-      jobCode,
-      service: new Types.ObjectId(serviceId),
-      customer: new Types.ObjectId(customerId),
-      provider: service.ownerId,
-      requestedDateTime: new Date(requestedDateTime),
-      status: "pending",
-      jobStatus: "not_started",
-      message,
+    const results = await this.prisma.serviceRequest.create({
+      data: {
+        id: generateObjectId(),
+        jobCode,
+        serviceId,
+        customerId,
+        providerId: service.ownerId,
+        requestedDateTime: new Date(requestedDateTime),
+        status: "pending",
+        jobStatus: "not_started",
+        message: message ?? null,
+      },
     });
 
-    const results = await request.save();
     await this.notificationsService.createAndNotify(
-      service.ownerId._id.toString(),
+      service.ownerId,
       "request_created",
       "SERVICE_REQUEST",
-      { serviceId: new Types.ObjectId(serviceId), customerId: new Types.ObjectId(customerId), requestedDateTime, actionType: "recieved" },
+      { serviceId, customerId, requestedDateTime, actionType: "recieved" },
       { serviceName: service.title, customerName: customer?.name || "A customer" },
     );
 
-    // await this.delayResponse();
-
     return {
-      data: results,
+      data: this.withLegacyId(results),
       message: this.i18n.translate("auth.services.request_created_success", {
         lang: this.lang,
       }),
-    }
+    };
   }
-
-
-
 
   async updateRequestStatus(dto: UpdateRequestStatusDto) {
     const { requestId, action, proposedDateTime } = dto;
 
-    const request = await this.requestModel
-      .findById(requestId)
-      .populate("service")
-      .populate("customer")
-      .populate("provider");
+    const request = await this.prisma.serviceRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        service: true,
+        customer: { select: { id: true, name: true, email: true } },
+        provider: { select: { id: true, name: true, email: true } },
+      },
+    });
 
     if (!request)
       throw new NotFoundException(
-        this.i18n.translate("auth.services.request_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.request_not_found", { lang: this.lang }),
       );
 
-    // ✅ Safely extract service name (avoid using full object)
-    const serviceName = (request.service as any)?.title || "service";
-
+    const serviceName = request.service?.title || "service";
     const currentRequestStatus = request.status;
 
     // 1. Prepare variables at the top
     let notificationKey: string | null = null;
-    let recipientId: string = request.customer._id.toString();
+    let recipientId: string = request.customerId;
     let shouldSendBookingAcceptedEmail = false;
-    const notificationPayload = { requestId: request._id, action, request, actionType: "recieved" };
+    const notificationPayload: Record<string, unknown> = {
+      requestId: request.id,
+      action,
+      request,
+      actionType: "recieved",
+    };
 
-    // 2. The Switch logic (ONLY updates status and picks the message key)
+    const data: Prisma.ServiceRequestUpdateInput = {};
+
+    // 2. The Switch logic (ONLY decides the new status and the message key)
     switch (action) {
       case "accept":
         if (currentRequestStatus === "proposed") {
-          request.status = "confirmed";
-          recipientId = request.provider._id.toString();
+          data.status = "confirmed";
+          recipientId = request.providerId;
           notificationKey = "request_confirmed";
           Object.assign(notificationPayload, {
-            proposedDate:
-              request.proposedDateTime?.toISOString() || proposedDateTime,
+            proposedDate: request.proposedDateTime?.toISOString() || proposedDateTime,
           });
         } else {
-          request.status = "accepted";
+          data.status = "accepted";
           notificationKey = "request_accepted";
           shouldSendBookingAcceptedEmail = true;
         }
         break;
 
       case "reject":
-        request.status = "rejected";
+        data.status = "rejected";
         notificationKey = "request_rejected";
         if (currentRequestStatus === "proposed") {
-          recipientId = request.provider._id.toString();
+          recipientId = request.providerId;
         }
         break;
 
       case "cancel":
-        request.status = "cancelled";
-        recipientId = request.provider._id.toString(); // Switch recipient
+        data.status = "cancelled";
+        recipientId = request.providerId; // Switch recipient
         notificationKey = "request_cancelled";
         break;
 
       case "propose":
-        if (!proposedDateTime) throw new BadRequestException(/* ... */);
+        if (!proposedDateTime) {
+          throw new BadRequestException(
+            this.i18n.translate("auth.services.unsupported_action", { lang: this.lang }),
+          );
+        }
 
-        request.status = "proposed";
-        request.proposedDateTime = new Date(proposedDateTime);
+        data.status = "proposed";
+        data.proposedDateTime = new Date(proposedDateTime);
         notificationKey = "request_proposed";
-        // Add extra data specifically for this case
         Object.assign(notificationPayload, { proposedDate: proposedDateTime });
         break;
 
@@ -1001,12 +1025,11 @@ export class ServicesService {
           );
         }
 
-        request.status = "confirmed";
-        recipientId = request.provider._id.toString();
+        data.status = "confirmed";
+        recipientId = request.providerId;
         notificationKey = "request_confirmed";
         Object.assign(notificationPayload, {
-          proposedDate:
-            request.proposedDateTime?.toISOString() || proposedDateTime,
+          proposedDate: request.proposedDateTime?.toISOString() || proposedDateTime,
         });
         break;
 
@@ -1017,66 +1040,62 @@ export class ServicesService {
     }
 
     // 3. Perform the DB Operation (The Source of Truth)
-    await request.save();
+    await this.prisma.serviceRequest.update({ where: { id: requestId }, data });
 
     // 4. Dispatch Notification (Only if save succeeded and we have a key)
     if (notificationKey) {
-      const i18nArgs = {
-        serviceName,
-      };
-
       await this.notificationsService.createAndNotify(
         recipientId,
-        notificationKey, // Use the translation key decided in the switch
+        notificationKey,
         "SERVICE_REQUEST",
-        notificationPayload, // Mandatory Payload
-        i18nArgs, // i18n Args
+        notificationPayload,
+        { serviceName },
       );
     }
 
     if (shouldSendBookingAcceptedEmail) {
-      const customer = request.customer as any;
+      const customer = request.customer;
       if (customer?.email) {
-        this.sendBookingAcceptedEmail(customer.name ?? "", customer.email, serviceName, request.jobCode);
+        this.sendBookingAcceptedEmail(
+          customer.name ?? "",
+          customer.email,
+          serviceName,
+          request.jobCode,
+        );
       }
     }
-    // Give Android a brief window to settle the connection before the response completes.
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     return {
       status: 201,
       message: this.i18n.translate("auth.services.request_status_updated", {
         lang: this.lang,
       }),
-      data: {
-        requestId,
-      },
+      data: { requestId },
     };
   }
 
   async updateJobStatus(dto: UpdateJobStatusDto) {
     const { requestId, action } = dto;
 
-    const request = await this.requestModel.findById(requestId);
+    const request = await this.prisma.serviceRequest.findUnique({
+      where: { id: requestId },
+    });
     if (!request) throw new NotFoundException("Request not found");
-    console.log("Action", action);
+
+    const data: Prisma.ServiceRequestUpdateInput = {};
+
     switch (action) {
-      case "start_job":
+      case "start_job": {
         // Check if provider already has another in_progress job
-        const existingInProgress = await this.requestModel.findOne({
-          _id: { $ne: new Types.ObjectId(request._id) },
-          provider: new Types.ObjectId(request.provider),
-          jobStatus: "in_progress",
+        const existingInProgress = await this.prisma.serviceRequest.findFirst({
+          where: {
+            id: { not: request.id },
+            providerId: request.providerId,
+            jobStatus: "in_progress",
+          },
+          select: { id: true },
         });
 
-        console.log(
-          "Existing in-progress job for provider:",
-          existingInProgress,
-          "Provider ID:",
-          request.provider,
-          "Request ID:",
-          request._id,
-        );
         if (existingInProgress) {
           throw new BadRequestException(
             this.i18n.translate("auth.services.provider_has_in_progress_job", {
@@ -1085,104 +1104,81 @@ export class ServicesService {
           );
         }
 
-        request.jobStatus = "in_progress";
-        request.status = "accepted";
-        request.startedAt = new Date();
+        data.jobStatus = "in_progress";
+        data.status = "accepted";
+        data.startedAt = new Date();
         break;
+      }
 
       case "complete_job":
-        request.status = "accepted"; // keep it consistent
-        request.jobStatus = "completed";
-        request.completedAt = new Date();
-
+        data.status = "accepted"; // keep it consistent
+        data.jobStatus = "completed";
+        data.completedAt = new Date();
         break;
 
       default:
         throw new BadRequestException(
-          this.i18n.translate("auth.services.unsupported_job_action", {
-            lang: this.lang,
-          }),
+          this.i18n.translate("auth.services.unsupported_job_action", { lang: this.lang }),
         );
     }
 
-    const result = await request.save();
-    // Give Android a brief window to settle the connection before the response completes.
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
+    const result = await this.prisma.serviceRequest.update({
+      where: { id: requestId },
+      data,
+    });
 
     return {
       status: 201,
       message: this.i18n.translate("auth.services.job_status_updated", {
         lang: this.lang,
-        args: {
-          jobStatus: request.jobStatus,
-        },
+        args: { jobStatus: result.jobStatus },
       }),
-      data: {
-        requestId: result._id,
-        jobStatus: result.jobStatus,
-      },
+      data: { requestId: result.id, jobStatus: result.jobStatus },
     };
   }
 
   async getServiceRequestsByUser(
     userId: string,
     role: "customer" | "provider",
-    page = 1,
-    limit = 10,
+    rawPage: number | string = 1,
+    rawLimit: number | string = 10,
     jobStatus?: string,
     status?: string,
   ): Promise<PaginatedResponseDto<ServiceRequest>> {
-    const skip = (page - 1) * limit;
-    const filter: FilterQuery<ServiceRequestDocument> = {};
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    if (role === "customer") {
-      filter.customer = new Types.ObjectId(userId);
-    } else if (role === "provider") {
-      filter.provider = new Types.ObjectId(userId);
-    } else {
+    if (role !== "customer" && role !== "provider") {
       throw new BadRequestException(
         "Invalid role value. Expected 'customer' or 'provider'.",
       );
     }
 
-    if (jobStatus) {
-      filter.jobStatus = jobStatus;
-    }
+    const where: Prisma.ServiceRequestWhereInput =
+      role === "customer" ? { customerId: userId } : { providerId: userId };
 
-    if (status) {
-      filter.status = status;
-    }
+    if (jobStatus) where.jobStatus = jobStatus as JobStatus;
+    if (status) where.status = status as RequestStatus;
 
     const [requests, total] = await Promise.all([
-      this.requestModel
-        .find(filter)
-        .populate("service")
-        .populate("customer")
-        .populate("provider")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.requestModel.countDocuments(filter),
+      this.prisma.serviceRequest.findMany({
+        where,
+        include: { service: true, customer: true, provider: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.serviceRequest.count({ where }),
     ]);
-
-
 
     if (!requests || requests.length === 0) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.no_requests_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.no_requests_found", { lang: this.lang }),
       );
     }
+
     return {
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-      data: requests,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: requests.map((r) => this.withLegacyId(r)) as unknown as ServiceRequest[],
     };
   }
 
@@ -1191,18 +1187,13 @@ export class ServicesService {
     userId: string,
     role: "customer" | "provider",
   ): Promise<number> {
-    const filter: FilterQuery<ServiceRequestDocument> =
-      role === "customer"
-        ? { customer: new Types.ObjectId(userId) }
-        : { provider: new Types.ObjectId(userId) };
-    return this.requestModel.countDocuments(filter);
+    return this.prisma.serviceRequest.count({
+      where: role === "customer" ? { customerId: userId } : { providerId: userId },
+    });
   }
 
-  private computeBookingStatus(status?: string, jobStatus?: string): "pending" | "accepted" | "completed" | "cancelled" {
-    if (jobStatus === "completed") return "completed";
-    if (status === "cancelled" || status === "rejected") return "cancelled";
-    if (status === "accepted" || status === "confirmed") return "accepted";
-    return "pending";
+  private computeBookingStatus(status?: string, jobStatus?: string): BookingStatus {
+    return computeBookingStatus(status, jobStatus);
   }
 
   async getAllServiceRequests(
@@ -1217,106 +1208,68 @@ export class ServicesService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const bookingStatusExpr = {
-      $switch: {
-        branches: [
-          { case: { $eq: ["$jobStatus", "completed"] }, then: "completed" },
-          { case: { $in: ["$status", ["cancelled", "rejected"]] }, then: "cancelled" },
-          { case: { $in: ["$status", ["accepted", "confirmed"]] }, then: "accepted" },
-        ],
-        default: "pending",
-      },
-    };
+    // Was a $lookup x3 + $addFields($switch) + $match + $facet pipeline. The
+    // derived bookingStatus becomes an equivalent set of column predicates (see
+    // bookingStatusFilter), and the joins become relation filters.
+    const where: Prisma.ServiceRequestWhereInput = {};
 
-    const pipeline: any[] = [
-      {
-        $lookup: {
-          from: "users",
-          localField: "customer",
-          foreignField: "_id",
-          as: "customerInfo",
-        },
-      },
-      { $unwind: { path: "$customerInfo", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "users",
-          localField: "provider",
-          foreignField: "_id",
-          as: "providerInfo",
-        },
-      },
-      { $unwind: { path: "$providerInfo", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "services",
-          localField: "service",
-          foreignField: "_id",
-          as: "serviceInfo",
-        },
-      },
-      { $unwind: { path: "$serviceInfo", preserveNullAndEmptyArrays: true } },
-      { $addFields: { bookingStatus: bookingStatusExpr } },
-    ];
-
-    const matchStage: Record<string, any> = {};
-    if (bookingStatus?.trim()) {
-      matchStage.bookingStatus = bookingStatus.trim().toLowerCase();
+    const bucket = bookingStatus?.trim().toLowerCase();
+    if (bucket) {
+      Object.assign(where, bookingStatusFilter(bucket as BookingStatus));
     }
+
     if (search?.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      matchStage.$or = [
-        { jobCode: regex },
-        { "customerInfo.name": regex },
-        { "providerInfo.name": regex },
-        { "serviceInfo.title": regex },
+      const term = search.trim();
+      where.OR = [
+        { jobCode: { contains: term, mode: "insensitive" } },
+        { customer: { name: { contains: term, mode: "insensitive" } } },
+        { provider: { name: { contains: term, mode: "insensitive" } } },
+        { service: { title: { contains: term, mode: "insensitive" } } },
       ];
     }
+
     if (startDate || endDate) {
-      matchStage.createdAt = {};
-      if (startDate) {
-        matchStage.createdAt.$gte = new Date(startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (startDate) createdAt.gte = new Date(startDate);
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        matchStage.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
-    }
-    if (Object.keys(matchStage).length > 0) {
-      pipeline.push({ $match: matchStage });
+      where.createdAt = createdAt;
     }
 
-    pipeline.push(
-      { $sort: { createdAt: -1 } },
-      {
-        $project: {
-          jobCode: 1,
-          status: 1,
-          jobStatus: 1,
-          bookingStatus: 1,
-          requestedDateTime: 1,
-          proposedDateTime: 1,
-          createdAt: 1,
-          "customerInfo._id": 1,
-          "customerInfo.name": 1,
-          "providerInfo._id": 1,
-          "providerInfo.name": 1,
-          "serviceInfo._id": 1,
-          "serviceInfo.title": 1,
+    const [rows, total] = await Promise.all([
+      this.prisma.serviceRequest.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+        select: {
+          id: true,
+          jobCode: true,
+          status: true,
+          jobStatus: true,
+          requestedDateTime: true,
+          proposedDateTime: true,
+          createdAt: true,
+          customer: { select: { id: true, name: true } },
+          provider: { select: { id: true, name: true } },
+          service: { select: { id: true, title: true } },
         },
-      },
-      {
-        $facet: {
-          data: [{ $skip: skip }, { $limit: limitNum }],
-          totalCount: [{ $count: "count" }],
-        },
-      },
-    );
+      }),
+      this.prisma.serviceRequest.count({ where }),
+    ]);
 
-    const result = await this.requestModel.aggregate(pipeline).exec();
-    const data = result[0]?.data ?? [];
-    const total = result[0]?.totalCount?.[0]?.count ?? 0;
+    // The old $project emitted the joins as customerInfo/providerInfo/serviceInfo.
+    const data = rows.map(({ customer, provider, service, ...rest }) => ({
+      ...rest,
+      _id: rest.id,
+      bookingStatus: computeBookingStatus(rest.status, rest.jobStatus),
+      customerInfo: customer ? { ...customer, _id: customer.id } : null,
+      providerInfo: provider ? { ...provider, _id: provider.id } : null,
+      serviceInfo: service ? { ...service, _id: service.id } : null,
+    }));
 
     return {
       data,
@@ -1330,65 +1283,60 @@ export class ServicesService {
   }
 
   async getServiceRequestStatusCounts(startDate?: string, endDate?: string) {
-    const bookingStatusExpr = {
-      $switch: {
-        branches: [
-          { case: { $eq: ["$jobStatus", "completed"] }, then: "completed" },
-          { case: { $in: ["$status", ["cancelled", "rejected"]] }, then: "cancelled" },
-          { case: { $in: ["$status", ["accepted", "confirmed"]] }, then: "accepted" },
-        ],
-        default: "pending",
-      },
-    };
-
-    const matchStage: Record<string, any> = {};
+    const dateWhere: Prisma.ServiceRequestWhereInput = {};
     if (startDate || endDate) {
-      matchStage.createdAt = {};
-      if (startDate) {
-        matchStage.createdAt.$gte = new Date(startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (startDate) createdAt.gte = new Date(startDate);
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        matchStage.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
+      dateWhere.createdAt = createdAt;
     }
 
-    const pipeline: any[] = [];
-    if (Object.keys(matchStage).length > 0) {
-      pipeline.push({ $match: matchStage });
-    }
-    pipeline.push(
-      { $addFields: { bookingStatus: bookingStatusExpr } },
-      { $group: { _id: "$bookingStatus", count: { $sum: 1 } } },
-    );
+    // Four counts against the same predicates the $switch used. Doing it this
+    // way keeps the bucket definitions in one place (bookingStatusFilter) rather
+    // than duplicating the $switch in a second pipeline.
+    const [pending, accepted, completed, cancelled] = await Promise.all([
+      this.prisma.serviceRequest.count({
+        where: { ...dateWhere, ...bookingStatusFilter("pending") },
+      }),
+      this.prisma.serviceRequest.count({
+        where: { ...dateWhere, ...bookingStatusFilter("accepted") },
+      }),
+      this.prisma.serviceRequest.count({
+        where: { ...dateWhere, ...bookingStatusFilter("completed") },
+      }),
+      this.prisma.serviceRequest.count({
+        where: { ...dateWhere, ...bookingStatusFilter("cancelled") },
+      }),
+    ]);
 
-    const result = await this.requestModel.aggregate(pipeline).exec();
-
-    const counts = { pending: 0, accepted: 0, completed: 0, cancelled: 0 };
-    let total = 0;
-    for (const row of result) {
-      if (row._id in counts) {
-        counts[row._id as keyof typeof counts] = row.count;
-      }
-      total += row.count;
-    }
-
-    return { data: { total, ...counts } };
+    return {
+      data: {
+        total: pending + accepted + completed + cancelled,
+        pending,
+        accepted,
+        completed,
+        cancelled,
+      },
+    };
   }
 
   async getServiceRequestDetail(requestId: string) {
-    if (!Types.ObjectId.isValid(requestId)) {
+    if (!isObjectIdLike(requestId)) {
       throw new BadRequestException("Invalid booking id");
     }
 
-    const request: any = await this.requestModel
-      .findById(requestId)
-      .populate("service", "title price paymentType images")
-      .populate("customer", "name email phone")
-      .populate("provider", "name email phone")
-      .lean()
-      .exec();
+    const request = await this.prisma.serviceRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        service: { select: { id: true, title: true, price: true, paymentType: true, images: true } },
+        customer: { select: { id: true, name: true, email: true, phone: true } },
+        provider: { select: { id: true, name: true, email: true, phone: true } },
+      },
+    });
 
     if (!request) {
       throw new NotFoundException("Booking not found");
@@ -1396,48 +1344,35 @@ export class ServicesService {
 
     return {
       data: {
-        ...request,
+        ...this.withLegacyId(request),
         bookingStatus: this.computeBookingStatus(request.status, request.jobStatus),
       },
     };
   }
 
   async deleteAllServiceMedia(serviceId: string, media: string[]) {
-    const service = await this.serviceModel.findById(serviceId);
+    const service = await this.prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) {
       throw new NotFoundException(
-        this.i18n.translate("auth.services.service_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.services.no_media_provided", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.services.no_media_provided", { lang: this.lang }),
       );
     }
 
-    // Remove media files from storage
     await this.fileUploadService.deleteFiles(media);
 
-    // Remove media from product document
-    let images = service.images || [];
-    let video = service.video;
+    const images = (service.images || []).filter((imgUrl) => !media.includes(imgUrl));
+    const video = service.video && media.includes(service.video) ? "" : service.video;
 
-    // Remove any images that match the URLs
-    images = images.filter((imgUrl) => !media.includes(imgUrl));
+    await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { images, video },
+    });
 
-    // Remove video if its URL is in the media array
-    if (media.includes(video)) {
-      video = "";
-    }
-
-    // Update the product
-    service.images = images;
-    service.video = video;
-    await service.save();
     return {
       message: this.i18n.translate("auth.services.media_deleted_success", {
         lang: this.lang,
@@ -1449,40 +1384,35 @@ export class ServicesService {
     paginationDto: PaginationDto,
     userId?: string,
     category?: string,
-  ): Promise<PaginatedResponseDto<Service>> {
-    const { page = 1, limit = 10 } = paginationDto;
+  ): Promise<PaginatedResponseDto<ServiceApi>> {
+    const pageValue = Number(paginationDto.page);
+    const limitValue = Number(paginationDto.limit);
+    const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+    const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : 10;
     const skip = (page - 1) * limit;
 
-    // ✅ Robust filter (handles null, empty string, missing field)
-    const filter: FilterQuery<Service> = {
-      video: { $exists: true, $nin: ["", null] },
-      isDeleted: false, // Exclude deleted services
+    const where: Prisma.ServiceWhereInput = {
+      ...HAS_VIDEO,
+      isDeleted: false,
       isDisabled: false,
     };
-
-
     if (category) {
-      filter.category = new Types.ObjectId(category);
+      where.categoryId = category;
     }
-    const [items, total] = await Promise.all([
-      this.serviceModel
-        .find(filter)
-        .populate("category")
-        .populate({
-          path: "ownerId",
-          model: "User",                    // ← explicitly tell Mongoose
-          select: "_id name image address phone location",
-        })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean({ virtuals: true })   // ← Important change
-        .exec(),
 
-      this.serviceModel.countDocuments(filter).exec(),
+    const [items, total] = await Promise.all([
+      this.prisma.service.findMany({
+        where,
+        include: SERVICE_INCLUDE,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.service.count({ where }),
     ]);
-    const productIds = items.map((item: any) => new Types.ObjectId(item._id));
-    const itemIds = items.map((item: any) => item._id.toString());
+
+    const shaped = items.map((s) => this.toApiShape(s));
+    const itemIds = shaped.map((item) => item.id as string);
     const [likeCounts, shareCounts] = await Promise.all([
       this.likeService.getLikeCountsForItems(itemIds, "service"),
       this.shareService.getShareCountsForItems(itemIds, "service"),
@@ -1491,10 +1421,10 @@ export class ServicesService {
     if (!userId) {
       return {
         meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-        data: items.map((item: any) => ({
+        data: shaped.map((item) => ({
           ...item,
-          likesCount: likeCounts.get(item._id.toString()) ?? 0,
-          sharesCount: shareCounts.get(item._id.toString()) ?? 0,
+          likesCount: likeCounts.get(item.id) ?? 0,
+          sharesCount: shareCounts.get(item.id) ?? 0,
         })),
       };
     }
@@ -1502,31 +1432,23 @@ export class ServicesService {
     const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("auth.users.user_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
       );
     }
 
-    const likes = await this.likeService.getLikesByUser(
-      userId,
-      "service",
-      productIds,
-    );
+    const likes = await this.likeService.getLikesByUser(userId, "service", itemIds);
+    const likedServiceIds = new Set(likes.map((like) => like.itemId));
 
-    const likedServiceIds = new Set(
-      likes.map((like: any) => like.itemId.toString()),
-    );
-    const data = items.map((item: any) => ({
-      ...item, // Now safe because of .lean()
-      isLiked: likedServiceIds.has(item._id.toString()),
-      likesCount: likeCounts.get(item._id.toString()) ?? 0,
-      sharesCount: shareCounts.get(item._id.toString()) ?? 0,
+    const data = shaped.map((item) => ({
+      ...item,
+      isLiked: likedServiceIds.has(item.id),
+      likesCount: likeCounts.get(item.id) ?? 0,
+      sharesCount: shareCounts.get(item.id) ?? 0,
     }));
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: data,
+      data,
     };
   }
 
@@ -1536,70 +1458,58 @@ export class ServicesService {
     jobStatus?: string,
     status?: string,
   ): Promise<PaginatedResponseDto<ServiceRequest>> {
-    const { page = 1, limit = 10 } = paginationDto;
+    const pageValue = Number(paginationDto.page);
+    const limitValue = Number(paginationDto.limit);
+    const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+    const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : 10;
     const skip = (page - 1) * limit;
-
 
     const existingCustomer = await this.userService.findUserById(customerId);
     if (!existingCustomer) {
       throw new NotFoundException(
-        this.i18n.translate("auth.users.user_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
       );
     }
-    console.log("Existing customer", existingCustomer)
 
-    const filter: FilterQuery<ServiceRequestDocument> = {
-      customer: new Types.ObjectId(customerId),
-    };
+    const where: Prisma.ServiceRequestWhereInput = { customerId };
 
-    if (jobStatus) {
-      filter.jobStatus = jobStatus;
-    }
+    if (jobStatus) where.jobStatus = jobStatus as JobStatus;
     if (status) {
-      filter.status = status.includes(",") ? { $in: status.split(",") } : status;
+      where.status = status.includes(",")
+        ? { in: status.split(",") as RequestStatus[] }
+        : (status as RequestStatus);
     }
 
-    console.log("Filter for customer requests:", filter);
-    const requests = await this.requestModel
-      .find(filter)
-      .populate({
-        path: "provider",
-        select: "name email",
-      })
-      .populate({
-        path: "customer",
-        select: "name email",
-      })
-      .populate({
-        path: "service",
-        populate: {
-          path: "category",
+    const [requests, total] = await Promise.all([
+      this.prisma.serviceRequest.findMany({
+        where,
+        include: {
+          provider: { select: { id: true, name: true, email: true } },
+          customer: { select: { id: true, name: true, email: true } },
+          service: { include: { category: true } },
         },
-      })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec();
-    const total = await this.requestModel.countDocuments(filter).exec();
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.serviceRequest.count({ where }),
+    ]);
 
     // Per-booking, not per-service — a customer can book (and review) the same service more
     // than once, and each booking gets its own independent review slot.
-    const requestIds = requests.map((request) => (request as any)?._id).filter(Boolean);
+    const requestIds = requests.map((request) => request.id);
     const reviewedRequestIds = await this.reviewService.getReviewedRequestIdsForUser(
       customerId,
       requestIds,
     );
     const data = requests.map((request) => ({
-      ...request,
-      alreadyReviewed: reviewedRequestIds.has(String((request as any)?._id)),
+      ...this.withLegacyId(request),
+      alreadyReviewed: reviewedRequestIds.has(request.id),
     }));
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data,
+      data: data as unknown as ServiceRequest[],
     };
   }
 
@@ -1612,20 +1522,14 @@ export class ServicesService {
 
     // 1) Find this user's most recent booking of this service — per-booking review scope, so
     // eligibility (and the review itself, once submitted) is tied to that specific booking.
-    const request = await this.requestModel
-      .findOne({
-        service: new Types.ObjectId(serviceId),
-        customer: new Types.ObjectId(userId),
-      })
-      .sort({ createdAt: -1 })
-      .lean();
+    const request = await this.prisma.serviceRequest.findFirst({
+      where: { serviceId, customerId: userId },
+      orderBy: { createdAt: "desc" },
+    });
 
     if (!request) {
       return {
-        data: {
-          canReview: false,
-          notBooked: true,
-        },
+        data: { canReview: false, notBooked: true },
         message: this.i18n.translate("auth.services.no_requests_found", {
           lang: this.lang,
         }),
@@ -1641,24 +1545,19 @@ export class ServicesService {
           notAccepted: true,
           requestStatus: request.status,
         },
-        message: this.i18n.translate("auth.services.request_not_accepted", {
-          lang: this.lang,
-        }) || "Service request has not been accepted",
+        message:
+          this.i18n.translate("auth.services.request_not_accepted", {
+            lang: this.lang,
+          }) || "Service request has not been accepted",
       };
     }
 
-    const requestId = String((request as any)._id);
-
     // 2) Check if this specific booking already has a review — not "has this user ever
     // reviewed this service", since the same service can be booked (and reviewed) again.
-    const existingReview = await this.reviewService.findOneByRequest(userId, requestId);
+    const existingReview = await this.reviewService.findOneByRequest(userId, request.id);
     if (existingReview) {
       return {
-        data: {
-          canReview: false,
-          alreadyReviewed: true,
-          requestId,
-        },
+        data: { canReview: false, alreadyReviewed: true, requestId: request.id },
         message: this.i18n.translate("auth.reviews.duplicate_review", {
           lang: this.lang,
         }),
@@ -1666,13 +1565,8 @@ export class ServicesService {
     }
 
     return {
-      data: {
-        canReview: true,
-        requestId,
-      },
+      data: { canReview: true, requestId: request.id },
       message: "User is eligible to review",
     };
   }
 }
-
-

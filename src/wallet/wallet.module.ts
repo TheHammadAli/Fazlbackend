@@ -1,16 +1,4 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
-import { Counter, CounterSchema } from "src/common/schema/counter.schema";
-import { User, UserSchema } from "src/users/schema/users.schema";
-
-import { Wallet, WalletSchema } from "./schema/wallet.schema";
-import { WalletLedgerEntry, WalletLedgerEntrySchema } from "./schema/wallet-ledger-entry.schema";
-import { WalletTransaction, WalletTransactionSchema } from "./schema/wallet-transaction.schema";
-import { MerchantDeal, MerchantDealSchema } from "./schema/merchant-deal.schema";
-import { Withdrawal, WithdrawalSchema } from "./schema/withdrawal.schema";
-import { Refund, RefundSchema } from "./schema/refund.schema";
-import { WalletAuditLog, WalletAuditLogSchema } from "./schema/wallet-audit-log.schema";
-import { WalletSettings, WalletSettingsSchema } from "./schema/wallet-settings.schema";
 
 import { WalletLedgerService } from "./wallet-ledger.service";
 import { WalletAuditLogService } from "./wallet-audit-log.service";
@@ -31,21 +19,9 @@ import { RefundController } from "./controllers/refund.controller";
 import { WalletAuditLogController } from "./controllers/wallet-audit-log.controller";
 import { WalletSettingsController } from "./controllers/wallet-settings.controller";
 
+// PrismaModule is @Global, so PrismaService needs no import here — this replaces the
+// eight wallet model registrations plus Counter and User.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Wallet.name, schema: WalletSchema },
-      { name: WalletLedgerEntry.name, schema: WalletLedgerEntrySchema },
-      { name: WalletTransaction.name, schema: WalletTransactionSchema },
-      { name: MerchantDeal.name, schema: MerchantDealSchema },
-      { name: Withdrawal.name, schema: WithdrawalSchema },
-      { name: Refund.name, schema: RefundSchema },
-      { name: WalletAuditLog.name, schema: WalletAuditLogSchema },
-      { name: WalletSettings.name, schema: WalletSettingsSchema },
-      { name: Counter.name, schema: CounterSchema },
-      { name: User.name, schema: UserSchema },
-    ]),
-  ],
   controllers: [
     WalletDashboardController,
     WalletUserController,

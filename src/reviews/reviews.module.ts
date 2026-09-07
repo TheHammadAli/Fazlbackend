@@ -1,15 +1,12 @@
 import { Module } from "@nestjs/common";
 import { ReviewService } from "./reviews.service";
 import { ReviewController } from "./reviews.controller";
-import { Review, ReviewSchema } from "./schema/review.schema";
-import { MongooseModule } from "@nestjs/mongoose";
 
+// PrismaModule is @Global and exports both PrismaService and ReviewRepository,
+// so neither needs importing here — this replaces the Review model registration.
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
-  ],
   providers: [ReviewService],
   controllers: [ReviewController],
   exports: [ReviewService],
 })
-export class ReviewsModule { }
+export class ReviewsModule {}

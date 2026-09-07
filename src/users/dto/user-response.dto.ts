@@ -1,6 +1,6 @@
 import { Exclude, Expose } from "class-transformer";
 import { ApiProperty } from "@nestjs/swagger";
-import { Location } from "../schema/users.interfaces";
+import { GeoJsonPoint } from "src/common/utils/geo.util";
 
 @Exclude()
 export class UserResponseDto {
@@ -28,7 +28,7 @@ export class UserResponseDto {
     example: { type: "Point", coordinates: [73.0479, 33.6844] },
   })
   @Expose()
-  location: Location;
+  location: GeoJsonPoint;
 
   @ApiProperty()
   @Expose()

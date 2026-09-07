@@ -26,7 +26,8 @@ import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
 import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
 import { CreateMemberDto } from "./dto/create-member.dto";
 import { UpdateMemberDto } from "./dto/update-member.dto";
-import { User } from "./schema/users.schema";
+import type { User } from "./model/user.model";
+import { UserModel } from "./model/user.model";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { RolesGuard } from "src/auth/guard/roles-guard";
 import { Roles } from "src/common/decorators/roles.decorator";
@@ -404,7 +405,8 @@ export class UsersController {
       "member_created",
       "User",
       result.data?._id?.toString(),
-      result.data?.name,
+      // `name` is nullable on the row; ActivityLogService takes string | undefined.
+      result.data?.name ?? undefined,
       req.ip,
     );
     return result;
@@ -430,7 +432,7 @@ export class UsersController {
       "member_updated",
       "User",
       id,
-      result.data?.name,
+      result.data?.name ?? undefined,
       req.ip,
     );
     return result;
@@ -454,7 +456,7 @@ export class UsersController {
       "member_deleted",
       "User",
       id,
-      result.data?.name,
+      result.data?.name ?? undefined,
       req.ip,
     );
     return result;

@@ -2,28 +2,30 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { ClsService } from "nestjs-cls";
-import { Report, ReportDocument } from "./schema/report.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
-import { User, UserDocument } from "src/users/schema/users.schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { ReportRepository } from "src/prisma/repositories/report.repository";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { reportReason as reportReasonWire } from "src/common/utils/enum-wire.util";
 import { EmailService } from "src/common/email-service/email-service";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { UpdateReportDto } from "./dto/update-report.dto";
+import type { Report, ReportEntityType } from "./model/report.model";
+import type { ReportReason as PrismaReportReason } from "../../generated/prisma/client";
+import { resolvePagination } from "src/common/utils/pagination.util";
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
-    @InjectModel(Report.name)
-    private readonly reportModel: Model<ReportDocument>,
-    @InjectModel(Counter.name)
-    private readonly counterModel: Model<CounterDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly prisma: PrismaService,
+    private readonly reportRepository: ReportRepository,
     private readonly emailService: EmailService,
     private readonly notificationsService: NotificationsService,
     private readonly i18n: I18nService,
@@ -34,24 +36,29 @@ export class ReportsService {
     return this.cls.get("lang") || "en";
   }
 
+  /**
+   * Prisma speaks enum identifiers; the API speaks the stored values. Only
+   * `reason` is affected ("Adult Content" <-> AdultContent).
+   */
+  private toApiShape<T extends { reason?: unknown }>(report: T): T {
+    if (!report) return report;
+    return { ...report, reason: reportReasonWire.toWire(report.reason as string) };
+  }
+
   private async generateNextCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "reportCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "reportCode" },
+      create: { id: "reportCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `REP-${String(counter.seq).padStart(6, "0")}`;
   }
 
-  private async requireOwnOpenReport(
-    id: string,
-    reporterId: string,
-  ): Promise<ReportDocument> {
-    if (!Types.ObjectId.isValid(id))
-      throw new NotFoundException("Report not found");
-    const report = await this.reportModel.findById(id);
+  private async requireOwnOpenReport(id: string, reporterId: string): Promise<Report> {
+    if (!isObjectIdLike(id)) throw new NotFoundException("Report not found");
+    const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException("Report not found");
-    if (report.reporterId.toString() !== reporterId) {
+    if (report.reporterId !== reporterId) {
       throw new ForbiddenException("You can only manage your own reports");
     }
     if (report.status !== "open") {
@@ -62,65 +69,92 @@ export class ReportsService {
     return report;
   }
 
-  private async requireReport(id: string): Promise<ReportDocument> {
-    if (!Types.ObjectId.isValid(id))
-      throw new NotFoundException("Report not found");
-    const report = await this.reportModel.findById(id);
+  private async requireReport(id: string): Promise<Report> {
+    if (!isObjectIdLike(id)) throw new NotFoundException("Report not found");
+    const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException("Report not found");
     return report;
   }
 
-  /** Best-effort title lookup for the "reported X" line in the admin notification email —
-   *  matches the aggregation's four-way entity resolution but as a single-row lookup instead of
-   *  a pipeline, since this only runs once per created report. */
+  /**
+   * Best-effort title lookup for the "reported X" line in the admin notification
+   * email.
+   *
+   * This was the codebase's only raw-driver call —
+   * `reportModel.db.collection(name).findOne(...)` with the collection name
+   * built from a string. It is now a typed switch over four models, so a new
+   * entity type is a compile error rather than a lookup against a collection
+   * that does not exist.
+   */
   private async resolveEntityTitle(
-    entityId: Types.ObjectId,
-    entityType: string,
+    entityId: string,
+    entityType: ReportEntityType,
   ): Promise<string> {
-    const collection =
-      entityType === "shop"
-        ? "shops"
-        : entityType === "product"
-          ? "products"
-          : "services";
-    const doc = await this.reportModel.db
-      .collection(collection)
-      .findOne({ _id: entityId }, { projection: { title: 1 } });
-    return (doc?.title as string) ?? "an item";
+    const select = { title: true } as const;
+
+    switch (entityType) {
+      case "shop": {
+        const row = await this.prisma.shop.findUnique({ where: { id: entityId }, select });
+        return row?.title ?? "an item";
+      }
+      case "product": {
+        const row = await this.prisma.product.findUnique({ where: { id: entityId }, select });
+        return row?.title ?? "an item";
+      }
+      case "service": {
+        const row = await this.prisma.service.findUnique({ where: { id: entityId }, select });
+        return row?.title ?? "an item";
+      }
+      case "user": {
+        // Users have no title; the old code fell through to "services" here and
+        // therefore always returned "an item" for a reported user.
+        const row = await this.prisma.user.findUnique({
+          where: { id: entityId },
+          select: { name: true },
+        });
+        return row?.name ?? "an item";
+      }
+      default:
+        return "an item";
+    }
   }
 
   async createReport(reporterId: string, dto: CreateReportDto) {
     const reportCode = await this.generateNextCode();
-    const report = await this.reportModel.create({
-      reportCode,
-      reporterId: new Types.ObjectId(reporterId),
-      entityId: new Types.ObjectId(dto.entityId),
-      entityType: dto.entityType,
-      reason: dto.reason,
-      details: dto.details,
-      status: "open",
+    const report = await this.prisma.report.create({
+      data: {
+        id: generateObjectId(),
+        reportCode,
+        reporterId,
+        entityId: dto.entityId,
+        entityType: dto.entityType as ReportEntityType,
+        reason: reportReasonWire.fromWire(dto.reason) as PrismaReportReason,
+        details: dto.details,
+        status: "open",
+      },
     });
 
     this.sendReportSideEffects(report).catch((err) =>
-      console.error(
-        `Report notification side-effects for ${report.reportCode} failed:`,
+      this.logger.error(
+        `Report notification side-effects for ${report.reportCode} failed`,
         err,
       ),
     );
 
     return {
-      message: this.i18n.translate("auth.reports.created_success", {
-        lang: this.lang,
-      }),
-      data: { report },
+      message: this.i18n.translate("auth.reports.created_success", { lang: this.lang }),
+      data: { report: this.toApiShape(report) },
     };
   }
 
   /** Fire-and-forget: report creation must succeed even if email sending is slow/down. */
-  private async sendReportSideEffects(report: ReportDocument) {
+  private async sendReportSideEffects(report: Report) {
     const [reporter, entityTitle] = await Promise.all([
-      this.userModel.findById(report.reporterId).select("name email"),
-      this.resolveEntityTitle(report.entityId, report.entityType),
+      this.prisma.user.findUnique({
+        where: { id: report.reporterId },
+        select: { name: true, email: true },
+      }),
+      this.resolveEntityTitle(report.entityId, report.entityType as ReportEntityType),
     ]);
 
     if (reporter?.email) {
@@ -145,7 +179,7 @@ export class ReportsService {
     this.emailService
       .sendEmail(email, `Your report has been submitted (${reportCode})`, html)
       .catch((err) =>
-        console.error(`Report-submitted email to ${email} failed:`, err),
+        this.logger.error(`Report-submitted email to ${email} failed`, err),
       );
   }
 
@@ -153,30 +187,34 @@ export class ReportsService {
    *  super_admin (always allowed) plus any admin/moderator with the "reports" permission
    *  entry — mirroring PermissionsGuard's own bypass rule. */
   private async notifyReportToAdmins(
-    report: ReportDocument,
+    report: Report,
     entityTitle: string,
     reporterName: string,
     reporterEmail: string,
   ) {
-    const recipients = await this.userModel
-      .find({
-        isDisabled: { $ne: true },
-        $or: [
-          { roles: "super_admin" },
+    // The $elemMatch on the embedded permissions array becomes a relation
+    // filter now that permissions are their own table.
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        isDisabled: false,
+        OR: [
+          { roles: { has: "super_admin" } },
           {
-            roles: { $in: ["admin", "moderator"] },
-            permissions: { $elemMatch: { page: "reports" } },
+            roles: { hasSome: ["admin", "moderator"] },
+            permissions: { some: { page: "reports" } },
           },
         ],
-      })
-      .select("name email");
+      },
+      select: { name: true, email: true },
+    });
 
     const reportsUrl = `${process.env.ADMIN_PANEL_URL}/admin/reports`;
+    const reasonLabel = reportReasonWire.toWire(report.reason as string);
     const html = `
       <h2>New report submitted</h2>
       <p><strong>${reporterName}</strong> (${reporterEmail}) reported a <strong>${report.entityType}</strong>:
       "${entityTitle}".</p>
-      <p><strong>Reason:</strong> ${report.reason}</p>
+      <p><strong>Reason:</strong> ${reasonLabel}</p>
       <p><strong>Details:</strong> ${report.details}</p>
       <p><a href="${reportsUrl}">${reportsUrl}</a></p>
     `;
@@ -186,32 +224,34 @@ export class ReportsService {
       this.emailService
         .sendEmail(
           admin.email,
-          `New report (${report.reportCode}): ${report.entityType} — ${report.reason}`,
+          `New report (${report.reportCode}): ${report.entityType} — ${reasonLabel}`,
           html,
         )
         .catch((err) =>
-          console.error(
-            `Report-notification email to ${admin.email} failed:`,
-            err,
-          ),
+          this.logger.error(`Report-notification email to ${admin.email} failed`, err),
         );
     }
   }
 
-  async getMyReports(reporterId: string, page = 1, limit = 10) {
-    const filter = { reporterId: new Types.ObjectId(reporterId) };
+  async getMyReports(
+    reporterId: string,
+    rawPage: number | string = 1,
+    rawLimit: number | string = 10,
+  ) {
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+    const where = { reporterId };
     const [reports, total] = await Promise.all([
-      this.reportModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .exec(),
-      this.reportModel.countDocuments(filter),
+      this.prisma.report.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.report.count({ where }),
     ]);
     return {
       data: {
-        reports,
+        reports: reports.map((r) => this.toApiShape(r)),
         total,
         page,
         limit,
@@ -221,32 +261,34 @@ export class ReportsService {
   }
 
   async updateOwnReport(reporterId: string, id: string, dto: UpdateReportDto) {
-    const report = await this.requireOwnOpenReport(id, reporterId);
-    if (dto.reason !== undefined) report.reason = dto.reason;
-    if (dto.details !== undefined) report.details = dto.details;
-    await report.save();
+    await this.requireOwnOpenReport(id, reporterId);
+
+    const report = await this.prisma.report.update({
+      where: { id },
+      data: {
+        ...(dto.reason !== undefined
+          ? { reason: reportReasonWire.fromWire(dto.reason) as PrismaReportReason }
+          : {}),
+        ...(dto.details !== undefined ? { details: dto.details } : {}),
+      },
+    });
+
     return {
-      message: this.i18n.translate("auth.reports.updated_success", {
-        lang: this.lang,
-      }),
-      data: { report },
+      message: this.i18n.translate("auth.reports.updated_success", { lang: this.lang }),
+      data: { report: this.toApiShape(report) },
     };
   }
 
   async deleteOwnReport(reporterId: string, id: string) {
-    const report = await this.requireOwnOpenReport(id, reporterId);
-    await report.deleteOne();
+    await this.requireOwnOpenReport(id, reporterId);
+    await this.prisma.report.delete({ where: { id } });
     return {
-      message: this.i18n.translate("auth.reports.deleted_success", {
-        lang: this.lang,
-      }),
+      message: this.i18n.translate("auth.reports.deleted_success", { lang: this.lang }),
     };
   }
 
-  /** Paginated/filterable/searchable list for the admin Reports page. Reporter + reported-entity
-   *  title joined in via $lookup across users/shops/products/services — same aggregation shape
-   *  as reviews.service.ts's getAllReviewsForAdmin, extended to four possible target collections
-   *  (shop/product/service/user) instead of Reviews' two (product/service). */
+  /** Paginated/filterable/searchable list for the admin Reports page. Reporter and reported-entity
+   *  title are joined in SQL across users/shops/products/services — see ReportRepository. */
   async getAllReportsForAdmin(
     page = 1,
     limit = 20,
@@ -264,141 +306,19 @@ export class ReportsService {
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
 
-    const match: Record<string, unknown> = {};
-    if (entityType) match.entityType = entityType;
-    if (status) match.status = status;
-    if (reason) match.reason = reason;
-    if (startDate || endDate) {
-      const createdAt: Record<string, Date> = {};
-      if (startDate) createdAt.$gte = new Date(startDate);
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        createdAt.$lte = endOfDay;
-      }
-      match.createdAt = createdAt;
-    }
+    // The repository queries the stored enum values directly, so `reason`
+    // arrives here already in wire form and needs no translation.
+    const { rows, total } = await this.reportRepository.findForAdmin({
+      skip,
+      take: limitNum,
+      entityType,
+      status,
+      reason,
+      search,
+      startDate,
+      endDate,
+    });
 
-    const basePipeline: any[] = [
-      { $match: match },
-      {
-        $lookup: {
-          from: "users",
-          localField: "reporterId",
-          foreignField: "_id",
-          as: "reporter",
-        },
-      },
-      { $unwind: { path: "$reporter", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "shops",
-          localField: "entityId",
-          foreignField: "_id",
-          as: "shopInfo",
-        },
-      },
-      {
-        $lookup: {
-          from: "products",
-          localField: "entityId",
-          foreignField: "_id",
-          as: "productInfo",
-        },
-      },
-      {
-        $lookup: {
-          from: "services",
-          localField: "entityId",
-          foreignField: "_id",
-          as: "serviceInfo",
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "entityId",
-          foreignField: "_id",
-          as: "userInfo",
-        },
-      },
-      {
-        $addFields: {
-          entityTitle: {
-            $switch: {
-              branches: [
-                {
-                  case: { $eq: ["$entityType", "shop"] },
-                  then: { $arrayElemAt: ["$shopInfo.title", 0] },
-                },
-                {
-                  case: { $eq: ["$entityType", "product"] },
-                  then: { $arrayElemAt: ["$productInfo.title", 0] },
-                },
-                {
-                  case: { $eq: ["$entityType", "service"] },
-                  then: { $arrayElemAt: ["$serviceInfo.title", 0] },
-                },
-                {
-                  case: { $eq: ["$entityType", "user"] },
-                  then: { $arrayElemAt: ["$userInfo.name", 0] },
-                },
-              ],
-              default: null,
-            },
-          },
-        },
-      },
-    ];
-
-    if (search?.trim()) {
-      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = { $regex: escaped, $options: "i" };
-      basePipeline.push({
-        $match: {
-          $or: [
-            { "reporter.name": regex },
-            { "reporter.email": regex },
-            { reportCode: regex },
-            { details: regex },
-            { entityTitle: regex },
-          ],
-        },
-      });
-    }
-
-    const [rows, countResult] = await Promise.all([
-      this.reportModel
-        .aggregate([
-          ...basePipeline,
-          { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limitNum },
-          {
-            $project: {
-              reportCode: 1,
-              entityId: 1,
-              entityType: 1,
-              entityTitle: 1,
-              reason: 1,
-              details: 1,
-              status: 1,
-              contentRemoved: 1,
-              adminResponse: 1,
-              respondedAt: 1,
-              closedAt: 1,
-              createdAt: 1,
-              "reporter._id": 1,
-              "reporter.name": 1,
-              "reporter.email": 1,
-            },
-          },
-        ])
-        .exec(),
-      this.reportModel.aggregate([...basePipeline, { $count: "total" }]).exec(),
-    ]);
-
-    const total = countResult[0]?.total ?? 0;
     return {
       data: rows,
       meta: {
@@ -412,58 +332,67 @@ export class ReportsService {
 
   /** Admin: close a report (no content action). */
   async closeReport(id: string, adminId: string) {
-    const report = await this.requireReport(id);
-    if (report.status === "closed") {
+    const existing = await this.requireReport(id);
+    if (existing.status === "closed") {
       throw new BadRequestException("Report is already closed");
     }
-    report.status = "closed";
-    report.closedBy = new Types.ObjectId(adminId);
-    report.closedAt = new Date();
-    await report.save();
-    return { data: { report } };
+    const report = await this.prisma.report.update({
+      where: { id },
+      data: { status: "closed", closedById: adminId, closedAt: new Date() },
+    });
+    return { data: { report: this.toApiShape(report) } };
   }
 
   /** Admin: mark the reported content as removed. METADATA-ONLY — flips contentRemoved + closes
-   *  the report, but never touches the underlying Shop/Product/Service document (confirmed with
+   *  the report, but never touches the underlying Shop/Product/Service row (confirmed with
    *  the user: no cascading disable). */
   async removeContent(id: string, adminId: string) {
-    const report = await this.requireReport(id);
-    report.contentRemoved = true;
-    report.status = "closed";
-    report.closedBy = new Types.ObjectId(adminId);
-    report.closedAt = new Date();
-    await report.save();
-    return { data: { report } };
+    await this.requireReport(id);
+    const report = await this.prisma.report.update({
+      where: { id },
+      data: {
+        contentRemoved: true,
+        status: "closed",
+        closedById: adminId,
+        closedAt: new Date(),
+      },
+    });
+    return { data: { report: this.toApiShape(report) } };
   }
 
   /** Admin: write/replace a response on a report — independent of status, so an admin can
    *  respond while a report is still open and close it separately afterwards. */
   async respondToReport(id: string, adminId: string, response: string) {
-    const report = await this.requireReport(id);
-    report.adminResponse = response;
-    report.respondedBy = new Types.ObjectId(adminId);
-    report.respondedAt = new Date();
-    await report.save();
+    await this.requireReport(id);
+
+    const report = await this.prisma.report.update({
+      where: { id },
+      data: {
+        adminResponse: response,
+        respondedById: adminId,
+        respondedAt: new Date(),
+      },
+    });
 
     this.notificationsService
       .createAndNotify(
-        report.reporterId.toString(),
+        report.reporterId,
         "report_responded",
         "REPORT",
         {
-          id: (report._id as Types.ObjectId).toString(),
-          reportId: (report._id as Types.ObjectId).toString(),
+          id: report.id,
+          reportId: report.id,
           reportCode: report.reportCode,
         },
         { reportCode: report.reportCode ?? "" },
       )
       .catch((err) =>
-        console.error(
-          `Failed to notify reporter about response on ${report.reportCode}:`,
+        this.logger.error(
+          `Failed to notify reporter about response on ${report.reportCode}`,
           err,
         ),
       );
 
-    return { data: { report } };
+    return { data: { report: this.toApiShape(report) } };
   }
 }

@@ -21,7 +21,6 @@ import { RequirePermission } from "src/common/decorators/require-permission.deco
 import { RequireAction } from "src/common/decorators/require-action.decorator";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { Request } from "express";
-import { Types } from "mongoose";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 import {
@@ -74,7 +73,7 @@ export class ShopController {
     if (dto.location && typeof dto.location === "string") {
       dto.location = JSON.parse(dto.location);
     }
-    return this.shopService.createShop(new Types.ObjectId(user.sub), dto);
+    return this.shopService.createShop(user.sub, dto);
   }
 
   @Put(":id")

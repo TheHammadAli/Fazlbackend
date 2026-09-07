@@ -6,33 +6,29 @@ import {
   forwardRef,
   Inject,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
-import { Like, LikeDocument } from "./schema/like.schema";
+import { I18nService } from "nestjs-i18n";
+import { ClsService } from "nestjs-cls";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId } from "src/common/utils/object-id.util";
 import { CreateLikeDto, RemoveLikeDto } from "./dto/like.dto";
 import { ProductsService } from "src/products/products.service";
 import { ServicesService } from "src/services/services.service";
-import { I18nService } from "nestjs-i18n";
-import { ClsService } from "nestjs-cls";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { UsersService } from "src/users/users.service";
+import type {
+  ItemType,
+  Like,
+  LikeItem,
+  OwnerModel,
+  PopulatedLikeItem,
+} from "./model/like.model";
 
-export interface LikeItem {
-  _id: Types.ObjectId;
-  itemId: Types.ObjectId;
-  itemType: "product" | "service";
-  ownerModel: "Shop" | "User";
-  createdAt: Date;
-}
-
-export interface PopulatedLikeItem extends LikeItem {
-  itemDetails?: any;
-}
+export type { LikeItem, PopulatedLikeItem } from "./model/like.model";
 
 @Injectable()
 export class LikeService {
   constructor(
-    @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ProductsService))
     private readonly productsService: ProductsService,
     @Inject(forwardRef(() => ServicesService))
@@ -42,7 +38,7 @@ export class LikeService {
     private readonly notificationsService: NotificationsService,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
-  ) { }
+  ) {}
 
   private readonly logger = new Logger(LikeService.name);
 
@@ -50,22 +46,23 @@ export class LikeService {
     return this.cls.get("lang") || "en";
   }
 
-  /**a
+  /**
    * Add a like/favorite
    */
   async addLike(
     userId: string,
     dto: CreateLikeDto,
   ): Promise<{ message: string; data: Like }> {
-    const userObjectId = new Types.ObjectId(userId);
-    const itemObjectId = new Types.ObjectId(dto.itemId);
-
     const item = await this.validateItemExists(dto.itemId, dto.itemType);
 
-    const existingLike = await this.likeModel.findOne({
-      userId: userObjectId,
-      itemId: itemObjectId,
-      itemType: dto.itemType,
+    const existingLike = await this.prisma.like.findUnique({
+      where: {
+        userId_itemId_itemType: {
+          userId,
+          itemId: dto.itemId,
+          itemType: dto.itemType as ItemType,
+        },
+      },
     });
 
     if (existingLike) {
@@ -74,14 +71,15 @@ export class LikeService {
       );
     }
 
-    const like = new this.likeModel({
-      userId: userObjectId,
-      itemId: itemObjectId,
-      itemType: dto.itemType,
-      ownerModel: dto.ownerModel,
+    const results = await this.prisma.like.create({
+      data: {
+        id: generateObjectId(),
+        userId,
+        itemId: dto.itemId,
+        itemType: dto.itemType as ItemType,
+        ownerModel: dto.ownerModel as OwnerModel,
+      },
     });
-
-    const results = await like.save();
 
     this.notifyOwnerOfLike(userId, dto, item);
 
@@ -100,18 +98,18 @@ export class LikeService {
     userId: string,
     dto: RemoveLikeDto,
   ): Promise<{ message: string }> {
-    const result = await this.likeModel.findOneAndDelete({
-      userId: new Types.ObjectId(userId),
-      itemId: new Types.ObjectId(dto.itemId),
-      itemType: dto.itemType,
+    // deleteMany rather than delete: it reports how many rows matched instead of
+    // throwing P2025, so the "not found" path stays an explicit 404 as before.
+    const result = await this.prisma.like.deleteMany({
+      where: { userId, itemId: dto.itemId, itemType: dto.itemType as ItemType },
     });
 
-    if (!result) {
+    if (result.count === 0) {
       throw new NotFoundException(
         this.i18n.translate("auth.like.not_found", { lang: this.lang }),
       );
     }
-    // await new Promise(resolve => setTimeout(resolve, 2000));
+
     return {
       message: this.i18n.translate("auth.like.removed", { lang: this.lang }),
     };
@@ -122,22 +120,21 @@ export class LikeService {
    */
   async getLikesByUser(
     userId: string,
-    itemType?: "product" | "service",
-    ids?: Types.ObjectId[],
+    itemType?: ItemType,
+    ids?: string[],
   ): Promise<PopulatedLikeItem[]> {
     if (!userId) {
-      return []
+      return [];
     }
-    const userObjectId = new Types.ObjectId(userId);
 
-    const query: any = { userId: userObjectId };
-    if (itemType) query.itemType = itemType;
-    if (ids && ids.length > 0) query.itemId = { $in: ids };
-
-    const likes = await this.likeModel
-      .find(query)
-      .sort({ createdAt: -1 })
-      .lean<LikeItem[]>();
+    const likes = await this.prisma.like.findMany({
+      where: {
+        userId,
+        ...(itemType ? { itemType } : {}),
+        ...(ids && ids.length > 0 ? { itemId: { in: ids } } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
     const populatedLikes = await Promise.all(
       likes.map(async (like) => {
@@ -147,25 +144,24 @@ export class LikeService {
 
         try {
           if (like.itemType === "product") {
-            itemDetails = await this.productsService.getById(
-              like.itemId.toString(),
-            );
+            itemDetails = await this.productsService.getById(like.itemId);
           } else if (like.itemType === "service") {
-            itemDetails = await this.servicesService.getById(
-              like.itemId.toString(),
-            );
+            itemDetails = await this.servicesService.getById(like.itemId);
           }
-        } catch (error) {
-          // optional logging
-          // console.warn('Item not found:', like.itemId);
+        } catch {
+          // A like pointing at a listing that has since been removed is not an
+          // error — it is simply dropped from the result, as before.
         }
 
         if (!itemDetails) return null;
 
         return {
           ...like,
+          // Clients read `_id`; the response interceptor also mirrors it, but
+          // this keeps the shape right for callers that use the value directly.
+          _id: like.id,
           itemDetails,
-        };
+        } as PopulatedLikeItem;
       }),
     );
 
@@ -178,38 +174,35 @@ export class LikeService {
   async isLiked(
     userId: string,
     itemId: string,
-    itemType: "product" | "service",
+    itemType: ItemType,
   ): Promise<boolean> {
-    const exists = await this.likeModel.exists({
-      userId: new Types.ObjectId(userId),
-      itemId: new Types.ObjectId(itemId),
-      itemType,
+    const existing = await this.prisma.like.findUnique({
+      where: { userId_itemId_itemType: { userId, itemId, itemType } },
+      select: { id: true },
     });
 
-    return !!exists;
+    return existing !== null;
   }
 
   /**
    * Count likes
    */
-  async getLikeCount(
-    itemId: string,
-    itemType: "product" | "service",
-  ): Promise<number> {
-    return this.likeModel.countDocuments({
-      itemId: new Types.ObjectId(itemId),
-      itemType,
-    });
+  async getLikeCount(itemId: string, itemType: ItemType): Promise<number> {
+    return this.prisma.like.count({ where: { itemId, itemType } });
   }
 
   /**
    * Admin: total like count across the whole platform (products + services combined) —
    * powers the "Total Likes" card on the admin dashboard.
    */
-  async getTotalLikeCount(): Promise<{ total: number; product: number; service: number }> {
+  async getTotalLikeCount(): Promise<{
+    total: number;
+    product: number;
+    service: number;
+  }> {
     const [product, service] = await Promise.all([
-      this.likeModel.countDocuments({ itemType: "product" }),
-      this.likeModel.countDocuments({ itemType: "service" }),
+      this.prisma.like.count({ where: { itemType: "product" } }),
+      this.prisma.like.count({ where: { itemType: "service" } }),
     ]);
     return { total: product + service, product, service };
   }
@@ -220,42 +213,31 @@ export class LikeService {
    */
   async getLikersForItem(
     itemId: string,
-    itemType: "product" | "service",
+    itemType: ItemType,
     page = 1,
     limit = 20,
-  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  ): Promise<{
+    data: unknown[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
-    const match = { itemId: new Types.ObjectId(itemId), itemType };
+    const where = { itemId, itemType };
 
     const [rows, total] = await Promise.all([
-      this.likeModel.aggregate([
-        { $match: match },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limitNum },
-        {
-          $lookup: {
-            from: "users",
-            localField: "userId",
-            foreignField: "_id",
-            as: "user",
-          },
+      this.prisma.like.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+        select: {
+          id: true,
+          createdAt: true,
+          user: { select: { id: true, name: true, email: true, image: true } },
         },
-        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            _id: 1,
-            createdAt: 1,
-            "user._id": 1,
-            "user.name": 1,
-            "user.email": 1,
-            "user.image": 1,
-          },
-        },
-      ]),
-      this.likeModel.countDocuments(match),
+      }),
+      this.prisma.like.count({ where }),
     ]);
 
     return {
@@ -265,25 +247,21 @@ export class LikeService {
   }
 
   /**
-   * Bulk like counts for a page of items, in one aggregation query.
+   * Bulk like counts for a page of items, in one query.
    */
   async getLikeCountsForItems(
     itemIds: string[],
-    itemType: "product" | "service",
+    itemType: ItemType,
   ): Promise<Map<string, number>> {
     if (itemIds.length === 0) return new Map();
 
-    const results = await this.likeModel.aggregate([
-      {
-        $match: {
-          itemId: { $in: itemIds.map((id) => new Types.ObjectId(id)) },
-          itemType,
-        },
-      },
-      { $group: { _id: "$itemId", count: { $sum: 1 } } },
-    ]);
+    const results = await this.prisma.like.groupBy({
+      by: ["itemId"],
+      where: { itemId: { in: itemIds }, itemType },
+      _count: { _all: true },
+    });
 
-    return new Map(results.map((r) => [r._id.toString(), r.count as number]));
+    return new Map(results.map((r) => [r.itemId, r._count._all]));
   }
 
   /**
@@ -338,7 +316,7 @@ export class LikeService {
    */
   private async validateItemExists(
     itemId: string,
-    itemType: "product" | "service",
+    itemType: ItemType,
   ): Promise<any> {
     if (itemType === "product") {
       const product = await this.productsService.getById(itemId);
@@ -372,10 +350,7 @@ export class LikeService {
    * shop carries the real user on the shop instead, the same split orders.service
    * has to handle when it notifies a seller.
    */
-  private resolveOwnerUserId(
-    item: any,
-    itemType: "product" | "service",
-  ): string | null {
+  private resolveOwnerUserId(item: any, itemType: ItemType): string | null {
     const owner =
       itemType === "product"
         ? (item?.ownerId?._id ?? item?.ownerId ?? item?.shopId?.ownerId?._id)

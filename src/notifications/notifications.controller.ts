@@ -22,6 +22,7 @@ import {
 import { NotificationsService } from "./notifications.service";
 import { GetNotificationsQueryDto } from "./dto/get-notifications-query.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
+import { resolvePagination } from "../common/utils/pagination.util";
 
 @ApiTags("Notifications")
 @ApiBearerAuth("jwt")
@@ -52,8 +53,8 @@ export class NotificationsController {
     @Param("userId") userId: string,
     @Query() query: GetNotificationsQueryDto,
   ) {
-    const { page = 1, limit = 10 } = query;
-    return this.notificationsService.findByUser(userId, page, limit);
+    const { page: rawPage, limit: rawLimit } = query;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);return this.notificationsService.findByUser(userId, page, limit);
   }
 
   @Get(":userId/unread-count")

@@ -23,7 +23,8 @@ import {
 import { OrdersService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order-dto";
 import { UpdateOrderDto } from "./dto/update-order-dto";
-import { Order } from "./schema/order.schema";
+import type { Order } from "./model/order.model";
+import { OrderModel } from "./model/order.model";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 
@@ -36,7 +37,7 @@ export class OrdersController {
 
   @Post()
   @ApiOperation({ summary: "Create a new order" })
-  @ApiResponse({ status: 201, description: "Order created", type: Order })
+  @ApiResponse({ status: 201, description: "Order created", type: OrderModel })
   async createOrder(@Body() dto: CreateOrderDto) {
     return this.ordersService.createOrder(dto);
   }
@@ -47,7 +48,7 @@ export class OrdersController {
     type: CreateOrderDto,
     isArray: true,
   })
-  @ApiResponse({ status: 201, description: "Orders created", type: [Order] })
+  @ApiResponse({ status: 201, description: "Orders created", type: [OrderModel] })
   async createMultipleOrders(@Body() dto: CreateOrderDto[]) {
     return this.ordersService.createMultipleOrders(dto);
   }
@@ -55,7 +56,7 @@ export class OrdersController {
   @Get(":id")
   @ApiOperation({ summary: "Get order by ID" })
   @ApiParam({ name: "id", description: "Order ID" })
-  @ApiResponse({ status: 200, description: "Order found", type: Order })
+  @ApiResponse({ status: 200, description: "Order found", type: OrderModel })
   async getOrderById(@Param("id") id: string): Promise<Order> {
     return this.ordersService.getOrderById(id);
   }
@@ -132,7 +133,7 @@ export class OrdersController {
   @Patch(":id")
   @ApiOperation({ summary: "Update an order" })
   @ApiParam({ name: "id", description: "Order ID" })
-  @ApiResponse({ status: 200, description: "Order updated", type: Order })
+  @ApiResponse({ status: 200, description: "Order updated", type: OrderModel })
   async updateOrder(
     @Param("id") id: string,
     @Body() dto: UpdateOrderDto,

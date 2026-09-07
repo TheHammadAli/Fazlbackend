@@ -1,22 +1,14 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
 import { ReportsService } from "./reports.service";
 import { ReportsController } from "./reports.controller";
-import { Report, ReportSchema } from "./schema/report.schema";
-import { Counter, CounterSchema } from "src/common/schema/counter.schema";
-import { User, UserSchema } from "src/users/schema/users.schema";
 import { EmailService } from "src/common/email-service/email-service";
 import { NotificationsModule } from "src/notifications/notifications.module";
 
+// PrismaModule is @Global and exports both PrismaService and ReportRepository,
+// so neither needs importing here — this replaces the Report + Counter + User
+// model registrations.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Report.name, schema: ReportSchema },
-      { name: Counter.name, schema: CounterSchema },
-      { name: User.name, schema: UserSchema },
-    ]),
-    NotificationsModule,
-  ],
+  imports: [NotificationsModule],
   providers: [ReportsService, EmailService],
   controllers: [ReportsController],
   exports: [ReportsService],

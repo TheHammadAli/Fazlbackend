@@ -1,17 +1,17 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId } from "src/common/utils/object-id.util";
 import {
-  EmailLog,
-  EmailLogDocument,
-  EmailLogEvent,
-  EmailLogStatus,
   EMAIL_LOG_EVENTS,
   EMAIL_LOG_STATUSES,
-} from "./schema/email-log.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
+  type EmailLog,
+  type EmailLogEvent,
+  type EmailLogStatus,
+} from "./model/email-log.model";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
+import type { Prisma } from "../../generated/prisma/client";
+import { resolvePagination } from "../common/utils/pagination.util";
 
 type RecordParams = {
   eventType: EmailLogEvent;
@@ -24,18 +24,20 @@ type RecordParams = {
 export class EmailLogService {
   private readonly logger = new Logger(EmailLogService.name);
 
-  constructor(
-    @InjectModel(EmailLog.name) private readonly emailLogModel: Model<EmailLogDocument>,
-    @InjectModel(Counter.name) private readonly counterModel: Model<CounterDocument>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /** Atomically reserves the next sequential email log id (e.g. EML-000001). */
+  /**
+   * Atomically reserves the next sequential email log id (e.g. EML-000001).
+   *
+   * Was findByIdAndUpdate(..., { $inc }, { upsert: true }). upsert + increment
+   * is a single atomic statement in Postgres too, so the guarantee is unchanged.
+   */
   private async generateNextEmailId(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "emailLogId",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "emailLogId" },
+      create: { id: "emailLogId", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `EML-${String(counter.seq).padStart(6, "0")}`;
   }
 
@@ -43,7 +45,11 @@ export class EmailLogService {
   async record(params: RecordParams): Promise<void> {
     try {
       const emailId = await this.generateNextEmailId();
-      await this.emailLogModel.create({ emailId, ...params });
+      await this.prisma.emailLog.create({
+        // Mongo assigned _id itself; Postgres needs one supplied, in the same
+        // 24-char hex shape every existing row already uses.
+        data: { id: generateObjectId(), emailId, ...params },
+      });
     } catch (err) {
       this.logger.error("Failed to record email log", err);
     }
@@ -51,15 +57,17 @@ export class EmailLogService {
 
   /** Per-event send counts for the Email Logs page's summary cards. */
   async getStats(): Promise<{ data: { total: number; byEvent: Record<string, number> } }> {
-    const rows = await this.emailLogModel.aggregate([
-      { $group: { _id: "$eventType", count: { $sum: 1 } } },
-    ]);
+    // Was an aggregate([{ $group: { _id: "$eventType", count: { $sum: 1 } } }]).
+    const rows = await this.prisma.emailLog.groupBy({
+      by: ["eventType"],
+      _count: { _all: true },
+    });
 
     const byEvent: Record<string, number> = {};
     let total = 0;
     for (const row of rows) {
-      byEvent[row._id as string] = row.count;
-      total += row.count;
+      byEvent[row.eventType] = row._count._all;
+      total += row._count._all;
     }
 
     return { data: { total, byEvent } };
@@ -68,37 +76,39 @@ export class EmailLogService {
   async getAll(
     paginationDto: PaginationDto & { eventType?: string; deliveryStatus?: string },
   ): Promise<PaginatedResponseDto<EmailLog>> {
-    const { page = 1, limit = 10, search, eventType, deliveryStatus } = paginationDto;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { page: rawPage, limit: rawLimit, search, eventType, deliveryStatus } = paginationDto;
+    const { page: pageNum, limit: limitNum, skip } = resolvePagination(rawPage, rawLimit);
 
-    const query: Record<string, any> = {};
+    const where: Prisma.EmailLogWhereInput = {};
 
     if (search?.trim()) {
-      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.$or = [
-        { emailId: { $regex: escaped, $options: "i" } },
-        { recipient: { $regex: escaped, $options: "i" } },
-        { relatedRecordId: { $regex: escaped, $options: "i" } },
+      // No regex escaping needed any more: `contains` is a parameterised LIKE,
+      // not a regular expression, so the input is never interpreted as a pattern.
+      const term = search.trim();
+      where.OR = [
+        { emailId: { contains: term, mode: "insensitive" } },
+        { recipient: { contains: term, mode: "insensitive" } },
+        { relatedRecordId: { contains: term, mode: "insensitive" } },
       ];
     }
     if (eventType?.trim() && (EMAIL_LOG_EVENTS as readonly string[]).includes(eventType.trim())) {
-      query.eventType = eventType.trim();
+      where.eventType = eventType.trim() as EmailLogEvent;
     }
-    if (deliveryStatus?.trim() && (EMAIL_LOG_STATUSES as readonly string[]).includes(deliveryStatus.trim())) {
-      query.deliveryStatus = deliveryStatus.trim();
+    if (
+      deliveryStatus?.trim() &&
+      (EMAIL_LOG_STATUSES as readonly string[]).includes(deliveryStatus.trim())
+    ) {
+      where.deliveryStatus = deliveryStatus.trim() as EmailLogStatus;
     }
 
     const [data, total] = await Promise.all([
-      this.emailLogModel
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean()
-        .exec(),
-      this.emailLogModel.countDocuments(query),
+      this.prisma.emailLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.emailLog.count({ where }),
     ]);
 
     return {

@@ -1,9 +1,5 @@
 import { Inject, Injectable, NotFoundException, forwardRef } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
-import { Conversation } from "./schema/conversation.schema";
-import { Message } from "./schema/message.schema";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { UsersService } from "src/users/users.service";
@@ -13,14 +9,16 @@ import { ClsService } from "nestjs-cls";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { ChatGateway } from "./chat.gateway";
 import { PresenceService } from "src/presence/presence.service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { ConversationRepository } from "src/prisma/repositories/conversation.repository";
+import { generateObjectId } from "src/common/utils/object-id.util";
+import type { Conversation, Message } from "./model/chat.model";
 
 @Injectable()
 export class ChatService {
   constructor(
-    @InjectModel(Conversation.name)
-    private readonly conversationModel: Model<Conversation>,
-    @InjectModel(Message.name)
-    private readonly messageModel: Model<Message>,
+    private readonly prisma: PrismaService,
+    private readonly conversationRepository: ConversationRepository,
     @Inject(forwardRef(() => UsersService))
     private readonly userService: UsersService,
     private readonly shopService: ShopService,
@@ -29,11 +27,16 @@ export class ChatService {
     private readonly notificationsService: NotificationsService,
     private readonly chatGateway: ChatGateway,
     private readonly presenceService: PresenceService,
-  ) { }
+  ) {}
 
   /** Dynamic getter to retrieve the current request language safely */
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /** Clients read `_id`; Prisma rows carry `id`. */
+  private withLegacyId<T extends { id: string }>(row: T): T & { _id: string } {
+    return { ...row, _id: row.id };
   }
 
   /** There is exactly one conversation per buyer/seller pair — general chat and every
@@ -49,50 +52,42 @@ export class ChatService {
       );
     }
 
-    const buyerObjectId = new Types.ObjectId(buyerId);
-    const sellerObjectId = new Types.ObjectId(sellerId);
-
     // First, try to find a conversation with the exact requested buyer/seller roles.
-    let convo = await this.conversationModel.findOne({
-      buyer: buyerObjectId,
-      seller: sellerObjectId,
+    const convo = await this.prisma.conversation.findUnique({
+      where: { buyerId_sellerId: { buyerId, sellerId } },
     });
     if (convo) {
-      return convo;
+      return this.withLegacyId(convo);
     }
 
     // If an existing conversation was created with reversed roles, fix it and return.
-    const reversedConvo = await this.conversationModel.findOne({
-      buyer: sellerObjectId,
-      seller: buyerObjectId,
+    const reversedConvo = await this.prisma.conversation.findUnique({
+      where: { buyerId_sellerId: { buyerId: sellerId, sellerId: buyerId } },
     });
 
     try {
       if (reversedConvo) {
-        reversedConvo.buyer = buyerObjectId;
-        reversedConvo.seller = sellerObjectId;
-        await reversedConvo.save();
-        return reversedConvo;
+        const fixed = await this.prisma.conversation.update({
+          where: { id: reversedConvo.id },
+          data: { buyerId, sellerId },
+        });
+        return this.withLegacyId(fixed);
       }
 
-      convo = await this.conversationModel.create({
-        buyer: buyerObjectId,
-        seller: sellerObjectId,
-        status: "open",
+      const created = await this.prisma.conversation.create({
+        data: { id: generateObjectId(), buyerId, sellerId, status: "open" },
       });
 
-      return convo;
+      return this.withLegacyId(created);
     } catch (err: any) {
-      // A duplicate-key race (concurrent calls, or a stray reversed-role
+      // A unique-violation race (concurrent calls, or a stray reversed-role
       // duplicate left over from before callers consistently passed
       // buyer/seller in order) means the conversation we want already
-      // exists under the other document — fetch and return that instead
-      // of surfacing a raw error.
-      const existing = await this.conversationModel.findOne({
-        buyer: buyerObjectId,
-        seller: sellerObjectId,
+      // exists — fetch and return that instead of surfacing a raw error.
+      const existing = await this.prisma.conversation.findUnique({
+        where: { buyerId_sellerId: { buyerId, sellerId } },
       });
-      if (existing) return existing;
+      if (existing) return this.withLegacyId(existing);
       throw new AppError(
         err?.message ?? "Failed to get or create conversation",
         "CONVERSATION_ERROR",
@@ -107,10 +102,10 @@ export class ChatService {
     const [user1, user2] =
       userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
 
-    return this.conversationModel.findOne({
-      buyer: new Types.ObjectId(user1),
-      seller: new Types.ObjectId(user2),
+    const convo = await this.prisma.conversation.findUnique({
+      where: { buyerId_sellerId: { buyerId: user1, sellerId: user2 } },
     });
+    return convo ? this.withLegacyId(convo) : null;
   }
 
   async sendMessage(
@@ -126,37 +121,28 @@ export class ChatService {
       senderText?: string;
     },
   ) {
-    const conversation = await this.conversationModel.findById(conversationId);
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
 
     if (!conversation) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }),
       );
     }
 
-    if (
-      senderId !== conversation.buyer.toString() &&
-      senderId !== conversation.seller.toString()
-    ) {
+    if (senderId !== conversation.buyerId && senderId !== conversation.sellerId) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
       );
     }
 
     const computedReceiverId =
-      senderId === conversation.buyer.toString()
-        ? conversation.seller.toString()
-        : conversation.buyer.toString();
+      senderId === conversation.buyerId ? conversation.sellerId : conversation.buyerId;
 
     if (receiverId !== computedReceiverId) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
       );
     }
 
@@ -171,28 +157,47 @@ export class ChatService {
       );
     }
 
-    const message = await this.messageModel.create({
-      conversationId: new Types.ObjectId(conversationId),
-      sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(computedReceiverId),
-      text,
-      imageUrl,
-      audioUrl: options?.audioUrl,
-      audioDuration: options?.audioDuration,
-      senderText: options?.senderText,
-      read: false,
-      status: "sent",
-    });
+    // The message insert and the conversation's lastMessageAt bump were two
+    // separate document writes before; a transaction makes them one, so the
+    // inbox can never show a conversation whose ordering timestamp disagrees
+    // with its newest message.
+    const [message] = await this.prisma.$transaction([
+      this.prisma.message.create({
+        data: {
+          id: generateObjectId(),
+          conversationId,
+          senderId,
+          receiverId: computedReceiverId,
+          text,
+          imageUrl: imageUrl ?? null,
+          audioUrl: options?.audioUrl ?? null,
+          audioDuration: options?.audioDuration ?? null,
+          senderText: options?.senderText ?? null,
+          read: false,
+          status: "sent",
+        },
+      }),
+      this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { lastMessageAt: new Date() },
+      }),
+    ]);
 
-    await this.conversationModel.findByIdAndUpdate(conversationId, {
-      lastMessageAt: new Date(),
-    });
+    let finalMessage = message;
 
     // Receiver is already connected — deliver immediately so the response/broadcast
     // below already carries the final status, and any other tab/device of the
     // sender is told over the socket too.
     if (this.presenceService.isOnline(computedReceiverId)) {
-      await this.markDelivered([message]);
+      const deliveredAt = new Date();
+      const delivered = await this.conversationRepository.markDeliveredByIds(
+        [message.id],
+        deliveredAt,
+      );
+      if (delivered.length > 0) {
+        finalMessage = { ...message, status: "delivered", deliveredAt };
+        this.emitDelivered(delivered, deliveredAt);
+      }
     }
 
     if (!options?.skipNotification) {
@@ -202,19 +207,19 @@ export class ChatService {
         "MESSAGE",
         {
           conversation: {
-            id: conversation._id,
-            buyer: conversation.buyer,
-            seller: conversation.seller,
+            id: conversation.id,
+            buyer: conversation.buyerId,
+            seller: conversation.sellerId,
             status: conversation.status,
           },
           message: {
-            id: message._id,
-            text: message.text,
-            imageUrl: message.imageUrl,
-            createdAt: message.createdAt,
+            id: finalMessage.id,
+            text: finalMessage.text,
+            imageUrl: finalMessage.imageUrl,
+            createdAt: finalMessage.createdAt,
           },
           sender: {
-            id: sender._id,
+            id: sender.id,
             name: sender.name,
             image: sender.image,
           },
@@ -224,59 +229,47 @@ export class ChatService {
       );
     }
 
-    this.chatGateway.server
-      .to(conversationId)
-      .emit("receiveMessage", {
-        message,
-        sender,
-        conversation,
-        // An offer accept/decline already sent its own "notification" event
-        // with the same news — tells the frontend not to toast this message
-        // a second time, while still delivering it live to an open chat window.
-        silent: !!options?.skipNotification,
-      });
+    const payloadMessage = this.withLegacyId(finalMessage);
+    const payloadConversation = this.withLegacyId(conversation);
+
+    this.chatGateway.server.to(conversationId).emit("receiveMessage", {
+      message: payloadMessage,
+      sender,
+      conversation: payloadConversation,
+      // An offer accept/decline already sent its own "notification" event
+      // with the same news — tells the frontend not to toast this message
+      // a second time, while still delivering it live to an open chat window.
+      silent: !!options?.skipNotification,
+    });
 
     return {
       data: {
-        message,
+        message: payloadMessage,
         sender,
-        conversation,
+        conversation: payloadConversation,
       },
     };
   }
 
-  /** Bulk-flips a set of "sent" messages to "delivered" and tells each sender over
-   *  their personal room (auto-joined by every socket on connect), regardless of
-   *  whether that sender currently has the conversation open. Filtered on
-   *  status:'sent' in the update itself, so calling this twice for the same
-   *  message (e.g. the synchronous send-time check racing the connect-time flush)
-   *  is a harmless no-op the second time. */
-  private async markDelivered(messages: Message[]): Promise<void> {
-    const pending = messages.filter((m) => m.status === "sent");
-    if (pending.length === 0) return;
-
-    const deliveredAt = new Date();
-    const ids = pending.map((m) => m._id);
-
-    await this.messageModel.updateMany(
-      { _id: { $in: ids }, status: "sent" },
-      { $set: { status: "delivered", deliveredAt } },
-    );
-
-    for (const m of pending) {
-      m.status = "delivered";
-      m.deliveredAt = deliveredAt;
-    }
-
+  /**
+   * Tells each sender, over their personal room (auto-joined by every socket on
+   * connect), that their messages reached the recipient — regardless of whether
+   * that sender currently has the conversation open.
+   */
+  private emitDelivered(
+    delivered: { id: string; conversationId: string; senderId: string }[],
+    deliveredAt: Date,
+  ): void {
     const byConversation = new Map<string, { senderId: string; messageIds: string[] }>();
-    for (const m of pending) {
-      const conversationId = m.conversationId.toString();
-      const senderId = m.sender.toString();
-      const entry = byConversation.get(conversationId);
+    for (const m of delivered) {
+      const entry = byConversation.get(m.conversationId);
       if (entry) {
-        entry.messageIds.push(m._id.toString());
+        entry.messageIds.push(m.id);
       } else {
-        byConversation.set(conversationId, { senderId, messageIds: [m._id.toString()] });
+        byConversation.set(m.conversationId, {
+          senderId: m.senderId,
+          messageIds: [m.id],
+        });
       }
     }
 
@@ -291,98 +284,96 @@ export class ChatService {
 
   /** Called when a user's presence transitions to online (PresenceService reports
    *  `cameOnline`) — flushes every message addressed to them that is still waiting
-   *  on delivery. Being connected is enough; the conversation does not need to be open. */
+   *  on delivery. Being connected is enough; the conversation does not need to be open.
+   *
+   *  The filter and the write are now a single UPDATE ... RETURNING, so only
+   *  genuinely-transitioned messages are announced. The previous select-then-update
+   *  pair could emit "delivered" for a message a concurrent markAsRead had already
+   *  moved past. */
   async deliverPendingMessagesForUser(userId: string): Promise<void> {
-    const pending = await this.messageModel.find({
-      receiver: new Types.ObjectId(userId),
-      status: "sent",
-    });
-    await this.markDelivered(pending);
+    const deliveredAt = new Date();
+    const delivered = await this.conversationRepository.markDeliveredForUser(
+      userId,
+      deliveredAt,
+    );
+    if (delivered.length === 0) return;
+    this.emitDelivered(delivered, deliveredAt);
   }
 
   async getMessages(
     conversationId: string,
     paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<Message>> {
-    const convo = await this.conversationModel.findById(conversationId);
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
     if (!convo) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }),
       );
     }
 
-    const { page = 1, limit = 10 } = paginationDto;
+    const pageValue = Number(paginationDto.page);
+    const limitValue = Number(paginationDto.limit);
+    const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+    const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : 10;
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      this.messageModel
-        .find({ conversationId: new Types.ObjectId(conversationId) })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.messageModel.countDocuments({
-        conversationId: new Types.ObjectId(conversationId),
+      this.prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
       }),
+      this.prisma.message.count({ where: { conversationId } }),
     ]);
 
     return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: data.map((m) => this.withLegacyId(m)),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async markAsRead(conversationId: string, userId: string) {
     await this.userService.findUserById(userId);
 
-    const convo = await this.conversationModel.findById(conversationId);
+    const convo = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
     if (!convo) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.conversation_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.chat.conversation_not_found", { lang: this.lang }),
       );
     }
 
-    if (userId !== convo.buyer.toString() && userId !== convo.seller.toString()) {
+    if (userId !== convo.buyerId && userId !== convo.sellerId) {
       throw new NotFoundException(
-        this.i18n.translate("auth.chat.user_not_in_conversation", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.chat.user_not_in_conversation", { lang: this.lang }),
       );
     }
 
-    const conversationObjectId = new Types.ObjectId(conversationId);
-    const receiverObjectId = new Types.ObjectId(userId);
-
-    const unread = await this.messageModel
-      .find({
-        conversationId: conversationObjectId,
-        receiver: receiverObjectId,
-        status: { $ne: "read" },
-      })
-      .select("_id sender");
+    const unread = await this.prisma.message.findMany({
+      where: { conversationId, receiverId: userId, status: { not: "read" } },
+      select: { id: true, senderId: true },
+    });
 
     if (unread.length > 0) {
       const readAt = new Date();
-      const ids = unread.map((m) => m._id);
+      const ids = unread.map((m) => m.id);
 
-      await this.messageModel.updateMany(
-        { _id: { $in: ids } },
-        { $set: { status: "read", read: true, readAt } },
-      );
+      await this.prisma.message.updateMany({
+        where: { id: { in: ids } },
+        // `read` is kept in step with `status` so the unread-count queries that
+        // filter on the boolean keep working.
+        data: { status: "read", read: true, readAt },
+      });
 
       // 1:1 conversation — every matched message's sender is the same "other" party.
-      const senderId = unread[0].sender.toString();
+      const senderId = unread[0].senderId;
       this.chatGateway.server.to(senderId).emit("messagesRead", {
         conversationId,
-        messageIds: ids.map((id) => id.toString()),
+        messageIds: ids,
         readAt,
       });
     }
@@ -392,29 +383,22 @@ export class ChatService {
 
   async getUnreadConversations(userId: string) {
     await this.userService.findUserById(userId);
-    const userObjectId = new Types.ObjectId(userId);
 
-    const conversationsWithUnread = await this.messageModel.aggregate([
-      {
-        $match: {
-          receiver: userObjectId,
-          read: false,
-          sender: { $ne: userObjectId },
-        },
-      },
-      {
-        $group: {
-          _id: "$conversationId",
-          unreadCount: { $sum: 1 },
-          lastMessageAt: { $max: "$createdAt" },
-        },
-      },
-      {
-        $sort: { lastMessageAt: -1 },
-      },
-    ]);
+    // Was a $match + $group + $sort pipeline.
+    const grouped = await this.prisma.message.groupBy({
+      by: ["conversationId"],
+      where: { receiverId: userId, read: false, senderId: { not: userId } },
+      _count: { _all: true },
+      _max: { createdAt: true },
+      orderBy: { _max: { createdAt: "desc" } },
+    });
 
-    return conversationsWithUnread;
+    // `_id` is preserved as the key, since that is what the old $group emitted.
+    return grouped.map((g) => ({
+      _id: g.conversationId,
+      unreadCount: g._count._all,
+      lastMessageAt: g._max.createdAt,
+    }));
   }
 
   async getConversationsByUserId(
@@ -423,200 +407,61 @@ export class ChatService {
   ): Promise<PaginatedResponseDto<Conversation>> {
     await this.userService.findUserById(userId);
 
-    const userObjectId = new Types.ObjectId(userId);
-    const { page = 1, limit = 10 } = paginationDto;
+    const pageValue = Number(paginationDto.page);
+    const limitValue = Number(paginationDto.limit);
+    const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+    const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : 10;
     const skip = (page - 1) * limit;
 
-    const [data, totalResult] = await Promise.all([
-      this.conversationModel.aggregate([
-        {
-          $match: {
-            $or: [{ buyer: userObjectId }, { seller: userObjectId }],
-          },
-        },
-        // Lookup buyer details
-        {
-          $lookup: {
-            from: "users",
-            localField: "buyer",
-            foreignField: "_id",
-            as: "buyer",
-          },
-        },
-        {
-          $unwind: {
-            path: "$buyer",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        // Lookup seller details
-        {
-          $lookup: {
-            from: "users",
-            localField: "seller",
-            foreignField: "_id",
-            as: "seller",
-          },
-        },
-        {
-          $unwind: {
-            path: "$seller",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        // Lookup latest message in this conversation
-        {
-          $lookup: {
-            from: "messages",
-            let: { conversationId: "$_id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$conversationId", "$$conversationId"] },
-                },
-              },
-              {
-                $sort: { createdAt: -1 },
-              },
-              {
-                $limit: 1,
-              },
-              {
-                $lookup: {
-                  from: "users",
-                  localField: "sender",
-                  foreignField: "_id",
-                  as: "sender",
-                },
-              },
-              {
-                $unwind: {
-                  path: "$sender",
-                  preserveNullAndEmptyArrays: true,
-                },
-              },
-              {
-                $project: {
-                  text: 1,
-                  imageUrl: 1,
-                  audioUrl: 1,
-                  read: 1,
-                  createdAt: 1,
-                  sender: { _id: 1, name: 1 },
-                },
-              },
-            ],
-            as: "latestMessage",
-          },
-        },
-        {
-          $unwind: {
-            path: "$latestMessage",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $lookup: {
-            from: "messages",
-            let: { conversationId: "$_id", currentUserId: userObjectId },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: ["$conversationId", "$$conversationId"] },
-                      { $eq: ["$receiver", "$$currentUserId"] },
-                      { $eq: ["$read", false] },
-                      { $ne: ["$sender", "$$currentUserId"] },
-                    ],
-                  },
-                },
-              },
-              { $count: "count" },
-            ],
-            as: "unreadMessages",
-          },
-        },
-        {
-          $addFields: {
-            unreadCount: {
-              $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
-            },
-          },
-        },
-        // Project desired fields
-        {
-          $project: {
-            _id: 1,
-            buyer: { _id: 1, name: 1, email: 1, image: 1, lastSeenAt: 1 },
-            seller: { _id: 1, name: 1, email: 1, image: 1, lastSeenAt: 1 },
-            status: 1,
-            lastMessageAt: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            latestMessage: 1,
-            unreadCount: 1,
-          },
-        },
-        {
-          $sort: { "latestMessage.createdAt": -1, lastMessageAt: -1 },
-        },
-        {
-          $skip: skip,
-        },
-        {
-          $limit: Number(limit),
-        },
-      ]),
-      this.conversationModel.countDocuments({
-        $or: [{ buyer: userObjectId }, { seller: userObjectId }],
-      }),
-    ]);
+    const { rows, total } = await this.conversationRepository.findInboxForUser({
+      userId,
+      skip,
+      take: Number(limit),
+    });
 
     // Online state lives in memory, not the database, so it is stamped on after
-    // the aggregation. This gives the inbox its initial dots without a second
+    // the query. This gives the inbox its initial dots without a second
     // request; live changes then arrive over the socket.
-    const participantIds = data.flatMap((c: any) =>
-      [c?.buyer?._id, c?.seller?._id].filter(Boolean).map(String),
+    const participantIds = rows.flatMap((c) =>
+      [c.buyer?.id, c.seller?.id].filter(Boolean).map(String),
     );
     const onlineIds = this.presenceService.getOnlineUserIds(participantIds);
-    const withPresence = data.map((conversation: any) => ({
+    const withPresence = rows.map((conversation) => ({
       ...conversation,
       buyer: conversation.buyer && {
         ...conversation.buyer,
-        isOnline: onlineIds.has(String(conversation.buyer._id)),
+        isOnline: onlineIds.has(conversation.buyer.id),
         lastSeenAt: conversation.buyer.lastSeenAt ?? null,
       },
       seller: conversation.seller && {
         ...conversation.seller,
-        isOnline: onlineIds.has(String(conversation.seller._id)),
+        isOnline: onlineIds.has(conversation.seller.id),
         lastSeenAt: conversation.seller.lastSeenAt ?? null,
       },
     }));
 
     return {
-      data: withPresence,
+      data: withPresence as unknown as Conversation[],
       meta: {
-        total: totalResult,
+        total,
         page,
         limit,
-        totalPages: Math.ceil(totalResult / limit),
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
 
   async countConversationsForUser(userId: string): Promise<number> {
-    const userObjectId = new Types.ObjectId(userId);
-    return this.conversationModel.countDocuments({
-      $or: [{ buyer: userObjectId }, { seller: userObjectId }],
+    return this.prisma.conversation.count({
+      where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
     });
   }
 
   async countMessagesSentByUser(userId: string): Promise<number> {
-    return this.messageModel.countDocuments({ sender: new Types.ObjectId(userId) });
+    return this.prisma.message.count({ where: { senderId: userId } });
   }
 
   async countMessagesReceivedByUser(userId: string): Promise<number> {
-    return this.messageModel.countDocuments({ receiver: new Types.ObjectId(userId) });
+    return this.prisma.message.count({ where: { receiverId: userId } });
   }
 }

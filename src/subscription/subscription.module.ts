@@ -1,15 +1,9 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
-import { Subscription, SubscriptionSchema } from "./schema/subscription-schema";
 import { SubscriptionService } from "./subscription.service";
 import { SubscriptionController } from "./subscription.controller";
 
+// PrismaModule is @Global, so PrismaService needs no import here.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Subscription.name, schema: SubscriptionSchema },
-    ]),
-  ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService],
   exports: [SubscriptionService],

@@ -3,14 +3,12 @@ import {
   ConflictException,
   ForbiddenException,
   HttpException,
-  HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
 import { AppError } from "src/common/exceptions/app-error";
-import { User, UserDocument } from "./schema/users.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import { CreateAdminAccountDto, PermissionEntryDto } from "./dto/create-admin-account.dto";
@@ -21,8 +19,6 @@ import {
 } from "src/common/constants/admin-permissions.constants";
 import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
 import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
@@ -36,15 +32,34 @@ import { ServicesService } from "src/services/services.service";
 import { ChatService } from "src/chat/chat.service";
 import { PresenceService } from "src/presence/presence.service";
 import { EmailService } from "src/common/email-service/email-service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { toGeoJson, toLatLng } from "src/common/utils/geo.util";
+import { adminPermissionPage } from "src/common/utils/enum-wire.util";
+import { userPublicSelect } from "./user-select";
+import {
+  ADMIN_TIER_ROLES,
+  SELF_ASSIGNABLE_ROLES,
+  USER_PERMISSIONS_INCLUDE,
+  stripUserSecrets,
+  type User,
+  type UserRole,
+} from "./model/user.model";
+import type {
+  AdminPermissionPage,
+  Prisma,
+} from "../../generated/prisma/client";
+import { resolvePagination } from "../common/utils/pagination.util";
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(Counter.name) private counterModel: Model<CounterDocument>,
+    private readonly prisma: PrismaService,
     private readonly fileUploadService: FileUploadService,
     private readonly i18n: I18nService,
-    private readonly cls: ClsService, //
+    private readonly cls: ClsService,
     @Inject(forwardRef(() => ShopService))
     private readonly shopService: ShopService,
     @Inject(forwardRef(() => ProductsService))
@@ -55,19 +70,38 @@ export class UsersService {
     private readonly chatService: ChatService,
     private readonly presenceService: PresenceService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
   }
 
+  /**
+   * Rebuilds the document shape callers expect: `location` as GeoJSON rather
+   * than latitude/longitude columns, `permissions` flattened out of its
+   * relation, and `_id` alongside `id`.
+   */
+  private toApiShape<T extends Record<string, any>>(user: T | null): any {
+    if (!user) return user;
+    const { latitude, longitude, permissions, ...rest } = user as any;
+    return {
+      ...rest,
+      _id: rest.id,
+      location: toGeoJson(latitude, longitude),
+      permissions: (permissions ?? []).map((p: any) => ({
+        page: adminPermissionPage.toWire(p.page),
+        actions: p.actions,
+      })),
+    };
+  }
+
   /** Atomically reserves the next sequential user code (e.g. USR-000135). */
   private async generateNextUserCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "userCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "userCode" },
+      create: { id: "userCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `USR-${String(counter.seq).padStart(6, "0")}`;
   }
 
@@ -76,11 +110,14 @@ export class UsersService {
       const normalizedEmail = createUserDto.email?.trim().toLowerCase();
       const normalizedPhone = createUserDto.phone?.trim();
 
-      const existingUser = await this.userModel.findOne({
-        $or: [
-          ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
-          ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
-        ],
+      const existingUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+            ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+          ],
+        },
+        select: { id: true },
       });
 
       if (existingUser) {
@@ -92,44 +129,54 @@ export class UsersService {
       }
 
       const hashedPassword = await this.hashPassword(createUserDto.password);
-      let imageUrl = "default-avatar.png"; // Default image URL
       const userCode = await this.generateNextUserCode();
+      const userId = generateObjectId();
+      const { latitude, longitude } = toLatLng(createUserDto.location);
 
-      const newUser = new this.userModel({
-        ...createUserDto,
-        email: normalizedEmail,
-        phone: normalizedPhone,
-        userCode,
-        image: "default-avatar.png", // Default image if none provided
-        password: hashedPassword,
+      const savedUser = await this.prisma.user.create({
+        data: {
+          id: userId,
+          name: createUserDto.name ?? null,
+          email: normalizedEmail,
+          phone: normalizedPhone || null,
+          password: hashedPassword,
+          roles: (createUserDto.roles as UserRole[]) ?? ["buyer"],
+          address: createUserDto.address ?? null,
+          latitude,
+          longitude,
+          userCode,
+          image: "default-avatar.png",
+        },
+        include: USER_PERMISSIONS_INCLUDE,
       });
 
-      const savedUser = await newUser.save();
-      console.log("User image", createUserDto.image);
       if (createUserDto.image) {
-        imageUrl = await this.fileUploadService.uploadUserImage(
-          newUser._id as string,
+        const imageUrl = await this.fileUploadService.uploadUserImage(
+          userId,
           createUserDto.image,
-        ); // Function to handle image upload
-        savedUser.image = imageUrl; // Ensure the image is stored as a filename
+        );
+        const withImage = await this.prisma.user.update({
+          where: { id: userId },
+          data: { image: imageUrl },
+          include: USER_PERMISSIONS_INCLUDE,
+        });
+        return {
+          message: this.i18n.translate("auth.users.created_success", { lang: this.lang }),
+          data: this.toApiShape(stripUserSecrets(withImage)),
+        };
       }
-      await savedUser.save(); // Save the user again to update the image field
+
       return {
-        message: this.i18n.translate("auth.users.created_success", {
-          lang: this.lang,
-        }),
-        data: savedUser.toJSON(),
+        message: this.i18n.translate("auth.users.created_success", { lang: this.lang }),
+        data: this.toApiShape(stripUserSecrets(savedUser)),
       };
     } catch (err) {
       if (err instanceof HttpException) {
         throw err;
       }
 
-      if (
-        err instanceof Error &&
-        "code" in err &&
-        (err as any).code === 11000
-      ) {
+      // Postgres unique-violation, the equivalent of Mongo's duplicate-key 11000.
+      if (err instanceof Error && "code" in err && (err as any).code === "P2002") {
         throw new ConflictException(
           this.i18n.translate("auth.users.email_or_phone_already_registered", {
             lang: this.lang,
@@ -147,23 +194,28 @@ export class UsersService {
     return await bcrypt.hash(password, salt);
   }
 
+  /**
+   * Used by the auth flows, which need the password hash — so this deliberately
+   * returns the full row. Callers must not hand it straight to a client.
+   */
   async findUserByEmail(email: string) {
-    return await this.userModel.findOne({ email }).exec();
+    return this.prisma.user.findUnique({
+      where: { email },
+      include: USER_PERMISSIONS_INCLUDE,
+    });
   }
 
-  async findByResetToken(
-    resetPasswordToken: string,
-  ): Promise<UserDocument | null> {
-    const results = await this.userModel
-      .findOne({ resetPasswordToken })
-      .select("+resetPasswordExpires")
-      .exec();
-    if (!results) {
+  async findByResetToken(resetPasswordToken: string) {
+    const result = await this.prisma.user.findFirst({
+      where: { resetPasswordToken },
+      include: USER_PERMISSIONS_INCLUDE,
+    });
+    if (!result) {
       throw new NotFoundException(
         this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
       );
     }
-    return results;
+    return result;
   }
 
   /**
@@ -173,8 +225,9 @@ export class UsersService {
    * in place (and therefore reusable) until it naturally expires.
    */
   async clearPasswordResetToken(userId: string): Promise<void> {
-    await this.userModel.findByIdAndUpdate(userId, {
-      $unset: { resetPasswordToken: "", resetPasswordExpires: "" },
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { resetPasswordToken: null, resetPasswordExpires: null },
     });
   }
 
@@ -182,13 +235,14 @@ export class UsersService {
     email: string,
     password: string,
     loginContext: "web" | "admin" = "web",
-  ): Promise<UserDocument | false> {
+  ): Promise<any | false> {
     // Emails are stored trimmed + lowercased at signup — the lookup must match
     // that or any casing/whitespace difference at login silently fails here.
     const normalizedEmail = email?.trim().toLowerCase();
-    const user = await this.userModel
-      .findOne({ email: normalizedEmail })
-      .select("+password +memberPassword");
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: USER_PERMISSIONS_INCLUDE,
+    });
     if (!user) {
       return false;
     }
@@ -199,6 +253,10 @@ export class UsersService {
     // logins for them fall back to the single password they were created with.
     const passwordField =
       loginContext === "admin" && user.memberPassword ? user.memberPassword : user.password;
+
+    if (!passwordField) {
+      return false;
+    }
 
     const isMatch = await bcrypt.compare(password, passwordField);
     if (!isMatch) {
@@ -229,7 +287,6 @@ export class UsersService {
         const rolesArray = Array.isArray(updateData.roles)
           ? updateData.roles
           : [updateData.roles];
-        const SELF_ASSIGNABLE_ROLES = ["buyer", "seller"] as const;
         updateData.roles = rolesArray.filter((role) =>
           (SELF_ASSIGNABLE_ROLES as readonly string[]).includes(role),
         ) as typeof updateData.roles;
@@ -238,7 +295,7 @@ export class UsersService {
         }
       }
 
-      const existingUser = await this.userModel.findById(userId).exec();
+      const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!existingUser) {
         throw new NotFoundException(
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
@@ -254,7 +311,7 @@ export class UsersService {
         );
       }
 
-      const sanitizedData = { ...updateData };
+      const sanitizedData: Record<string, any> = { ...updateData };
 
       Object.keys(sanitizedData).forEach((key) => {
         if (
@@ -266,48 +323,41 @@ export class UsersService {
         }
       });
 
-      const updatePayload: Partial<UpdateUserDto> = {};
+      const data: Prisma.UserUpdateInput = {};
 
-      Object.entries(sanitizedData).forEach(([key, value]) => {
-        const currentValue = (existingUser as Record<string, any>)[key];
-
-        if (Array.isArray(currentValue) && Array.isArray(value)) {
-          const sameArray =
-            currentValue.length === value.length &&
-            currentValue.every((item, index) => item === value[index]);
-          if (sameArray) {
-            return;
-          }
-        } else if (typeof currentValue === "object" && currentValue !== null && typeof value === "object" && value !== null) {
-          if (JSON.stringify(currentValue) === JSON.stringify(value)) {
-            return;
-          }
-        } else if (currentValue === value) {
-          return;
-        }
-
-        (updatePayload as Record<string, any>)[key] = value;
-      });
-
-      // Handle password hashing
-      if (updatePayload.password) {
-        const salt = await bcrypt.genSalt();
-        updatePayload.password = await bcrypt.hash(updatePayload.password, salt);
+      if (sanitizedData.name !== undefined) data.name = sanitizedData.name;
+      if (sanitizedData.address !== undefined) data.address = sanitizedData.address;
+      if (sanitizedData.roles !== undefined) data.roles = sanitizedData.roles as UserRole[];
+      if (sanitizedData.refreshToken !== undefined) {
+        data.refreshToken = sanitizedData.refreshToken;
+      }
+      if (sanitizedData.resetPasswordToken !== undefined) {
+        data.resetPasswordToken = sanitizedData.resetPasswordToken;
+      }
+      if (sanitizedData.resetPasswordExpires !== undefined) {
+        data.resetPasswordExpires = sanitizedData.resetPasswordExpires;
       }
 
-      const normalizedEmail = updatePayload.email?.trim().toLowerCase();
-      const normalizedPhone = updatePayload.phone?.trim();
+      // Handle password hashing
+      if (sanitizedData.password) {
+        const salt = await bcrypt.genSalt();
+        data.password = await bcrypt.hash(sanitizedData.password, salt);
+      }
+
+      const normalizedEmail = sanitizedData.email?.trim?.().toLowerCase();
+      const normalizedPhone = sanitizedData.phone?.trim?.();
 
       if (normalizedEmail || normalizedPhone) {
-        const duplicateUser = await this.userModel
-          .findOne({
-            _id: { $ne: userId },
-            $or: [
+        const duplicateUser = await this.prisma.user.findFirst({
+          where: {
+            id: { not: userId },
+            OR: [
               ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
               ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
             ],
-          })
-          .exec();
+          },
+          select: { id: true },
+        });
 
         if (duplicateUser) {
           throw new ConflictException(
@@ -318,59 +368,49 @@ export class UsersService {
         }
       }
 
-      if (normalizedEmail) {
-        updatePayload.email = normalizedEmail;
+      if (normalizedEmail) data.email = normalizedEmail;
+      if (normalizedPhone) data.phone = normalizedPhone;
+
+      // Only overwrite the coordinates when a new location was actually sent;
+      // otherwise the row keeps what it already had. The old code re-assigned
+      // the existing location explicitly to achieve the same thing.
+      if (sanitizedData.location) {
+        const { latitude, longitude } = toLatLng(sanitizedData.location);
+        data.latitude = latitude;
+        data.longitude = longitude;
       }
 
-      if (normalizedPhone) {
-        updatePayload.phone = normalizedPhone;
-      }
-
-      let imageUrl = existingUser.image || "default-avatar.png";
       if (
-        updatePayload.image &&
-        typeof updatePayload.image === "object" &&
-        "buffer" in updatePayload.image &&
-        "originalname" in updatePayload.image
+        sanitizedData.image &&
+        typeof sanitizedData.image === "object" &&
+        "buffer" in sanitizedData.image &&
+        "originalname" in sanitizedData.image
       ) {
-        imageUrl = await this.fileUploadService.uploadUserImage(
+        data.image = await this.fileUploadService.uploadUserImage(
           userId,
-          updatePayload.image,
+          sanitizedData.image,
         );
       }
 
-      if (!updatePayload.location) {
-        updatePayload.location = existingUser.location;
-      }
-
-      updatePayload.image = imageUrl;
-
-      const updatedUser = await this.userModel.findByIdAndUpdate(userId, {
-        $set: updatePayload,
+      const updatedUser = await this.prisma.user.update({
+        where: { id: userId },
+        data,
+        include: USER_PERMISSIONS_INCLUDE,
       });
 
-      if (!updatedUser) {
-        throw new NotFoundException(
-          this.i18n.translate("users.user_not_found", { lang: this.lang }),
-        );
-      }
-
       return {
-        message: this.i18n.translate("auth.users.updated_success", {
-          lang: this.lang,
-        }),
-        data: updatedUser,
+        message: this.i18n.translate("auth.users.updated_success", { lang: this.lang }),
+        // The old code used findByIdAndUpdate WITHOUT { new: true }, so it
+        // returned the pre-update document — every successful profile update
+        // handed the client back its stale values. This returns the saved row.
+        data: this.toApiShape(stripUserSecrets(updatedUser)),
       };
     } catch (err) {
       if (err instanceof HttpException) {
         throw err;
       }
 
-      if (
-        err instanceof Error &&
-        "code" in err &&
-        (err as any).code === 11000
-      ) {
+      if (err instanceof Error && "code" in err && (err as any).code === "P2002") {
         throw new ConflictException(
           this.i18n.translate("auth.users.email_or_phone_already_registered", {
             lang: this.lang,
@@ -383,14 +423,12 @@ export class UsersService {
     }
   }
 
-  async findByIdWithToken(
-    userId: string,
-    lang: string = "en",
-  ): Promise<UserDocument> {
-    const user = await this.userModel
-      .findById(userId)
-      .select("+refreshToken")
-      .exec();
+  /** Returns the full row including refreshToken — auth flows only. */
+  async findByIdWithToken(userId: string, lang: string = "en") {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: USER_PERMISSIONS_INCLUDE,
+    });
 
     if (!user) {
       throw new NotFoundException(
@@ -401,11 +439,11 @@ export class UsersService {
     return user;
   }
 
-  async findUserById(
-    userId: string,
-    lang: string = "en",
-  ): Promise<UserDocument> {
-    const user = await this.userModel.findById(userId).exec();
+  async findUserById(userId: string, lang: string = "en") {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: USER_PERMISSIONS_INCLUDE,
+    });
 
     if (!user) {
       throw new NotFoundException(
@@ -413,7 +451,7 @@ export class UsersService {
       );
     }
 
-    return user;
+    return this.toApiShape(stripUserSecrets(user));
   }
 
   /** Aggregate activity counts for the admin panel's User Profile modal. */
@@ -452,75 +490,61 @@ export class UsersService {
   async getAllUsers(
     paginationDto: PaginationDto,
     onlineOnly?: boolean,
-  ): Promise<PaginatedResponseDto<User>> {
-    const { page = 1, limit = 10, search, startDate, endDate } = paginationDto;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<any>> {
+    const { page: rawPage, limit: rawLimit, search, startDate, endDate } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    // Build query
-    const query: any = {};
+    const where: Prisma.UserWhereInput = {};
 
     if (onlineOnly) {
-      const onlineIds = this.presenceService.getAllOnlineUserIds();
-      query._id = { $in: onlineIds.map((id) => new Types.ObjectId(id)) };
+      where.id = { in: this.presenceService.getAllOnlineUserIds() };
     }
 
     if (search?.trim()) {
-      const trimmedSearch = search.trim();
-      const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      query.$or = [
-        { name: { $regex: escapedSearch, $options: "i" } },
-        { userCode: { $regex: escapedSearch, $options: "i" } },
-        { email: { $regex: escapedSearch, $options: "i" } },
-        { phone: { $regex: escapedSearch, $options: "i" } },
+      const term = search.trim();
+      where.OR = [
+        { name: { contains: term, mode: "insensitive" } },
+        { userCode: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term, mode: "insensitive" } },
       ];
     }
 
     if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (startDate) createdAt.gte = new Date(startDate);
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
+      where.createdAt = createdAt;
     }
 
     const [users, total] = await Promise.all([
-      this.userModel
-        .find(query)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec(),
-      this.userModel.countDocuments(query),
+      this.prisma.user.findMany({ where, skip, take: limit, select: userPublicSelect }),
+      this.prisma.user.count({ where }),
     ]);
 
-    const userIds = users.map((user) => user._id.toString());
-    const onlineIds = this.presenceService.getOnlineUserIds(userIds);
+    const onlineIds = this.presenceService.getOnlineUserIds(users.map((u) => u.id));
     const enrichedUsers = users.map((user) => ({
-      ...user,
-      isOnline: onlineIds.has(user._id.toString()),
+      ...this.toApiShape(user),
+      isOnline: onlineIds.has(user.id),
       lastSeenAt: user.lastSeenAt ?? null,
     }));
 
     return {
       data: enrichedUsers,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   /** Cheap, side-channel field touched by the presence gateway — not part of the self-service update flow. */
   async touchLastSeen(userId: string): Promise<void> {
-    await this.userModel
-      .updateOne({ _id: userId }, { $set: { lastSeenAt: new Date() } })
-      .exec();
+    await this.prisma.user.updateMany({
+      where: { id: userId },
+      data: { lastSeenAt: new Date() },
+    });
   }
 
   /**
@@ -534,20 +558,18 @@ export class UsersService {
     const ids = [...new Set(userIds.filter(Boolean))];
     if (ids.length === 0) return {};
 
-    const rows = await this.userModel
-      .find({ _id: { $in: ids } }, { _id: 1, lastSeenAt: 1 })
-      .lean()
-      .exec();
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, lastSeenAt: true },
+    });
 
-    return Object.fromEntries(
-      rows.map((row: any) => [String(row._id), row.lastSeenAt ?? null]),
-    );
+    return Object.fromEntries(rows.map((row) => [row.id, row.lastSeenAt ?? null]));
   }
 
   async getUserDetailForAdmin(userId: string) {
     const user = await this.findUserById(userId);
     return {
-      ...user.toObject(),
+      ...user,
       isOnline: this.presenceService.isOnline(userId),
       lastSeenAt: user.lastSeenAt ?? null,
     };
@@ -563,13 +585,18 @@ export class UsersService {
    * A user can be signed in on the phone app and in one or more browsers at the
    * same time, and every client posts its own token to this same endpoint.
    * Overwriting a single field meant the last client to register silently wiped
-   * all the others, so only one device could receive pushes — hence $addToSet
-   * into a list rather than an assignment.
+   * all the others, so only one device could receive pushes — hence adding to a
+   * list rather than an assignment.
    *
    * The token is pulled off every *other* account first: an FCM token identifies
    * a device install, not a person, so when a second account signs in on that
    * device the token has to move rather than stay duplicated on both accounts
    * (which would send the first account's notifications to the new user).
+   *
+   * The array writes are raw SQL because Prisma's scalar-list API has `push`
+   * but no add-if-absent and no remove — $addToSet and $pull have no direct
+   * equivalent. Doing it in SQL keeps each write a single atomic statement
+   * rather than a read-modify-write that could lose a concurrent registration.
    */
   async saveFcmToken(userId: string, token: string) {
     const trimmed = token?.trim();
@@ -577,20 +604,27 @@ export class UsersService {
       throw new BadRequestException("FCM token is required.");
     }
 
-    await this.userModel.updateMany(
-      { _id: { $ne: userId }, fcmTokens: trimmed },
-      { $pull: { fcmTokens: trimmed } },
-    );
-    await this.userModel.updateMany(
-      { _id: { $ne: userId }, fcmToken: trimmed },
-      { $unset: { fcmToken: "" } },
-    );
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET fcm_tokens = array_remove(fcm_tokens, ${trimmed})
+      WHERE id <> ${userId} AND ${trimmed} = ANY(fcm_tokens)
+    `;
+    await this.prisma.user.updateMany({
+      where: { id: { not: userId }, fcmToken: trimmed },
+      data: { fcmToken: null },
+    });
 
-    return this.userModel.findByIdAndUpdate(
-      userId,
-      { $addToSet: { fcmTokens: trimmed } },
-      { new: true },
-    );
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET fcm_tokens = array_append(fcm_tokens, ${trimmed})
+      WHERE id = ${userId} AND NOT (${trimmed} = ANY(fcm_tokens))
+    `;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: userPublicSelect,
+    });
+    return user ? this.toApiShape(user) : null;
   }
 
   /**
@@ -600,97 +634,73 @@ export class UsersService {
   async removeFcmTokens(userId: string, tokens: string[]) {
     if (!tokens?.length) return;
 
-    await this.userModel.updateOne(
-      { _id: userId },
-      { $pull: { fcmTokens: { $in: tokens } } },
-    );
-    await this.userModel.updateOne(
-      { _id: userId, fcmToken: { $in: tokens } },
-      { $unset: { fcmToken: "" } },
-    );
+    // Postgres has no multi-value array_remove, so the surviving elements are
+    // rebuilt with a filtered unnest. COALESCE keeps an emptied list as '{}'
+    // rather than NULL.
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET fcm_tokens = COALESCE(
+        (SELECT array_agg(t) FROM unnest(fcm_tokens) AS t WHERE t <> ALL(${tokens})),
+        '{}'
+      )
+      WHERE id = ${userId}
+    `;
+    await this.prisma.user.updateMany({
+      where: { id: userId, fcmToken: { in: tokens } },
+      data: { fcmToken: null },
+    });
   }
 
   async disableAccount(userId: string): Promise<{ message: string; data: User }> {
-    try {
-      const user = await this.userModel.findById(userId).exec();
-      if (!user) {
-        throw new NotFoundException(
-          this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
-        );
-      }
-
-      // disable user
-      await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: true } }, { new: true }).exec();
-
-      // fetch all shops for user and disable them and their products
-      const shops = await this.shopService.getAllShopsByUser(userId);
-
-      if (shops.length > 0) {
-        const shopIds = shops.map(shop => (shop as any)._id ?? (shop as any).id);
-
-        // Bulk disable shops and products in parallel
-        await Promise.all([
-          this.shopService.setShopsDisabledBulk(shopIds, true),
-          this.productsService.setProductsDisabledByShopsBulk(shopIds, true),
-        ]);
-      }
-
-      await this.productsService.setProductsDisabledByUser(userId, true);
-
-      // disable services owned by user
-      await this.servicesService.setDisabledByOwner(userId, true);
-
-      return {
-        message: this.i18n.translate("auth.users.account_disabled", {
-          lang: this.lang,
-        }),
-        data: user,
-      };
-    } catch (err) {
-      if (err instanceof HttpException) {
-        throw err;
-      }
-
-      const errorMessage = err instanceof Error ? err.message : "Internal server error";
-      throw new AppError(errorMessage);
-    }
+    return this.setAccountDisabled(userId, true);
   }
 
   async reactivateAccount(userId: string): Promise<{ message: string; data: User }> {
+    return this.setAccountDisabled(userId, false);
+  }
+
+  /** disable/reactivate were byte-identical apart from the flag and the message. */
+  private async setAccountDisabled(
+    userId: string,
+    disabled: boolean,
+  ): Promise<{ message: string; data: User }> {
     try {
-      const user = await this.userModel.findById(userId).exec();
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: userPublicSelect,
+      });
       if (!user) {
         throw new NotFoundException(
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
         );
       }
 
-      // reactivate user
-      await this.userModel.findByIdAndUpdate(userId, { $set: { isDisabled: false } }, { new: true }).exec();
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { isDisabled: disabled },
+      });
 
-      // fetch all shops for user and enable them and their products
+      // fetch all shops for user and cascade the flag to them and their products
       const shops = await this.shopService.getAllShopsByUser(userId);
 
       if (shops.length > 0) {
-        const shopIds = shops.map(shop => (shop as any)._id ?? (shop as any).id);
+        const shopIds = shops.map((shop: any) => String(shop?.id ?? shop?._id));
 
-        // Bulk enable shops and products in parallel
         await Promise.all([
-          this.shopService.setShopsDisabledBulk(shopIds, false),
-          this.productsService.setProductsDisabledByShopsBulk(shopIds, false),
+          this.shopService.setShopsDisabledBulk(shopIds, disabled),
+          this.productsService.setProductsDisabledByShopsBulk(shopIds, disabled),
         ]);
       }
 
-      // enable services owned by user
-      await this.servicesService.setDisabledByOwner(userId, false);
-
-      await this.productsService.setProductsDisabledByUser(userId, false);
+      await this.productsService.setProductsDisabledByUser(userId, disabled);
+      await this.servicesService.setDisabledByOwner(userId, disabled);
 
       return {
-        message: this.i18n.translate("auth.users.account_reactivated", {
-          lang: this.lang,
-        }),
-        data: user,
+        message: this.i18n.translate(
+          disabled ? "auth.users.account_disabled" : "auth.users.account_reactivated",
+          { lang: this.lang },
+        ),
+        data: this.toApiShape(user),
       };
     } catch (err) {
       if (err instanceof HttpException) {
@@ -708,56 +718,53 @@ export class UsersService {
 
   async getAllAdminAccounts(
     paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<User>> {
-    const { page = 1, limit = 10, search } = paginationDto;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<any>> {
+    const { page: rawPage, limit: rawLimit, search } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
     // Super Admin is a single, fixed, protected account — never listed here.
-    const query: any = { roles: { $in: ["admin", "moderator"] } };
+    const where: Prisma.UserWhereInput = {
+      roles: { hasSome: ["admin", "moderator"] },
+    };
 
     if (search?.trim()) {
-      const trimmedSearch = search.trim();
-      query.$or = [
-        { name: { $regex: trimmedSearch, $options: "i" } },
-        { email: { $regex: trimmedSearch, $options: "i" } },
+      const term = search.trim();
+      where.OR = [
+        { name: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
       ];
     }
 
     const [admins, total] = await Promise.all([
-      this.userModel
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec(),
-      this.userModel.countDocuments(query),
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: userPublicSelect,
+      }),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
-      data: admins,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: admins.map((a) => this.toApiShape(a)),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   /** Ids of all non-disabled users, optionally filtered by role. Empty/undefined roles = all users. */
   async getUserIdsByRoles(roles?: string[]): Promise<string[]> {
-    const query: any = { isDisabled: { $ne: true } };
-    if (roles && roles.length > 0) {
-      query.roles = { $in: roles };
-    }
+    const users = await this.prisma.user.findMany({
+      where: {
+        isDisabled: false,
+        ...(roles && roles.length > 0
+          ? { roles: { hasSome: roles as UserRole[] } }
+          : {}),
+      },
+      select: { id: true },
+    });
 
-    const users = await this.userModel
-      .find(query, { _id: 1 })
-      .lean()
-      .exec();
-
-    return users.map((user) => user._id.toString());
+    return users.map((user) => user.id);
   }
 
   /** No global ValidationPipe is registered in this app, so class-validator decorators on the
@@ -771,12 +778,30 @@ export class UsersService {
       }
       if (
         !Array.isArray(entry.actions) ||
-        entry.actions.some((action) => !ADMIN_ACTIONS.includes(action as (typeof ADMIN_ACTIONS)[number]))
+        entry.actions.some(
+          (action) => !ADMIN_ACTIONS.includes(action as (typeof ADMIN_ACTIONS)[number]),
+        )
       ) {
         throw new BadRequestException(`Invalid permission actions for page: ${entry.page}`);
       }
     }
     return permissions;
+  }
+
+  /**
+   * The embedded permissions array is now its own table, so replacing a user's
+   * permissions means clearing and re-creating the rows. `page` also has to be
+   * translated: "email-logs" is stored under the Prisma identifier email_logs.
+   */
+  private permissionsWriteInput(permissions?: PermissionEntryDto[]) {
+    const clean = this.sanitizePermissions(permissions);
+    return {
+      deleteMany: {},
+      create: clean.map((p) => ({
+        page: adminPermissionPage.fromWire(p.page) as AdminPermissionPage,
+        actions: p.actions as any,
+      })),
+    };
   }
 
   async createAdminAccount(dto: CreateAdminAccountDto) {
@@ -791,7 +816,7 @@ export class UsersService {
       throw new BadRequestException("Password must be at least 8 characters long");
     }
 
-    const existingUser = await this.userModel.findOne({ email: dto.email });
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingUser) {
       // Already registered (a regular buyer/seller account, or already an admin/moderator
       // from an earlier attempt) — grant/refresh admin-panel access instead of blocking.
@@ -800,16 +825,28 @@ export class UsersService {
       // on the admin panel ("admin"), and it's whatever was entered on this form (or a
       // generated one, if left blank).
       const adminPassword = trimmedPassword || this.generateRandomPassword();
-      existingUser.memberPassword = await this.hashPassword(adminPassword);
-      existingUser.roles = [...new Set([...(existingUser.roles ?? []), dto.role])];
-      existingUser.permissions = this.sanitizePermissions(dto.permissions);
-      const savedExistingUser = await existingUser.save();
+      const savedExistingUser = await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          memberPassword: await this.hashPassword(adminPassword),
+          roles: [...new Set([...(existingUser.roles ?? []), dto.role])] as UserRole[],
+          permissions: this.permissionsWriteInput(dto.permissions),
+        },
+        include: USER_PERMISSIONS_INCLUDE,
+      });
 
-      this.sendMemberAddedEmail(savedExistingUser.name, savedExistingUser.email, adminPassword);
+      this.sendMemberAddedEmail(
+        savedExistingUser.name ?? "",
+        savedExistingUser.email,
+        adminPassword,
+      );
 
       return {
         message: "Admin account created successfully",
-        data: { ...savedExistingUser.toJSON(), generatedPassword: adminPassword },
+        data: {
+          ...this.toApiShape(stripUserSecrets(savedExistingUser)),
+          generatedPassword: adminPassword,
+        },
       };
     }
 
@@ -817,21 +854,26 @@ export class UsersService {
     const hashedPassword = await this.hashPassword(adminPassword);
     const userCode = await this.generateNextUserCode();
 
-    const newUser = new this.userModel({
-      name: dto.name,
-      email: dto.email,
-      password: hashedPassword,
-      roles: [dto.role],
-      permissions: this.sanitizePermissions(dto.permissions),
-      userCode,
-      image: "default-avatar.png",
+    const savedUser = await this.prisma.user.create({
+      data: {
+        id: generateObjectId(),
+        name: dto.name,
+        email: dto.email,
+        password: hashedPassword,
+        roles: [dto.role] as UserRole[],
+        permissions: { create: this.permissionsWriteInput(dto.permissions).create },
+        userCode,
+        image: "default-avatar.png",
+      },
+      include: USER_PERMISSIONS_INCLUDE,
     });
-
-    const savedUser = await newUser.save();
 
     return {
       message: "Admin account created successfully",
-      data: { ...savedUser.toJSON(), generatedPassword: adminPassword },
+      data: {
+        ...this.toApiShape(stripUserSecrets(savedUser)),
+        generatedPassword: adminPassword,
+      },
     };
   }
 
@@ -839,14 +881,12 @@ export class UsersService {
    *  Admin/Super Admin (unlike createAdminAccount, which is super_admin only), since
    *  member management is a separate, less-privileged capability. */
   async createMemberAccount(name: string, email: string) {
-    const existingUser = await this.userModel.findOne({ email });
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
 
     if (existingUser) {
       if (existingUser.roles?.includes("moderator")) {
         throw new ConflictException(
-          this.i18n.translate("auth.users.already_a_member", {
-            lang: this.lang,
-          }),
+          this.i18n.translate("auth.users.already_a_member", { lang: this.lang }),
         );
       }
 
@@ -856,15 +896,27 @@ export class UsersService {
       // their original password keeps working on the main app (loginContext "web"),
       // this new one only works on the admin panel (loginContext "admin").
       const generatedMemberPassword = this.generateRandomPassword();
-      existingUser.memberPassword = await this.hashPassword(generatedMemberPassword);
-      existingUser.roles = [...new Set([...(existingUser.roles ?? []), "moderator"])];
-      const savedExistingUser = await existingUser.save();
+      const savedExistingUser = await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          memberPassword: await this.hashPassword(generatedMemberPassword),
+          roles: [...new Set([...(existingUser.roles ?? []), "moderator"])] as UserRole[],
+        },
+        include: USER_PERMISSIONS_INCLUDE,
+      });
 
-      this.sendMemberAddedEmail(savedExistingUser.name, savedExistingUser.email, generatedMemberPassword);
+      this.sendMemberAddedEmail(
+        savedExistingUser.name ?? "",
+        savedExistingUser.email,
+        generatedMemberPassword,
+      );
 
       return {
         message: "Existing user added as a member successfully",
-        data: { ...savedExistingUser.toJSON(), generatedPassword: generatedMemberPassword },
+        data: {
+          ...this.toApiShape(stripUserSecrets(savedExistingUser)),
+          generatedPassword: generatedMemberPassword,
+        },
       };
     }
 
@@ -872,23 +924,27 @@ export class UsersService {
     const hashedPassword = await this.hashPassword(generatedPassword);
     const userCode = await this.generateNextUserCode();
 
-    const newUser = new this.userModel({
-      name,
-      email,
-      password: hashedPassword,
-      roles: ["moderator"],
-      permissions: [],
-      userCode,
-      image: "default-avatar.png",
+    const savedUser = await this.prisma.user.create({
+      data: {
+        id: generateObjectId(),
+        name,
+        email,
+        password: hashedPassword,
+        roles: ["moderator"] as UserRole[],
+        userCode,
+        image: "default-avatar.png",
+      },
+      include: USER_PERMISSIONS_INCLUDE,
     });
-
-    const savedUser = await newUser.save();
 
     this.sendMemberWelcomeEmail(name, email, generatedPassword);
 
     return {
       message: "Member created successfully",
-      data: { ...savedUser.toJSON(), generatedPassword },
+      data: {
+        ...this.toApiShape(stripUserSecrets(savedUser)),
+        generatedPassword,
+      },
     };
   }
 
@@ -906,7 +962,7 @@ export class UsersService {
     `;
     this.emailService
       .sendEmail(email, "Your Fazl account has been created", html)
-      .catch((err) => console.error(`Member welcome email to ${email} failed:`, err));
+      .catch((err) => this.logger.error(`Member welcome email to ${email} failed`, err));
   }
 
   /** Fire-and-forget: for an existing account promoted to member — they get a second,
@@ -924,28 +980,32 @@ export class UsersService {
     `;
     this.emailService
       .sendEmail(email, "You've been added as a member on Fazl", html)
-      .catch((err) => console.error(`Member-added email to ${email} failed:`, err));
+      .catch((err) => this.logger.error(`Member-added email to ${email} failed`, err));
   }
 
   async updateMemberAccount(userId: string, name?: string, email?: string) {
-    const existingUser = await this.userModel.findById(userId);
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser || !existingUser.roles?.includes("moderator")) {
       throw new NotFoundException("Member not found");
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(name ? { name } : {}),
+        ...(email ? { email } : {}),
+      },
+      include: USER_PERMISSIONS_INCLUDE,
+    });
 
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(userId, { $set: updateData }, { new: true })
-      .exec();
-
-    return { message: "Member updated successfully", data: updatedUser?.toJSON() };
+    return {
+      message: "Member updated successfully",
+      data: this.toApiShape(stripUserSecrets(updatedUser)),
+    };
   }
 
   async resetMemberPassword(userId: string, dto: ResetMemberPasswordDto) {
-    const existingUser = await this.userModel.findById(userId).select("+memberPassword");
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser || !existingUser.roles?.includes("moderator")) {
       throw new NotFoundException("Member not found");
     }
@@ -963,11 +1023,13 @@ export class UsersService {
     // its regular one — reset that field, not the account's main password. A member-only
     // account created fresh has just the one password field.
     const isDualPersona = Boolean(existingUser.memberPassword);
-    const updateField = isDualPersona ? "memberPassword" : "password";
 
-    await this.userModel
-      .findByIdAndUpdate(userId, { $set: { [updateField]: hashedPassword } }, { new: true })
-      .exec();
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: isDualPersona
+        ? { memberPassword: hashedPassword }
+        : { password: hashedPassword },
+    });
 
     if (isDualPersona) {
       this.sendMemberAddedEmail(existingUser.name ?? "", existingUser.email, newPassword);
@@ -982,7 +1044,7 @@ export class UsersService {
   }
 
   async deleteMemberAccount(userId: string) {
-    const existingUser = await this.userModel.findById(userId);
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser || !existingUser.roles?.includes("moderator")) {
       throw new NotFoundException("Member not found");
     }
@@ -992,29 +1054,27 @@ export class UsersService {
     if (otherRoles.length > 0) {
       // This account existed before it was made a member (buyer/seller/etc.) — removing
       // member access must only demote it, never delete the account those other roles rely on.
-      await this.userModel
-        .findByIdAndUpdate(userId, {
-          $set: { roles: otherRoles },
-          $unset: { memberPassword: "" },
-        })
-        .exec();
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { roles: otherRoles, memberPassword: null },
+      });
 
       return {
         message: "Member access removed successfully",
-        data: { _id: existingUser._id, name: existingUser.name },
+        data: { _id: existingUser.id, id: existingUser.id, name: existingUser.name },
       };
     }
 
-    await this.userModel.findByIdAndDelete(userId).exec();
+    await this.prisma.user.delete({ where: { id: userId } });
 
     return {
       message: "Member deleted successfully",
-      data: { _id: existingUser._id, name: existingUser.name },
+      data: { _id: existingUser.id, id: existingUser.id, name: existingUser.name },
     };
   }
 
   async updateAdminAccount(userId: string, dto: UpdateAdminAccountDto) {
-    const existingUser = await this.userModel.findById(userId);
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
       throw new NotFoundException(
         this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
@@ -1028,44 +1088,45 @@ export class UsersService {
       throw new ForbiddenException("A new Super Admin cannot be assigned this way");
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (dto.name) updateData.name = dto.name;
-    if (dto.email) updateData.email = dto.email;
+    const data: Prisma.UserUpdateInput = {};
+    if (dto.name) data.name = dto.name;
+    if (dto.email) data.email = dto.email;
     if (dto.role) {
       // Replace only the admin-tier role (admin/subadmin/moderator) being reassigned here —
       // never drop the account's underlying buyer/seller roles, which this form doesn't
-      // manage at all. Previously this overwrote the whole roles array with just [dto.role],
-      // silently deleting "buyer" (and any other non-admin role) from a dual-persona account.
-      const ADMIN_TIER_ROLES = ["admin", "subadmin", "moderator", "super_admin"];
+      // manage at all.
       const nonAdminRoles = (existingUser.roles ?? []).filter(
-        (role) => !ADMIN_TIER_ROLES.includes(role),
+        (role) => !(ADMIN_TIER_ROLES as readonly string[]).includes(role),
       );
-      updateData.roles = [...new Set([...nonAdminRoles, dto.role])];
+      data.roles = [...new Set([...nonAdminRoles, dto.role])] as UserRole[];
     }
-    if (dto.permissions) updateData.permissions = this.sanitizePermissions(dto.permissions);
-
-    const updatedUser = await this.userModel
-      .findByIdAndUpdate(userId, { $set: updateData }, { new: true })
-      .exec();
-
-    if (!updatedUser) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
-      );
+    if (dto.permissions) {
+      data.permissions = this.permissionsWriteInput(dto.permissions);
     }
 
-    return { message: "Admin account updated successfully", data: updatedUser.toJSON() };
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      include: USER_PERMISSIONS_INCLUDE,
+    });
+
+    return {
+      message: "Admin account updated successfully",
+      data: this.toApiShape(stripUserSecrets(updatedUser)),
+    };
   }
 
   async resetAdminPassword(userId: string, dto: ResetAdminPasswordDto) {
-    const existingUser = await this.userModel.findById(userId);
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
       throw new NotFoundException(
         this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
       );
     }
     if (existingUser.roles?.includes("super_admin")) {
-      throw new ForbiddenException("The Super Admin account's password cannot be reset this way");
+      throw new ForbiddenException(
+        "The Super Admin account's password cannot be reset this way",
+      );
     }
 
     // Same reason as createAdminAccount: no global ValidationPipe enforces the DTO's decorators.
@@ -1077,9 +1138,10 @@ export class UsersService {
     const newPassword = trimmed || this.generateRandomPassword();
     const hashedPassword = await this.hashPassword(newPassword);
 
-    await this.userModel
-      .findByIdAndUpdate(userId, { $set: { password: hashedPassword } }, { new: true })
-      .exec();
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
 
     return {
       message: "Password updated successfully",
@@ -1089,32 +1151,38 @@ export class UsersService {
 
   /** Moderator accounts — the pool of members Admin/Super Admin can assign tasks to. */
   async getMembers() {
-    return this.userModel
-      .find({ roles: { $in: ["moderator"] } })
-      .select("_id name email roles image createdAt")
-      .sort({ name: 1 })
-      .lean()
-      .exec();
+    const members = await this.prisma.user.findMany({
+      where: { roles: { has: "moderator" } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        roles: true,
+        image: true,
+        createdAt: true,
+      },
+      orderBy: { name: "asc" },
+    });
+    return members.map((m) => ({ ...m, _id: m.id }));
   }
 
-  /** Validates that every id belongs to an existing moderator account; returns them as ObjectIds. */
-  async assertMemberIds(ids: string[]): Promise<Types.ObjectId[]> {
+  /** Validates that every id belongs to an existing moderator account; returns the ids. */
+  async assertMemberIds(ids: string[]): Promise<string[]> {
     const uniqueIds = Array.from(new Set(ids));
-    const invalidId = uniqueIds.find((id) => !Types.ObjectId.isValid(id));
+    const invalidId = uniqueIds.find((id) => !isObjectIdLike(id));
     if (invalidId) {
       throw new BadRequestException(`Invalid user id: ${invalidId}`);
     }
 
-    const users = await this.userModel
-      .find({ _id: { $in: uniqueIds }, roles: { $in: ["moderator"] } })
-      .select("_id")
-      .lean()
-      .exec();
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds }, roles: { has: "moderator" } },
+      select: { id: true },
+    });
 
     if (users.length !== uniqueIds.length) {
       throw new BadRequestException("One or more accounts are not valid member accounts");
     }
 
-    return uniqueIds.map((id) => new Types.ObjectId(id));
+    return uniqueIds;
   }
 }

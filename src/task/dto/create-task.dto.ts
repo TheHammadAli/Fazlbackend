@@ -9,7 +9,7 @@ import {
   IsOptional,
   IsString,
 } from "class-validator";
-import { TASK_PRIORITIES, TaskPriority } from "../schema/task.schema";
+import { TASK_PRIORITIES, type TaskPriority } from "../model/task.model";
 
 export class CreateTaskDto {
   @ApiProperty({ example: "Follow up on pending shop approvals" })

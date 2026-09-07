@@ -1,9 +1,6 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
-import { User, UserSchema } from "./schema/users.schema";
-import { Counter, CounterSchema } from "src/common/schema/counter.schema";
-import { MongooseModule } from "@nestjs/mongoose";
 import { SharedModule } from "src/shared/shared.module";
 import { ShopModule } from "src/shop/shop.module";
 import { ProductsModule } from "src/products/products.module";
@@ -12,12 +9,11 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
 import { ChatModule } from "src/chat/chat.module";
 import { PresenceModule } from "src/presence/presence.module";
 import { EmailService } from "src/common/email-service/email-service";
+
+// PrismaModule is @Global, so PrismaService needs no import here — this
+// replaces the User + Counter model registrations.
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: Counter.name, schema: CounterSchema },
-    ]),
     forwardRef(() => SharedModule),
     forwardRef(() => ShopModule),
     forwardRef(() => ProductsModule),
@@ -30,4 +26,4 @@ import { EmailService } from "src/common/email-service/email-service";
   exports: [UsersService],
   providers: [UsersService, EmailService],
 })
-export class UsersModule { }
+export class UsersModule {}

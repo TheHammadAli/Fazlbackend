@@ -4,13 +4,13 @@ import { LoginDto } from "./dto/login-dto";
 import { JwtService } from "@nestjs/jwt";
 import { RefreshTokenDto } from "./dto/refreshToken-dto";
 import { Twilio } from "twilio";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
-import { Otp, OtpDocument } from "./schema/otp.schema";
 import { ConfigService } from "@nestjs/config";
 import { I18nService } from "nestjs-i18n";
 import * as crypto from "crypto";
-import { UserDocument } from "src/users/schema/users.schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId } from "src/common/utils/object-id.util";
+import { toGeoJson } from "src/common/utils/geo.util";
+import { stripUserSecrets } from "src/users/model/user.model";
 import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
 import { EmailService } from "src/common/email-service/email-service";
@@ -22,7 +22,7 @@ export class AuthService {
   private googleClient: OAuth2Client;
   private audience: string[];
   constructor(
-    @InjectModel(Otp.name) private otpModel: Model<OtpDocument>,
+    private readonly prisma: PrismaService,
     private readonly userService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService, // ✅ Add this
@@ -65,11 +65,13 @@ export class AuthService {
     }
 
     const payload = {
-      sub: user.id, // or user.id
+      sub: user.id,
       email: user.email,
       roles: user.roles, // if you have roles
       permissions: user.permissions,
-      location: user.location,
+      // Stored as latitude/longitude columns; the token has always carried
+      // GeoJSON, so it is rebuilt here rather than changing the token shape.
+      location: toGeoJson(user.latitude, user.longitude),
       image: user.image,
       isDisabled: user.isDisabled,
     };
@@ -124,11 +126,11 @@ export class AuthService {
       }
 
       const newPayload = {
-        sub: user._id, // Or user.id if you’ve transformed it
+        sub: user.id,
         email: user.email,
         roles: user.roles,
         permissions: user.permissions,
-        location: user.location,
+        location: toGeoJson(user.latitude, user.longitude),
         image: user.image,
         isDisabled: user.isDisabled,
       };
@@ -204,18 +206,20 @@ export class AuthService {
     //   to: phoneNumber,
     // });
 
-    // Upsert OTP in DB
-    return await this.otpModel.findOneAndUpdate(
-      { phoneNumber },
-      {
+    // Was findOneAndUpdate(..., { upsert: true }). There is no unique index on
+    // phoneNumber, so that only ever updated the FIRST match and left any
+    // duplicates behind; deleting then inserting guarantees exactly one live
+    // code per number, which is what the flow assumes.
+    await this.prisma.otp.deleteMany({ where: { phoneNumber, type: "phone" } });
+    await this.prisma.otp.create({
+      data: {
+        id: generateObjectId(),
         phoneNumber,
         code: otpCode,
-        createdAt: new Date(),
         type: "phone",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 mins expiration
       },
-      { upsert: true, new: true },
-    );
+    });
   }
 
   async sendEmailVerificationLink(email: string, lang: string = "en") {
@@ -224,17 +228,18 @@ export class AuthService {
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Upsert OTP for email verification
-    await this.otpModel.findOneAndUpdate(
-      { email, type: "email_verification" },
-      {
+    await this.prisma.otp.deleteMany({
+      where: { email, type: "email_verification" },
+    });
+    await this.prisma.otp.create({
+      data: {
+        id: generateObjectId(),
         email,
         code: token,
         type: "email_verification",
-        createdAt: new Date(),
         expiresAt: expires,
       },
-      { upsert: true, new: true },
-    );
+    });
     await this.emailService.sendEmail(
       email,
       'Verify your email',
@@ -249,9 +254,8 @@ export class AuthService {
   async verifyEmailToken(token: string) {
     console.log("Verifying email token:", token);
     // Find OTP record for email verification
-    const record = await this.otpModel.findOne({
-      code: token,
-      type: "email_verification",
+    const record = await this.prisma.otp.findFirst({
+      where: { code: token, type: "email_verification" },
     });
     console.log("Record", record);
     if (!record) {
@@ -269,9 +273,8 @@ export class AuthService {
         new Date().getTime() - new Date(record.createdAt).getTime() >
         24 * 60 * 60 * 1000);
     if (isExpired) {
-      await this.otpModel.deleteOne({
-        code: token,
-        type: "email_verification",
+      await this.prisma.otp.deleteMany({
+        where: { code: token, type: "email_verification" },
       });
       throw new UnauthorizedException(
         this.i18n.translate("auth.auth.verification_token_expired", {
@@ -281,7 +284,9 @@ export class AuthService {
     }
 
     // Optionally, delete the token after verification
-    await this.otpModel.deleteOne({ code: token, type: "email_verification" });
+    await this.prisma.otp.deleteMany({
+      where: { code: token, type: "email_verification" },
+    });
 
     return {
       email: record.email,
@@ -293,7 +298,7 @@ export class AuthService {
 
   async verifyOtp(phoneNumber: string, code: string) {
     const lang = this.cls.get("lang") || "en";
-    const record = await this.otpModel.findOne({ phoneNumber });
+    const record = await this.prisma.otp.findFirst({ where: { phoneNumber } });
 
     if (!record) return { message: this.i18n.translate("auth.auth.otp_not_found", { lang }), data: { isValid: false } };
 
@@ -302,14 +307,14 @@ export class AuthService {
       new Date().getTime() - new Date(record.createdAt).getTime() >
       5 * 60 * 1000;
     if (isExpired) {
-      await this.otpModel.deleteOne({ phoneNumber }); // Delete expired OTP
+      await this.prisma.otp.deleteMany({ where: { phoneNumber } }); // Delete expired OTP
       return { message: this.i18n.translate("auth.auth.otp_expired", { lang }), data: { isValid: false } };
     }
 
     const isValid = record.code === code;
 
     if (isValid) {
-      await this.otpModel.deleteOne({ phoneNumber }); // Delete OTP after successful verification
+      await this.prisma.otp.deleteMany({ where: { phoneNumber } }); // Delete OTP after successful verification
     }
 
     return { message: this.i18n.translate("auth.auth.otp_verified", { lang: this.getLang() }), data: { isValid } };
@@ -374,10 +379,10 @@ export class AuthService {
     }
 
     const newPayload = {
-      sub: user._id, // Or user.id if you’ve transformed it
+      sub: user.id,
       email: user.email,
       roles: user.roles,
-      location: user.location,
+      location: toGeoJson(user.latitude, user.longitude),
       image: user.image,
       isDisabled: user.isDisabled,
     };
@@ -395,7 +400,7 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.verifyResetPasswordToken(token);
-    const userId = String(user.data.user._id);
+    const userId = String(user.data.user.id);
     await this.userService.updateUser(userId, { password: newPassword });
     // updateUser's generic sanitizer strips null values, so clearing the
     // token/expiry needs a direct write — otherwise the same code stays
@@ -414,14 +419,24 @@ export class AuthService {
     firstName?: string;
     lastName?: string;
     name?: string;
-  }): Promise<{ accessToken: string; returnPayload: any }> {
-    console.log("Finding or creating user with payload:", payload);
+    // The declared shape used to be `{ accessToken, returnPayload }`, which this
+    // method never returned: it spreads returnPayload's fields onto the top
+    // level (see the return below), so callers get `email`, `name`,
+    // `refreshToken` and `sub` directly. The old annotation hid that from every
+    // caller and from the type checker.
+  }): Promise<{ accessToken: string } & Record<string, any>> {
     // Check if user exists
     const user = await this.userService.findUserByEmail(payload.email);
     let returnPayload: any = {};
     if (!user) {
-      // Create new user
-      const newUser = (await this.userService.createUser({
+      // Create new user.
+      //
+      // NOTE: createUser returns { message, data } — it always has. The old code
+      // cast that wrapper straight to UserDocument, so `newUser._id` was
+      // undefined and every Google sign-up for a NEW account minted a token
+      // whose `sub` claim was undefined, with { message, data } spread into the
+      // payload instead of the user's own fields. Reading `.data` fixes it.
+      const created = await this.userService.createUser({
         email: payload.email,
         // Add any other default fields as needed
         provider: "google", // or set based on your logic
@@ -434,24 +449,19 @@ export class AuthService {
               : "",
         address: "",
         roles: ["buyer"],
-        language: "en",
-        isVerified: false,
         location: {
           type: "Point",
           coordinates: [0, 0], // Default coordinates, adjust as needed
         },
         image: null,
-      })) as unknown as UserDocument;
+      } as never);
+
+      const newUser = (created as { data: any }).data;
 
       const refreshToken = this.jwtService.sign({}, { expiresIn: "3d" });
-      const newUserPayload =
-        typeof (newUser as UserDocument & { toObject?: () => any }).toObject ===
-          "function"
-          ? (newUser as UserDocument & { toObject?: () => any }).toObject()
-          : newUser;
       returnPayload = {
-        ...newUserPayload,
-        sub: newUser._id,
+        ...newUser,
+        sub: newUser.id,
         refreshToken,
       };
     } else {
@@ -459,7 +469,14 @@ export class AuthService {
       // access token expiring (or any transient 401) has no recovery path
       // and silently logs the user back out to signin.
       const refreshToken = this.jwtService.sign({}, { expiresIn: "3d" });
-      returnPayload = { ...user.toObject(), sub: user._id, refreshToken };
+      // toObject() is gone with Mongoose; the row is already plain, but its
+      // secret columns must be removed before it goes into a signed token.
+      returnPayload = {
+        ...stripUserSecrets(user),
+        location: toGeoJson(user.latitude, user.longitude),
+        sub: user.id,
+        refreshToken,
+      };
     }
 
     const accessToken = this.jwtService.sign(returnPayload, {

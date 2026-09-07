@@ -5,17 +5,9 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { I18nService } from "nestjs-i18n";
-import { Shop, ShopDocument } from "./schema/shop.schema";
-import { ShopView, ShopViewDocument } from "./schema/shop-view.schema";
-import { ShopProductView, ShopProductViewDocument } from "./schema/shop-product-view.schema";
-import { ShopContactClick, ShopContactClickDocument } from "./schema/shop-contact-click.schema";
-import { ShopWhatsappClick, ShopWhatsappClickDocument } from "./schema/shop-whatsapp-click.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateUpdateShopDto } from "./dto/create-update-shop.dto";
 import { ProductsService } from "src/products/products.service";
 import { UsersService } from "src/users/users.service";
@@ -26,18 +18,24 @@ import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { GeoRepository } from "src/prisma/repositories/geo.repository";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { toGeoJson, toLatLng, withGeoJson } from "src/common/utils/geo.util";
+import { SHOP_INCLUDE, type Shop } from "./model/shop.model";
+import { Prisma } from "../../generated/prisma/client";
+import { resolvePagination } from "../common/utils/pagination.util";
+
+/** Shared filter fragment: the geo searches only ever return enabled shops. */
+const SHOP_ENABLED = Prisma.sql`is_disabled = false`;
 
 @Injectable()
 export class ShopService {
   private readonly logger = new Logger(ShopService.name);
 
   constructor(
-    @InjectModel(Shop.name) private shopModel: Model<ShopDocument>,
-    @InjectModel(ShopView.name) private shopViewModel: Model<ShopViewDocument>,
-    @InjectModel(ShopProductView.name) private shopProductViewModel: Model<ShopProductViewDocument>,
-    @InjectModel(ShopContactClick.name) private shopContactClickModel: Model<ShopContactClickDocument>,
-    @InjectModel(ShopWhatsappClick.name) private shopWhatsappClickModel: Model<ShopWhatsappClickDocument>,
-    @InjectModel(Counter.name) private counterModel: Model<CounterDocument>,
+    private readonly prisma: PrismaService,
+    private readonly geoRepository: GeoRepository,
     @Inject(forwardRef(() => ProductsService))
     private readonly productsService: ProductsService,
     @Inject(forwardRef(() => UsersService))
@@ -49,14 +47,35 @@ export class ShopService {
     private readonly cls: ClsService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls?.get("lang") ?? "en";
   }
 
+  /**
+   * Rebuilds the document shape clients expect: `location` as GeoJSON, the
+   * owner relation back under `ownerId`, and `_id` alongside `id`.
+   */
+  private toApiShape<T extends Record<string, any>>(shop: T | null): any {
+    if (!shop) return shop;
+    const { owner, ...rest } = shop as any;
+    const shaped = withGeoJson(rest as any);
+    return {
+      ...shaped,
+      _id: (shaped as any).id,
+      // The relation is named `owner`; the API field has always been `ownerId`.
+      ownerId: owner ?? (shaped as any).ownerId,
+    };
+  }
+
   /** Fire-and-forget: creation must succeed even if the email provider is down. */
-  private sendShopCreatedEmail(name: string, email: string, shopId: string, shopCode?: string) {
+  private sendShopCreatedEmail(
+    name: string,
+    email: string,
+    shopId: string,
+    shopCode?: string | null,
+  ) {
     const shopUrl = `${process.env.FRONTEND_URL}/selling/shop-detail?id=${shopId}`;
     const html = `
       <h2>Your shop has been created</h2>
@@ -70,7 +89,7 @@ export class ShopService {
         this.emailLogService.record({
           eventType: "shop_created",
           recipient: email,
-          relatedRecordId: shopCode,
+          relatedRecordId: shopCode ?? undefined,
           deliveryStatus: "sent",
         }),
       )
@@ -79,78 +98,80 @@ export class ShopService {
         void this.emailLogService.record({
           eventType: "shop_created",
           recipient: email,
-          relatedRecordId: shopCode,
+          relatedRecordId: shopCode ?? undefined,
           deliveryStatus: "failed",
         });
       });
   }
+
   /** Atomically reserves the next sequential shop code (e.g. SHP-000083). */
   private async generateNextShopCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "shopCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "shopCode" },
+      create: { id: "shopCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `SHP-${String(counter.seq).padStart(6, "0")}`;
   }
 
-  async createShop(ownerId: Types.ObjectId, dto: CreateUpdateShopDto) {
-    const existingUser = await this.usersService.findUserById(
-      ownerId.toString(),
-    );
+  async createShop(ownerId: string, dto: CreateUpdateShopDto) {
+    const ownerIdStr = ownerId;
+    const existingUser = await this.usersService.findUserById(ownerIdStr);
     if (!existingUser) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }),
       );
     }
 
-    const { image: imageFile, banner: bannerFile, ...shopDto } = dto as any;
+    const { image: imageFile, banner: bannerFile } = dto as any;
     const shopCode = await this.generateNextShopCode();
+    const shopId = generateObjectId();
+    const { latitude, longitude } = toLatLng(dto.location);
 
-    const shop = new this.shopModel({
-      ...shopDto,
-      shopCode,
-      ownerId,
-      category: new Types.ObjectId(dto.category),
-      subcategory: dto.subcategory
-        ? new Types.ObjectId(dto.subcategory)
-        : undefined,
+    await this.prisma.shop.create({
+      data: {
+        id: shopId,
+        shopCode,
+        ownerId: ownerIdStr,
+        title: dto.title,
+        address: dto.address,
+        description: dto.description ?? "",
+        categoryId: dto.category,
+        subcategoryId: dto.subcategory || null,
+        marketName: dto.marketName ?? null,
+        area: dto.area ?? "",
+        city: dto.city ?? "",
+        contact: dto.contact ?? "",
+        openingHours: dto.openingHours ?? null,
+        latitude,
+        longitude,
+      },
     });
 
-    const results = await shop.save();
-    const updatePayload: Partial<Shop> = {};
+    const updatePayload: Prisma.ShopUpdateInput = {};
 
     if (imageFile) {
-      updatePayload.image = await this.fileUploadService.uploadShopImage(
-        results._id as string,
-        imageFile,
-      );
+      updatePayload.image = await this.fileUploadService.uploadShopImage(shopId, imageFile);
     }
-
     if (bannerFile) {
-      updatePayload.banner = await this.fileUploadService.uploadShopBanner(
-        results._id as string,
-        bannerFile,
-      );
+      updatePayload.banner = await this.fileUploadService.uploadShopBanner(shopId, bannerFile);
     }
 
-    if (Object.keys(updatePayload).length > 0) {
-      Object.assign(results, updatePayload);
-      await results.save();
-    }
+    const results =
+      Object.keys(updatePayload).length > 0
+        ? await this.prisma.shop.update({ where: { id: shopId }, data: updatePayload })
+        : await this.prisma.shop.findUniqueOrThrow({ where: { id: shopId } });
 
     this.sendShopCreatedEmail(
       existingUser.name,
       existingUser.email,
-      (results._id as Types.ObjectId).toString(),
+      shopId,
       results.shopCode,
     );
 
     return {
-      message: this.i18n.translate("auth.shop.created_success", {
-        lang: this.lang,
-      }),
-      data: results,
+      message: this.i18n.translate("auth.shop.created_success", { lang: this.lang }),
+      data: this.toApiShape(results),
     };
   }
 
@@ -159,7 +180,7 @@ export class ShopService {
     dto: CreateUpdateShopDto,
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
   ): Promise<{ message: string; data: Shop }> {
-    const existingShop = await this.shopModel.findById(shopId);
+    const existingShop = await this.prisma.shop.findUnique({ where: { id: shopId } });
     if (!existingShop) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
@@ -167,77 +188,75 @@ export class ShopService {
     }
 
     if (currentUser) {
-      assertOwnerOrPermission(currentUser, existingShop.ownerId?.toString() ?? "", "shops", "edit");
+      assertOwnerOrPermission(currentUser, existingShop.ownerId ?? "", "shops", "edit");
     }
 
-    const { image, banner, ...safeDto } = dto as any;
-    const updateData: any = { ...safeDto };
+    const { image, banner } = dto as any;
+    const data: Prisma.ShopUpdateInput = {};
 
-    // Convert category & subcategory to ObjectId
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.address !== undefined) data.address = dto.address;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.marketName !== undefined) data.marketName = dto.marketName;
+    if (dto.area !== undefined) data.area = dto.area;
+    if (dto.city !== undefined) data.city = dto.city;
+    if (dto.contact !== undefined) data.contact = dto.contact;
+    if (dto.openingHours !== undefined) data.openingHours = dto.openingHours;
+
     if (dto.category) {
-      updateData.category = new Types.ObjectId(dto.category);
+      data.category = { connect: { id: dto.category } };
     }
 
     if (dto.subcategory) {
-      updateData.subcategory = new Types.ObjectId(dto.subcategory);
-    } else if (dto.subcategory === null || dto.subcategory === "") {
-      updateData.subcategory = null; // allow clearing subcategory
+      data.subcategory = { connect: { id: dto.subcategory } };
+    } else if (dto.subcategory === null || (dto.subcategory as unknown) === "") {
+      data.subcategory = { disconnect: true }; // allow clearing subcategory
+    }
+
+    if (dto.location) {
+      const { latitude, longitude } = toLatLng(dto.location);
+      data.latitude = latitude;
+      data.longitude = longitude;
     }
 
     // Handle image upload
     if (image) {
-      updateData.image = await this.fileUploadService.uploadShopImage(
-        shopId,
-        image,
-      );
+      data.image = await this.fileUploadService.uploadShopImage(shopId, image);
     }
 
     // Handle banner upload
     if (banner) {
-      updateData.banner = await this.fileUploadService.uploadShopBanner(
-        shopId,
-        banner,
-      );
+      data.banner = await this.fileUploadService.uploadShopBanner(shopId, banner);
     }
 
-    const updated = await this.shopModel.findByIdAndUpdate(
-      shopId,
-      updateData,
-      { new: true },
-    );
+    const updated = await this.prisma.shop.update({ where: { id: shopId }, data });
 
     // Sync location to products if location was updated
     if (dto.location) {
-      this.productsService.updateLocationByShopId(shopId, dto.location);
-    }
-
-    if (!updated) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
-      );
+      void this.productsService.updateLocationByShopId(shopId, dto.location);
     }
 
     return {
-      message: this.i18n.translate("auth.shop.updated_success", {
-        lang: this.lang,
-      }),
-      data: updated.toJSON(),
+      message: this.i18n.translate("auth.shop.updated_success", { lang: this.lang }),
+      data: this.toApiShape(updated),
     };
   }
 
   /** Lightweight ownership lookup, used to let a shop owner act on their own resources
    *  (e.g. deleting their own listing) without a full shop fetch. */
   async getShopOwnerId(shopId: string): Promise<string | null> {
-    const shop = await this.shopModel.findById(shopId).select("ownerId").lean();
-    return shop?.ownerId ? shop.ownerId.toString() : null;
+    const shop = await this.prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { ownerId: true },
+    });
+    return shop?.ownerId ?? null;
   }
 
   async getShopById(shopId: string) {
-    const shop = await this.shopModel
-      .findById(shopId)
-      .populate("ownerId", "name email")
-      .populate("category", "name")
-      .populate("subcategory", "name");
+    const shop = await this.prisma.shop.findUnique({
+      where: { id: shopId },
+      include: SHOP_INCLUDE,
+    });
 
     if (!shop) {
       throw new NotFoundException(
@@ -245,34 +264,21 @@ export class ShopService {
       );
     }
 
-    const productsCount = await this.productsService.getAllProductsByShop(
-      shopId,
-      { page: 1, limit: 1 },
-    );
-    const ordersCount = await this.ordersService.getOrdersByOwner(
-      shopId,
-      "Shop",
-      1,
-      1,
-    );
-    // Total Views: distinct users who have opened the shop's own page (deduped, forever).
-    const totalViews = await this.shopViewModel.countDocuments({
-      shopId: new Types.ObjectId(shopId),
-    });
-    // Unique Visitors: distinct users who have opened at least one product from this shop.
-    const uniqueVisitorsCount = await this.shopProductViewModel.countDocuments({
-      shopId: new Types.ObjectId(shopId),
-    });
-    // Contact/WhatsApp Clicks: distinct users who've clicked, deduped forever (repeat clicks don't recount).
-    const contactClicks = await this.shopContactClickModel.countDocuments({
-      shopId: new Types.ObjectId(shopId),
-    });
-    const whatsappClicks = await this.shopWhatsappClickModel.countDocuments({
-      shopId: new Types.ObjectId(shopId),
-    });
+    const [productsCount, ordersCount, totalViews, uniqueVisitorsCount, contactClicks, whatsappClicks] =
+      await Promise.all([
+        this.productsService.getAllProductsByShop(shopId, { page: 1, limit: 1 }),
+        this.ordersService.getOrdersByOwner(shopId, "Shop", 1, 1),
+        // Total Views: distinct users who have opened the shop's own page (deduped, forever).
+        this.prisma.shopView.count({ where: { shopId } }),
+        // Unique Visitors: distinct users who have opened at least one product from this shop.
+        this.prisma.shopProductView.count({ where: { shopId } }),
+        // Contact/WhatsApp Clicks: distinct users who've clicked, deduped forever.
+        this.prisma.shopContactClick.count({ where: { shopId } }),
+        this.prisma.shopWhatsappClick.count({ where: { shopId } }),
+      ]);
 
     return {
-      ...shop.toJSON(),
+      ...this.toApiShape(shop),
       productsCount: productsCount.meta.total,
       ordersCount: ordersCount.meta.total,
       totalViews,
@@ -282,170 +288,159 @@ export class ShopService {
     };
   }
 
-  /** Records a shop-page view: always increments the raw totalViews counter,
-   *  and dedupes into a per-(shop,user) row so unique visitors can be counted
-   *  by row count. Skips the shop owner viewing their own shop entirely. */
+  /**
+   * The four tracking calls below were byte-identical apart from the collection.
+   * Each dedupes per (shop, user) so a count of rows is the metric, and each
+   * skips the owner looking at their own shop.
+   */
+  private async trackShopEngagement(
+    kind: "view" | "productView" | "contactClick" | "whatsappClick",
+    shopId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!isObjectIdLike(shopId) || !isObjectIdLike(userId)) return;
+
+    const shop = await this.prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { ownerId: true },
+    });
+    if (!shop || shop.ownerId === userId) return;
+
+    const where = { shopId_userId: { shopId, userId } };
+    const create = { id: generateObjectId(), shopId, userId };
+
+    // `update: {}` leaves an existing row untouched, exactly as $setOnInsert did.
+    switch (kind) {
+      case "view":
+        await this.prisma.shopView.upsert({ where, create, update: {} });
+        return;
+      case "productView":
+        await this.prisma.shopProductView.upsert({ where, create, update: {} });
+        return;
+      case "contactClick":
+        await this.prisma.shopContactClick.upsert({ where, create, update: {} });
+        return;
+      case "whatsappClick":
+        await this.prisma.shopWhatsappClick.upsert({ where, create, update: {} });
+        return;
+    }
+  }
+
+  /** Records a shop-page view, deduped per (shop, user). Skips the owner viewing their own shop. */
   async trackView(shopId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(shopId)) return;
-
-    const shop = await this.shopModel
-      .findById(shopId)
-      .select("ownerId")
-      .lean();
-    if (!shop || shop.ownerId.toString() === userId) return;
-
-    await this.shopViewModel.updateOne(
-      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackShopEngagement("view", shopId, userId);
   }
 
   /** Records that a user opened a product belonging to this shop (deduped per shop+user, regardless of which product). */
   async trackProductView(shopId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(shopId)) return;
-
-    const shop = await this.shopModel
-      .findById(shopId)
-      .select("ownerId")
-      .lean();
-    if (!shop || shop.ownerId.toString() === userId) return;
-
-    await this.shopProductViewModel.updateOne(
-      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackShopEngagement("productView", shopId, userId);
   }
 
-  /** Records a "Chat Store" click attributed to the shop. Deduped per (shop, user) — repeat clicks by the same user don't recount. */
+  /** Records a "Chat Store" click attributed to the shop. Deduped per (shop, user). */
   async trackContactClick(shopId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(shopId)) return;
-
-    const shop = await this.shopModel
-      .findById(shopId)
-      .select("ownerId")
-      .lean();
-    if (!shop || shop.ownerId.toString() === userId) return;
-
-    await this.shopContactClickModel.updateOne(
-      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackShopEngagement("contactClick", shopId, userId);
   }
 
-  /** Records a "WhatsApp" click attributed to the shop. Deduped per (shop, user) — repeat clicks by the same user don't recount. */
+  /** Records a "WhatsApp" click attributed to the shop. Deduped per (shop, user). */
   async trackWhatsappClick(shopId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(shopId)) return;
-
-    const shop = await this.shopModel
-      .findById(shopId)
-      .select("ownerId")
-      .lean();
-    if (!shop || shop.ownerId.toString() === userId) return;
-
-    await this.shopWhatsappClickModel.updateOne(
-      { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { shopId: new Types.ObjectId(shopId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackShopEngagement("whatsappClick", shopId, userId);
   }
 
   async getAllShopsByUser(userId: string): Promise<Shop[]> {
-    return this.shopModel
-      .find({ ownerId: new Types.ObjectId(userId) })
-      .populate("category", "name")
-      .populate("subcategory", "name")
-      .exec();
+    const shops = await this.prisma.shop.findMany({
+      where: { ownerId: userId },
+      include: {
+        category: { select: { id: true, name: true } },
+        subcategory: { select: { id: true, name: true } },
+      },
+    });
+    return shops.map((s) => this.toApiShape(s));
   }
 
   async getAllShopsByUserPaginated(
     userId: string,
     paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<Shop>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
-    const query = { ownerId: new Types.ObjectId(userId) };
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+    const where = { ownerId: userId };
 
     const [shops, total] = await Promise.all([
-      this.shopModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
-      this.shopModel.countDocuments(query),
+      this.prisma.shop.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.shop.count({ where }),
     ]);
 
     return {
-      data: shops,
+      data: shops.map((s) => this.toApiShape(s)),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async getAllShops(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Shop>> {
-    const { page = 1, limit = 10, search, startDate, endDate } = paginationDto;
-    const skip = (page - 1) * limit;
+    const { page: rawPage, limit: rawLimit, search, startDate, endDate } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    const query: Record<string, any> = {};
+    const where: Prisma.ShopWhereInput = {};
 
     if (search?.trim()) {
-      const trimmedSearch = search.trim();
-      query.$or = [
-        { title: { $regex: trimmedSearch, $options: "i" } },
-        { shopCode: { $regex: trimmedSearch, $options: "i" } },
+      const term = search.trim();
+      where.OR = [
+        { title: { contains: term, mode: "insensitive" } },
+        { shopCode: { contains: term, mode: "insensitive" } },
       ];
     }
 
     if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (startDate) createdAt.gte = new Date(startDate);
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
+      where.createdAt = createdAt;
     }
 
     const [shops, total] = await Promise.all([
-      this.shopModel
-        .find(query)
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 })
-        .lean()
-        .exec(),
-      this.shopModel.countDocuments(query),
+      this.prisma.shop.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prisma.shop.count({ where }),
     ]);
 
     return {
-      data: shops,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      data: shops.map((s) => this.toApiShape(s)),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async setShopDisabled(shopId: string, disabled: boolean) {
-    const shop = await this.shopModel.findByIdAndUpdate(
-      shopId,
-      { $set: { isDisabled: disabled } },
-      { new: true },
-    );
-    if (!shop) {
+    const existing = await this.prisma.shop.findUnique({ where: { id: shopId } });
+    if (!existing) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.shop_not_found", { lang: this.lang }),
       );
     }
-    return shop;
+    const shop = await this.prisma.shop.update({
+      where: { id: shopId },
+      data: { isDisabled: disabled },
+    });
+    return this.toApiShape(shop);
   }
 
   async setShopsDisabledBulk(shopIds: any[], disabled: boolean) {
-    await this.shopModel.updateMany(
-      { _id: { $in: shopIds } },
-      { $set: { isDisabled: disabled } },
-    );
+    await this.prisma.shop.updateMany({
+      where: { id: { in: shopIds.map((id) => String(id)) } },
+      data: { isDisabled: disabled },
+    });
   }
 
   // Original simple near-query kept for backward compatibility
@@ -453,18 +448,29 @@ export class ShopService {
     location: [number, number],
     radiusInMeters: number,
   ): Promise<Shop[]> {
-    return this.shopModel.find({
-      location: {
-        $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: location,
-          },
-          $maxDistance: radiusInMeters,
-        },
-      },
-      isDisabled: false,
+    const [longitude, latitude] = location;
+
+    const { ids, distances } = await this.geoRepository.findNearby({
+      table: "shops",
+      longitude,
+      latitude,
+      radiusMeters: radiusInMeters,
+      filters: [SHOP_ENABLED],
+      take: 1000,
+      order: "distance",
     });
+
+    if (ids.length === 0) return [];
+
+    const shops = await this.prisma.shop.findMany({
+      where: { id: { in: ids }, isDisabled: false },
+      include: SHOP_INCLUDE,
+    });
+
+    return GeoRepository.reorder(shops, ids).map((s) => ({
+      ...this.toApiShape(s),
+      distance: distances.get(s.id),
+    }));
   }
 
   // New paginated geo search that returns meta and data
@@ -473,69 +479,45 @@ export class ShopService {
     radiusInMeters: number,
     pagination?: PaginationDto,
   ): Promise<PaginatedResponseDto<Shop>> {
-    const { page = 1, limit = 10 } = pagination || {};
-    const skip = (page - 1) * limit;
+    const { page: rawPage, limit: rawLimit } = pagination || {};
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+    const [longitude, latitude] = location;
 
-    const query: Record<string, any> = { isDisabled: false };
+    const { ids, distances, total } = await this.geoRepository.findNearby({
+      table: "shops",
+      longitude,
+      latitude,
+      radiusMeters: radiusInMeters,
+      filters: [SHOP_ENABLED],
+      skip,
+      take: limit,
+      // The old pipeline filtered by $geoNear but then re-sorted by createdAt,
+      // so newest-first is the behaviour being preserved here, not nearest-first.
+      order: "newest",
+    });
 
-    const [data, countAgg] = await Promise.all([
-      this.shopModel.aggregate([
-        {
-          $geoNear: {
-            near: { type: "Point", coordinates: location },
-            distanceField: "distance",
-            maxDistance: radiusInMeters,
-            query,
-            spherical: true,
-          },
-        },
-        {
-          $lookup: {
-            from: "categories",
-            localField: "category",
-            foreignField: "_id",
-            as: "category",
-          },
-        },
-        { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-        {
-          $lookup: {
-            from: "categories",
-            localField: "subcategory",
-            foreignField: "_id",
-            as: "subcategory",
-          },
-        },
-        {
-          $unwind: { path: "$subcategory", preserveNullAndEmptyArrays: true },
-        },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limit },
-      ]),
-      this.shopModel.aggregate([
-        {
-          $geoNear: {
-            near: { type: "Point", coordinates: location },
-            distanceField: "distance",
-            maxDistance: radiusInMeters,
-            query,
-            spherical: true,
-          },
-        },
-        { $count: "total" },
-      ]),
-    ]);
+    if (ids.length === 0) {
+      return {
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        data: [],
+      };
+    }
 
-    const total = countAgg[0]?.total || 0;
+    const shops = await this.prisma.shop.findMany({
+      where: { id: { in: ids } },
+      include: {
+        category: { select: { id: true, name: true } },
+        subcategory: { select: { id: true, name: true } },
+      },
+    });
+
+    const data = GeoRepository.reorder(shops, ids).map((s) => ({
+      ...this.toApiShape(s),
+      distance: distances.get(s.id),
+    }));
 
     return {
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       data,
     };
   }

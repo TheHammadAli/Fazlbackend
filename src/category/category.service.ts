@@ -1,34 +1,41 @@
 // src/categories/category.service.ts
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Category, CategoryDocument, CategoryType } from "./schema/category.schema";
-import { FilterQuery, Model, Types } from "mongoose";
-import { I18nService } from "nestjs-i18n";
-import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
 import {
-  CategoryRequest,
-  CategoryRequestDocument,
-} from "./schema/category-request.schema";
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from "@nestjs/common";
+import { I18nService } from "nestjs-i18n";
+import { ClsService } from "nestjs-cls";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId } from "src/common/utils/object-id.util";
+import { CreateUpdateCategoryDto } from "./dto/category-create-update.dto";
 import { CreateCategoryRequestDto } from "./dto/category-request.dto";
 import { ReviewCategoryRequestDto } from "./dto/review-category.dto";
-import { ClsService } from "nestjs-cls";
+import {
+  CategoryType,
+  VIDEO_POST_CATEGORY_NAME,
+  type Category,
+  type CategoryParameters,
+  type LocalizedText,
+} from "./model/category.model";
+import type { Prisma } from "../../generated/prisma/client";
 
 @Injectable()
 export class CategoryService {
   constructor(
-    @InjectModel(Category.name)
-    private categoryModel: Model<CategoryDocument>,
-    @InjectModel(CategoryRequest.name)
-    private categoryRequestModel: Model<CategoryRequestDocument>,
+    private readonly prisma: PrismaService,
     private readonly i18n: I18nService,
     private readonly cls: ClsService,
-  ) { }
+  ) {}
 
   private getLocalizedValue = (
-    field: Record<string, string> | undefined,
+    field: unknown,
     lang = "en",
-  ) => {
-    return field?.[lang] || field?.["en"] || "";
+  ): string => {
+    const map = (field ?? {}) as LocalizedText;
+    if (typeof map === "string") return map;
+    return map?.[lang] || map?.["en"] || "";
   };
 
   private get lang(): string {
@@ -39,7 +46,7 @@ export class CategoryService {
    * Normalize category parameters into a safe structure:
    * { en: [{ name, values }], ur: [{ name, values }] }
    */
-  private normalizeParameters(parameters: any): any {
+  private normalizeParameters(parameters: any): CategoryParameters {
     if (!parameters) {
       return { en: [], ur: [] };
     }
@@ -47,16 +54,16 @@ export class CategoryService {
     if (typeof parameters === "string") {
       try {
         parameters = JSON.parse(parameters);
-      } catch (e) {
+      } catch {
         throw new BadRequestException(
-          this.i18n.translate("category.invalid_parameters_format", { lang: this.lang })
+          this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }),
         );
       }
     }
 
     if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
       throw new BadRequestException(
-        this.i18n.translate("category.invalid_parameters_format", { lang: this.lang })
+        this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }),
       );
     }
 
@@ -67,7 +74,7 @@ export class CategoryService {
       normalized[lang] = this.normalizeParameterList(rawValue);
     }
 
-    return normalized;
+    return normalized as CategoryParameters;
   }
 
   private normalizeParameterList(value: any): Array<{ name: string; values: string[] }> {
@@ -135,7 +142,10 @@ export class CategoryService {
   }
 
   /**
-   * Check duplicate name (supports both string and object)
+   * Check duplicate name (supports both string and object).
+   *
+   * `name` is a JSONB column, so what was a "name.en" dotted path in Mongo is a
+   * JSON path filter here. Postgres evaluates it server-side exactly the same way.
    */
   private async checkDuplicateName(nameInput: any, excludeId?: string) {
     let nameEn: string | undefined;
@@ -153,34 +163,31 @@ export class CategoryService {
 
     if (!nameEn && !nameUr) return;
 
-    const query: any = { isDisabled: false };
+    const base: Prisma.CategoryWhereInput = {
+      isDisabled: false,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    };
 
-    if (excludeId) {
-      query._id = { $ne: excludeId };
-    }
-
-    // Check English name
     if (nameEn) {
-      const existingEn = await this.categoryModel.findOne({
-        ...query,
-        "name.en": nameEn,
+      const existingEn = await this.prisma.category.findFirst({
+        where: { ...base, name: { path: ["en"], equals: nameEn } },
+        select: { id: true },
       });
       if (existingEn) {
         throw new ConflictException(
-          this.i18n.translate("auth.category.name_already_exists", { lang: this.lang })
+          this.i18n.translate("auth.category.name_already_exists", { lang: this.lang }),
         );
       }
     }
 
-    // Check Urdu name (only if available)
     if (nameUr) {
-      const existingUr = await this.categoryModel.findOne({
-        ...query,
-        "name.ur": nameUr,
+      const existingUr = await this.prisma.category.findFirst({
+        where: { ...base, name: { path: ["ur"], equals: nameUr } },
+        select: { id: true },
       });
       if (existingUr) {
         throw new ConflictException(
-          this.i18n.translate("auth.category.urdu_name_already_exists", { lang: this.lang })
+          this.i18n.translate("auth.category.urdu_name_already_exists", { lang: this.lang }),
         );
       }
     }
@@ -196,12 +203,16 @@ export class CategoryService {
   ) {
     if (sortNumber === undefined || sortNumber === null || !type) return;
 
-    const query: any = { isDisabled: false, type, sortNumber };
-    if (excludeId) {
-      query._id = { $ne: excludeId };
-    }
+    const existing = await this.prisma.category.findFirst({
+      where: {
+        isDisabled: false,
+        type: type as CategoryType,
+        sortNumber: Number(sortNumber),
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
 
-    const existing = await this.categoryModel.findOne(query);
     if (existing) {
       throw new ConflictException(
         `Sort number ${sortNumber} is already used by another ${type} category`,
@@ -210,95 +221,72 @@ export class CategoryService {
   }
 
   async create(dto: CreateUpdateCategoryDto) {
-    try {
-      await this.checkDuplicateName(dto.name);
-      await this.checkDuplicateSortNumber(dto.sortNumber, dto.type);
+    await this.checkDuplicateName(dto.name);
+    await this.checkDuplicateSortNumber(dto.sortNumber, dto.type);
 
-      const normalizedDto = {
-        ...dto,
-        parameters: this.normalizeParameters(dto.parameters),
-      };
-
-      return await this.categoryModel.create(normalizedDto);
-    } catch (error: any) {
-      if (error.code === 11000 || error instanceof ConflictException) {
-        throw error;
-      }
-
-      if (error.name === "ValidationError") {
-        throw new BadRequestException(
-          this.i18n.translate("category.validation_failed", { lang: this.lang })
-        );
-      }
-
-      throw error;
-    }
+    return this.prisma.category.create({
+      data: {
+        id: generateObjectId(),
+        name: dto.name as Prisma.InputJsonValue,
+        description: (dto.description ?? {}) as Prisma.InputJsonValue,
+        parameters: this.normalizeParameters(dto.parameters) as unknown as Prisma.InputJsonValue,
+        sortNumber: Number(dto.sortNumber ?? 0),
+        icon: dto.icon ?? null,
+        type: dto.type as CategoryType,
+        isDisabled: dto.isDisabled ?? false,
+      },
+    });
   }
 
-  async update(
-    id: string,
-    dto: CreateUpdateCategoryDto,
-  ): Promise<Category> {
-    try {
-      await this.checkDuplicateName(dto.name, id);
-      await this.checkDuplicateSortNumber(dto.sortNumber, dto.type, id);
+  async update(id: string, dto: CreateUpdateCategoryDto): Promise<Category> {
+    await this.checkDuplicateName(dto.name, id);
+    await this.checkDuplicateSortNumber(dto.sortNumber, dto.type, id);
 
-      const normalizedDto = {
-        ...dto,
-        parameters: this.normalizeParameters(dto.parameters),
-      };
-
-      const updated = await this.categoryModel.findByIdAndUpdate(
-        id,
-        normalizedDto,
-        { new: true, runValidators: true },
+    const existing = await this.prisma.category.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.category.category_not_found", { lang: this.lang }),
       );
-
-      if (!updated) {
-        throw new NotFoundException(
-          this.i18n.translate("auth.category.category_not_found", { lang: this.lang })
-        );
-      }
-
-      return updated;
-    } catch (error: any) {
-      if (error.code === 11000 || error instanceof ConflictException) {
-        throw error;
-      }
-
-      if (error.name === "ValidationError") {
-        throw new BadRequestException(
-          this.i18n.translate("auth.category.validation_failed", { lang: this.lang })
-        );
-      }
-
-      throw error;
     }
+
+    return this.prisma.category.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name as Prisma.InputJsonValue } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description as Prisma.InputJsonValue }
+          : {}),
+        parameters: this.normalizeParameters(dto.parameters) as unknown as Prisma.InputJsonValue,
+        ...(dto.sortNumber !== undefined ? { sortNumber: Number(dto.sortNumber) } : {}),
+        ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
+        ...(dto.type !== undefined ? { type: dto.type as CategoryType } : {}),
+        ...(dto.isDisabled !== undefined ? { isDisabled: dto.isDisabled } : {}),
+      },
+    });
   }
 
   async findAllForAdmin(startDate?: string, endDate?: string) {
-    const filter: FilterQuery<CategoryDocument> = {};
+    const where: Prisma.CategoryWhereInput = {};
+
     if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) {
-        filter.createdAt.$gte = new Date(startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (startDate) createdAt.gte = new Date(startDate);
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
+      where.createdAt = createdAt;
     }
-    return this.categoryModel.find(filter).sort({ sortNumber: 1 }).lean().exec();
+
+    return this.prisma.category.findMany({ where, orderBy: { sortNumber: "asc" } });
   }
 
   async findAll(type?: string) {
-    const filter: FilterQuery<CategoryDocument> = { isDisabled: false };
-    if (type) {
-      filter.type = type;
-    }
-
-    const categories = await this.categoryModel.find(filter).sort({ sortNumber: 1 }).lean().exec();
+    const categories = await this.prisma.category.findMany({
+      where: { isDisabled: false, ...(type ? { type: type as CategoryType } : {}) },
+      orderBy: { sortNumber: "asc" },
+    });
 
     return {
       data: categories.map((cat) => ({
@@ -312,10 +300,9 @@ export class CategoryService {
   }
 
   async findById(id: string, lang: string = "en") {
-    const category = await this.categoryModel
-      .findOne({ _id: id, isDisabled: false })
-      .lean()
-      .exec();
+    const category = await this.prisma.category.findFirst({
+      where: { id, isDisabled: false },
+    });
 
     if (!category)
       throw new NotFoundException(
@@ -328,34 +315,36 @@ export class CategoryService {
     };
   }
 
+  /** Soft delete — the row stays so listings referencing it keep resolving. */
   async delete(id: string): Promise<void> {
-    const result = await this.categoryModel.findById(id);
-    if (!result)
+    const existing = await this.prisma.category.findUnique({ where: { id } });
+    if (!existing)
       throw new NotFoundException(
         this.i18n.translate("auth.category.category_not_found", { lang: this.lang }),
       );
 
-    await this.categoryModel.updateOne({ _id: id }, { isDisabled: true }).exec();
+    await this.prisma.category.update({ where: { id }, data: { isDisabled: true } });
   }
 
   async createRequest(createDto: CreateCategoryRequestDto, userId: string) {
-    return this.categoryRequestModel.create({
-      ...createDto,
-      requestedBy: userId,
+    return this.prisma.categoryRequest.create({
+      data: {
+        id: generateObjectId(),
+        name: createDto.name,
+        description: createDto.description ?? null,
+        requestedById: userId,
+      },
     });
   }
 
   async getPendingRequests() {
-    try {
-      const results = await this.categoryRequestModel
-        .find({ status: "pending" })
-        .populate("requestedBy", "name email");
-
-      return results;
-    } catch (err) {
-      console.error("Error populating category requests:", err);
-      throw err;
-    }
+    // Was .populate("requestedBy", "name email").
+    return this.prisma.categoryRequest.findMany({
+      where: { status: "pending" },
+      include: {
+        requestedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
   }
 
   async reviewRequestById(
@@ -363,32 +352,47 @@ export class CategoryService {
     reviewDto: ReviewCategoryRequestDto,
     adminId: string,
   ) {
-    const request = await this.categoryRequestModel.findById(id);
-    if (!request) throw new NotFoundException(this.i18n.translate("auth.category.request_not_found", { lang: this.lang }));
+    const request = await this.prisma.categoryRequest.findUnique({ where: { id } });
+    if (!request)
+      throw new NotFoundException(
+        this.i18n.translate("auth.category.request_not_found", { lang: this.lang }),
+      );
 
-    request.status = reviewDto.status;
-    request.adminComment = reviewDto.adminComment || "";
-    request.reviewedBy = new Types.ObjectId(adminId);
-    request.reviewedAt = new Date();
-
-    await request.save();
+    const updated = await this.prisma.categoryRequest.update({
+      where: { id },
+      data: {
+        status: reviewDto.status,
+        adminComment: reviewDto.adminComment || "",
+        reviewedById: adminId,
+        reviewedAt: new Date(),
+      },
+    });
 
     if (reviewDto.status === "approved") {
-      // Fixed: Now safely handles string name from CategoryRequest
+      // Safely handles the plain string name a CategoryRequest carries.
       await this.checkDuplicateName(request.name);
 
-      await this.categoryModel.create({
-        name: request.name,
-        description: request.description,
-        createdBy: adminId,
+      await this.prisma.category.create({
+        data: {
+          id: generateObjectId(),
+          // A request only ever captures an English name; the Urdu side is
+          // filled in later from the admin category editor.
+          name: { en: request.name } as Prisma.InputJsonValue,
+          description: (request.description
+            ? { en: request.description }
+            : {}) as Prisma.InputJsonValue,
+          // The old code passed `createdBy`, which the Category schema never
+          // declared, so Mongoose silently dropped it. Not carried over.
+          type: CategoryType.PRODUCT,
+        },
       });
     }
 
-    return request;
+    return updated;
   }
 
   async getUserRequests(userId: string) {
-    return this.categoryRequestModel.find({ requestedBy: userId });
+    return this.prisma.categoryRequest.findMany({ where: { requestedById: userId } });
   }
 
   /** English -> Urdu translation via MyMemory's free public API (no API key required). */
@@ -401,7 +405,9 @@ export class CategoryService {
       langpair: "en|ur",
       de: "amitywise18@gmail.com",
     });
-    const response = await fetch(`https://api.mymemory.translated.net/get?${params.toString()}`);
+    const response = await fetch(
+      `https://api.mymemory.translated.net/get?${params.toString()}`,
+    );
     if (!response.ok) {
       throw new BadRequestException("Translation service is unavailable right now");
     }
@@ -418,18 +424,23 @@ export class CategoryService {
    *  stays idempotent even if it were ever re-enabled; `isDisabled: true` on
    *  create is what keeps it out of every user-facing category picker/listing
    *  (`findAll`/`findById` above both filter on `isDisabled: false`) while still
-   *  resolving normally through `.populate("category")` elsewhere. */
-  async findOrCreateVideoPostCategory(): Promise<CategoryDocument> {
-    const existing = await this.categoryModel.findOne({
-      "name.en": "Video Post",
-      type: CategoryType.PRODUCT,
+   *  resolving normally through the `category` relation elsewhere. */
+  async findOrCreateVideoPostCategory(): Promise<Category> {
+    const existing = await this.prisma.category.findFirst({
+      where: {
+        name: { path: ["en"], equals: VIDEO_POST_CATEGORY_NAME },
+        type: CategoryType.PRODUCT,
+      },
     });
     if (existing) return existing;
 
-    return this.categoryModel.create({
-      name: { en: "Video Post", ur: "ویڈیو پوسٹ" },
-      type: CategoryType.PRODUCT,
-      isDisabled: true,
+    return this.prisma.category.create({
+      data: {
+        id: generateObjectId(),
+        name: { en: VIDEO_POST_CATEGORY_NAME, ur: "ویڈیو پوسٹ" } as Prisma.InputJsonValue,
+        type: CategoryType.PRODUCT,
+        isDisabled: true,
+      },
     });
   }
 }

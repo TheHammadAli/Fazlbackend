@@ -1,17 +1,10 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
-import { EmailLog, EmailLogSchema } from "./schema/email-log.schema";
-import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { EmailLogService } from "./email-log.service";
 import { EmailLogController } from "./email-log.controller";
 
+// PrismaModule is @Global, so PrismaService needs no import here — this is what
+// MongooseModule.forFeature([EmailLog, Counter]) used to provide.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: EmailLog.name, schema: EmailLogSchema },
-      { name: Counter.name, schema: CounterSchema },
-    ]),
-  ],
   providers: [EmailLogService],
   controllers: [EmailLogController],
   exports: [EmailLogService],

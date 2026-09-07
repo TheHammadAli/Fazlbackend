@@ -5,8 +5,7 @@ import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { I18nService } from "nestjs-i18n";
 import { ClsService } from "nestjs-cls";
-import { getModelToken } from "@nestjs/mongoose";
-import { Otp } from "./schema/otp.schema";
+import { PrismaService } from "src/prisma/prisma.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 
@@ -34,7 +33,7 @@ describe("AuthService", () => {
         { provide: ClsService, useValue: { get: jest.fn() } },
         { provide: EmailService, useValue: { sendEmail: jest.fn() } },
         { provide: ActivityLogService, useValue: { record: jest.fn() } },
-        { provide: getModelToken(Otp.name), useValue: {} },
+        { provide: PrismaService, useValue: {} },
       ],
     }).compile();
 
@@ -47,17 +46,16 @@ describe("AuthService", () => {
 
   it("returns a full user payload for newly created Google users", async () => {
     userService.findUserByEmail.mockResolvedValue(null);
+    // createUser returns { message, data } — the wrapper, not the user. The
+    // previous version of this test mocked it as returning the user directly,
+    // which is what hid a real bug: the service read `_id` off the wrapper, so
+    // every Google sign-up for a new account minted a token whose `sub` claim
+    // was undefined.
     userService.createUser.mockResolvedValue({
-      _id: "user-1",
-      email: "google-user@example.com",
-      roles: ["buyer"],
-      location: { type: "Point", coordinates: [0, 0] },
-      image: "avatar.png",
-      name: "Google User",
-      address: "",
-      isDisabled: false,
-      toObject: () => ({
-        _id: "user-1",
+      message: "created",
+      data: {
+        id: "6a8d9c1828b1818429e64faa",
+        _id: "6a8d9c1828b1818429e64faa",
         email: "google-user@example.com",
         roles: ["buyer"],
         location: { type: "Point", coordinates: [0, 0] },
@@ -65,7 +63,7 @@ describe("AuthService", () => {
         name: "Google User",
         address: "",
         isDisabled: false,
-      }),
+      },
     });
 
     const result = await service.findOrCreateUserByEmail({
@@ -78,5 +76,38 @@ describe("AuthService", () => {
     expect(result.email).toBe("google-user@example.com");
     expect(result.name).toBe("Google User");
     expect(result.refreshToken).toBeDefined();
+    // The claim the whole session depends on.
+    expect(result.sub).toBe("6a8d9c1828b1818429e64faa");
+  });
+
+  it("never puts a password hash into the signed token for an existing user", async () => {
+    userService.findUserByEmail.mockResolvedValue({
+      id: "6a8d9c1828b1818429e64fbb",
+      email: "existing@example.com",
+      name: "Existing User",
+      roles: ["buyer"],
+      latitude: 24.8607,
+      longitude: 67.0011,
+      password: "$2a$10$hashed",
+      memberPassword: "$2a$10$other",
+      refreshToken: "old-token",
+      resetPasswordToken: "reset",
+      provider: "google",
+    });
+
+    const result = await service.findOrCreateUserByEmail({
+      sub: "google-sub",
+      email: "existing@example.com",
+    });
+
+    // Mongoose's select:false used to keep these out; Prisma returns every
+    // scalar, so stripUserSecrets has to.
+    expect(result.password).toBeUndefined();
+    expect(result.memberPassword).toBeUndefined();
+    expect(result.resetPasswordToken).toBeUndefined();
+    expect(result.provider).toBeUndefined();
+    expect(result.sub).toBe("6a8d9c1828b1818429e64fbb");
+    // latitude/longitude are rebuilt into the GeoJSON the token has always had.
+    expect(result.location).toEqual({ type: "Point", coordinates: [67.0011, 24.8607] });
   });
 });

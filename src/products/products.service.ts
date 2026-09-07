@@ -8,14 +8,7 @@ import {
   Logger,
   forwardRef,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
-import { Product, ProductDocument } from "./schema/product.schema";
-import { ProductView, ProductViewDocument } from "./schema/product-view.schema";
-import { ProductContactClick, ProductContactClickDocument } from "./schema/product-contact-click.schema";
-import { ProductWhatsappClick, ProductWhatsappClickDocument } from "./schema/product-whatsapp-click.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
@@ -36,22 +29,29 @@ import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
 import { CategoryService } from "src/category/category.service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { FeedRepository } from "src/prisma/repositories/feed.repository";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { toGeoJson, toLatLng, withGeoJson } from "src/common/utils/geo.util";
+import {
+  PRODUCT_INCLUDE,
+  buildSearchableTags,
+  type ProductApi,
+  type ProductType,
+} from "./model/product.model";
+import { Prisma } from "../../generated/prisma/client";
+import { resolvePagination } from "../common/utils/pagination.util";
+
+/** A listing carries a video when the column is non-null and non-empty. */
+const HAS_VIDEO: Prisma.ProductWhereInput = { video: { not: null, notIn: [""] } };
 
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
 
   constructor(
-    @InjectModel(Product.name)
-    private readonly productModel: Model<ProductDocument>,
-    @InjectModel(ProductView.name)
-    private readonly productViewModel: Model<ProductViewDocument>,
-    @InjectModel(ProductContactClick.name)
-    private readonly productContactClickModel: Model<ProductContactClickDocument>,
-    @InjectModel(ProductWhatsappClick.name)
-    private readonly productWhatsappClickModel: Model<ProductWhatsappClickDocument>,
-    @InjectModel(Counter.name)
-    private readonly counterModel: Model<CounterDocument>,
+    private readonly prisma: PrismaService,
+    private readonly feedRepository: FeedRepository,
     @Inject(forwardRef(() => ShopService))
     private readonly shopService: ShopService,
     private readonly listingUtils: ListingUtilsService,
@@ -70,10 +70,28 @@ export class ProductsService {
     private readonly emailLogService: EmailLogService,
     @Inject(forwardRef(() => CategoryService))
     private readonly categoryService: CategoryService,
-  ) { }
+  ) {}
 
   private get lang(): string {
     return this.cls.get("lang") || "en";
+  }
+
+  /**
+   * Rebuilds the document shape clients expect: `location` as GeoJSON, the
+   * shop/owner/category relations back under their old key names, and `_id`.
+   */
+  private toApiShape<T extends Record<string, any>>(product: T | null): any {
+    if (!product) return product;
+    const { shop, owner, ...rest } = product as any;
+    const shaped = withGeoJson(rest as any) as any;
+    return {
+      ...shaped,
+      _id: shaped.id,
+      // Relations are named `shop`/`owner`; the API fields have always been
+      // `shopId`/`ownerId`, carrying either the raw id or the populated row.
+      shopId: shop ?? shaped.shopId,
+      ownerId: owner ?? shaped.ownerId,
+    };
   }
 
   /** Fire-and-forget: creation must succeed even if the email provider is down. */
@@ -82,7 +100,7 @@ export class ProductsService {
     email: string,
     title: string,
     productId: string,
-    listingCode?: string,
+    listingCode?: string | null,
   ) {
     const listingUrl = `${process.env.FRONTEND_URL}/buy-product?id=${productId}`;
     const html = `
@@ -97,7 +115,7 @@ export class ProductsService {
         this.emailLogService.record({
           eventType: "listing_created",
           recipient: email,
-          relatedRecordId: listingCode,
+          relatedRecordId: listingCode ?? undefined,
           deliveryStatus: "sent",
         }),
       )
@@ -106,7 +124,7 @@ export class ProductsService {
         void this.emailLogService.record({
           eventType: "listing_created",
           recipient: email,
-          relatedRecordId: listingCode,
+          relatedRecordId: listingCode ?? undefined,
           deliveryStatus: "failed",
         });
       });
@@ -148,21 +166,21 @@ export class ProductsService {
 
   /** Atomically reserves the next sequential listing code (e.g. LST-000052). */
   private async generateNextListingCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "listingCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "listingCode" },
+      create: { id: "listingCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `LST-${String(counter.seq).padStart(6, "0")}`;
   }
 
   /** Atomically reserves the next sequential video code (e.g. VID-000001), for products that have a video (feed videos). */
   private async generateNextVideoCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "videoCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "videoCode" },
+      create: { id: "videoCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `VID-${String(counter.seq).padStart(6, "0")}`;
   }
 
@@ -170,37 +188,39 @@ export class ProductsService {
     entityId: string,
     type: "shop" | "personal",
     dto: CreateProductDto,
-  ): Promise<{ message: string; data: { product: Product } }> {
+  ): Promise<{ message: string; data: { product: ProductApi } }> {
     try {
-      console.log("Creating product for entityId:", entityId, "type:", type, "dto:", dto);
-
       let location: { type: "Point"; coordinates: [number, number] };
       let ownerName = "";
       let ownerEmail = "";
+      let shopId: string | null = null;
+      let ownerId: string | null = null;
+      let address: string | null = null;
 
       // Lightweight "just a video" post: skip the category/price the owner
       // would otherwise have to pick, using an internal sentinel category
       // (hidden from every normal category picker) and a nominal price instead.
       const isVideoPost = !!dto.isVideoPost;
       const categoryId = isVideoPost
-        ? ((await this.categoryService.findOrCreateVideoPostCategory())
-            ._id as Types.ObjectId)
-        : new Types.ObjectId(dto.category);
+        ? (await this.categoryService.findOrCreateVideoPostCategory()).id
+        : dto.category;
 
-      const productPayload: Partial<Product> = {
-        ...dto,
-        category: categoryId,
-        price: isVideoPost ? (dto.price ?? 0) : dto.price,
-        type: isVideoPost ? dto.type || "retail" : dto.type,
-      };
+      // categoryId is NOT NULL in the schema. Mongoose enforced this with
+      // `required: true`; with no global ValidationPipe the DTO alone does not,
+      // so a missing category must be rejected explicitly rather than reaching
+      // Postgres as a null.
+      if (!categoryId) {
+        throw new BadRequestException(
+          this.i18n.translate("auth.products.category_required", { lang: this.lang }) ||
+            "A category is required",
+        );
+      }
 
       if (type === "shop") {
         const shop = await this.shopService.getShopById(entityId);
         if (!shop) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.shop_not_found", {
-              lang: this.lang,
-            }),
+            this.i18n.translate("auth.products.shop_not_found", { lang: this.lang }),
           );
         }
 
@@ -219,20 +239,17 @@ export class ProductsService {
           );
         }
 
-        productPayload.shopId = shop._id as Types.ObjectId;
+        shopId = shop.id;
         location = shop.location;
-        console.log("product payload", productPayload);
       } else if (type === "personal") {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
           throw new NotFoundException(
-            this.i18n.translate("auth.products.user_not_found", {
-              lang: this.lang,
-            }),
+            this.i18n.translate("auth.products.user_not_found", { lang: this.lang }),
           );
         }
 
-        productPayload.ownerId = user._id as Types.ObjectId;
+        ownerId = user.id;
         ownerName = user.name;
         ownerEmail = user.email;
 
@@ -250,61 +267,66 @@ export class ProductsService {
 
         // Address is optional but recommended
         if (dto.address) {
-          productPayload.address = dto.address.trim();
+          address = dto.address.trim();
         }
       } else {
-        throw new BadRequestException(
-          'Invalid type. Must be "shop" or "personal".',
-        );
+        throw new BadRequestException('Invalid type. Must be "shop" or "personal".');
       }
 
-      console.log("Product Payload:", productPayload);
       const listingCode = await this.generateNextListingCode();
+      const productId = generateObjectId();
+      const { latitude, longitude } = toLatLng(location);
+      const parameters = Array.isArray(dto.parameters) ? dto.parameters : [];
 
-      const createdProduct = new this.productModel({
-        ...productPayload,
-        listingCode,
-        location, // always a proper object now
-        images: [],
-        video: "",
-        category: categoryId,
-      });
-
-      let imageUrls: string[] = [];
+      let images: string[] = [];
       if (dto?.images?.length) {
         const uploadedFiles = await this.fileUploadService.uploadProductFiles(
           dto.images,
           type,
           entityId,
-          (createdProduct._id as Types.ObjectId).toString(),
+          productId,
           "images",
         );
-        imageUrls = uploadedFiles.map((file) => file.url);
-        createdProduct.images = imageUrls;
+        images = uploadedFiles.map((file) => file.url);
       }
-      console.log(dto?.video, "Video Length", dto?.video);
+
+      let video: string | null = null;
+      let videoCode: string | null = null;
       if (dto?.video) {
         const uploadedVideo = await this.fileUploadService.uploadProductFiles(
           [dto.video],
           type,
           entityId,
-          (createdProduct._id as Types.ObjectId).toString(),
+          productId,
           "video",
         );
-        console.log("Uploaded Video:", uploadedVideo);
-        createdProduct.video = uploadedVideo[0].url;
-        createdProduct.videoCode = await this.generateNextVideoCode();
+        video = uploadedVideo[0].url;
+        videoCode = await this.generateNextVideoCode();
       }
 
-      if (createdProduct.parameters && createdProduct.parameters.length > 0) {
-        createdProduct.searchableTags = [
-          ...createdProduct.parameters.flatMap((p) => [p.name, ...p.variants]),
-        ];
-      } else {
-        createdProduct.searchableTags = [];
-      }
-
-      const result = await createdProduct.save();
+      const result = await this.prisma.product.create({
+        data: {
+          id: productId,
+          listingCode,
+          videoCode,
+          shopId,
+          ownerId,
+          title: dto.title,
+          description: dto.description ?? null,
+          price: Math.round(Number(isVideoPost ? (dto.price ?? 0) : dto.price)),
+          categoryId,
+          type: (isVideoPost ? dto.type || "retail" : dto.type) as ProductType,
+          images,
+          video,
+          latitude,
+          longitude,
+          parameters: parameters as unknown as Prisma.InputJsonValue,
+          // Was rebuilt by two Mongoose pre-hooks; computed explicitly now.
+          searchableTags: buildSearchableTags(parameters),
+          isVideoPost,
+          address,
+        },
+      });
 
       // A video post isn't a real listing — don't send the "listing created" email for it.
       if (ownerEmail && !isVideoPost) {
@@ -312,18 +334,14 @@ export class ProductsService {
           ownerName,
           ownerEmail,
           result.title,
-          (result._id as Types.ObjectId).toString(),
+          result.id,
           result.listingCode,
         );
       }
 
       return {
-        message: this.i18n.translate("auth.products.created_success", {
-          lang: this.lang,
-        }),
-        data: {
-          product: result,
-        },
+        message: this.i18n.translate("auth.products.created_success", { lang: this.lang }),
+        data: { product: this.toApiShape(result) },
       };
     } catch (err) {
       // re-throw known Nest exceptions, wrap the rest
@@ -341,33 +359,33 @@ export class ProductsService {
   async getAllProductsByShop(
     shopId: string,
     paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<Product>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<ProductApi>> {
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
     // Video posts are a separate flow from real listings (no category/price of
     // their own) — they belong only in getVideoPostsByShop, not mixed in here.
-    const filter = {
-      shopId: new Types.ObjectId(shopId),
-      isVideoPost: { $ne: true },
+    const where: Prisma.ProductWhereInput = {
+      shopId,
+      isVideoPost: false,
       isDeleted: false,
       isDisabled: false,
     };
 
     const [items, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .populate("category")
-        .populate("shopId")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.productModel.countDocuments(filter),
+      this.prisma.product.findMany({
+        where,
+        include: { category: true, shop: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
     ]);
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      data: items.map((p) => this.toApiShape(p)),
     };
   }
 
@@ -378,90 +396,75 @@ export class ProductsService {
   async getVideoPostsByShop(
     shopId: string,
     paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<Product>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<ProductApi>> {
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    const filter = {
-      shopId: new Types.ObjectId(shopId),
-      video: { $exists: true, $nin: ["", null] },
+    const where: Prisma.ProductWhereInput = {
+      shopId,
+      ...HAS_VIDEO,
       isDeleted: false,
       isDisabled: false,
     };
 
     const [items, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.productModel.countDocuments(filter),
+      this.prisma.product.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
     ]);
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      data: items.map((p) => this.toApiShape(p)),
     };
   }
 
   async getAllProductsByUser(
     ownerId: string,
     paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<Product>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<ProductApi>> {
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    console.log("Fetching products for user:", ownerId);
+    const where: Prisma.ProductWhereInput = {
+      ownerId,
+      isDeleted: false,
+      isDisabled: false,
+    };
+
     const [items, total] = await Promise.all([
-      this.productModel
-        .find({
-          ownerId: new Types.ObjectId(ownerId),
-          isDeleted: false,
-          isDisabled: false,
-        })
-        .populate("category")
-        .populate("ownerId")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.productModel.countDocuments({
-        ownerId,
-        isDeleted: false,
-        isDisabled: false,
+      this.prisma.product.findMany({
+        where,
+        include: { category: true, owner: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
       }),
+      // The old count used a *different* filter — it passed the raw ownerId
+      // string where the find used an ObjectId — so the two could disagree.
+      // One `where` is now shared by both.
+      this.prisma.product.count({ where }),
     ]);
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      data: items.map((p) => this.toApiShape(p)),
     };
   }
 
   async getById(id: string, userId?: string): Promise<any> {
-    const product = await this.productModel
-      .findOne({
-        _id: new Types.ObjectId(id),
-        isDeleted: false,
-        isDisabled: false,
-      })
-      .populate("category")
-      .populate({
-        path: "shopId",
-        populate: {
-          path: "ownerId",
-          select: "_id name phone",
-        },
-      })
-      .populate({
-        path: "ownerId",
-      })
-      .lean();
+    const product = await this.prisma.product.findFirst({
+      where: { id, isDeleted: false, isDisabled: false },
+      include: PRODUCT_INCLUDE,
+    });
 
     if (!product)
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
 
     const [listingAnalytics, likesCount] = await Promise.all([
@@ -469,8 +472,10 @@ export class ProductsService {
       this.likeService.getLikeCount(id, "product"),
     ]);
 
+    const shaped = this.toApiShape(product);
+
     // If there's no logged-in user, return product as-is (still with real analytics)
-    if (!userId) return { ...product, ...listingAnalytics, likesCount };
+    if (!userId) return { ...shaped, ...listingAnalytics, likesCount };
 
     // Otherwise include whether the user liked / reviewed this product
     const [isLiked, userReview] = await Promise.all([
@@ -478,46 +483,54 @@ export class ProductsService {
       this.reviewService.findOne(userId, id, "product"),
     ]);
 
-    const plain = product.toObject ? product.toObject() : product;
-
     return {
-      ...plain,
+      ...shaped,
       ...listingAnalytics,
       likesCount,
       isLiked: !!isLiked,
       isReviewed: userReview || null,
-    } as any;
+    };
   }
 
   /** Resolves the User who actually owns this listing — the Shop's owner if it belongs to a
    *  shop, otherwise the product's own `ownerId` (personal/individual listing). Mirrors the
    *  identical shop-vs-personal resolution already used by update()/delete() for permissions. */
   async resolveProductOwnerId(product: {
-    shopId?: Types.ObjectId | null;
-    ownerId?: Types.ObjectId | null;
+    shopId?: unknown;
+    ownerId?: unknown;
   }): Promise<string | undefined> {
-    return product.shopId
-      ? (await this.shopService.getShopOwnerId(product.shopId.toString())) ?? undefined
-      : product.ownerId?.toString();
+    // Accepts both a Prisma row (string ids) and a Mongoose document
+    // (ObjectIds), because ProductOfferService still passes the latter until it
+    // is converted.
+    const shopId = product.shopId ? String(product.shopId) : null;
+    const ownerId = product.ownerId ? String(product.ownerId) : null;
+
+    return shopId
+      ? ((await this.shopService.getShopOwnerId(shopId)) ?? undefined)
+      : (ownerId ?? undefined);
   }
 
   /** Real-value counterpart to the admin Listing detail modal's "Listing Analytics" tiles —
-   *  Total Views / Unique Visitors both read off the same day-deduped ProductView collection
+   *  Total Views / Unique Visitors both read off the same day-deduped ProductView table
    *  (Total Views = row count, Unique Visitors = distinct userId count), Contact/WhatsApp
-   *  Clicks read off their own lifetime-deduped collections. No raw counters anywhere. */
+   *  Clicks read off their own lifetime-deduped tables. No raw counters anywhere. */
   private async getListingAnalytics(productId: string) {
-    const productObjectId = new Types.ObjectId(productId);
-
-    const [totalViews, uniqueVisitorIds, contactClicks, whatsappClicks] = await Promise.all([
-      this.productViewModel.countDocuments({ productId: productObjectId }),
-      this.productViewModel.distinct("userId", { productId: productObjectId }),
-      this.productContactClickModel.countDocuments({ productId: productObjectId }),
-      this.productWhatsappClickModel.countDocuments({ productId: productObjectId }),
+    const [totalViews, uniqueVisitors, contactClicks, whatsappClicks] = await Promise.all([
+      this.prisma.productView.count({ where: { productId } }),
+      // Was .distinct("userId"); a grouped count says the same thing without
+      // pulling every id into memory.
+      this.prisma.productView.findMany({
+        where: { productId },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      this.prisma.productContactClick.count({ where: { productId } }),
+      this.prisma.productWhatsappClick.count({ where: { productId } }),
     ]);
 
     return {
       totalViews,
-      uniqueVisitorsCount: uniqueVisitorIds.length,
+      uniqueVisitorsCount: uniqueVisitors.length,
       contactClicks,
       whatsappClicks,
     };
@@ -532,104 +545,107 @@ export class ProductsService {
     productId: string,
     page = 1,
     limit = 20,
-  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  ): Promise<{
+    data: unknown[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
-    const match = { productId: new Types.ObjectId(productId) };
 
-    const basePipeline: any[] = [
-      { $match: match },
-      { $group: { _id: "$userId", lastViewedAt: { $max: "$createdAt" } } },
-      { $sort: { lastViewedAt: -1 } },
-    ];
-
-    const [rows, countResult] = await Promise.all([
-      this.productViewModel.aggregate([
-        ...basePipeline,
-        { $skip: skip },
-        { $limit: limitNum },
-        {
-          $lookup: {
-            from: "users",
-            localField: "_id",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            _id: 0,
-            createdAt: "$lastViewedAt",
-            "user._id": 1,
-            "user.name": 1,
-            "user.email": 1,
-            "user.image": 1,
-          },
-        },
-      ]),
-      this.productViewModel.aggregate([...basePipeline, { $count: "total" }]),
+    const [groups, distinctCount] = await Promise.all([
+      this.prisma.productView.groupBy({
+        by: ["userId"],
+        where: { productId },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: "desc" } },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT count(DISTINCT user_id) AS count
+        FROM product_views
+        WHERE product_id = ${productId}
+      `,
     ]);
 
-    const total = countResult[0]?.total ?? 0;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: groups.map((g) => g.userId) } },
+      select: { id: true, name: true, email: true, image: true },
+    });
+    const usersById = new Map(users.map((u) => [u.id, u]));
+
+    // Same output shape as the old $project: { createdAt, user }.
+    const data = groups.map((g) => ({
+      createdAt: g._max.createdAt,
+      user: usersById.get(g.userId)
+        ? { ...usersById.get(g.userId), _id: g.userId }
+        : null,
+    }));
+
+    const total = Number(distinctCount[0]?.count ?? 0);
 
     return {
-      data: rows,
+      data,
       meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     };
+  }
+
+  /**
+   * The three tracking calls below were byte-identical apart from the table.
+   * Each skips the listing's own owner, and each dedupes so a count of rows is
+   * the metric — views per (product, user, day), clicks per (product, user).
+   */
+  private async trackProductEngagement(
+    kind: "view" | "contactClick" | "whatsappClick",
+    productId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!isObjectIdLike(productId) || !isObjectIdLike(userId)) return;
+
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { shopId: true, ownerId: true },
+    });
+    if (!product) return;
+
+    const ownerId = await this.resolveProductOwnerId(product);
+    if (!ownerId || ownerId === userId) return;
+
+    if (kind === "view") {
+      const day = new Date().toISOString().slice(0, 10);
+      await this.prisma.productView.upsert({
+        where: { productId_userId_day: { productId, userId, day } },
+        create: { id: generateObjectId(), productId, userId, day },
+        update: {},
+      });
+      return;
+    }
+
+    const where = { productId_userId: { productId, userId } };
+    const create = { id: generateObjectId(), productId, userId };
+
+    if (kind === "contactClick") {
+      await this.prisma.productContactClick.upsert({ where, create, update: {} });
+    } else {
+      await this.prisma.productWhatsappClick.upsert({ where, create, update: {} });
+    }
   }
 
   /** Records a listing view: day-deduped per (product, user) — a page refresh within the same
    *  day never recounts, but a return visit on a later day does. Skips the listing's own owner. */
   async trackView(productId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(productId)) return;
-
-    const product = await this.productModel.findById(productId).select("shopId ownerId").lean();
-    if (!product) return;
-    const ownerId = await this.resolveProductOwnerId(product);
-    if (!ownerId || ownerId === userId) return;
-
-    const day = new Date().toISOString().slice(0, 10);
-    await this.productViewModel.updateOne(
-      { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId), day },
-      { $setOnInsert: { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId), day } },
-      { upsert: true },
-    );
+    return this.trackProductEngagement("view", productId, userId);
   }
 
-  /** Records a "Chat / Message Seller" click on a listing. Deduped per (product, user) forever —
-   *  repeat clicks by the same user don't recount. Skips the listing's own owner. */
+  /** Records a "Chat / Message Seller" click on a listing. Deduped per (product, user) forever. */
   async trackContactClick(productId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(productId)) return;
-
-    const product = await this.productModel.findById(productId).select("shopId ownerId").lean();
-    if (!product) return;
-    const ownerId = await this.resolveProductOwnerId(product);
-    if (!ownerId || ownerId === userId) return;
-
-    await this.productContactClickModel.updateOne(
-      { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackProductEngagement("contactClick", productId, userId);
   }
 
-  /** Records a "WhatsApp" click on a listing. Deduped per (product, user) forever — repeat
-   *  clicks by the same user don't recount. Skips the listing's own owner. */
+  /** Records a "WhatsApp" click on a listing. Deduped per (product, user) forever. */
   async trackWhatsappClick(productId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(productId)) return;
-
-    const product = await this.productModel.findById(productId).select("shopId ownerId").lean();
-    if (!product) return;
-    const ownerId = await this.resolveProductOwnerId(product);
-    if (!ownerId || ownerId === userId) return;
-
-    await this.productWhatsappClickModel.updateOne(
-      { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) },
-      { $setOnInsert: { productId: new Types.ObjectId(productId), userId: new Types.ObjectId(userId) } },
-      { upsert: true },
-    );
+    return this.trackProductEngagement("whatsappClick", productId, userId);
   }
 
   async update(
@@ -639,122 +655,92 @@ export class ProductsService {
   ): Promise<any> {
     if ("shopId" in updateDto) {
       throw new ForbiddenException(
-        this.i18n.translate("auth.products.shop_cant_update", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.shop_cant_update", { lang: this.lang }),
       );
     }
 
-    if (updateDto.category) {
-      (updateDto as any).category = new Types.ObjectId(updateDto.category);
-    }
-
     // Remove empty / null / undefined fields
-    Object.keys(updateDto).forEach((key) => {
-      if (
-        updateDto[key] === "" ||
-        updateDto[key] === null ||
-        typeof updateDto[key] === "undefined"
-      ) {
-        delete updateDto[key];
+    const dto: Record<string, any> = { ...updateDto };
+    Object.keys(dto).forEach((key) => {
+      if (dto[key] === "" || dto[key] === null || typeof dto[key] === "undefined") {
+        delete dto[key];
       }
     });
 
-    // ---------- LOCATION FIX ----------
-    if (updateDto.location) {
-      updateDto.location = this.parseAndValidateLocation(updateDto.location);
-    }
-    // ----------------------------------
-
-    const existingProduct = await this.productModel.findOne({
-      _id: new Types.ObjectId(productId),
-      isDeleted: false,
-      isDisabled: false,
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { id: productId, isDeleted: false, isDisabled: false },
     });
 
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
 
     if (currentUser) {
-      const resolvedOwnerId = existingProduct.shopId
-        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
-        : existingProduct.ownerId?.toString();
+      const resolvedOwnerId = await this.resolveProductOwnerId(existingProduct);
       assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "edit");
     }
 
-    if (updateDto.images && updateDto.images.length > 0) {
+    const entityId = existingProduct.shopId ?? existingProduct.ownerId!;
+    const data: Prisma.ProductUpdateInput = {};
+
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.price !== undefined) data.price = Math.round(Number(dto.price));
+    if (dto.type !== undefined) data.type = dto.type as ProductType;
+    if (dto.address !== undefined) data.address = dto.address;
+    if (dto.category) data.category = { connect: { id: dto.category } };
+
+    if (dto.location) {
+      const { latitude, longitude } = toLatLng(
+        this.parseAndValidateLocation(dto.location),
+      );
+      data.latitude = latitude;
+      data.longitude = longitude;
+    }
+
+    if (dto.images && dto.images.length > 0) {
       const uploadedFiles = await this.fileUploadService.uploadProductFiles(
-        updateDto.images,
+        dto.images,
         "shop",
-        existingProduct.shopId
-          ? existingProduct.shopId.toString()
-          : existingProduct.ownerId!.toString(),
+        entityId,
         productId,
         "images",
       );
-      console.log("Uploaded Images:", uploadedFiles);
       const newImages = uploadedFiles.map((file) => file.url);
-      updateDto.images = [...(existingProduct.images || []), ...newImages];
+      data.images = [...(existingProduct.images || []), ...newImages];
     }
 
-    if (updateDto.video) {
+    if (dto.video) {
       const uploadedVideo = await this.fileUploadService.uploadProductFiles(
-        [updateDto.video],
+        [dto.video],
         "shop",
-        existingProduct.shopId
-          ? existingProduct.shopId.toString()
-          : existingProduct.ownerId!.toString(),
+        entityId,
         productId,
         "video",
       );
-
-      console.log("Uploaded Video:", uploadedVideo);
-      updateDto.video = uploadedVideo[0].url;
+      data.video = uploadedVideo[0].url;
       if (!existingProduct.videoCode) {
-        (updateDto as any).videoCode = await this.generateNextVideoCode();
+        data.videoCode = await this.generateNextVideoCode();
       }
     }
 
-    // Also update searchableTags if parameters changed
-    if (updateDto.parameters) {
-      (updateDto as any).searchableTags = updateDto.parameters.flatMap(
-        (p: any) => [p.name, ...p.variants],
-      );
+    // Also update searchableTags if parameters changed. This was one of the two
+    // Mongoose pre-hooks; it is explicit now.
+    if (dto.parameters) {
+      data.parameters = dto.parameters as unknown as Prisma.InputJsonValue;
+      data.searchableTags = buildSearchableTags(dto.parameters);
     }
 
-    const updated = await this.productModel
-      .findOneAndUpdate(
-        {
-          _id: new Types.ObjectId(productId),
-          isDeleted: false,
-          isDisabled: false,
-        },
-        updateDto,
-        { new: true },
-      )
-      .exec();
-
-    if (!updated) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
-      );
-    }
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
+    const updated = await this.prisma.product.update({
+      where: { id: productId },
+      data,
+    });
 
     return {
-      message: this.i18n.translate("auth.products.updated_success", {
-        lang: this.lang,
-      }),
-      data: {
-        product: updated,
-      },
+      message: this.i18n.translate("auth.products.updated_success", { lang: this.lang }),
+      data: { product: this.toApiShape(updated) },
     };
   }
 
@@ -765,19 +751,15 @@ export class ProductsService {
     ipAddress?: string,
     // When provided, enforces that /products/:id can't delete a video post and
     // /video-posts/:id can't delete a real listing — the two flows stay separate
-    // even though they share the same underlying document type.
+    // even though they share the same underlying row type.
     expectedIsVideoPost?: boolean,
   ) {
-    const existingProduct = await this.productModel.findOne({
-      _id: new Types.ObjectId(productId),
-      isDeleted: false,
-      isDisabled: false,
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { id: productId, isDeleted: false, isDisabled: false },
     });
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
     if (
@@ -785,39 +767,24 @@ export class ProductsService {
       !!existingProduct.isVideoPost !== expectedIsVideoPost
     ) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
     const type = existingProduct.shopId ? "shop" : "personal";
-    const entityId = existingProduct.shopId
-      ? existingProduct.shopId.toString()
-      : existingProduct.ownerId!.toString();
+    const entityId = existingProduct.shopId ?? existingProduct.ownerId!;
 
     let resolvedOwnerId: string | undefined;
     if (currentUser) {
-      resolvedOwnerId = existingProduct.shopId
-        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
-        : existingProduct.ownerId?.toString();
+      resolvedOwnerId = await this.resolveProductOwnerId(existingProduct);
       assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "delete");
     }
 
-    await this.fileUploadService.deleteEntityProducts(
-      type,
-      entityId,
-      productId,
-    );
-    const result = await this.productModel.findByIdAndUpdate(
-      new Types.ObjectId(productId),
-      { isDeleted: true, images: [], video: "" },
-    );
-    if (!result)
-      throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
-      );
+    await this.fileUploadService.deleteEntityProducts(type, entityId, productId);
+
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { isDeleted: true, images: [], video: "" },
+    });
 
     if (currentUser && resolvedOwnerId && resolvedOwnerId !== currentUser.sub) {
       await this.activityLogService.record(
@@ -830,7 +797,7 @@ export class ProductsService {
       );
     }
 
-    return existingProduct;
+    return this.toApiShape(existingProduct);
   }
 
   async deleteProductMedia(
@@ -838,52 +805,41 @@ export class ProductsService {
     media: string[],
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
   ) {
-    const existingProduct = await this.productModel.findOne({
-      _id: new Types.ObjectId(productId),
-      isDeleted: false,
-      isDisabled: false,
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { id: productId, isDeleted: false, isDisabled: false },
     });
     if (!existingProduct) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
     if (!media || media.length === 0) {
       throw new BadRequestException(
-        this.i18n.translate("auth.products.no_media_provided", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.no_media_provided", { lang: this.lang }),
       );
     }
 
     if (currentUser) {
-      const resolvedOwnerId = existingProduct.shopId
-        ? (await this.shopService.getShopOwnerId(existingProduct.shopId.toString())) ?? undefined
-        : existingProduct.ownerId?.toString();
+      const resolvedOwnerId = await this.resolveProductOwnerId(existingProduct);
       assertOwnerOrPermission(currentUser, resolvedOwnerId ?? "", "listings", "edit");
     }
 
     // Remove media files from storage
     await this.fileUploadService.deleteFiles(media);
 
-    // Remove media from product document
-    let images = existingProduct.images || [];
-    let video = existingProduct.video;
+    // Remove media from the row
+    const images = (existingProduct.images || []).filter(
+      (imgUrl) => !media.includes(imgUrl),
+    );
+    const video =
+      existingProduct.video && media.includes(existingProduct.video)
+        ? ""
+        : existingProduct.video;
 
-    // Remove any images that match the URLs
-    images = images.filter((imgUrl) => !media.includes(imgUrl));
-
-    // Remove video if its URL is in the media array
-    if (media.includes(video)) {
-      video = "";
-    }
-
-    // Update the product
-    existingProduct.images = images;
-    existingProduct.video = video;
-    await existingProduct.save();
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { images, video },
+    });
 
     return true;
   }
@@ -897,16 +853,12 @@ export class ProductsService {
     currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
     ipAddress?: string,
   ) {
-    const existingProduct = await this.productModel.findOne({
-      _id: new Types.ObjectId(productId),
-      isDeleted: false,
-      isDisabled: false,
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { id: productId, isDeleted: false, isDisabled: false },
     });
     if (!existingProduct || !existingProduct.video) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
 
@@ -926,7 +878,7 @@ export class ProductsService {
     pagination: PaginationDto,
   ) {
     return this.listingUtils.findNearbyWithCategory(
-      this.productModel,
+      "products",
       category,
       coordinates,
       radius,
@@ -937,65 +889,60 @@ export class ProductsService {
   async getAllForAdmin(
     paginationDto: PaginationDto,
     search?: string,
-  ): Promise<PaginatedResponseDto<Product>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<ProductApi>> {
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    const filter: FilterQuery<ProductDocument> = {};
+    const where: Prisma.ProductWhereInput = {};
 
     if (search && search.trim()) {
       const term = search.trim();
-      filter.$or = [
-        { title: { $regex: term, $options: "i" } },
-        { description: { $regex: term, $options: "i" } },
-        { "category.name.en": { $regex: term, $options: "i" } },
-        { "category.name.ur": { $regex: term, $options: "i" } },
+      where.OR = [
+        { title: { contains: term, mode: "insensitive" } },
+        { description: { contains: term, mode: "insensitive" } },
+        // `category.name` is JSONB; the old dotted paths "category.name.en"
+        // never matched anything, because $regex on a joined field does not work
+        // that way in a plain find(). A relation filter on the JSON path does.
+        { category: { name: { path: ["en"], string_contains: term } } },
+        { category: { name: { path: ["ur"], string_contains: term } } },
       ];
     }
 
     const [items, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .populate("category")
-        .populate("shopId")
-        .populate("ownerId")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.productModel.countDocuments(filter),
+      this.prisma.product.findMany({
+        where,
+        include: { category: true, shop: true, owner: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
     ]);
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items,
+      data: items.map((p) => this.toApiShape(p)),
     };
   }
 
   async updateStatus(productId: string, isDisabled: boolean) {
-    const updated = await this.productModel.findByIdAndUpdate(
-      new Types.ObjectId(productId),
-      { isDisabled },
-      { new: true },
-    );
-
-    if (!updated) {
+    const existing = await this.prisma.product.findUnique({ where: { id: productId } });
+    if (!existing) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
 
+    const updated = await this.prisma.product.update({
+      where: { id: productId },
+      data: { isDisabled },
+    });
+
     return {
       message: isDisabled
-        ? this.i18n.translate("auth.products.product_disabled_success", {
-          lang: this.lang,
-        })
-        : this.i18n.translate("auth.products.product_enabled_success", {
-          lang: this.lang,
-        }),
-      data: updated,
+        ? this.i18n.translate("auth.products.product_disabled_success", { lang: this.lang })
+        : this.i18n.translate("auth.products.product_enabled_success", { lang: this.lang }),
+      data: this.toApiShape(updated),
     };
   }
 
@@ -1004,84 +951,46 @@ export class ProductsService {
     coordinates: [number, number],
     radiusInMeters: number,
   ): Promise<string[]> {
-    const results = await this.productModel.aggregate([
-      {
-        $geoNear: {
-          near: { type: "Point", coordinates },
-          distanceField: "distance",
-          maxDistance: radiusInMeters,
-          query: {
-            category: new Types.ObjectId(categoryId),
-            isDeleted: false,
-            isDisabled: false,
-          },
-          spherical: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "shops",
-          localField: "shopId",
-          foreignField: "_id",
-          as: "shop",
-        },
-      },
-      {
-        $unwind: {
-          path: "$shop",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          ownerId: {
-            $ifNull: ["$shop.ownerId", "$ownerId"],
-          },
-        },
-      },
-      {
-        $match: {
-          ownerId: { $exists: true, $ne: null },
-        },
-      },
-      {
-        $group: {
-          _id: "$ownerId",
-        },
-      },
-    ]);
-
-    return results
-      .map((result) => result._id?.toString())
-      .filter(Boolean);
+    const [longitude, latitude] = coordinates;
+    return this.feedRepository.findNearbyListingOwnerIds({
+      table: "products",
+      categoryId,
+      longitude,
+      latitude,
+      radiusMeters: radiusInMeters,
+    });
   }
 
   async updateLocationByShopId(
     shopId: string,
     location: { type: "Point"; coordinates: [number, number] },
   ) {
-    await this.productModel.updateMany({ shopId }, { $set: { location } });
+    const { latitude, longitude } = toLatLng(location);
+    await this.prisma.product.updateMany({
+      where: { shopId },
+      data: { latitude, longitude },
+    });
   }
 
   async setDisabledByShop(shopId: string, disabled: boolean) {
-    await this.productModel.updateMany(
-      { shopId: new Types.ObjectId(shopId) },
-      { $set: { isDisabled: disabled } },
-    );
+    await this.prisma.product.updateMany({
+      where: { shopId },
+      data: { isDisabled: disabled },
+    });
   }
 
   async setProductsDisabledByShopsBulk(shopIds: any[], disabled: boolean) {
-    await this.productModel.updateMany(
-      { shopId: { $in: shopIds } },
-      { $set: { isDisabled: disabled } },
-    );
+    await this.prisma.product.updateMany({
+      where: { shopId: { in: shopIds.map((id) => String(id)) } },
+      data: { isDisabled: disabled },
+    });
   }
 
   async setProductsDisabledByUser(userId: string, disabled: boolean) {
-    await this.productModel.updateMany(
-      { ownerId: new Types.ObjectId(userId) },
-      { $set: { isDisabled: disabled } },
-    );
+    await this.prisma.product.updateMany({
+      where: { ownerId: userId },
+      data: { isDisabled: disabled },
+    });
   }
 
   async searchProducts(query: SearchAllProductsServiceDto) {
@@ -1089,29 +998,26 @@ export class ProductsService {
     const limit = Math.max(1, query.limit || 10);
     const skip = (page - 1) * limit;
 
-    const allPromotedIds =
-      await this.promotionService.getActivePromotionProductIds();
+    const allPromotedIds = await this.promotionService.getActivePromotionProductIds();
 
-    const baseFilter: FilterQuery<ProductDocument> = {
+    const baseFilter: Prisma.ProductWhereInput = {
       isDeleted: false,
       isDisabled: false,
       // Video posts aren't real listings — keep them out of buyer-facing search.
-      isVideoPost: { $ne: true },
+      isVideoPost: false,
     };
 
     if (query.category) {
-      baseFilter.category = new Types.ObjectId(query.category);
+      baseFilter.categoryId = query.category;
     }
 
     if (query.startDate || query.endDate) {
-      const createdAt: Record<string, Date> = {};
-      if (query.startDate) {
-        createdAt.$gte = new Date(query.startDate);
-      }
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (query.startDate) createdAt.gte = new Date(query.startDate);
       if (query.endDate) {
         const endOfDay = new Date(query.endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
       baseFilter.createdAt = createdAt;
     }
@@ -1119,52 +1025,49 @@ export class ProductsService {
     const searchTerm = query.name?.trim();
 
     // === Promoted Products ===
-    const promotedProducts = await this.productModel
-      .find({
-        _id: { $in: allPromotedIds },
-        ...baseFilter,
-      })
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
+    const promotedProducts =
+      allPromotedIds.length === 0
+        ? []
+        : await this.prisma.product.findMany({
+            where: { id: { in: allPromotedIds }, ...baseFilter },
+            orderBy: { createdAt: "desc" },
+          });
 
-    const promotedProductIds = promotedProducts.map((p: any) =>
-      new Types.ObjectId(p._id).toString(),
-    );
+    const promotedProductIds = promotedProducts.map((p) => p.id);
 
     // === Regular Products ===
-    let regularFilter: FilterQuery<ProductDocument> = {
+    const regularFilter: Prisma.ProductWhereInput = {
       ...baseFilter,
-      _id: { $nin: promotedProductIds.map((id) => new Types.ObjectId(id)) },
+      ...(promotedProductIds.length > 0
+        ? { id: { notIn: promotedProductIds } }
+        : {}),
     };
 
     if (searchTerm) {
-      regularFilter.$or = [
-        { title: { $regex: searchTerm, $options: "i" } },
-        { description: { $regex: searchTerm, $options: "i" } },
-        { "parameters.name": { $regex: searchTerm, $options: "i" } },
-        { "parameters.variants": { $regex: searchTerm, $options: "i" } },
-        { listingCode: { $regex: searchTerm, $options: "i" } },
+      regularFilter.OR = [
+        { title: { contains: searchTerm, mode: "insensitive" } },
+        { description: { contains: searchTerm, mode: "insensitive" } },
+        // `parameters` is JSONB and is not searched directly; searchableTags is
+        // the denormalised, GIN-indexed projection of exactly those values.
+        { searchableTags: { has: searchTerm } },
+        { listingCode: { contains: searchTerm, mode: "insensitive" } },
       ];
     }
 
     const [regularProducts, total] = await Promise.all([
-      this.productModel
-        .find(regularFilter)
-        .populate("category")
-        // IMPORTANT: Do NOT select or sort by textScore when using $or + regex
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec(),
-
-      this.productModel.countDocuments(regularFilter),
+      this.prisma.product.findMany({
+        where: regularFilter,
+        include: { category: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where: regularFilter }),
     ]);
 
     const [enrichedPromotions, enrichedRegularProducts] = await Promise.all([
-      this.enrichProductsWithReviewStats(promotedProducts),
-      this.enrichProductsWithReviewStats(regularProducts),
+      this.enrichProductsWithReviewStats(promotedProducts.map((p) => this.toApiShape(p))),
+      this.enrichProductsWithReviewStats(regularProducts.map((p) => this.toApiShape(p))),
     ]);
 
     return {
@@ -1172,12 +1075,7 @@ export class ProductsService {
         promotions: enrichedPromotions,
         items: enrichedRegularProducts,
       },
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
@@ -1186,31 +1084,24 @@ export class ProductsService {
       return products;
     }
 
-    const productIds = products.map((product) =>
-      new Types.ObjectId(product._id),
-    );
+    const productIds = products.map((product) => String(product.id ?? product._id));
     const reviewStats = await this.reviewService.getAverageRatingsForItems(
       productIds,
       "product",
     );
 
     const reviewMap = new Map(
-      reviewStats.map((item: any) => [
-        (item._id as Types.ObjectId).toString(),
-        {
-          avgRating: item.avgRating ?? 0,
-          reviewCount: item.count ?? 0,
-        },
+      reviewStats.map((item) => [
+        item._id,
+        { avgRating: item.avgRating ?? 0, reviewCount: item.count ?? 0 },
       ]),
     );
 
     return products.map((product: any) => {
-      const stats = reviewMap.get(new Types.ObjectId(product._id).toString());
+      const stats = reviewMap.get(String(product.id ?? product._id));
       return {
         ...product,
-        averageRating: stats?.avgRating
-          ? Number(stats.avgRating.toFixed(1))
-          : 0,
+        averageRating: stats?.avgRating ? Number(stats.avgRating.toFixed(1)) : 0,
         reviewCount: stats?.reviewCount ?? 0,
       };
     });
@@ -1221,43 +1112,50 @@ export class ProductsService {
     userId?: string,
     category?: string,
   ): Promise<PaginatedResponseDto<any>> {
-    const { page = 1, limit = 10, search } = paginationDto;
-    const skip = (page - 1) * limit;
+    const { page: rawPage, limit: rawLimit, search } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    const filter: FilterQuery<ProductDocument> = {
-      video: { $exists: true, $nin: ["", null] },
+    const where: Prisma.ProductWhereInput = {
+      ...HAS_VIDEO,
       isDeleted: false,
       isDisabled: false,
     };
     if (category) {
-      filter.category = new Types.ObjectId(category);
+      where.categoryId = category;
     }
     if (search?.trim()) {
-      filter.title = { $regex: search.trim(), $options: "i" };
+      where.title = { contains: search.trim(), mode: "insensitive" };
     }
 
     const [items, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .populate("category")
-        .populate({
-          path: "shopId",
-          select: "_id title image address description ownerId banner", // be explicit
-        })
-        .populate({
-          path: "ownerId",
-          select: "_id name image address phone", // be explicit
-        })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()                    // keep it for performance
-        .exec(),
-
-      this.productModel.countDocuments(filter).exec(),
+      this.prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          shop: {
+            select: {
+              id: true,
+              title: true,
+              image: true,
+              address: true,
+              description: true,
+              ownerId: true,
+              banner: true,
+            },
+          },
+          owner: {
+            select: { id: true, name: true, image: true, address: true, phone: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
     ]);
 
-    const itemIds = items.map((item: any) => item._id.toString());
+    const shaped = items.map((p) => this.toApiShape(p));
+    const itemIds = shaped.map((item) => item.id as string);
     const [likeCounts, shareCounts] = await Promise.all([
       this.likeService.getLikeCountsForItems(itemIds, "product"),
       this.shareService.getShareCountsForItems(itemIds, "product"),
@@ -1266,10 +1164,10 @@ export class ProductsService {
     if (!userId) {
       return {
         meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-        data: items.map((item: any) => ({
+        data: shaped.map((item) => ({
           ...item,
-          likesCount: likeCounts.get(item._id.toString()) ?? 0,
-          sharesCount: shareCounts.get(item._id.toString()) ?? 0,
+          likesCount: likeCounts.get(item.id) ?? 0,
+          sharesCount: shareCounts.get(item.id) ?? 0,
         })),
       };
     }
@@ -1277,49 +1175,32 @@ export class ProductsService {
     const user = await this.userService.findUserById(userId);
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate("auth.users.user_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
       );
     }
 
-    const productIds = items.map((item: any) => new Types.ObjectId(item._id));
-    const likes = await this.likeService.getLikesByUser(
-      userId,
-      "product",
-      productIds,
-    );
+    const likes = await this.likeService.getLikesByUser(userId, "product", itemIds);
+    const likedProductIds = new Set(likes.map((like) => like.itemId));
 
-    const likedProductIds = new Set(
-      likes.map((like: any) => like.itemId.toString()),
-    );
-
-    const data = items.map((item: any) => ({
-      ...item, // Now safe because of .lean()
-      isLiked: likedProductIds.has(item._id.toString()),
-      likesCount: likeCounts.get(item._id.toString()) ?? 0,
-      sharesCount: shareCounts.get(item._id.toString()) ?? 0,
+    const data = shaped.map((item) => ({
+      ...item,
+      isLiked: likedProductIds.has(item.id),
+      likesCount: likeCounts.get(item.id) ?? 0,
+      sharesCount: shareCounts.get(item.id) ?? 0,
     }));
 
     return {
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       data,
     };
   }
 
   /**
    * Admin-only: the unified Feed — every video across Products (shop-owned or individual)
-   * AND Services, including suspended ones, in one sorted/paginated list. Joins the "services"
-   * collection in via $unionWith rather than injecting ServicesService, matching this codebase's
-   * established pattern of cross-collection $lookup instead of new cross-module DI (see
-   * ReviewsService.getAllReviewsForAdmin). Each row is tagged with itemType ("shop" | "product" |
-   * "service") and the resolved uploader: a shop's product resolves to the shop owner, an
-   * individual product/service resolves to its direct ownerId.
+   * AND Services, including suspended ones, in one sorted/paginated list. The $unionWith
+   * pipeline is now a SQL UNION ALL; see FeedRepository. Each row is tagged with itemType
+   * ("shop" | "product" | "service") and the resolved uploader: a shop's product resolves
+   * to the shop owner, an individual product/service resolves to its direct ownerId.
    */
   async getProductsWithVideosForAdmin(
     page = 1,
@@ -1332,159 +1213,19 @@ export class ProductsService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const videoFilter: Record<string, unknown> = {
-      video: { $exists: true, $nin: ["", null] },
-      isDeleted: false,
-    };
-    if (search?.trim()) {
-      videoFilter.title = { $regex: search.trim(), $options: "i" };
-    }
-    if (startDate || endDate) {
-      const createdAt: Record<string, Date> = {};
-      if (startDate) {
-        createdAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        createdAt.$lte = endOfDay;
-      }
-      videoFilter.createdAt = createdAt;
-    }
-
-    const basePipeline: any[] = [
-      { $match: videoFilter },
-      { $addFields: { sourceCollection: "product" } },
-      {
-        $unionWith: {
-          coll: "services",
-          pipeline: [
-            { $match: videoFilter },
-            { $addFields: { sourceCollection: "service" } },
-          ],
-        },
-      },
-      {
-        $addFields: {
-          itemType: {
-            $cond: [
-              { $eq: ["$sourceCollection", "service"] },
-              "service",
-              { $cond: [{ $ifNull: ["$shopId", false] }, "shop", "product"] },
-            ],
-          },
-          displayCode: { $ifNull: ["$videoCode", "$serviceCode"] },
-        },
-      },
-      {
-        $lookup: {
-          from: "shops",
-          localField: "shopId",
-          foreignField: "_id",
-          as: "shopInfo",
-        },
-      },
-      { $unwind: { path: "$shopInfo", preserveNullAndEmptyArrays: true } },
-      { $addFields: { uploaderUserId: { $ifNull: ["$shopInfo.ownerId", "$ownerId"] } } },
-      {
-        $lookup: {
-          from: "users",
-          localField: "uploaderUserId",
-          foreignField: "_id",
-          as: "uploaderInfo",
-        },
-      },
-      { $unwind: { path: "$uploaderInfo", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "categories",
-          localField: "category",
-          foreignField: "_id",
-          as: "categoryInfo",
-        },
-      },
-      { $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "productviews",
-          let: { id: "$_id" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$productId", "$$id"] } } },
-            { $count: "count" },
-          ],
-          as: "productViewAgg",
-        },
-      },
-      {
-        $lookup: {
-          from: "serviceviews",
-          let: { id: "$_id" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$serviceId", "$$id"] } } },
-            { $count: "count" },
-          ],
-          as: "serviceViewAgg",
-        },
-      },
-      {
-        $addFields: {
-          viewsCount: {
-            $cond: [
-              { $eq: ["$itemType", "service"] },
-              { $ifNull: [{ $arrayElemAt: ["$serviceViewAgg.count", 0] }, 0] },
-              { $ifNull: [{ $arrayElemAt: ["$productViewAgg.count", 0] }, 0] },
-            ],
-          },
-        },
-      },
-      { $sort: { createdAt: -1 } },
-    ];
-
-    const [rows, countResult] = await Promise.all([
-      this.productModel
-        .aggregate([
-          ...basePipeline,
-          { $skip: skip },
-          { $limit: limitNum },
-          {
-            $project: {
-              _id: 1,
-              displayCode: 1,
-              title: 1,
-              video: 1,
-              images: 1,
-              itemType: 1,
-              isDisabled: 1,
-              createdAt: 1,
-              viewsCount: 1,
-              category: "$categoryInfo",
-              shopTitle: "$shopInfo.title",
-              uploader: {
-                $cond: [
-                  { $ifNull: ["$uploaderInfo", false] },
-                  {
-                    _id: "$uploaderInfo._id",
-                    name: "$uploaderInfo.name",
-                    email: "$uploaderInfo.email",
-                  },
-                  null,
-                ],
-              },
-            },
-          },
-        ])
-        .exec(),
-      this.productModel.aggregate([...basePipeline, { $count: "total" }]).exec(),
-    ]);
-
-    const total = countResult[0]?.total ?? 0;
+    const { rows, total } = await this.feedRepository.findForAdmin({
+      skip,
+      take: limitNum,
+      search,
+      startDate,
+      endDate,
+    });
 
     const productItemIds: string[] = [];
     const serviceItemIds: string[] = [];
     for (const row of rows) {
-      const id = (row._id as Types.ObjectId).toString();
-      if (row.itemType === "service") serviceItemIds.push(id);
-      else productItemIds.push(id);
+      if (row.itemType === "service") serviceItemIds.push(row.id);
+      else productItemIds.push(row.id);
     }
 
     const [productLikes, productShares, serviceLikes, serviceShares] = await Promise.all([
@@ -1495,12 +1236,11 @@ export class ProductsService {
     ]);
 
     const enrichedItems = rows.map((row) => {
-      const id = (row._id as Types.ObjectId).toString();
       const isService = row.itemType === "service";
       return {
         ...row,
-        likesCount: (isService ? serviceLikes : productLikes).get(id) ?? 0,
-        sharesCount: (isService ? serviceShares : productShares).get(id) ?? 0,
+        likesCount: (isService ? serviceLikes : productLikes).get(row.id) ?? 0,
+        sharesCount: (isService ? serviceShares : productShares).get(row.id) ?? 0,
       };
     });
 
@@ -1517,18 +1257,16 @@ export class ProductsService {
 
   /** Suspend/enable a single product (e.g. a feed video). Mirrors ShopService.setShopDisabled. */
   async setProductDisabled(productId: string, disabled: boolean) {
-    const product = await this.productModel.findByIdAndUpdate(
-      productId,
-      { $set: { isDisabled: disabled } },
-      { new: true },
-    );
-    if (!product) {
+    const existing = await this.prisma.product.findUnique({ where: { id: productId } });
+    if (!existing) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.product_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.product_not_found", { lang: this.lang }),
       );
     }
-    return product;
+    const product = await this.prisma.product.update({
+      where: { id: productId },
+      data: { isDisabled: disabled },
+    });
+    return this.toApiShape(product);
   }
 }

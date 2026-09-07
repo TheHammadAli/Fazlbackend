@@ -6,7 +6,7 @@ import {
   MaxLength,
 } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { ReportReason, REPORT_REASONS } from "../schema/report.schema";
+import { ReportReason, REPORT_REASONS } from "../model/report.model";
 
 export class UpdateReportDto {
   @ApiPropertyOptional({ enum: REPORT_REASONS })

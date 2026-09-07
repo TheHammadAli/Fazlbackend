@@ -1,16 +1,15 @@
 import { forwardRef, Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
 import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
-import { Order, OrderSchema } from "./schema/order.schema";
 import { UsersModule } from "src/users/users.module";
 import { ProductsModule } from "src/products/products.module";
 import { ShopModule } from "src/shop/shop.module";
 import { NotificationsModule } from "src/notifications/notifications.module";
 
+// PrismaModule is @Global, so PrismaService needs no import here — this
+// replaces the Order model registration.
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Order.name, schema: OrderSchema }]),
     forwardRef(() => UsersModule),
     forwardRef(() => ProductsModule),
     forwardRef(() => ShopModule),
@@ -20,4 +19,4 @@ import { NotificationsModule } from "src/notifications/notifications.module";
   providers: [OrdersService],
   exports: [OrdersService],
 })
-export class OrdersModule { }
+export class OrdersModule {}

@@ -9,7 +9,7 @@ import {
   IsString,
   ValidateNested,
 } from "class-validator";
-import { WITHDRAWAL_METHODS, WithdrawalMethod } from "../schema/withdrawal.schema";
+import { WITHDRAWAL_METHODS, WithdrawalMethod } from "../model/wallet.model";
 
 export class WithdrawalAccountDetailsDto {
   @ApiProperty({ example: "Ali Raza" })

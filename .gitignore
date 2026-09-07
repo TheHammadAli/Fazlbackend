@@ -3,6 +3,14 @@ node_modules
 dist/tsconfig.tsbuildinfo
 dist
 tsconfig.tsbuildinfo
+# Every env file, however suffixed. .env.example is the one exception and is
+# committed deliberately as documentation.
 .env
+.env.*
+!.env.example
 .env.bak-before-firebase-fix
 .DS_Store
+
+# Prisma Client is generated from prisma/schema.prisma on every install
+# (see the "postinstall" script) rather than committed.
+/generated

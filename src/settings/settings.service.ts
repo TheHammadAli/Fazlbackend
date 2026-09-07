@@ -1,10 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
-import { SiteSettings, SiteSettingsDocument } from "./schema/site-settings.schema";
+import { PrismaService } from "src/prisma/prisma.service";
 import { UpdateSocialLinksDto } from "./dto/update-social-links.dto";
+import { SOCIAL_LINKS_ID } from "./model/site-settings.model";
 
-const SOCIAL_LINKS_ID = "social-links";
 const URL_PATTERN = /^https?:\/\/.+/i;
 
 type SocialLinksResult = {
@@ -16,18 +14,18 @@ type SocialLinksResult = {
 
 @Injectable()
 export class SettingsService {
-  constructor(
-    @InjectModel(SiteSettings.name)
-    private readonly siteSettingsModel: Model<SiteSettingsDocument>,
-  ) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getSocialLinks(): Promise<SocialLinksResult> {
-    const doc = await this.siteSettingsModel.findById(SOCIAL_LINKS_ID).lean();
+    // Singleton row keyed by a fixed string id, exactly as in Mongo.
+    const row = await this.prisma.siteSettings.findUnique({
+      where: { id: SOCIAL_LINKS_ID },
+    });
     return {
-      facebookUrl: doc?.facebookUrl ?? null,
-      twitterUrl: doc?.twitterUrl ?? null,
-      threadsUrl: doc?.threadsUrl ?? null,
-      linkedinUrl: doc?.linkedinUrl ?? null,
+      facebookUrl: row?.facebookUrl ?? null,
+      twitterUrl: row?.twitterUrl ?? null,
+      threadsUrl: row?.threadsUrl ?? null,
+      linkedinUrl: row?.linkedinUrl ?? null,
     };
   }
 
@@ -59,19 +57,18 @@ export class SettingsService {
   async updateSocialLinks(dto: UpdateSocialLinksDto): Promise<SocialLinksResult> {
     const update = this.validateDto(dto);
 
-    const doc = await this.siteSettingsModel
-      .findByIdAndUpdate(
-        SOCIAL_LINKS_ID,
-        { $set: update },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      )
-      .lean();
+    // Was findByIdAndUpdate(..., { upsert: true, new: true }).
+    const row = await this.prisma.siteSettings.upsert({
+      where: { id: SOCIAL_LINKS_ID },
+      create: { id: SOCIAL_LINKS_ID, ...update },
+      update,
+    });
 
     return {
-      facebookUrl: doc?.facebookUrl ?? null,
-      twitterUrl: doc?.twitterUrl ?? null,
-      threadsUrl: doc?.threadsUrl ?? null,
-      linkedinUrl: doc?.linkedinUrl ?? null,
+      facebookUrl: row.facebookUrl ?? null,
+      twitterUrl: row.twitterUrl ?? null,
+      threadsUrl: row.threadsUrl ?? null,
+      linkedinUrl: row.linkedinUrl ?? null,
     };
   }
 }

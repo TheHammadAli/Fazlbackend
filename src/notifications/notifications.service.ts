@@ -6,14 +6,16 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
-import { Notification, NotificationType } from "./schema/notifications.schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId } from "src/common/utils/object-id.util";
+import type { NotificationType } from "./model/notification.model";
+import type { Prisma } from "../../generated/prisma/client";
 import { UsersService } from "src/users/users.service";
 import { Server } from "socket.io";
 import { FirebaseService } from "./firebase.service";
 import { ClsService } from "nestjs-cls";
+import { resolvePagination } from "src/common/utils/pagination.util";
 
 @Injectable()
 export class NotificationsService {
@@ -24,8 +26,7 @@ export class NotificationsService {
   };
 
   constructor(
-    @InjectModel(Notification.name)
-    private notificationModel: Model<Notification>,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly firebaseService: FirebaseService,
@@ -124,7 +125,7 @@ export class NotificationsService {
   }
 
   async create<T = Record<string, any>>(
-    userId: string | Types.ObjectId,
+    userId: string,
     message: string,
     type: NotificationType = "MESSAGE",
     payload: T,
@@ -140,19 +141,20 @@ export class NotificationsService {
 
     const notifPayload = this.buildNotificationPayload(payload);
 
-    const notif = new this.notificationModel({
-      userId: new Types.ObjectId(userId),
-      message,
-      type,
-      payload: notifPayload,
-      read: false,
+    return this.prisma.notification.create({
+      data: {
+        id: generateObjectId(),
+        userId: userId.toString(),
+        message,
+        type,
+        payload: notifPayload as Prisma.InputJsonValue,
+        read: false,
+      },
     });
-
-    return notif.save();
   }
 
   async createAndNotify<T = Record<string, any>>(
-    userId: string | Types.ObjectId,
+    userId: string,
     messageKey: string,
     type: NotificationType,
     payload: T,
@@ -210,8 +212,7 @@ export class NotificationsService {
       }) as string) ||
       "Notification";
 
-    const notificationId =
-      notif?.['_id']?.toString() || String((notif as any)?.id || "");
+    const notificationId = notif?.id ?? "";
     await this.pushToUserDevices(
       userId.toString(),
       user,
@@ -233,7 +234,7 @@ export class NotificationsService {
    * e.g. admin-authored announcement text.
    */
   async notifyRaw<T = Record<string, any>>(
-    userId: string | Types.ObjectId,
+    userId: string,
     title: string,
     message: string,
     type: NotificationType,
@@ -255,7 +256,7 @@ export class NotificationsService {
       this.server.to(userId.toString()).emit("notification", notif);
     }
 
-    const notificationId = notif?.["_id"]?.toString() || "";
+    const notificationId = notif?.id ?? "";
     await this.pushToUserDevices(userId.toString(), user, title, message, {
       type,
       ...notifPayload,
@@ -265,7 +266,12 @@ export class NotificationsService {
     return notif;
   }
 
-  async findByUser(userId: string, page: number = 1, limit: number = 10) {
+  async findByUser(
+    userId: string,
+    rawPage: number | string = 1,
+    rawLimit: number | string = 10,
+  ) {
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
     const user = await this.usersService.findUserById(userId.toString());
 
     if (!user) {
@@ -276,18 +282,15 @@ export class NotificationsService {
       );
     }
 
-    const skip = (page - 1) * limit;
-
-    const total = await this.notificationModel
-      .countDocuments({ userId: new Types.ObjectId(userId) })
-      .exec();
-
-    const data = await this.notificationModel
-      .find({ userId: new Types.ObjectId(userId) })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const [total, data] = await Promise.all([
+      this.prisma.notification.count({ where: { userId } }),
+      this.prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+    ]);
 
     return {
       data: {
@@ -301,11 +304,12 @@ export class NotificationsService {
   }
 
   async markAsRead(id: string) {
-    const notif = await this.notificationModel.findByIdAndUpdate(
-      id,
-      { read: true },
-      { new: true },
-    );
+    // findFirst before update so a missing row is a 404, matching the old
+    // findByIdAndUpdate-returned-null behaviour rather than Prisma's P2025.
+    const existing = await this.prisma.notification.findUnique({ where: { id } });
+    const notif = existing
+      ? await this.prisma.notification.update({ where: { id }, data: { read: true } })
+      : null;
 
     if (!notif) {
       throw new NotFoundException(
@@ -319,9 +323,9 @@ export class NotificationsService {
   }
 
   async delete(id: string) {
-    const result = await this.notificationModel.findByIdAndDelete(id).exec();
+    const result = await this.prisma.notification.deleteMany({ where: { id } });
 
-    if (!result) {
+    if (result.count === 0) {
       throw new NotFoundException(
         this.i18n.translate("auth.notifications.notification_not_found", {
           lang: this.lang,
@@ -343,11 +347,6 @@ export class NotificationsService {
       );
     }
 
-    return this.notificationModel
-      .countDocuments({
-        userId: new Types.ObjectId(userId),
-        read: false,
-      })
-      .exec();
+    return this.prisma.notification.count({ where: { userId, read: false } });
   }
 }

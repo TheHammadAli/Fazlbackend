@@ -1,15 +1,11 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
-import { ShareController } from "./share.controller";
 import { ShareService } from "./share.service";
-import { Share, ShareSchema } from "./schema/share.schema";
+import { ShareController } from "./share.controller";
 
+// PrismaModule is @Global, so PrismaService needs no import here.
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: Share.name, schema: ShareSchema }]),
-  ],
   controllers: [ShareController],
   providers: [ShareService],
   exports: [ShareService],
 })
-export class ShareModule { }
+export class ShareModule {}

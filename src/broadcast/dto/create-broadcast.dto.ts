@@ -11,9 +11,9 @@ import {
   ArrayMaxSize,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { Location } from "src/users/schema/users.interfaces";
+import { GeoJsonPoint } from "src/common/utils/geo.util";
 
-class LocationDto implements Location {
+class LocationDto implements GeoJsonPoint {
   @ApiProperty({ enum: ["Point"], example: "Point" })
   @IsEnum(["Point"], { message: 'Location type must be "Point"' })
   type!: "Point";

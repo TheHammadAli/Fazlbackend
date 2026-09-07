@@ -1,29 +1,26 @@
-import { Injectable } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { Injectable, Logger } from "@nestjs/common";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
-import {
-  ActivityLog,
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import type {
   ActivityLogAction,
-  ActivityLogDocument,
-} from "./schema/activity-log.schema";
+  ActivityLogTargetType,
+  Prisma,
+  UserRole,
+} from "../../generated/prisma/client";
 
 @Injectable()
 export class ActivityLogService {
-  constructor(
-    @InjectModel(ActivityLog.name)
-    private readonly activityLogModel: Model<ActivityLogDocument>,
-    @InjectModel(Counter.name)
-    private readonly counterModel: Model<CounterDocument>,
-  ) {}
+  private readonly logger = new Logger(ActivityLogService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   private async generateNextLogCode(): Promise<number> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "activityLogCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "activityLogCode" },
+      create: { id: "activityLogCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return counter.seq;
   }
 
@@ -38,17 +35,20 @@ export class ActivityLogService {
   ): Promise<void> {
     try {
       const logCode = await this.generateNextLogCode();
-      await this.activityLogModel.create({
-        logCode,
-        actor: new Types.ObjectId(actorId),
-        action,
-        targetType,
-        targetId: targetId ? new Types.ObjectId(targetId) : undefined,
-        details,
-        ipAddress,
+      await this.prisma.activityLog.create({
+        data: {
+          id: generateObjectId(),
+          logCode,
+          actorId,
+          action,
+          targetType: (targetType as ActivityLogTargetType) ?? null,
+          targetId: targetId ?? null,
+          details: details ?? null,
+          ipAddress: ipAddress ?? null,
+        },
       });
     } catch (err) {
-      console.error("Failed to record activity log:", err);
+      this.logger.error("Failed to record activity log", err);
     }
   }
 
@@ -64,67 +64,54 @@ export class ActivityLogService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const pipeline: any[] = [
-      {
-        $lookup: {
-          from: "users",
-          localField: "actor",
-          foreignField: "_id",
-          as: "actorInfo",
-        },
-      },
-      { $unwind: { path: "$actorInfo", preserveNullAndEmptyArrays: true } },
-    ];
+    // Was a $lookup into users, then $match, $sort, $project and a $facet for
+    // the count. A real foreign key makes that one relation filter plus a
+    // count — no pipeline, and no risk of the two halves of the $facet
+    // disagreeing.
+    const where: Prisma.ActivityLogWhereInput = {};
 
-    const matchStage: Record<string, any> = {};
     if (action?.trim()) {
-      matchStage.action = action.trim();
+      where.action = action.trim() as ActivityLogAction;
     }
     if (role?.trim()) {
-      matchStage["actorInfo.roles"] = role.trim();
+      where.actor = { roles: { has: role.trim() as UserRole } };
     }
-    if (actorId?.trim() && Types.ObjectId.isValid(actorId.trim())) {
-      matchStage.actor = new Types.ObjectId(actorId.trim());
+    if (actorId?.trim() && isObjectIdLike(actorId.trim())) {
+      where.actorId = actorId.trim();
     }
     if (search?.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      matchStage.$or = [
-        { "actorInfo.name": regex },
-        { "actorInfo.email": regex },
-        { details: regex },
+      const term = search.trim();
+      where.OR = [
+        { actor: { name: { contains: term, mode: "insensitive" } } },
+        { actor: { email: { contains: term, mode: "insensitive" } } },
+        { details: { contains: term, mode: "insensitive" } },
       ];
     }
-    if (Object.keys(matchStage).length > 0) {
-      pipeline.push({ $match: matchStage });
-    }
 
-    pipeline.push(
-      { $sort: { createdAt: -1 } },
-      {
-        $project: {
-          logCode: 1,
-          action: 1,
-          targetType: 1,
-          targetId: 1,
-          details: 1,
-          ipAddress: 1,
-          createdAt: 1,
-          "actorInfo._id": 1,
-          "actorInfo.name": 1,
-          "actorInfo.email": 1,
+    const [rows, total] = await Promise.all([
+      this.prisma.activityLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+        select: {
+          id: true,
+          logCode: true,
+          action: true,
+          targetType: true,
+          targetId: true,
+          details: true,
+          ipAddress: true,
+          createdAt: true,
+          actor: { select: { id: true, name: true, email: true } },
         },
-      },
-      {
-        $facet: {
-          data: [{ $skip: skip }, { $limit: limitNum }],
-          totalCount: [{ $count: "count" }],
-        },
-      },
-    );
+      }),
+      this.prisma.activityLog.count({ where }),
+    ]);
 
-    const result = await this.activityLogModel.aggregate(pipeline).exec();
-    const data = result[0]?.data ?? [];
-    const total = result[0]?.totalCount?.[0]?.count ?? 0;
+    // The old $project emitted the joined user as `actorInfo`; the admin panel
+    // reads that key, so the response shape is preserved exactly.
+    const data = rows.map(({ actor, ...rest }) => ({ ...rest, actorInfo: actor }));
 
     return {
       data,

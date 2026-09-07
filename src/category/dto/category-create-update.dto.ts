@@ -15,7 +15,7 @@ import {
   ApiPropertyOptional,
 } from "@nestjs/swagger";
 
-import { CategoryType } from "../schema/category.schema";
+import { CategoryType } from "../model/category.model";
 
 class CategoryParameterEntryDto {
   @ApiProperty({ example: "Size" })

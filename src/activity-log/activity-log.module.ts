@@ -1,17 +1,10 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
-import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { ActivityLogController } from "./activity-log.controller";
 import { ActivityLogService } from "./activity-log.service";
-import { ActivityLog, ActivityLogSchema } from "./schema/activity-log.schema";
 
+// PrismaModule is @Global, so PrismaService needs no import here — this
+// replaces the ActivityLog + Counter model registrations.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: ActivityLog.name, schema: ActivityLogSchema },
-      { name: Counter.name, schema: CounterSchema },
-    ]),
-  ],
   controllers: [ActivityLogController],
   providers: [ActivityLogService],
   exports: [ActivityLogService],

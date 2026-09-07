@@ -14,7 +14,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Location } from "src/users/schema/users.interfaces";
+import { GeoJsonPoint } from "src/common/utils/geo.util";
 
 class ProductParameterDto {
   @ApiProperty({ example: "Color" })
@@ -27,7 +27,7 @@ class ProductParameterDto {
   variants: string[];
 }
 
-class LocationDto implements Location {
+class LocationDto implements GeoJsonPoint {
   @ApiProperty({ enum: ["Point"], example: "Point" })
   @IsEnum(["Point"], { message: 'Location type must be "Point"' })
   type!: "Point";

@@ -38,6 +38,12 @@ jobs:
             echo "Installing dependencies..."
             npm ci
 
+            # Applies any pending Prisma migrations BEFORE the new code starts,
+            # so the app never boots against an un-migrated database. Safe to
+            # run on every deploy: already-applied migrations are a no-op.
+            echo "Applying database migrations..."
+            npx prisma migrate deploy
+
             echo "Creating staging build..."
             npm run build
 

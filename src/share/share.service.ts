@@ -1,22 +1,20 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
-import { Share, ShareDocument } from "./schema/share.schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
 import { CreateShareDto } from "./dto/share.dto";
+import { ITEM_TYPES, type ItemType } from "./model/share.model";
 
 @Injectable()
 export class ShareService {
-  constructor(
-    @InjectModel(Share.name) private readonly shareModel: Model<ShareDocument>,
-  ) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   // No global ValidationPipe is registered in this app, so class-validator decorators on the
   // DTO are documentation only, not enforcement — this must be checked explicitly at runtime.
   private validateDto(dto: CreateShareDto) {
-    if (!dto.itemId || !Types.ObjectId.isValid(dto.itemId)) {
+    if (!dto.itemId || !isObjectIdLike(dto.itemId)) {
       throw new BadRequestException("A valid itemId is required");
     }
-    if (dto.itemType !== "product" && dto.itemType !== "service") {
+    if (!(ITEM_TYPES as readonly string[]).includes(dto.itemType)) {
       throw new BadRequestException("itemType must be 'product' or 'service'");
     }
   }
@@ -25,29 +23,30 @@ export class ShareService {
   async trackShare(userId: string, dto: CreateShareDto): Promise<void> {
     this.validateDto(dto);
 
-    await this.shareModel.updateOne(
-      {
-        userId: new Types.ObjectId(userId),
-        itemId: new Types.ObjectId(dto.itemId),
-        itemType: dto.itemType,
-      },
-      {
-        $setOnInsert: {
-          userId: new Types.ObjectId(userId),
-          itemId: new Types.ObjectId(dto.itemId),
-          itemType: dto.itemType,
+    // Was updateOne(..., { $setOnInsert }, { upsert: true }). The @@unique index
+    // on (userId, itemId, itemType) makes this the same single atomic statement,
+    // and `update: {}` keeps an existing row untouched exactly like $setOnInsert.
+    await this.prisma.share.upsert({
+      where: {
+        userId_itemId_itemType: {
+          userId,
+          itemId: dto.itemId,
+          itemType: dto.itemType as ItemType,
         },
       },
-      { upsert: true },
-    );
+      create: {
+        id: generateObjectId(),
+        userId,
+        itemId: dto.itemId,
+        itemType: dto.itemType as ItemType,
+      },
+      update: {},
+    });
   }
 
   /** Count shares for a single item. */
-  async getShareCount(itemId: string, itemType: "product" | "service"): Promise<number> {
-    return this.shareModel.countDocuments({
-      itemId: new Types.ObjectId(itemId),
-      itemType,
-    });
+  async getShareCount(itemId: string, itemType: ItemType): Promise<number> {
+    return this.prisma.share.count({ where: { itemId, itemType } });
   }
 
   /**
@@ -56,42 +55,33 @@ export class ShareService {
    */
   async getSharersForItem(
     itemId: string,
-    itemType: "product" | "service",
+    itemType: ItemType,
     page = 1,
     limit = 20,
-  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  ): Promise<{
+    data: unknown[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
-    const match = { itemId: new Types.ObjectId(itemId), itemType };
+    const where = { itemId, itemType };
 
+    // Was a $lookup into users plus a separate countDocuments; the relation
+    // makes it a single include.
     const [rows, total] = await Promise.all([
-      this.shareModel.aggregate([
-        { $match: match },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limitNum },
-        {
-          $lookup: {
-            from: "users",
-            localField: "userId",
-            foreignField: "_id",
-            as: "user",
-          },
+      this.prisma.share.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+        select: {
+          id: true,
+          createdAt: true,
+          user: { select: { id: true, name: true, email: true, image: true } },
         },
-        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            _id: 1,
-            createdAt: 1,
-            "user._id": 1,
-            "user.name": 1,
-            "user.email": 1,
-            "user.image": 1,
-          },
-        },
-      ]),
-      this.shareModel.countDocuments(match),
+      }),
+      this.prisma.share.count({ where }),
     ]);
 
     return {
@@ -100,23 +90,20 @@ export class ShareService {
     };
   }
 
-  /** Bulk share counts for a page of items, in one aggregation query. */
+  /** Bulk share counts for a page of items, in one query. */
   async getShareCountsForItems(
     itemIds: string[],
-    itemType: "product" | "service",
+    itemType: ItemType,
   ): Promise<Map<string, number>> {
     if (itemIds.length === 0) return new Map();
 
-    const results = await this.shareModel.aggregate([
-      {
-        $match: {
-          itemId: { $in: itemIds.map((id) => new Types.ObjectId(id)) },
-          itemType,
-        },
-      },
-      { $group: { _id: "$itemId", count: { $sum: 1 } } },
-    ]);
+    // Was aggregate([{ $match }, { $group: { _id: "$itemId", count: { $sum: 1 } } }]).
+    const results = await this.prisma.share.groupBy({
+      by: ["itemId"],
+      where: { itemId: { in: itemIds }, itemType },
+      _count: { _all: true },
+    });
 
-    return new Map(results.map((r) => [r._id.toString(), r.count as number]));
+    return new Map(results.map((r) => [r.itemId, r._count._all]));
   }
 }

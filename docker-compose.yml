@@ -1,0 +1,42 @@
+# Local development database.
+#
+# postgis/postgis, NOT plain postgres: the five geo-indexed models (User, Shop,
+# Product, Service, Broadcast) need PostGIS to replace MongoDB's $geoNear and
+# $near, and a plain postgres image cannot create the extension.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgresql://fazl:fazl@localhost:5432/fazl?schema=public
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: fazl-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fazl
+      POSTGRES_PASSWORD: fazl
+      POSTGRES_DB: fazl
+    ports:
+      - "5432:5432"
+    volumes:
+      - fazl-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fazl -d fazl"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Only needed while the migration is running, for a local copy of the source
+  # data. Production MongoDB is untouched.
+  mongo:
+    image: mongo:7
+    container_name: fazl-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - fazl-mongodata:/data/db
+    profiles: ["migration"]
+
+volumes:
+  fazl-pgdata:
+  fazl-mongodata:

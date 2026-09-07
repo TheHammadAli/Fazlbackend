@@ -7,7 +7,6 @@ import { ProductsModule } from "./products/products.module";
 import { ProductOfferModule } from "./products/product-offer.module";
 import { SearchModule } from "./search/search.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { MongooseModule } from "@nestjs/mongoose";
 import { ShopModule } from "./shop/shop.module";
 import { CategoryModule } from "./category/category.module";
 import { ServicesModule } from "./services/services.module";
@@ -37,6 +36,7 @@ import { ShareModule } from "./share/share.module";
 import { SettingsModule } from "./settings/settings.module";
 import { PresenceModule } from "./presence/presence.module";
 import { WalletModule } from "./wallet/wallet.module";
+import { PrismaModule } from "./prisma/prisma.module";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -63,13 +63,7 @@ const isProduction = process.env.NODE_ENV === "production";
         AcceptLanguageResolver, // supports Accept-Language header
       ],
     }),
-    MongooseModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>("MONGODB_URI"),
-      }),
-      inject: [ConfigService],
-    }),
+    PrismaModule,
     AuthModule,
     UsersModule,
     ClsConfigModule,

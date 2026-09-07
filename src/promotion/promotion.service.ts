@@ -3,50 +3,92 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { FilterQuery, Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
-import { Promotion, PromotionDocument } from "./schema/promotion-schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import type { Promotion as PromotionRow, Prisma } from "../../generated/prisma/client";
 import { CreatePromotionDto } from "./dto/create-promotion.dto";
 import { UpdatePromotionDto } from "./dto/update-promotion.dto";
-import { ProductDocument } from "src/products/schema/product.schema";
+import {
+  PROMOTION_CREATABLE_TARGET_TYPES,
+  type Promotion,
+} from "./model/promotion.model";
+
+export type { Promotion } from "./model/promotion.model";
 
 @Injectable()
 export class PromotionService {
   constructor(
-    @InjectModel(Promotion.name)
-    private readonly promotionModel: Model<PromotionDocument>,
+    private readonly prisma: PrismaService,
     private readonly i18n: I18nService,
   ) {}
 
-  async create(
-    dto: CreatePromotionDto,
-    lang: string = "en",
-  ): Promise<Promotion> {
-    // Validate targetType
-    if (!["Product", "Shop"].includes(dto.targetType)) {
+  /** Collapses the three typed columns back into the `targetId` the clients expect. */
+  private toApiShape<T extends PromotionRow>(row: T): T & { targetId: string | null } {
+    return {
+      ...row,
+      targetId: row.productId ?? row.shopId ?? row.serviceId ?? null,
+    };
+  }
+
+  /** Maps the incoming (targetType, targetId) pair onto the correct column. */
+  private targetColumns(
+    targetType: string,
+    targetId: string,
+  ): Pick<Prisma.PromotionUncheckedCreateInput, "productId" | "shopId" | "serviceId"> {
+    switch (targetType) {
+      case "Product":
+        return { productId: targetId, shopId: null, serviceId: null };
+      case "Shop":
+        return { productId: null, shopId: targetId, serviceId: null };
+      case "Service":
+        return { productId: null, shopId: null, serviceId: targetId };
+      default:
+        throw new BadRequestException(`Unsupported targetType "${targetType}"`);
+    }
+  }
+
+  async create(dto: CreatePromotionDto, lang: string = "en"): Promise<Promotion> {
+    // Validate targetType — unchanged: the DTO only ever admitted Product|Shop.
+    if (!(PROMOTION_CREATABLE_TARGET_TYPES as readonly string[]).includes(dto.targetType)) {
       throw new BadRequestException(
         this.i18n.translate("promotion.invalid_target_type", { lang }),
       );
     }
-    return this.promotionModel.create(dto);
+
+    const row = await this.prisma.promotion.create({
+      data: {
+        id: generateObjectId(),
+        subscriptionId: dto.subscriptionId,
+        targetType: dto.targetType,
+        ...this.targetColumns(dto.targetType, dto.targetId),
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        status: dto.status ?? "active",
+        isAutoRenew: dto.isAutoRenew ?? false,
+      },
+    });
+    return this.toApiShape(row);
   }
 
   async findAll(): Promise<Promotion[]> {
-    return this.promotionModel.find().sort({ createdAt: -1 }).exec();
+    const rows = await this.prisma.promotion.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => this.toApiShape(r));
   }
 
   async findById(id: string, lang: string = "en"): Promise<Promotion> {
-    if (!Types.ObjectId.isValid(id))
+    if (!isObjectIdLike(id))
       throw new BadRequestException(
         this.i18n.translate("promotion.invalid_promotion_id", { lang }),
       );
-    const promo = await this.promotionModel.findById(id);
+    const promo = await this.prisma.promotion.findUnique({ where: { id } });
     if (!promo)
       throw new NotFoundException(
         this.i18n.translate("promotion.promotion_not_found", { lang }),
       );
-    return promo;
+    return this.toApiShape(promo);
   }
 
   async update(
@@ -54,39 +96,65 @@ export class PromotionService {
     dto: UpdatePromotionDto,
     lang: string = "en",
   ): Promise<Promotion> {
-    if (!Types.ObjectId.isValid(id))
+    if (!isObjectIdLike(id))
       throw new BadRequestException(
         this.i18n.translate("promotion.invalid_promotion_id", { lang }),
       );
-    const updated = await this.promotionModel.findByIdAndUpdate(id, dto, {
-      new: true,
-    });
-    if (!updated)
+    const existing = await this.prisma.promotion.findUnique({ where: { id } });
+    if (!existing)
       throw new NotFoundException(
         this.i18n.translate("promotion.promotion_not_found", { lang }),
       );
-    return updated;
+
+    const { targetType, targetId, startDate, endDate, ...rest } = dto as any;
+
+    // A target change must move both the discriminator and the column together,
+    // or the CHECK constraint rejects the write.
+    const targetPatch =
+      targetType && targetId
+        ? { targetType, ...this.targetColumns(targetType, targetId) }
+        : {};
+
+    const row = await this.prisma.promotion.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...targetPatch,
+        ...(startDate ? { startDate: new Date(startDate) } : {}),
+        ...(endDate ? { endDate: new Date(endDate) } : {}),
+      },
+    });
+    return this.toApiShape(row);
   }
 
   async delete(id: string, lang: string = "en"): Promise<void> {
-    if (!Types.ObjectId.isValid(id))
+    if (!isObjectIdLike(id))
       throw new BadRequestException(
         this.i18n.translate("promotion.invalid_promotion_id", { lang }),
       );
-    const result = await this.promotionModel.findByIdAndDelete(id);
-    if (!result)
+    const existing = await this.prisma.promotion.findUnique({ where: { id } });
+    if (!existing)
       throw new NotFoundException(
         this.i18n.translate("promotion.promotion_not_found", { lang }),
       );
+    await this.prisma.promotion.delete({ where: { id } });
   }
 
   async getFeedPromotions(): Promise<Promotion[]> {
-    return this.promotionModel
-      .find({ isInFeed: true })
-      .sort({ createdAt: -1 })
-      .exec();
+    const rows = await this.prisma.promotion.findMany({
+      where: { isInFeed: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => this.toApiShape(r));
   }
 
+  /**
+   * Ids of products currently being promoted, used to pin them into listings.
+   *
+   * The old version returned every promotion's targetId regardless of type and
+   * matched them against products — shop and service ids simply never matched.
+   * Filtering on productId here is equivalent and says what it means.
+   */
   async getActivePromotionProductIds(): Promise<string[]> {
     const now = new Date();
 
@@ -96,13 +164,15 @@ export class PromotionService {
     const endOfDay = new Date(now);
     endOfDay.setUTCHours(23, 59, 59, 999);
 
-    const promotions = await this.promotionModel
-      .find({
-        startDate: { $lte: endOfDay },
-        endDate: { $gte: startOfDay },
-      })
-      .lean();
+    const promotions = await this.prisma.promotion.findMany({
+      where: {
+        startDate: { lte: endOfDay },
+        endDate: { gte: startOfDay },
+        productId: { not: null },
+      },
+      select: { productId: true },
+    });
 
-    return promotions.map((p) => p.targetId.toString());
+    return promotions.map((p) => p.productId as string);
   }
 }

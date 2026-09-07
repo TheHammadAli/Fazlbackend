@@ -2,12 +2,6 @@ import { forwardRef, Module } from "@nestjs/common";
 import { ProductsController } from "./products.controller";
 import { VideoPostController } from "./video-post.controller";
 import { ProductsService } from "./products.service";
-import { MongooseModule } from "@nestjs/mongoose";
-import { Product, ProductSchema } from "./schema/product.schema";
-import { ProductView, ProductViewSchema } from "./schema/product-view.schema";
-import { ProductContactClick, ProductContactClickSchema } from "./schema/product-contact-click.schema";
-import { ProductWhatsappClick, ProductWhatsappClickSchema } from "./schema/product-whatsapp-click.schema";
-import { Counter, CounterSchema } from "src/common/schema/counter.schema";
 import { ShopModule } from "src/shop/shop.module";
 import { SharedModule } from "src/shared/shared.module";
 import { UsersModule } from "src/users/users.module";
@@ -21,21 +15,16 @@ import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogModule } from "src/email-log/email-log.module";
 import { CategoryModule } from "src/category/category.module";
 
+// PrismaModule is @Global and exports PrismaService plus the repositories, so
+// neither needs importing here — this replaces the Product, ProductView,
+// ProductContactClick, ProductWhatsappClick and Counter model registrations.
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Product.name, schema: ProductSchema },
-      { name: ProductView.name, schema: ProductViewSchema },
-      { name: ProductContactClick.name, schema: ProductContactClickSchema },
-      { name: ProductWhatsappClick.name, schema: ProductWhatsappClickSchema },
-      { name: Counter.name, schema: CounterSchema },
-    ]),
     forwardRef(() => LikeModule),
     ShareModule,
     forwardRef(() => ShopModule), // If circular dependency
     forwardRef(() => SharedModule),
     forwardRef(() => UsersModule),
-    // If LikeService is used in ProductsService
     forwardRef(() => PromotionModule), // If PromotionService is used in ProductsService
     forwardRef(() => ReviewsModule),
     ActivityLogModule,
@@ -49,4 +38,4 @@ import { CategoryModule } from "src/category/category.module";
   providers: [ProductsService, EmailService],
   exports: [ProductsService],
 })
-export class ProductsModule { }
+export class ProductsModule {}

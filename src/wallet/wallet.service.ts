@@ -1,18 +1,29 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
-import { User, UserDocument } from "src/users/schema/users.schema";
-import { Wallet, WalletDocument, WalletType } from "./schema/wallet.schema";
-import { WalletTransaction, WalletTransactionDocument } from "./schema/wallet-transaction.schema";
-import { Withdrawal, WithdrawalDocument } from "./schema/withdrawal.schema";
-import { Refund, RefundDocument } from "./schema/refund.schema";
-import { WalletLedgerService } from "./wallet-ledger.service";
-import { WalletTransactionService } from "./wallet-transaction.service";
-import { WalletAuditLogService } from "./wallet-audit-log.service";
-import { WalletSettingsService } from "./wallet-settings.service";
+import { isObjectIdLike } from "src/common/utils/object-id.util";
+import { PrismaService } from "src/prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 import { AdjustBalanceDto } from "./dto/adjust-balance.dto";
 import { FreezeWalletDto } from "./dto/freeze-wallet.dto";
+import { WalletType } from "./model/wallet.model";
+import { WalletAuditLogService } from "./wallet-audit-log.service";
+import { WalletLedgerService } from "./wallet-ledger.service";
+import { WalletSettingsService } from "./wallet-settings.service";
+import { WalletTransactionService } from "./wallet-transaction.service";
+
+/** The wallet-holder columns safe to return in search and detail. Narrower than
+ *  `userSummarySelect`, and deliberately explicit: none of the `select: false` columns
+ *  Mongoose used to hide can slip in here. */
+const walletOwnerSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  userCode: true,
+  image: true,
+  roles: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
 
 /** Search/detail/freeze/manual-adjust surface for both User Wallet Management (spec §2) and
  *  Merchant Wallet Management (spec §3) — literally the same code path, discriminated only by
@@ -21,12 +32,7 @@ import { FreezeWalletDto } from "./dto/freeze-wallet.dto";
 @Injectable()
 export class WalletService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Wallet.name) private readonly walletModel: Model<WalletDocument>,
-    @InjectModel(WalletTransaction.name)
-    private readonly transactionModel: Model<WalletTransactionDocument>,
-    @InjectModel(Withdrawal.name) private readonly withdrawalModel: Model<WithdrawalDocument>,
-    @InjectModel(Refund.name) private readonly refundModel: Model<RefundDocument>,
+    private readonly prisma: PrismaService,
     private readonly ledgerService: WalletLedgerService,
     private readonly transactionService: WalletTransactionService,
     private readonly auditLogService: WalletAuditLogService,
@@ -43,39 +49,40 @@ export class WalletService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const userFilter: Record<string, any> = {};
+    const where: Prisma.UserWhereInput = {};
     if (walletType === "merchant") {
-      userFilter.roles = "seller";
+      where.roles = { has: "seller" };
     }
-    if (search?.trim()) {
-      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      userFilter.$or = [
-        { name: { $regex: escaped, $options: "i" } },
-        { userCode: { $regex: escaped, $options: "i" } },
-        { email: { $regex: escaped, $options: "i" } },
-        { phone: { $regex: escaped, $options: "i" } },
+
+    const term = search?.trim();
+    if (term) {
+      // Was four `$regex` scans with the term hand-escaped; `contains` parameterises the
+      // pattern, so no escaping is needed and the pg_trgm indexes can serve it.
+      where.OR = [
+        { name: { contains: term, mode: "insensitive" } },
+        { userCode: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term, mode: "insensitive" } },
       ];
     }
 
     const [users, total] = await Promise.all([
-      this.userModel
-        .find(userFilter)
-        .select("name email phone userCode image roles createdAt")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      this.userModel.countDocuments(userFilter),
+      this.prisma.user.findMany({
+        where,
+        select: walletOwnerSelect,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.user.count({ where }),
     ]);
 
-    const userIds = users.map((u) => u._id);
-    const wallets = await this.walletModel.find({ ownerId: { $in: userIds }, walletType }).lean();
-    const walletByOwner = new Map(wallets.map((w) => [w.ownerId.toString(), w]));
+    const wallets = await this.prisma.wallet.findMany({
+      where: { ownerId: { in: users.map((u) => u.id) }, walletType },
+    });
+    const walletByOwner = new Map(wallets.map((w) => [w.ownerId, w]));
 
-    const data = users.map((u) => ({
-      ...u,
-      wallet: walletByOwner.get(u._id.toString()) ?? null,
-    }));
+    const data = users.map((u) => ({ ...u, wallet: walletByOwner.get(u.id) ?? null }));
 
     return {
       data,
@@ -84,18 +91,16 @@ export class WalletService {
   }
 
   async getWalletDetail(ownerId: string, walletType: WalletType): Promise<any> {
-    if (!Types.ObjectId.isValid(ownerId)) throw new NotFoundException("User not found");
-    const owner = await this.userModel
-      .findById(ownerId)
-      .select("name email phone userCode image roles")
-      .lean();
+    if (!isObjectIdLike(ownerId)) throw new NotFoundException("User not found");
+    const owner = await this.prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { id: true, name: true, email: true, phone: true, userCode: true, image: true, roles: true },
+    });
     if (!owner) throw new NotFoundException("User not found");
 
-    const wallet = await this.walletModel
-      .findOne({ ownerId: new Types.ObjectId(ownerId), walletType })
-      .lean();
+    const wallet = await this.ledgerService.findWalletByOwner(ownerId, walletType);
 
-    return { owner, wallet: wallet ?? null };
+    return { owner, wallet };
   }
 
   async getLedger(
@@ -106,9 +111,17 @@ export class WalletService {
   ): Promise<PaginatedResponseDto<any>> {
     const wallet = await this.ledgerService.findWalletByOwner(ownerId, walletType);
     if (!wallet) {
-      return { data: [], meta: { total: 0, page: Number(page) || 1, limit: Number(limit) || 10, totalPages: 0 } };
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page: Number(page) || 1,
+          limit: Number(limit) || 10,
+          totalPages: 0,
+        },
+      };
     }
-    return this.ledgerService.getLedgerPage(wallet._id.toString(), page, limit);
+    return this.ledgerService.getLedgerPage(wallet.id, page, limit);
   }
 
   async addBalance(
@@ -122,7 +135,7 @@ export class WalletService {
 
     const wallet = await this.ledgerService.getOrCreateWallet(ownerId, walletType);
     const entry = await this.ledgerService.postEntry({
-      walletId: wallet._id.toString(),
+      walletId: wallet.id,
       direction: "credit",
       balanceType: "available",
       amountMinor: dto.amountMinor,
@@ -131,7 +144,7 @@ export class WalletService {
       createdBy: adminId,
     });
     if (walletType === "merchant") {
-      await this.ledgerService.incrementWalletTotals(wallet._id.toString(), {
+      await this.ledgerService.incrementWalletTotals(wallet.id, {
         totalReceivedMinor: dto.amountMinor,
       });
     }
@@ -142,7 +155,7 @@ export class WalletService {
       walletType,
       amountMinor: dto.amountMinor,
       reason: dto.reason,
-      ledgerEntryId: entry._id.toString(),
+      ledgerEntryId: entry.id,
       createdBy: adminId,
     });
 
@@ -150,14 +163,14 @@ export class WalletService {
       adminId,
       action: "manual_balance_addition",
       targetType: "Wallet",
-      targetId: wallet._id.toString(),
+      targetId: wallet.id,
       subjectUserId: ownerId,
       oldValue: { availableBalanceMinor: entry.openingBalanceMinor },
       newValue: { availableBalanceMinor: entry.closingBalanceMinor },
       reason: dto.reason,
     });
 
-    return this.ledgerService.getWalletById(wallet._id.toString());
+    return this.ledgerService.getWalletById(wallet.id);
   }
 
   async deductBalance(
@@ -170,7 +183,7 @@ export class WalletService {
 
     const wallet = await this.ledgerService.getOrCreateWallet(ownerId, walletType);
     const entry = await this.ledgerService.postEntry({
-      walletId: wallet._id.toString(),
+      walletId: wallet.id,
       direction: "debit",
       balanceType: "available",
       amountMinor: dto.amountMinor,
@@ -185,7 +198,7 @@ export class WalletService {
       walletType,
       amountMinor: dto.amountMinor,
       reason: dto.reason,
-      ledgerEntryId: entry._id.toString(),
+      ledgerEntryId: entry.id,
       createdBy: adminId,
     });
 
@@ -193,27 +206,32 @@ export class WalletService {
       adminId,
       action: "manual_balance_deduction",
       targetType: "Wallet",
-      targetId: wallet._id.toString(),
+      targetId: wallet.id,
       subjectUserId: ownerId,
       oldValue: { availableBalanceMinor: entry.openingBalanceMinor },
       newValue: { availableBalanceMinor: entry.closingBalanceMinor },
       reason: dto.reason,
     });
 
-    return this.ledgerService.getWalletById(wallet._id.toString());
+    return this.ledgerService.getWalletById(wallet.id);
   }
 
-  async freeze(ownerId: string, walletType: WalletType, dto: FreezeWalletDto, adminId: string): Promise<any> {
+  async freeze(
+    ownerId: string,
+    walletType: WalletType,
+    dto: FreezeWalletDto,
+    adminId: string,
+  ): Promise<any> {
     const wallet = await this.ledgerService.getOrCreateWallet(ownerId, walletType);
     if (wallet.isFrozen) throw new BadRequestException("Wallet is already frozen");
 
-    const updated = await this.ledgerService.freezeWallet(wallet._id.toString(), dto.reason, adminId);
+    const updated = await this.ledgerService.freezeWallet(wallet.id, dto.reason, adminId);
 
     await this.auditLogService.record({
       adminId,
       action: "wallet_freeze",
       targetType: "Wallet",
-      targetId: wallet._id.toString(),
+      targetId: wallet.id,
       subjectUserId: ownerId,
       oldValue: { isFrozen: false },
       newValue: { isFrozen: true },
@@ -228,13 +246,13 @@ export class WalletService {
     if (!wallet) throw new NotFoundException("Wallet not found");
     if (!wallet.isFrozen) throw new BadRequestException("Wallet is not frozen");
 
-    const updated = await this.ledgerService.unfreezeWallet(wallet._id.toString());
+    const updated = await this.ledgerService.unfreezeWallet(wallet.id);
 
     await this.auditLogService.record({
       adminId,
       action: "wallet_unfreeze",
       targetType: "Wallet",
-      targetId: wallet._id.toString(),
+      targetId: wallet.id,
       subjectUserId: ownerId,
       oldValue: { isFrozen: true },
       newValue: { isFrozen: false },
@@ -243,7 +261,7 @@ export class WalletService {
     return updated;
   }
 
-  /** Manual reconciliation safety net (see WalletLedgerService.recalculateBalance docs). */
+  /** Manual reconciliation tool (see WalletLedgerService.recalculateBalance docs). */
   async recalculate(ownerId: string, walletType: WalletType, adminId: string): Promise<any> {
     const wallet = await this.ledgerService.findWalletByOwner(ownerId, walletType);
     if (!wallet) throw new NotFoundException("Wallet not found");
@@ -252,13 +270,13 @@ export class WalletService {
       availableBalanceMinor: wallet.availableBalanceMinor,
       pendingBalanceMinor: wallet.pendingBalanceMinor,
     };
-    const updated = await this.ledgerService.recalculateBalance(wallet._id.toString());
+    const updated = await this.ledgerService.recalculateBalance(wallet.id);
 
     await this.auditLogService.record({
       adminId,
       action: "wallet_recalculated",
       targetType: "Wallet",
-      targetId: wallet._id.toString(),
+      targetId: wallet.id,
       subjectUserId: ownerId,
       oldValue: before,
       newValue: {
@@ -271,67 +289,71 @@ export class WalletService {
   }
 
   async getDashboardStats(startDate?: string, endDate?: string) {
-    const dateMatch: Record<string, any> = {};
+    // One shared `createdAt` window, spread into each metric — the pipelines all took the
+    // same `dateMatch` before.
+    let createdAt: Prisma.DateTimeFilter | undefined;
     if (startDate || endDate) {
-      dateMatch.createdAt = {};
-      if (startDate) dateMatch.createdAt.$gte = new Date(startDate);
+      createdAt = {};
+      if (startDate) createdAt.gte = new Date(startDate);
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        dateMatch.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
     }
+    const inWindow = createdAt ? { createdAt } : {};
 
     const [
       balanceByType,
-      moneyAddedAgg,
-      paymentsAgg,
+      moneyAdded,
+      payments,
       totalTransactions,
-      discountsAgg,
-      earningsAgg,
-      withdrawalsAgg,
+      discounts,
+      earnings,
+      withdrawals,
       pendingWithdrawals,
       pendingTransactions,
-      refundsAgg,
+      refunds,
     ] = await Promise.all([
-      this.walletModel.aggregate([
-        {
-          $group: {
-            _id: "$walletType",
-            total: { $sum: { $add: ["$availableBalanceMinor", "$pendingBalanceMinor"] } },
-          },
-        },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: { ...dateMatch, type: "manual_credit" } },
-        { $group: { _id: null, total: { $sum: "$originalAmountMinor" } } },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: { ...dateMatch, type: "order_payment", status: "completed" } },
-        { $group: { _id: null, total: { $sum: "$finalCustomerPaymentMinor" } } },
-      ]),
-      this.transactionModel.countDocuments(dateMatch),
-      this.transactionModel.aggregate([
-        { $match: dateMatch },
-        { $group: { _id: null, total: { $sum: "$customerDiscountAmountMinor" } } },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: dateMatch },
-        { $group: { _id: null, total: { $sum: "$fazlMarginAmountMinor" } } },
-      ]),
-      this.withdrawalModel.aggregate([
-        { $match: { ...dateMatch, status: "completed" } },
-        { $group: { _id: null, total: { $sum: "$requestedAmountMinor" } } },
-      ]),
-      this.withdrawalModel.countDocuments({ ...dateMatch, status: "pending" }),
-      this.transactionModel.countDocuments({ ...dateMatch, status: "pending" }),
-      this.refundModel.aggregate([
-        { $match: { ...dateMatch, refundStatus: "completed" } },
-        { $group: { _id: null, total: { $sum: "$refundAmountMinor" } } },
-      ]),
+      this.prisma.wallet.groupBy({
+        by: ["walletType"],
+        _sum: { availableBalanceMinor: true, pendingBalanceMinor: true },
+      }),
+      this.prisma.walletTransaction.aggregate({
+        where: { ...inWindow, type: "manual_credit" },
+        _sum: { originalAmountMinor: true },
+      }),
+      this.prisma.walletTransaction.aggregate({
+        where: { ...inWindow, type: "order_payment", status: "completed" },
+        _sum: { finalCustomerPaymentMinor: true },
+      }),
+      this.prisma.walletTransaction.count({ where: inWindow }),
+      this.prisma.walletTransaction.aggregate({
+        where: inWindow,
+        _sum: { customerDiscountAmountMinor: true },
+      }),
+      this.prisma.walletTransaction.aggregate({
+        where: inWindow,
+        _sum: { fazlMarginAmountMinor: true },
+      }),
+      this.prisma.withdrawal.aggregate({
+        where: { ...inWindow, status: "completed" },
+        _sum: { requestedAmountMinor: true },
+      }),
+      this.prisma.withdrawal.count({ where: { ...inWindow, status: "pending" } }),
+      this.prisma.walletTransaction.count({ where: { ...inWindow, status: "pending" } }),
+      this.prisma.refund.aggregate({
+        where: { ...inWindow, refundStatus: "completed" },
+        _sum: { refundAmountMinor: true },
+      }),
     ]);
 
-    const balanceMap = new Map(balanceByType.map((row) => [row._id, row.total as number]));
+    const balanceMap = new Map(
+      balanceByType.map((row) => [
+        row.walletType,
+        (row._sum.availableBalanceMinor ?? 0) + (row._sum.pendingBalanceMinor ?? 0),
+      ]),
+    );
     const userWalletBalanceMinor = balanceMap.get("user") ?? 0;
     const merchantWalletBalanceMinor = balanceMap.get("merchant") ?? 0;
 
@@ -339,15 +361,15 @@ export class WalletService {
       totalWalletBalanceMinor: userWalletBalanceMinor + merchantWalletBalanceMinor,
       userWalletBalanceMinor,
       merchantWalletBalanceMinor,
-      totalMoneyAddedMinor: moneyAddedAgg[0]?.total ?? 0,
-      totalPaymentsMinor: paymentsAgg[0]?.total ?? 0,
+      totalMoneyAddedMinor: moneyAdded._sum.originalAmountMinor ?? 0,
+      totalPaymentsMinor: payments._sum.finalCustomerPaymentMinor ?? 0,
       totalTransactions,
-      totalDiscountsMinor: discountsAgg[0]?.total ?? 0,
-      totalFazlEarningsMinor: earningsAgg[0]?.total ?? 0,
-      totalWithdrawalsMinor: withdrawalsAgg[0]?.total ?? 0,
+      totalDiscountsMinor: discounts._sum.customerDiscountAmountMinor ?? 0,
+      totalFazlEarningsMinor: earnings._sum.fazlMarginAmountMinor ?? 0,
+      totalWithdrawalsMinor: withdrawals._sum.requestedAmountMinor ?? 0,
       pendingWithdrawals,
       pendingTransactions,
-      refundsMinor: refundsAgg[0]?.total ?? 0,
+      refundsMinor: refunds._sum.refundAmountMinor ?? 0,
     };
   }
 }

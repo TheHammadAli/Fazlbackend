@@ -14,7 +14,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from "@ne
 import { PromotionService } from "./promotion.service";
 import { CreatePromotionDto } from "./dto/create-promotion.dto";
 import { UpdatePromotionDto } from "./dto/update-promotion.dto";
-import { Promotion } from "./schema/promotion-schema";
+import type { Promotion } from "./model/promotion.model";
+import { PromotionModel } from "./model/promotion.model";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 
 @ApiTags("Promotions")
@@ -26,14 +27,14 @@ export class PromotionController {
 
   @Post()
   @ApiOperation({ summary: "Create a promotion" })
-  @ApiResponse({ status: 201, type: Promotion })
+  @ApiResponse({ status: 201, type: PromotionModel })
   async create(@Body() dto: CreatePromotionDto): Promise<Promotion> {
     return this.promotionService.create(dto);
   }
 
   @Get()
   @ApiOperation({ summary: "Get all promotions" })
-  @ApiResponse({ status: 200, type: [Promotion] })
+  @ApiResponse({ status: 200, type: [PromotionModel] })
   async findAll(): Promise<Promotion[]> {
     return this.promotionService.findAll();
   }
@@ -41,7 +42,7 @@ export class PromotionController {
   @Get(":id")
   @ApiOperation({ summary: "Get promotion by ID" })
   @ApiParam({ name: "id", description: "Promotion ID" })
-  @ApiResponse({ status: 200, type: Promotion })
+  @ApiResponse({ status: 200, type: PromotionModel })
   async findById(@Param("id") id: string): Promise<Promotion> {
     return this.promotionService.findById(id);
   }
@@ -49,7 +50,7 @@ export class PromotionController {
   @Patch(":id")
   @ApiOperation({ summary: "Update a promotion" })
   @ApiParam({ name: "id", description: "Promotion ID" })
-  @ApiResponse({ status: 200, type: Promotion })
+  @ApiResponse({ status: 200, type: PromotionModel })
   async update(
     @Param("id") id: string,
     @Body() dto: UpdatePromotionDto,
@@ -74,7 +75,7 @@ export class PromotionController {
   @ApiResponse({
     status: 200,
     description: "Feed promotions found.",
-    type: [Promotion],
+    type: [PromotionModel],
   })
   async getFeedPromotions(): Promise<Promotion[]> {
     return this.promotionService.getFeedPromotions();

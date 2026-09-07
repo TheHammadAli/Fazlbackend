@@ -30,6 +30,7 @@ import { Request } from "express";
 import { PermissionsGuard } from "src/auth/guard/permissions-guard";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { RequirePermission } from "src/common/decorators/require-permission.decorator";
+import { resolvePagination } from "../common/utils/pagination.util";
 
 @ApiTags("Chat")
 @Controller("chat")
@@ -286,8 +287,8 @@ export class ChatController {
     const conversation = await this.chatService.findConversationBetween(customerId, providerId);
 
     if (!conversation) {
-      const { page = 1, limit = 10 } = paginationDto;
-      return {
+      const { page: rawPage, limit: rawLimit } = paginationDto;
+      const { page, limit, skip } = resolvePagination(rawPage, rawLimit);return {
         conversation: null,
         messages: [],
         meta: { total: 0, page, limit, totalPages: 0 },

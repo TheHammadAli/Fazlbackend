@@ -13,7 +13,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { SubscriptionService } from "./subscription.service";
 import { CreateSubscriptionDto } from "./dto/create-subscription.dto";
 import { UpdateSubscriptionDto } from "./dto/update-subscription.dto";
-import { Subscription } from "./schema/subscription-schema";
+import type { Subscription } from "./model/subscription.model";
+import { SubscriptionModel } from "./model/subscription.model";
 
 @ApiTags("Subscriptions")
 @Controller("subscriptions")
@@ -22,14 +23,14 @@ export class SubscriptionController {
 
   @Post()
   @ApiOperation({ summary: "Create a subscription" })
-  @ApiResponse({ status: 201, type: Subscription })
+  @ApiResponse({ status: 201, type: SubscriptionModel })
   async create(@Body() dto: CreateSubscriptionDto): Promise<Subscription> {
     return this.subscriptionService.create(dto);
   }
 
   @Get()
   @ApiOperation({ summary: "Get all subscriptions" })
-  @ApiResponse({ status: 200, type: [Subscription] })
+  @ApiResponse({ status: 200, type: [SubscriptionModel] })
   async findAll(): Promise<Subscription[]> {
     return this.subscriptionService.findAll();
   }
@@ -37,7 +38,7 @@ export class SubscriptionController {
   @Get(":id")
   @ApiOperation({ summary: "Get subscription by ID" })
   @ApiParam({ name: "id", description: "Subscription ID" })
-  @ApiResponse({ status: 200, type: Subscription })
+  @ApiResponse({ status: 200, type: SubscriptionModel })
   async findById(@Param("id") id: string): Promise<Subscription> {
     return this.subscriptionService.findById(id);
   }
@@ -45,7 +46,7 @@ export class SubscriptionController {
   @Patch(":id")
   @ApiOperation({ summary: "Update a subscription" })
   @ApiParam({ name: "id", description: "Subscription ID" })
-  @ApiResponse({ status: 200, type: Subscription })
+  @ApiResponse({ status: 200, type: SubscriptionModel })
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateSubscriptionDto,

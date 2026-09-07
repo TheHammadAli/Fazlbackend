@@ -1,19 +1,41 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
-import { Withdrawal, WithdrawalDocument } from "./schema/withdrawal.schema";
+import { COUNTER_KEYS } from "src/common/model/counter.model";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { PrismaService } from "src/prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 import { CreateWithdrawalDto } from "./dto/create-withdrawal.dto";
 import {
   CancelWithdrawalDto,
   CompleteWithdrawalDto,
   RejectWithdrawalDto,
 } from "./dto/withdrawal-actions.dto";
-import { WalletLedgerService } from "./wallet-ledger.service";
-import { WalletTransactionService } from "./wallet-transaction.service";
+import {
+  WITHDRAWAL_PLATFORM_FEE_PERCENT,
+  WITHDRAWAL_STATUSES,
+  Withdrawal,
+  WithdrawalStatus,
+} from "./model/wallet.model";
 import { WalletAuditLogService } from "./wallet-audit-log.service";
+import { WalletLedgerService } from "./wallet-ledger.service";
 import { WalletSettingsService } from "./wallet-settings.service";
+import { WalletTransactionService } from "./wallet-transaction.service";
+
+const merchantSelect = {
+  id: true,
+  name: true,
+  email: true,
+  userCode: true,
+} satisfies Prisma.UserSelect;
+
+/** The four account columns are flat in Postgres but nested in the API, which is the
+ *  shape every existing client already reads. */
+function withAccountDetails<T extends Pick<Withdrawal, "accountTitle" | "accountNumber" | "bankName" | "iban">>(
+  row: T,
+) {
+  const { accountTitle, accountNumber, bankName, iban, ...rest } = row;
+  return { ...rest, accountDetails: { accountTitle, accountNumber, bankName, iban } };
+}
 
 /** Full withdrawal state machine (spec §7): pending -> approved -> processing -> completed,
  *  with reject/cancel available at earlier stages. Only `complete` ever touches the ledger —
@@ -23,31 +45,30 @@ import { WalletSettingsService } from "./wallet-settings.service";
 @Injectable()
 export class WithdrawalService {
   constructor(
-    @InjectModel(Withdrawal.name) private readonly withdrawalModel: Model<WithdrawalDocument>,
-    @InjectModel(Counter.name) private readonly counterModel: Model<CounterDocument>,
+    private readonly prisma: PrismaService,
     private readonly ledgerService: WalletLedgerService,
     private readonly transactionService: WalletTransactionService,
     private readonly auditLogService: WalletAuditLogService,
     private readonly walletSettingsService: WalletSettingsService,
   ) {}
 
-  private async generateNextCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "withdrawalCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+  private async generateNextCode(client: Prisma.TransactionClient): Promise<string> {
+    const counter = await client.counter.upsert({
+      where: { id: COUNTER_KEYS.withdrawal },
+      create: { id: COUNTER_KEYS.withdrawal, seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `WDR-${String(counter.seq).padStart(6, "0")}`;
   }
 
-  private async requireWithdrawal(id: string): Promise<WithdrawalDocument> {
-    if (!Types.ObjectId.isValid(id)) throw new NotFoundException("Withdrawal not found");
-    const withdrawal = await this.withdrawalModel.findById(id);
+  private async requireWithdrawal(id: string): Promise<Withdrawal> {
+    if (!isObjectIdLike(id)) throw new NotFoundException("Withdrawal not found");
+    const withdrawal = await this.prisma.withdrawal.findUnique({ where: { id } });
     if (!withdrawal) throw new NotFoundException("Withdrawal not found");
     return withdrawal;
   }
 
-  async create(dto: CreateWithdrawalDto, adminId: string): Promise<WithdrawalDocument> {
+  async create(dto: CreateWithdrawalDto, adminId: string) {
     if (!dto.accountDetails?.accountTitle?.trim() || !dto.accountDetails?.accountNumber?.trim()) {
       throw new BadRequestException("Account title and account number are required");
     }
@@ -63,226 +84,285 @@ export class WithdrawalService {
       throw new BadRequestException("Requested amount exceeds available balance");
     }
 
-    const withdrawalCode = await this.generateNextCode();
-    const withdrawal = await this.withdrawalModel.create({
-      withdrawalCode,
-      merchantId: new Types.ObjectId(dto.merchantId),
-      walletId: wallet._id,
-      requestedAmountMinor: dto.requestedAmountMinor,
-      availableBalanceSnapshotMinor: wallet.availableBalanceMinor,
-      withdrawalMethod: dto.withdrawalMethod,
-      accountDetails: dto.accountDetails,
-      status: "pending",
-      platformFeePercent: 0,
-      createdBy: new Types.ObjectId(adminId),
+    const withdrawal = await this.prisma.$transaction(async (tx) => {
+      const withdrawalCode = await this.generateNextCode(tx);
+      return tx.withdrawal.create({
+        data: {
+          id: generateObjectId(),
+          withdrawalCode,
+          merchantId: dto.merchantId,
+          walletId: wallet.id,
+          requestedAmountMinor: dto.requestedAmountMinor,
+          availableBalanceSnapshotMinor: wallet.availableBalanceMinor,
+          withdrawalMethod: dto.withdrawalMethod,
+          accountTitle: dto.accountDetails.accountTitle,
+          accountNumber: dto.accountDetails.accountNumber,
+          bankName: dto.accountDetails.bankName ?? null,
+          iban: dto.accountDetails.iban ?? null,
+          status: "pending",
+          platformFeePercent: WITHDRAWAL_PLATFORM_FEE_PERCENT,
+          createdById: adminId,
+        },
+      });
     });
 
     await this.auditLogService.record({
       adminId,
       action: "withdrawal_created",
       targetType: "Withdrawal",
-      targetId: withdrawal._id.toString(),
+      targetId: withdrawal.id,
       subjectUserId: dto.merchantId,
       newValue: { requestedAmountMinor: dto.requestedAmountMinor, status: "pending" },
     });
 
-    return withdrawal;
+    return withAccountDetails(withdrawal);
   }
 
   async getList(
-    filters: { status?: string; merchantId?: string; startDate?: string; endDate?: string; search?: string },
+    filters: {
+      status?: string;
+      merchantId?: string;
+      startDate?: string;
+      endDate?: string;
+      search?: string;
+    },
     page = 1,
     limit = 10,
   ): Promise<PaginatedResponseDto<any>> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
+    const emptyPage = {
+      data: [],
+      meta: { total: 0, page: pageNum, limit: limitNum, totalPages: 0 },
+    };
 
-    const match: Record<string, any> = {};
-    if (filters.status?.trim()) match.status = filters.status.trim();
-    if (filters.merchantId?.trim() && Types.ObjectId.isValid(filters.merchantId.trim())) {
-      match.merchantId = new Types.ObjectId(filters.merchantId.trim());
+    const where: Prisma.WithdrawalWhereInput = {};
+
+    // An unrecognised enum value is a Prisma validation error rather than a query that
+    // matches nothing, so it short-circuits to an empty page instead.
+    const status = filters.status?.trim();
+    if (status) {
+      if (!(WITHDRAWAL_STATUSES as readonly string[]).includes(status)) return emptyPage;
+      where.status = status as WithdrawalStatus;
     }
+
+    const merchantId = filters.merchantId?.trim();
+    if (merchantId && isObjectIdLike(merchantId)) where.merchantId = merchantId;
+
     if (filters.startDate || filters.endDate) {
-      match.createdAt = {};
-      if (filters.startDate) match.createdAt.$gte = new Date(filters.startDate);
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (filters.startDate) createdAt.gte = new Date(filters.startDate);
       if (filters.endDate) {
         const endOfDay = new Date(filters.endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        match.createdAt.$lte = endOfDay;
+        createdAt.lte = endOfDay;
       }
-    }
-    if (filters.search?.trim()) {
-      const escaped = filters.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      match.withdrawalCode = { $regex: escaped, $options: "i" };
+      where.createdAt = createdAt;
     }
 
-    const [data, total] = await Promise.all([
-      this.withdrawalModel
-        .find(match)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .populate("merchantId", "name email userCode")
-        .lean(),
-      this.withdrawalModel.countDocuments(match),
+    const search = filters.search?.trim();
+    if (search) {
+      where.withdrawalCode = { contains: search, mode: "insensitive" };
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.withdrawal.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+        include: { merchant: { select: merchantSelect } },
+      }),
+      this.prisma.withdrawal.count({ where }),
     ]);
 
     return {
-      data,
+      // `.populate("merchantId")` replaced the id with the object; `include` adds a
+      // sibling and leaves the id a string, so it is renamed back onto merchantId.
+      data: rows.map(({ merchant, ...row }) => ({
+        ...withAccountDetails(row),
+        merchantId: merchant,
+      })),
       meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     };
   }
 
-  async getForMerchant(merchantId: string, page = 1, limit = 10): Promise<PaginatedResponseDto<any>> {
+  async getForMerchant(
+    merchantId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<PaginatedResponseDto<any>> {
     return this.getList({ merchantId }, page, limit);
   }
 
   async getDetail(id: string): Promise<any> {
-    if (!Types.ObjectId.isValid(id)) throw new NotFoundException("Withdrawal not found");
-    const withdrawal = await this.withdrawalModel
-      .findById(id)
-      .populate("merchantId", "name email userCode")
-      .populate("transactionId")
-      .lean();
+    if (!isObjectIdLike(id)) throw new NotFoundException("Withdrawal not found");
+    const withdrawal = await this.prisma.withdrawal.findUnique({
+      where: { id },
+      include: {
+        merchant: { select: merchantSelect },
+        transaction: true,
+      },
+    });
     if (!withdrawal) throw new NotFoundException("Withdrawal not found");
-    return withdrawal;
+
+    const { merchant, transaction, ...row } = withdrawal;
+    return {
+      ...withAccountDetails(row),
+      merchantId: merchant,
+      transactionId: transaction,
+    };
   }
 
-  async approve(id: string, adminId: string): Promise<WithdrawalDocument> {
+  async approve(id: string, adminId: string) {
     const withdrawal = await this.requireWithdrawal(id);
     if (withdrawal.status !== "pending") {
       throw new BadRequestException(`Cannot approve a withdrawal in "${withdrawal.status}" status`);
     }
-    const oldStatus = withdrawal.status;
-    withdrawal.status = "approved";
-    await withdrawal.save();
+
+    const updated = await this.prisma.withdrawal.update({
+      where: { id },
+      data: { status: "approved" },
+    });
 
     await this.auditLogService.record({
       adminId,
       action: "withdrawal_approval",
       targetType: "Withdrawal",
       targetId: id,
-      subjectUserId: withdrawal.merchantId.toString(),
-      oldValue: { status: oldStatus },
+      subjectUserId: withdrawal.merchantId,
+      oldValue: { status: withdrawal.status },
       newValue: { status: "approved" },
     });
-    return withdrawal;
+    return withAccountDetails(updated);
   }
 
-  async reject(id: string, dto: RejectWithdrawalDto, adminId: string): Promise<WithdrawalDocument> {
+  async reject(id: string, dto: RejectWithdrawalDto, adminId: string) {
     const withdrawal = await this.requireWithdrawal(id);
     if (!["pending", "approved"].includes(withdrawal.status)) {
       throw new BadRequestException(`Cannot reject a withdrawal in "${withdrawal.status}" status`);
     }
-    const oldStatus = withdrawal.status;
-    withdrawal.status = "rejected";
-    withdrawal.rejectionReason = dto.reason;
-    await withdrawal.save();
+
+    const updated = await this.prisma.withdrawal.update({
+      where: { id },
+      data: { status: "rejected", rejectionReason: dto.reason },
+    });
 
     await this.auditLogService.record({
       adminId,
       action: "withdrawal_rejection",
       targetType: "Withdrawal",
       targetId: id,
-      subjectUserId: withdrawal.merchantId.toString(),
-      oldValue: { status: oldStatus },
+      subjectUserId: withdrawal.merchantId,
+      oldValue: { status: withdrawal.status },
       newValue: { status: "rejected" },
       reason: dto.reason,
     });
-    return withdrawal;
+    return withAccountDetails(updated);
   }
 
-  async markProcessing(id: string, adminId: string): Promise<WithdrawalDocument> {
+  async markProcessing(id: string, adminId: string) {
     const withdrawal = await this.requireWithdrawal(id);
     if (withdrawal.status !== "approved") {
       throw new BadRequestException("Only an approved withdrawal can move to processing");
     }
-    withdrawal.status = "processing";
-    withdrawal.processingDate = new Date();
-    await withdrawal.save();
+
+    const updated = await this.prisma.withdrawal.update({
+      where: { id },
+      data: { status: "processing", processingDate: new Date() },
+    });
 
     await this.auditLogService.record({
       adminId,
       action: "withdrawal_status_change",
       targetType: "Withdrawal",
       targetId: id,
-      subjectUserId: withdrawal.merchantId.toString(),
+      subjectUserId: withdrawal.merchantId,
       oldValue: { status: "approved" },
       newValue: { status: "processing" },
     });
-    return withdrawal;
+    return withAccountDetails(updated);
   }
 
-  async complete(id: string, dto: CompleteWithdrawalDto, adminId: string): Promise<WithdrawalDocument> {
+  /** The only transition that moves money. The status check and the ledger debit are
+   *  still separate steps, exactly as before: two admins completing the same withdrawal
+   *  at the same instant could both pass the check. `postEntry` itself is atomic, so the
+   *  wallet can never go negative or lose an entry — the exposure is a duplicate debit,
+   *  which is visible in the ledger and reversible with a compensating entry. */
+  async complete(id: string, dto: CompleteWithdrawalDto, adminId: string) {
     const withdrawal = await this.requireWithdrawal(id);
     if (!["approved", "processing"].includes(withdrawal.status)) {
       throw new BadRequestException(`Cannot complete a withdrawal in "${withdrawal.status}" status`);
     }
 
     const entry = await this.ledgerService.postEntry({
-      walletId: withdrawal.walletId.toString(),
+      walletId: withdrawal.walletId,
       direction: "debit",
       balanceType: "available",
       amountMinor: withdrawal.requestedAmountMinor,
       relatedEntityType: "Withdrawal",
-      relatedEntityId: withdrawal._id.toString(),
+      relatedEntityId: withdrawal.id,
       reason: `Withdrawal ${withdrawal.withdrawalCode} completed`,
       createdBy: adminId,
     });
-    await this.ledgerService.incrementWalletTotals(withdrawal.walletId.toString(), {
+    await this.ledgerService.incrementWalletTotals(withdrawal.walletId, {
       totalWithdrawnMinor: withdrawal.requestedAmountMinor,
     });
 
     const txn = await this.transactionService.recordWithdrawalDebit({
-      merchantId: withdrawal.merchantId.toString(),
+      merchantId: withdrawal.merchantId,
       amountMinor: withdrawal.requestedAmountMinor,
-      ledgerEntryId: entry._id.toString(),
-      withdrawalCode: withdrawal.withdrawalCode ?? withdrawal._id.toString(),
+      ledgerEntryId: entry.id,
+      withdrawalCode: withdrawal.withdrawalCode ?? withdrawal.id,
       createdBy: adminId,
     });
 
-    const oldStatus = withdrawal.status;
-    withdrawal.status = "completed";
-    withdrawal.completedDate = new Date();
-    withdrawal.transactionId = txn._id;
-    if (dto.externalFeeAmountMinor !== undefined) withdrawal.externalFeeAmountMinor = dto.externalFeeAmountMinor;
-    if (dto.externalFeeNote) withdrawal.externalFeeNote = dto.externalFeeNote;
-    await withdrawal.save();
+    const updated = await this.prisma.withdrawal.update({
+      where: { id },
+      data: {
+        status: "completed",
+        completedDate: new Date(),
+        transactionId: txn.id,
+        externalFeeAmountMinor: dto.externalFeeAmountMinor,
+        externalFeeNote: dto.externalFeeNote || undefined,
+      },
+    });
 
     await this.auditLogService.record({
       adminId,
       action: "withdrawal_status_change",
       targetType: "Withdrawal",
       targetId: id,
-      transactionId: txn._id.toString(),
-      subjectUserId: withdrawal.merchantId.toString(),
-      oldValue: { status: oldStatus },
+      transactionId: txn.id,
+      subjectUserId: withdrawal.merchantId,
+      oldValue: { status: withdrawal.status },
       newValue: { status: "completed", requestedAmountMinor: withdrawal.requestedAmountMinor },
     });
-    return withdrawal;
+    return withAccountDetails(updated);
   }
 
-  async cancel(id: string, dto: CancelWithdrawalDto, adminId: string): Promise<WithdrawalDocument> {
+  async cancel(id: string, dto: CancelWithdrawalDto, adminId: string) {
     const withdrawal = await this.requireWithdrawal(id);
     if (["completed", "rejected", "cancelled"].includes(withdrawal.status)) {
       throw new BadRequestException(`Cannot cancel a withdrawal in "${withdrawal.status}" status`);
     }
-    const oldStatus = withdrawal.status;
-    withdrawal.status = "cancelled";
-    withdrawal.cancellationReason = dto.reason;
-    await withdrawal.save();
+
+    const updated = await this.prisma.withdrawal.update({
+      where: { id },
+      data: { status: "cancelled", cancellationReason: dto.reason },
+    });
 
     await this.auditLogService.record({
       adminId,
       action: "withdrawal_cancelled",
       targetType: "Withdrawal",
       targetId: id,
-      subjectUserId: withdrawal.merchantId.toString(),
-      oldValue: { status: oldStatus },
+      subjectUserId: withdrawal.merchantId,
+      oldValue: { status: withdrawal.status },
       newValue: { status: "cancelled" },
       reason: dto.reason,
     });
-    return withdrawal;
+    return withAccountDetails(updated);
   }
 }

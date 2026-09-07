@@ -1,6 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
-import * as request from "supertest";
+// esModuleInterop is enabled, so supertest's CommonJS export must be imported
+// as a default. `import * as request` yields the namespace object, which is not
+// callable.
+import request from "supertest";
 import { App } from "supertest/types";
 import { AppModule } from "./../src/app.module";
 

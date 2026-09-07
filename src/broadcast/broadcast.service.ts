@@ -5,15 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
-
-import { Broadcast } from "./schema/broadcast.schema";
-import { BroadcastMessage } from "./schema/broadcast-message.schema";
-import { BroadcastThread } from "./schema/broadcast-thread.schema";
-import { BroadcastOffer } from "./schema/broadcast-offer.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
 
 import { CreateBroadcastDto } from "./dto/create-broadcast.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
@@ -29,27 +21,25 @@ import { ClsService } from "nestjs-cls";
 import { BroadcastGateway } from "./broadcast.gateway";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { BroadcastRepository } from "src/prisma/repositories/broadcast.repository";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
+import { toLatLng, withGeoJson } from "src/common/utils/geo.util";
+import {
+  DEFAULT_BROADCAST_MESSAGE,
+  type BroadcastPurpose,
+  type BroadcastType,
+} from "./model/broadcast.model";
+import type { Prisma } from "../../generated/prisma/client";
+import { resolvePagination } from "../common/utils/pagination.util";
 
 @Injectable()
 export class BroadcastService {
   private readonly logger = new Logger(BroadcastService.name);
 
   constructor(
-    @InjectModel(Broadcast.name)
-    private readonly broadcastModel: Model<Broadcast>,
-
-    @InjectModel(BroadcastMessage.name)
-    private readonly messageModel: Model<BroadcastMessage>,
-
-    @InjectModel(BroadcastThread.name)
-    private readonly threadModel: Model<BroadcastThread>,
-
-    @InjectModel(BroadcastOffer.name)
-    private readonly offerModel: Model<BroadcastOffer>,
-
-    @InjectModel(Counter.name)
-    private readonly counterModel: Model<CounterDocument>,
-
+    private readonly prisma: PrismaService,
+    private readonly broadcastRepository: BroadcastRepository,
     private readonly shopService: ShopService,
     private readonly categoryService: CategoryService,
     private readonly userService: UsersService,
@@ -61,10 +51,30 @@ export class BroadcastService {
     private readonly broadcastGateway: BroadcastGateway,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
-  ) { }
+  ) {}
+
+  private get lang(): string {
+    return this.cls.get("lang") || "en";
+  }
+
+  /** Clients read `_id`; Prisma rows carry `id`. */
+  private withLegacyId<T extends { id: string }>(row: T): T & { _id: string } {
+    return { ...row, _id: row.id };
+  }
+
+  /** Rebuilds the broadcast shape clients expect: GeoJSON `location`, `_id`. */
+  private toApiShape<T extends Record<string, any>>(broadcast: T | null): any {
+    if (!broadcast) return broadcast;
+    const shaped = withGeoJson(broadcast as any) as any;
+    return { ...shaped, _id: shaped.id };
+  }
 
   /** Fire-and-forget: dispatching the broadcast must succeed even if the email provider is down. */
-  private sendBroadcastCreatedEmail(name: string, email: string, broadcastCode?: string) {
+  private sendBroadcastCreatedEmail(
+    name: string,
+    email: string,
+    broadcastCode?: string | null,
+  ) {
     const broadcastUrl = `${process.env.FRONTEND_URL}/chat?tab=broadcast_messages&type=sent`;
     const html = `
       <h2>Your broadcast has been created</h2>
@@ -78,7 +88,7 @@ export class BroadcastService {
         this.emailLogService.record({
           eventType: "broadcast_created",
           recipient: email,
-          relatedRecordId: broadcastCode,
+          relatedRecordId: broadcastCode ?? undefined,
           deliveryStatus: "sent",
         }),
       )
@@ -87,23 +97,19 @@ export class BroadcastService {
         void this.emailLogService.record({
           eventType: "broadcast_created",
           recipient: email,
-          relatedRecordId: broadcastCode,
+          relatedRecordId: broadcastCode ?? undefined,
           deliveryStatus: "failed",
         });
       });
   }
 
-  private get lang(): string {
-    return this.cls.get("lang") || "en";
-  }
-
   /** Atomically reserves the next sequential broadcast code (e.g. ECH-000001). */
   private async generateNextBroadcastCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "broadcastCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "broadcastCode" },
+      create: { id: "broadcastCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `ECH-${String(counter.seq).padStart(6, "0")}`;
   }
 
@@ -115,29 +121,30 @@ export class BroadcastService {
     buyerId: string,
     location: { type: string; coordinates: [number, number] },
   ) {
-    // Check if broadcast already exists for this buyer and category
-
     const results = await this.userService.findUserById(buyerId);
     if (!results) {
       throw new NotFoundException(
-        this.i18n.translate("auth.broadcast.user_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.user_not_found", { lang: this.lang }),
       );
     }
 
     const broadcastCode = await this.generateNextBroadcastCode();
+    const { latitude, longitude } = toLatLng(location);
 
-    return this.broadcastModel.create({
-      broadcastCode,
-      buyer: new Types.ObjectId(buyerId),
-      message: dto.message,
-      address: dto.address,
-      purpose: dto.purpose,
-      radius: dto.radius,
-      category: new Types.ObjectId(dto.categoryId),
-      type: dto.type,
-      location,
+    return this.prisma.broadcast.create({
+      data: {
+        id: generateObjectId(),
+        broadcastCode,
+        buyerId,
+        message: dto.message,
+        address: dto.address ?? null,
+        purpose: dto.purpose as BroadcastPurpose,
+        radius: Math.round(Number(dto.radius)),
+        categoryId: dto.categoryId,
+        type: dto.type as BroadcastType,
+        latitude,
+        longitude,
+      },
     });
   }
 
@@ -150,14 +157,11 @@ export class BroadcastService {
     categoryId: string,
   ) {
     const radiusMeters = radiusKm * 1000;
-
-    const sellerIds = await this.productsService.findNearbyProductShopOwnerIds(
+    return this.productsService.findNearbyProductShopOwnerIds(
       categoryId,
       location.coordinates,
       radiusMeters,
     );
-    console.log("Nearby sellers found:", sellerIds);
-    return sellerIds;
   }
 
   // -----------------------------
@@ -169,30 +173,11 @@ export class BroadcastService {
     categoryId: string,
   ): Promise<string[]> {
     const radiusMeters = radiusKm * 1000;
-
-    const services = await this.servicesService
-      .getServiceModel()
-      .find({
-        location: {
-          $near: {
-            $geometry: {
-              type: "Point",
-              coordinates: location.coordinates,
-            },
-            $maxDistance: radiusMeters,
-          },
-        },
-        category: new Types.ObjectId(categoryId),
-        isDeleted: false,
-        isDisabled: false,
-      })
-      .lean()
-      .exec();
-
-    console.log("Services found:", services);
-    // Extract unique owner IDs from services
-    const ownerIds = [...new Set(services.map((s) => s.ownerId.toString()))];
-    return ownerIds;
+    return this.servicesService.findNearbyServiceOwnerIds(
+      categoryId,
+      location.coordinates,
+      radiusMeters,
+    );
   }
 
   // -----------------------------
@@ -210,24 +195,20 @@ export class BroadcastService {
     sellerIds: string[],
     buyerId: string,
   ) {
-    const threadPromises = sellerIds.map((sellerId) =>
-      this.threadModel.findOneAndUpdate(
-        {
-          broadcast: new Types.ObjectId(broadcastId),
-          seller: new Types.ObjectId(sellerId),
-        },
-        {
-          broadcast: new Types.ObjectId(broadcastId),
-          buyer: new Types.ObjectId(buyerId),
-          seller: new Types.ObjectId(sellerId),
-        },
-        { upsert: true, new: true },
-      ),
-    );
+    // Was N findOneAndUpdate(upsert) round trips; the @@unique index on
+    // (broadcastId, sellerId) makes createMany + skipDuplicates one statement
+    // with the same effect.
+    await this.prisma.broadcastThread.createMany({
+      data: sellerIds.map((sellerId) => ({
+        id: generateObjectId(),
+        broadcastId,
+        buyerId,
+        sellerId,
+      })),
+      skipDuplicates: true,
+    });
 
-    const threads = await Promise.all(threadPromises);
-
-    return threads;
+    return this.prisma.broadcastThread.findMany({ where: { broadcastId } });
   }
 
   // -----------------------------
@@ -239,17 +220,11 @@ export class BroadcastService {
     location: { type: string; coordinates: [number, number] },
     imageUrls?: string[],
   ) {
-
-
-
-    console.log("Creating broadcast with DTO:", dto);
     const isCategoryValid = await this.findCategorybyId(dto.categoryId);
 
     if (!isCategoryValid) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.category_invalid", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.category_invalid", { lang: this.lang }),
       );
     }
 
@@ -259,17 +234,11 @@ export class BroadcastService {
       );
     }
 
-
-
     let sellerIds: string[] = [];
 
     // Determine recipient IDs based on broadcast type
     if (dto.type === "product") {
-      sellerIds = await this.findNearbySellers(
-        location,
-        dto.radius,
-        dto.categoryId,
-      );
+      sellerIds = await this.findNearbySellers(location, dto.radius, dto.categoryId);
     } else if (dto.type === "service") {
       sellerIds = await this.findNearbyServiceProviders(
         location,
@@ -278,68 +247,64 @@ export class BroadcastService {
       );
     }
 
-
-    sellerIds = [...new Set(sellerIds.map((id) => id.toString()))];
-    sellerIds = sellerIds.filter((id) => id !== buyerId.toString());
+    sellerIds = [...new Set(sellerIds.map((id) => String(id)))];
+    sellerIds = sellerIds.filter((id) => id !== String(buyerId));
 
     if (!sellerIds.length) {
       throw new BadRequestException(
-        this.i18n.translate(dto.purpose === "Buying" ? "auth.broadcast.no_sellers_found" : "auth.broadcast.no_buyers_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate(
+          dto.purpose === "Buying"
+            ? "auth.broadcast.no_sellers_found"
+            : "auth.broadcast.no_buyers_found",
+          { lang: this.lang },
+        ),
       );
     }
 
-
-
-
     const broadcast = await this.createBroadcast(dto, buyerId, location);
-    console.log("Broadcast created:", broadcast);
 
     // 1. CREATE THREADS
     const threads = await this.createBroadcastThreads(
-      broadcast._id.toString(),
+      broadcast.id,
       sellerIds,
       buyerId,
     );
 
-
-
-    const uniqueThreads = Array.from(
-      new Map(
-        threads.map((thread: any) => [thread._id.toString(), thread]),
-      ).values(),
-    );
-
     const threadBySellerId = new Map<string, string>(
-      uniqueThreads.map((thread: any) => [thread.seller.toString(), thread._id.toString()]),
+      threads.map((thread) => [thread.sellerId, thread.id]),
     );
 
-    console.log("Image Urls", imageUrls)
     // 2. CREATE INITIAL MESSAGES
-    const initialMessages = uniqueThreads.map((thread: any) => ({
-      broadcast: broadcast._id,
-      thread: thread._id,
-      sender: new Types.ObjectId(buyerId),
-      receiver: thread.seller,
-      message: dto.message || "📢 New broadcast request",
-      type: "SYSTEM",
-      imageUrls, // Include image URL if provided
-      isRead: false,
-    }));
-
-    // await new Promise(resolve => setTimeout(resolve, 2000));
-
-    await this.messageModel.insertMany(initialMessages);
+    //
+    // NOTE: these used to be written with `type: "SYSTEM"`, a field
+    // BroadcastMessage has never declared — Mongoose silently dropped it, and
+    // the two queries that later filtered on it therefore matched nothing (see
+    // getBroadcastDetailForAdmin). The initial message is now identified as the
+    // earliest message of the broadcast, which is what those queries meant.
+    await this.prisma.broadcastMessage.createMany({
+      data: threads.map((thread) => ({
+        id: generateObjectId(),
+        broadcastId: broadcast.id,
+        threadId: thread.id,
+        senderId: buyerId,
+        receiverId: thread.sellerId,
+        message: dto.message || DEFAULT_BROADCAST_MESSAGE,
+        imageUrls: imageUrls ?? [],
+        isRead: false,
+      })),
+    });
 
     // 3. GET BUYER AND CATEGORY INFO FOR NOTIFICATIONS
     const buyer = await this.userService.findUserById(buyerId);
 
     if (buyer?.email) {
-      this.sendBroadcastCreatedEmail(buyer.name ?? "", buyer.email, broadcast.broadcastCode);
+      this.sendBroadcastCreatedEmail(
+        buyer.name ?? "",
+        buyer.email,
+        broadcast.broadcastCode,
+      );
     }
 
-    console.log("Buyer info for notifications:", buyer, isCategoryValid);
     // 4. SEND NOTIFICATIONS TO ALL SELLERS
     const notificationPromises = sellerIds.map((sellerId) =>
       this.notificationsService.createAndNotify(
@@ -347,10 +312,10 @@ export class BroadcastService {
         "broadcast_created",
         "PROMOTION",
         {
-          broadcastId: broadcast._id.toString(),
+          broadcastId: broadcast.id,
           threadId: threadBySellerId.get(sellerId) ?? null,
           buyerId,
-          message: dto.message || "📢 New broadcast request",
+          message: dto.message || DEFAULT_BROADCAST_MESSAGE,
           purpose: dto.purpose,
           broadcastType: dto.type,
           category: dto.categoryId,
@@ -361,7 +326,8 @@ export class BroadcastService {
         {
           broadcastType: dto.type === "product" ? "Product" : "Service",
           buyerName: buyer?.name,
-          categoryName: isCategoryValid?.name?.[this.lang] || "Unknown Category",
+          categoryName:
+            (isCategoryValid?.name as any)?.[this.lang] || "Unknown Category",
           purpose: dto.purpose,
         },
       ),
@@ -371,7 +337,7 @@ export class BroadcastService {
     notificationResults.forEach((result, index) => {
       if (result.status === "rejected") {
         this.logger.error(
-          `Failed to notify seller ${sellerIds[index]} about broadcast ${broadcast._id}:`,
+          `Failed to notify seller ${sellerIds[index]} about broadcast ${broadcast.id}`,
           result.reason,
         );
       }
@@ -381,9 +347,7 @@ export class BroadcastService {
       message: this.i18n.translate("auth.broadcast.created_success", {
         lang: this.lang,
       }),
-      data: {
-        id: broadcast._id.toString(),
-      }
+      data: { id: broadcast.id },
     };
   }
 
@@ -399,15 +363,13 @@ export class BroadcastService {
     imageUrl?: string,
     options?: { audioUrl?: string; audioDuration?: number },
   ) {
-    const broadcastObjectId = new Types.ObjectId(broadcastId);
-
     // 1. Validate broadcast
-    const broadcast = await this.broadcastModel.findById(broadcastObjectId);
+    const broadcast = await this.prisma.broadcast.findUnique({
+      where: { id: broadcastId },
+    });
     if (!broadcast) {
       throw new NotFoundException(
-        this.i18n.translate("auth.broadcast.broadcast_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.broadcast_not_found", { lang: this.lang }),
       );
     }
 
@@ -419,63 +381,52 @@ export class BroadcastService {
 
     if (!sender || !receiver) {
       throw new NotFoundException(
-        this.i18n.translate("auth.products.user_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.products.user_not_found", { lang: this.lang }),
       );
     }
 
     // 3. Validate thread (SOURCE OF TRUTH)
-    const thread = await this.threadModel.findById(threadId);
+    const thread = await this.prisma.broadcastThread.findUnique({
+      where: { id: threadId },
+    });
 
     if (!thread) {
       throw new NotFoundException(
-        this.i18n.translate("auth.broadcast.thread_not_found", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.thread_not_found", { lang: this.lang }),
       );
     }
 
     // 4. Ensure thread belongs to broadcast
-    if (thread.broadcast.toString() !== broadcastId) {
+    if (thread.broadcastId !== broadcastId) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.thread_invalid", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.thread_invalid", { lang: this.lang }),
       );
     }
 
     // 5. Validate sender is participant
-    const isParticipant =
-      thread.buyer.toString() === senderId ||
-      thread.seller.toString() === senderId;
+    const isParticipant = thread.buyerId === senderId || thread.sellerId === senderId;
 
     if (!isParticipant) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.sender_not_in_thread", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.sender_not_in_thread", { lang: this.lang }),
       );
     }
 
     // 6. Validate receiver is participant
     const isValidReceiver =
-      thread.buyer.toString() === receiverId ||
-      thread.seller.toString() === receiverId;
+      thread.buyerId === receiverId || thread.sellerId === receiverId;
 
     if (!isValidReceiver) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.receiver_invalid", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.receiver_invalid", { lang: this.lang }),
       );
     }
 
     // 6.5. Gate: real chat requires an accepted offer on this thread — recipients must make a
     // formal offer first, and neither side can free-chat until the creator accepts it.
-    const acceptedOffer = await this.offerModel.exists({
-      thread: thread._id,
-      status: "accepted",
+    const acceptedOffer = await this.prisma.broadcastOffer.findFirst({
+      where: { threadId: thread.id, status: "accepted" },
+      select: { id: true },
     });
     if (!acceptedOffer) {
       throw new ForbiddenException(
@@ -485,36 +436,35 @@ export class BroadcastService {
 
     // 7. Derive the true thread recipient
     const computedReceiverId =
-      senderId === thread.buyer.toString()
-        ? thread.seller.toString()
-        : thread.buyer.toString();
+      senderId === thread.buyerId ? thread.sellerId : thread.buyerId;
 
     if (computedReceiverId === senderId) {
       throw new BadRequestException(
-        this.i18n.translate("auth.broadcast.receiver_invalid", {
-          lang: this.lang,
-        }),
+        this.i18n.translate("auth.broadcast.receiver_invalid", { lang: this.lang }),
       );
     }
 
-    let actualReceiverId = computedReceiverId;
+    const actualReceiverId = computedReceiverId;
     if (receiverId !== computedReceiverId) {
-      console.warn(
-        `Broadcast.sendBroadcastMessage: overriding provided receiverId=${receiverId} with computedReceiverId=${computedReceiverId}`,
+      this.logger.warn(
+        `sendBroadcastMessage: overriding provided receiverId=${receiverId} with computedReceiverId=${computedReceiverId}`,
       );
     }
 
     // 8. Create message
-    const messageResults = await this.messageModel.create({
-      broadcast: broadcastObjectId,
-      thread: new Types.ObjectId(threadId),
-      sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(actualReceiverId),
-      message,
-      imageUrls: imageUrl ? [imageUrl] : [],
-      audioUrl: options?.audioUrl,
-      audioDuration: options?.audioDuration,
-      isRead: false,
+    const messageResults = await this.prisma.broadcastMessage.create({
+      data: {
+        id: generateObjectId(),
+        broadcastId,
+        threadId,
+        senderId,
+        receiverId: actualReceiverId,
+        message,
+        imageUrls: imageUrl ? [imageUrl] : [],
+        audioUrl: options?.audioUrl ?? null,
+        audioDuration: options?.audioDuration ?? null,
+        isRead: false,
+      },
     });
 
     // 9. Notify via push notification service
@@ -525,19 +475,19 @@ export class BroadcastService {
         "BROADCAST",
         {
           thread: {
-            id: thread._id,
-            buyer: thread.buyer,
-            seller: thread.seller,
-            broadcast: thread.broadcast,
+            id: thread.id,
+            buyer: thread.buyerId,
+            seller: thread.sellerId,
+            broadcast: thread.broadcastId,
           },
-          broadcastSubTab: actualReceiverId === thread.buyer.toString() ? "sent" : "received",
+          broadcastSubTab: actualReceiverId === thread.buyerId ? "sent" : "received",
           message: {
-            id: messageResults._id,
+            id: messageResults.id,
             text: messageResults.message,
             imageUrls: messageResults.imageUrls,
           },
           sender: {
-            id: sender._id,
+            id: sender.id,
             name: sender.name,
             image: sender.image,
           },
@@ -546,46 +496,31 @@ export class BroadcastService {
         sender.name,
       );
     } catch (err) {
-      console.error("Failed to send broadcast notification:", err);
+      this.logger.error("Failed to send broadcast notification", err);
     }
 
     // 10. REALTIME EMIT (single source of truth)
     const payload = {
-      message: messageResults,
+      message: this.withLegacyId(messageResults),
       sender,
       thread: {
         id: threadId,
-        buyer: thread.buyer,
-        seller: thread.seller,
-        broadcast: thread.broadcast,
+        buyer: thread.buyerId,
+        seller: thread.sellerId,
+        broadcast: thread.broadcastId,
       },
     };
 
-    this.broadcastGateway.emitToThreadAndUser(
-      threadId,
-      actualReceiverId,
-      payload,
-    );
+    this.broadcastGateway.emitToThreadAndUser(threadId, actualReceiverId, payload);
 
-    return {
-      data: payload,
-    };
+    return { data: payload };
   }
 
   async markThreadMessagesAsRead(threadId: string, userId: string) {
-    const threadObjectId = new Types.ObjectId(threadId);
-    const userObjectId = new Types.ObjectId(userId);
-
-    await this.messageModel
-      .updateMany(
-        {
-          thread: threadObjectId,
-          receiver: userObjectId,
-          isRead: false,
-        },
-        { $set: { isRead: true } },
-      )
-      .exec();
+    await this.prisma.broadcastMessage.updateMany({
+      where: { threadId, receiverId: userId, isRead: false },
+      data: { isRead: true },
+    });
 
     return { success: true };
   }
@@ -594,202 +529,77 @@ export class BroadcastService {
   // GET THREADS
   // -----------------------------
   async getBroadcastThreads(broadcastId: string, currentUserId?: string) {
-    const currentUserObjectId = currentUserId
-      ? new Types.ObjectId(currentUserId)
-      : null;
+    // Was one aggregation with five $lookups (buyer, seller, offer, a sorted
+    // sub-pipeline for the newest message, and a counting sub-pipeline for
+    // unread). Now: one relation query plus two grouped lookups — still three
+    // round trips total, and no per-thread sub-pipeline.
+    const threads = await this.prisma.broadcastThread.findMany({
+      where: { broadcastId },
+      include: {
+        buyer: { select: { id: true, name: true, image: true } },
+        seller: { select: { id: true, name: true, image: true } },
+        offer: true,
+      },
+    });
 
-    return this.threadModel
-      .aggregate([
-        {
-          $match: {
-            broadcast: new Types.ObjectId(broadcastId),
-          },
-        },
-        // Lookup buyer details
-        {
-          $lookup: {
-            from: "users",
-            localField: "buyer",
-            foreignField: "_id",
-            as: "buyer",
-          },
-        },
-        {
-          $unwind: {
-            path: "$buyer",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        // Lookup seller details
-        {
-          $lookup: {
-            from: "users",
-            localField: "seller",
-            foreignField: "_id",
-            as: "seller",
-          },
-        },
-        {
-          $unwind: {
-            path: "$seller",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        // Lookup this thread's offer (recipient must make one before real chat unlocks)
-        {
-          $lookup: {
-            from: "broadcastoffers",
-            localField: "_id",
-            foreignField: "thread",
-            as: "offer",
-          },
-        },
-        {
-          $unwind: {
-            path: "$offer",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        // Lookup latest message in this thread
-        {
-          $lookup: {
-            from: "broadcastmessages",
-            let: { threadId: "$_id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$thread", "$$threadId"] },
-                },
-              },
-              {
-                $sort: { createdAt: -1 },
-              },
-              {
-                $limit: 1,
-              },
-              {
-                $lookup: {
-                  from: "users",
-                  localField: "sender",
-                  foreignField: "_id",
-                  as: "sender",
-                },
-              },
-              {
-                $unwind: {
-                  path: "$sender",
-                  preserveNullAndEmptyArrays: true,
-                },
-              },
-              {
-                $project: {
-                  message: 1,
-                  imageUrls: 1,
-                  audioUrl: 1,
-                  createdAt: 1,
-                  sender: { _id: 1, name: 1 },
-                },
-              },
-            ],
-            as: "latestMessage",
-          },
-        },
-        {
-          $unwind: {
-            path: "$latestMessage",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $lookup: {
-            from: "broadcastmessages",
-            let: { threadId: "$_id", currentUserId: currentUserObjectId },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: ["$thread", "$$threadId"] },
-                      { $eq: ["$receiver", "$$currentUserId"] },
-                      { $eq: ["$isRead", false] },
-                      { $ne: ["$sender", "$$currentUserId"] },
-                    ],
-                  },
-                },
-              },
-              { $count: "count" },
-            ],
-            as: "unreadMessages",
-          },
-        },
-        {
-          $addFields: {
-            unreadCount: {
-              $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
-            },
-          },
-        },
-        // Project desired fields
-        {
-          $project: {
-            _id: 1,
-            broadcast: 1,
-            buyer: { _id: 1, name: 1, image: 1 },
-            seller: { _id: 1, name: 1, image: 1 },
-            lastMessageAt: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            latestMessage: 1,
-            unreadCount: 1,
-            offer: 1,
-          },
-        },
-        {
-          $sort: { "latestMessage.createdAt": -1, createdAt: -1 },
-        },
-      ])
-      .exec();
+    if (threads.length === 0) return [];
+
+    const threadIds = threads.map((t) => t.id);
+    const [latestMessages, unreadCounts] = await Promise.all([
+      this.broadcastRepository.latestMessagePerThread(threadIds),
+      currentUserId
+        ? this.broadcastRepository.unreadCountPerThread(threadIds, currentUserId)
+        : Promise.resolve(new Map<string, number>()),
+    ]);
+
+    const rows = threads.map((t) => {
+      const { buyer, seller, offer, ...rest } = t;
+      const latestMessage = latestMessages.get(t.id) ?? null;
+      return {
+        ...rest,
+        _id: t.id,
+        broadcast: t.broadcastId,
+        buyer: buyer ? { ...buyer, _id: buyer.id } : null,
+        seller: seller ? { ...seller, _id: seller.id } : null,
+        offer: offer ? this.withLegacyId(offer) : null,
+        latestMessage,
+        unreadCount: unreadCounts.get(t.id) ?? 0,
+      };
+    });
+
+    // Same ordering as the old $sort: newest activity first, falling back to
+    // the thread's own creation time when it has no messages yet.
+    return rows.sort((a, b) => {
+      const aAt = a.latestMessage?.createdAt ?? a.createdAt;
+      const bAt = b.latestMessage?.createdAt ?? b.createdAt;
+      return bAt.getTime() - aAt.getTime();
+    });
   }
 
   // -----------------------------
   // GET THREAD MESSAGES
   // -----------------------------
   async getThreadMessages(threadId: string, userId?: string) {
-    const messages = await this.messageModel
-      .find({
-        thread: new Types.ObjectId(threadId),
-      })
-      .populate("sender", "name")
-      .populate("receiver", "name")
-      .sort({ createdAt: 1 });
+    const messages = await this.prisma.broadcastMessage.findMany({
+      where: { threadId },
+      include: {
+        sender: { select: { id: true, name: true } },
+        receiver: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
 
     if (userId) {
       await this.markThreadMessagesAsRead(threadId, userId);
     }
 
-    return messages;
+    return messages.map((m) => this.withLegacyId(m));
   }
 
   // -----------------------------
   // GET BROADCASTS CREATED BY BUYER
   // -----------------------------
-  // -----------------------------
-  // GET BROADCASTS CREATED BY BUYER (Improved)
-  // -----------------------------
-  // -----------------------------
-  // GET BROADCASTS CREATED BY BUYER (Fixed)
-  // -----------------------------
-  // -----------------------------
-  // GET BROADCASTS CREATED BY BUYER (With Multilingual Category)
-  // -----------------------------
-  // -----------------------------
-  // GET BROADCASTS CREATED BY BUYER (Full Category Object)
-  // -----------------------------
-  async getBroadcastsByBuyer(
-    userId: string,
-    page = 1,
-    limit = 10,
-  ) {
+  async getBroadcastsByBuyer(userId: string, page = 1, limit = 10) {
     const pageNum = Number(page);
     const limitNum = Number(limit);
 
@@ -800,163 +610,100 @@ export class BroadcastService {
     }
 
     const skip = (pageNum - 1) * limitNum;
-    const buyerObjectId = new Types.ObjectId(userId);
+    const where: Prisma.BroadcastWhereInput = { buyerId: userId };
 
-    const broadcasts = await this.broadcastModel.aggregate([
-      { $match: { buyer: buyerObjectId } },
-
-      // 1. Threads count
-      {
-        $lookup: {
-          from: "broadcastthreads",
-          localField: "_id",
-          foreignField: "broadcast",
-          as: "threads",
+    const [broadcasts, total] = await Promise.all([
+      this.prisma.broadcast.findMany({
+        where,
+        include: {
+          category: true,
+          _count: { select: { threads: true } },
         },
-      },
-      { $addFields: { threadCount: { $size: "$threads" } } },
-
-      // 2. Category
-      {
-        $lookup: {
-          from: "categories",
-          localField: "category",
-          foreignField: "_id",
-          as: "category",
-        },
-      },
-      {
-        $unwind: { path: "$category", preserveNullAndEmptyArrays: true },
-      },
-
-      {
-        $lookup: {
-          from: "broadcastmessages",
-          let: { broadcastId: "$_id", currentUserId: buyerObjectId },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$broadcast", "$$broadcastId"] },
-                    { $eq: ["$receiver", "$$currentUserId"] },
-                    { $eq: ["$isRead", false] },
-                    { $ne: ["$sender", "$$currentUserId"] },
-                  ],
-                },
-              },
-            },
-            { $count: "count" },
-          ],
-          as: "unreadMessages",
-        },
-      },
-      {
-        $addFields: {
-          unreadCount: {
-            $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0],
-          },
-        },
-      },
-
-      // 3. Latest Message (with imageUrls)
-      {
-        $lookup: {
-          from: "broadcastmessages",
-          let: { broadcastId: "$_id" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$broadcast", "$$broadcastId"] } } },
-            { $sort: { createdAt: -1 } },
-            { $limit: 1 },
-            {
-              $lookup: {
-                from: "users",
-                localField: "sender",
-                foreignField: "_id",
-                as: "sender",
-              },
-            },
-            { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
-            {
-              $project: {
-                message: 1,
-                createdAt: 1,
-                imageUrls: 1,
-                type: 1,
-                sender: { _id: 1, name: 1, image: 1 },
-              },
-            },
-          ],
-          as: "latestMessage",
-        },
-      },
-      {
-        $unwind: { path: "$latestMessage", preserveNullAndEmptyArrays: true },
-      },
-
-      // 4. Extract imageUrls from latest message (fallback to empty array)
-      {
-        $addFields: {
-          imageUrls: {
-            $ifNull: ["$latestMessage.imageUrls", []],
-          },
-        },
-      },
-
-      // Optional: Keep initial SYSTEM message if you still need it for something else
-      // (you can remove this block if not needed)
-      {
-        $lookup: {
-          from: "broadcastmessages",
-          let: { broadcastId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$broadcast", "$$broadcastId"] },
-                type: "SYSTEM",
-              },
-            },
-            { $sort: { createdAt: 1 } },
-            { $limit: 1 },
-          ],
-          as: "initialMessage",
-        },
-      },
-      {
-        $unwind: { path: "$initialMessage", preserveNullAndEmptyArrays: true },
-      },
-
-      // Final Projection
-      {
-        $project: {
-          _id: 1,
-          broadcastCode: 1,
-          message: 1,
-          address: 1,
-          purpose: 1,
-          location: 1,
-          radius: 1,
-          type: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          threadCount: 1,
-          unreadCount: 1,
-          imageUrls: 1,
-          latestMessage: 1,
-          category: 1,
-          // initialMessage: 1, // remove if not needed
-        },
-      },
-      { $sort: { createdAt: -1 } },
-      { $skip: skip },
-      { $limit: limitNum },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.broadcast.count({ where }),
     ]);
 
-    const total = await this.broadcastModel.countDocuments({ buyer: buyerObjectId });
-    const normalizedBroadcasts = (broadcasts as any[]).map((broadcast) => ({
-      ...broadcast,
-      location: broadcast.location ?? null,
-    }));
+    if (broadcasts.length === 0) {
+      return {
+        meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+        data: [],
+      };
+    }
+
+    const broadcastIds = broadcasts.map((b) => b.id);
+
+    // Unread messages addressed to the buyer, and the newest message, per broadcast.
+    const [unreadGroups, latestMessages] = await Promise.all([
+      this.prisma.broadcastMessage.groupBy({
+        by: ["broadcastId"],
+        where: {
+          broadcastId: { in: broadcastIds },
+          receiverId: userId,
+          isRead: false,
+          senderId: { not: userId },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.$queryRaw<
+        {
+          broadcast_id: string;
+          id: string;
+          message: string | null;
+          image_urls: string[];
+          created_at: Date;
+          sender_id: string | null;
+          sender_name: string | null;
+          sender_image: string | null;
+        }[]
+      >`
+        SELECT DISTINCT ON (m.broadcast_id)
+               m.broadcast_id, m.id, m.message, m.image_urls, m.created_at,
+               u.id AS sender_id, u.name AS sender_name, u.image AS sender_image
+        FROM broadcast_messages m
+        LEFT JOIN users u ON u.id = m.sender_id
+        WHERE m.broadcast_id = ANY(${broadcastIds})
+        ORDER BY m.broadcast_id, m.created_at DESC
+      `,
+    ]);
+
+    const unreadByBroadcast = new Map(
+      unreadGroups.map((g) => [g.broadcastId, g._count._all]),
+    );
+    const latestByBroadcast = new Map(
+      latestMessages.map((m) => [
+        m.broadcast_id,
+        {
+          _id: m.id,
+          id: m.id,
+          message: m.message,
+          imageUrls: m.image_urls ?? [],
+          createdAt: m.created_at,
+          sender: m.sender_id
+            ? {
+                _id: m.sender_id,
+                id: m.sender_id,
+                name: m.sender_name,
+                image: m.sender_image,
+              }
+            : null,
+        },
+      ]),
+    );
+
+    const data = broadcasts.map((b) => {
+      const { _count, ...rest } = b;
+      const latestMessage = latestByBroadcast.get(b.id) ?? null;
+      return {
+        ...this.toApiShape(rest),
+        threadCount: _count.threads,
+        unreadCount: unreadByBroadcast.get(b.id) ?? 0,
+        latestMessage,
+        imageUrls: latestMessage?.imageUrls ?? [],
+      };
+    });
 
     return {
       meta: {
@@ -965,112 +712,73 @@ export class BroadcastService {
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
       },
-      data: normalizedBroadcasts,
+      data,
     };
   }
+
   // -----------------------------
   // GET BROADCASTS WHERE USER IS SELLER
   // -----------------------------
   async getBroadcastsForSeller(
     userId: string,
-    page = 1,
-    limit = 10,
+    rawPage: number | string = 1,
+    rawLimit: number | string = 10,
   ): Promise<PaginatedResponseDto<any>> {
-    const skip = (page - 1) * limit;
-    const userObjectId = new Types.ObjectId(userId);
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+    const where: Prisma.BroadcastThreadWhereInput = { sellerId: userId };
 
     const [threads, total] = await Promise.all([
-      this.threadModel
-        .find({ seller: userObjectId })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select("broadcast")
-        .lean()
-        .exec(),
-      this.threadModel.countDocuments({ seller: userObjectId }),
+      this.prisma.broadcastThread.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: { id: true, broadcastId: true },
+      }),
+      this.prisma.broadcastThread.count({ where }),
     ]);
 
-    const broadcastIds = threads.map((thread) => thread.broadcast.toString());
-    const uniqueBroadcastIds = Array.from(new Set(broadcastIds));
-    const threadMap = new Map(
-      threads.map((thread: any) => [
-        thread.broadcast.toString(),
-        (thread._id as Types.ObjectId).toString(),
-      ]),
-    );
+    if (threads.length === 0) {
+      return {
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        data: [],
+      };
+    }
 
-    const threadIds = threads.map((thread: any) =>
-      new Types.ObjectId(String(thread._id)),
-    );
+    const threadIds = threads.map((t) => t.id);
+    const threadByBroadcastId = new Map(threads.map((t) => [t.broadcastId, t.id]));
 
-    const unreadCounts = await this.messageModel
-      .aggregate([
-        {
-          $match: {
-            thread: { $in: threadIds },
-            receiver: userObjectId,
-            isRead: false,
-            sender: { $ne: userObjectId },
-          },
-        },
-        {
-          $group: {
-            _id: "$thread",
-            unreadCount: { $sum: 1 },
-          },
-        },
-      ])
-      .exec();
+    const [unreadCounts, myOffers, broadcasts] = await Promise.all([
+      this.broadcastRepository.unreadCountPerThread(threadIds, userId),
+      this.prisma.broadcastOffer.findMany({
+        where: { threadId: { in: threadIds }, offererId: userId },
+      }),
+      this.prisma.broadcast.findMany({
+        where: { id: { in: [...new Set(threads.map((t) => t.broadcastId))] } },
+        include: { category: true },
+      }),
+    ]);
 
-    const unreadMap = new Map<string, number>();
-    unreadCounts.forEach((item: any) => {
-      const threadId = String(item?._id ?? "");
-      if (threadId) {
-        unreadMap.set(threadId, Number(item.unreadCount || 0));
-      }
-    });
+    const offerByThreadId = new Map(myOffers.map((o) => [o.threadId, o]));
+    const broadcastsById = new Map(broadcasts.map((b) => [b.id, b]));
 
-    const myOffers = await this.offerModel
-      .find({ thread: { $in: threadIds }, offerer: userObjectId })
-      .lean()
-      .exec();
-    const offerByThreadId = new Map(
-      myOffers.map((offer: any) => [String(offer.thread), offer]),
-    );
-
-    const data = await this.broadcastModel
-      .find({ _id: { $in: uniqueBroadcastIds } })
-      .populate("category")
-      .exec();
-
-    // Maintain order and add threadId
-    const broadcastIdOrder = threads.map((thread) =>
-      thread.broadcast.toString(),
-    );
-    const dataMap = new Map(data.map((b) => [b._id.toString(), b]));
-    const orderedData = broadcastIdOrder
-      .map((id) => dataMap.get(id))
+    // Maintain thread order and add threadId
+    const orderedData = threads
+      .map((t) => broadcastsById.get(t.broadcastId))
       .filter((b): b is NonNullable<typeof b> => b != null)
       .map((broadcast) => {
-        const threadId = threadMap.get(broadcast._id.toString());
-
+        const threadId = threadByBroadcastId.get(broadcast.id);
+        const offer = threadId ? offerByThreadId.get(threadId) : undefined;
         return {
-          ...(broadcast as any).toObject?.() ?? broadcast,
-          location: (broadcast as any).location ?? null,
+          ...this.toApiShape(broadcast),
           threadId,
-          unreadCount: threadId ? unreadMap.get(threadId) ?? 0 : 0,
-          offer: threadId ? offerByThreadId.get(threadId) ?? null : null,
+          unreadCount: threadId ? (unreadCounts.get(threadId) ?? 0) : 0,
+          offer: offer ? this.withLegacyId(offer) : null,
         };
       });
 
     return {
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       data: orderedData,
     };
   }
@@ -1087,109 +795,17 @@ export class BroadcastService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const dateMatchStage: Record<string, any> = { isDeleted: { $ne: true } };
-    if (startDate || endDate) {
-      dateMatchStage.createdAt = {};
-      if (startDate) {
-        dateMatchStage.createdAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        dateMatchStage.createdAt.$lte = endOfDay;
-      }
-    }
-
-    const pipeline: any[] = [
-      { $match: dateMatchStage },
-      {
-        $lookup: {
-          from: "users",
-          localField: "buyer",
-          foreignField: "_id",
-          as: "buyerInfo",
-        },
-      },
-      { $unwind: { path: "$buyerInfo", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "broadcastthreads",
-          localField: "_id",
-          foreignField: "broadcast",
-          as: "threads",
-        },
-      },
-      {
-        $lookup: {
-          from: "broadcastmessages",
-          let: { broadcastId: "$_id", buyerId: "$buyer" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$broadcast", "$$broadcastId"] },
-                    { $ne: ["$sender", "$$buyerId"] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "sellerMessages",
-        },
-      },
-      {
-        $addFields: {
-          sentTo: { $size: "$threads" },
-          repliedSellers: {
-            $size: { $setUnion: ["$sellerMessages.sender", []] },
-          },
-        },
-      },
-    ];
-
-    const matchStage: Record<string, any> = {};
-    if (status?.trim()) {
-      matchStage.status = status.trim().toLowerCase();
-    }
-    if (search?.trim()) {
-      const regex = { $regex: search.trim(), $options: "i" };
-      matchStage.$or = [{ message: regex }, { "buyerInfo.name": regex }];
-    }
-    if (Object.keys(matchStage).length > 0) {
-      pipeline.push({ $match: matchStage });
-    }
-
-    pipeline.push(
-      { $sort: { createdAt: -1 } },
-      {
-        $project: {
-          broadcastCode: 1,
-          message: 1,
-          purpose: 1,
-          type: 1,
-          status: 1,
-          createdAt: 1,
-          sentTo: 1,
-          repliedSellers: 1,
-          "buyerInfo._id": 1,
-          "buyerInfo.name": 1,
-        },
-      },
-      {
-        $facet: {
-          data: [{ $skip: skip }, { $limit: limitNum }],
-          totalCount: [{ $count: "count" }],
-        },
-      },
-    );
-
-    const result = await this.broadcastModel.aggregate(pipeline).exec();
-    const data = result[0]?.data ?? [];
-    const total = result[0]?.totalCount?.[0]?.count ?? 0;
+    const { rows, total } = await this.broadcastRepository.findForAdmin({
+      skip,
+      take: limitNum,
+      search,
+      status,
+      startDate,
+      endDate,
+    });
 
     return {
-      data,
+      data: rows,
       meta: {
         total,
         page: pageNum,
@@ -1200,37 +816,42 @@ export class BroadcastService {
   }
 
   async getBroadcastDetailForAdmin(broadcastId: string) {
-    if (!Types.ObjectId.isValid(broadcastId)) {
+    if (!isObjectIdLike(broadcastId)) {
       throw new BadRequestException("Invalid broadcast id");
     }
 
-    const broadcastObjectId = new Types.ObjectId(broadcastId);
-
-    const broadcast = await this.broadcastModel
-      .findOne({ _id: broadcastObjectId, isDeleted: { $ne: true } })
-      .populate("buyer", "name email phone image")
-      .populate("category")
-      .lean();
+    const broadcast = await this.prisma.broadcast.findFirst({
+      where: { id: broadcastId, isDeleted: false },
+      include: {
+        buyer: { select: { id: true, name: true, email: true, phone: true, image: true } },
+        category: true,
+      },
+    });
 
     if (!broadcast) {
       throw new NotFoundException("Broadcast not found");
     }
 
     const [threadCount, repliedSellers, initialMessage] = await Promise.all([
-      this.threadModel.countDocuments({ broadcast: broadcastObjectId }),
-      this.messageModel.distinct("sender", {
-        broadcast: broadcastObjectId,
-        sender: { $ne: (broadcast as any).buyer?._id },
+      this.prisma.broadcastThread.count({ where: { broadcastId } }),
+      this.prisma.broadcastMessage.findMany({
+        where: { broadcastId, senderId: { not: broadcast.buyerId } },
+        distinct: ["senderId"],
+        select: { senderId: true },
       }),
-      this.messageModel
-        .findOne({ broadcast: broadcastObjectId, type: "SYSTEM" })
-        .sort({ createdAt: 1 })
-        .lean(),
+      // Was findOne({ type: "SYSTEM" }) — a field BroadcastMessage never
+      // declared, so this always came back null and `imageUrls` was always [].
+      // The initial message is the earliest one on the broadcast.
+      this.prisma.broadcastMessage.findFirst({
+        where: { broadcastId },
+        orderBy: { createdAt: "asc" },
+        select: { imageUrls: true },
+      }),
     ]);
 
     return {
       data: {
-        ...broadcast,
+        ...this.toApiShape(broadcast),
         sentTo: threadCount,
         repliedSellers: repliedSellers.length,
         imageUrls: initialMessage?.imageUrls ?? [],
@@ -1239,71 +860,43 @@ export class BroadcastService {
   }
 
   async getBroadcastRecipients(broadcastId: string) {
-    if (!Types.ObjectId.isValid(broadcastId)) {
+    if (!isObjectIdLike(broadcastId)) {
       throw new BadRequestException("Invalid broadcast id");
     }
 
-    const broadcastExists = await this.broadcastModel.exists({
-      _id: broadcastId,
-      isDeleted: { $ne: true },
+    const broadcastExists = await this.prisma.broadcast.findFirst({
+      where: { id: broadcastId, isDeleted: false },
+      select: { id: true },
     });
     if (!broadcastExists) {
       throw new NotFoundException("Broadcast not found");
     }
 
-    const recipients = await this.threadModel.aggregate([
-      { $match: { broadcast: new Types.ObjectId(broadcastId) } },
-      {
-        $lookup: {
-          from: "users",
-          localField: "seller",
-          foreignField: "_id",
-          as: "sellerInfo",
-        },
+    const threads = await this.prisma.broadcastThread.findMany({
+      where: { broadcastId },
+      include: {
+        seller: { select: { id: true, name: true, email: true, image: true, phone: true } },
       },
-      { $unwind: { path: "$sellerInfo", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "broadcastmessages",
-          let: { threadId: "$_id", sellerId: "$seller" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$thread", "$$threadId"] },
-                    { $eq: ["$sender", "$$sellerId"] },
-                  ],
-                },
-              },
-            },
-            { $sort: { createdAt: 1 } },
-            { $limit: 1 },
-            { $project: { createdAt: 1 } },
-          ],
-          as: "firstReply",
-        },
-      },
-      {
-        $addFields: {
-          hasReplied: { $gt: [{ $size: "$firstReply" }, 0] },
-          repliedAt: { $arrayElemAt: ["$firstReply.createdAt", 0] },
-        },
-      },
-      {
-        $project: {
-          sellerId: "$sellerInfo._id",
-          name: "$sellerInfo.name",
-          email: "$sellerInfo.email",
-          image: "$sellerInfo.image",
-          phone: "$sellerInfo.phone",
-          sentAt: "$createdAt",
-          hasReplied: 1,
-          repliedAt: 1,
-        },
-      },
-      { $sort: { sentAt: -1 } },
-    ]);
+      orderBy: { createdAt: "desc" },
+    });
+
+    const firstReplies = await this.broadcastRepository.firstSellerReplyPerThread(
+      threads.map((t) => t.id),
+    );
+
+    const recipients = threads.map((t) => {
+      const repliedAt = firstReplies.get(t.id) ?? null;
+      return {
+        sellerId: t.seller?.id ?? t.sellerId,
+        name: t.seller?.name ?? null,
+        email: t.seller?.email ?? null,
+        image: t.seller?.image ?? null,
+        phone: t.seller?.phone ?? null,
+        sentAt: t.createdAt,
+        hasReplied: repliedAt !== null,
+        repliedAt,
+      };
+    });
 
     return {
       data: recipients,
@@ -1317,15 +910,15 @@ export class BroadcastService {
     sellerId: string,
     paginationDto: PaginationDto,
   ) {
-    if (!Types.ObjectId.isValid(broadcastId) || !Types.ObjectId.isValid(sellerId)) {
+    if (!isObjectIdLike(broadcastId) || !isObjectIdLike(sellerId)) {
       throw new BadRequestException("Invalid broadcast or seller id");
     }
 
-    const { page = 1, limit = 10 } = paginationDto;
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
-    const thread = await this.threadModel.findOne({
-      broadcast: new Types.ObjectId(broadcastId),
-      seller: new Types.ObjectId(sellerId),
+    const thread = await this.prisma.broadcastThread.findUnique({
+      where: { broadcastId_sellerId: { broadcastId, sellerId } },
     });
 
     if (!thread) {
@@ -1336,50 +929,55 @@ export class BroadcastService {
       };
     }
 
-    const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.messageModel
-        .find({ thread: thread._id })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.messageModel.countDocuments({ thread: thread._id }),
+      this.prisma.broadcastMessage.findMany({
+        where: { threadId: thread.id },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.broadcastMessage.count({ where: { threadId: thread.id } }),
     ]);
 
     return {
-      thread: { _id: thread._id },
-      messages: data,
+      thread: { _id: thread.id, id: thread.id },
+      messages: data.map((m) => this.withLegacyId(m)),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async closeBroadcast(broadcastId: string) {
-    if (!Types.ObjectId.isValid(broadcastId)) {
-      throw new BadRequestException("Invalid broadcast id");
-    }
-    const broadcast = await this.broadcastModel.findByIdAndUpdate(
-      broadcastId,
-      { $set: { status: "closed" } },
-      { new: true },
-    );
-    if (!broadcast) {
-      throw new NotFoundException("Broadcast not found");
-    }
-    return { message: "Broadcast closed successfully", data: broadcast };
+    return this.setBroadcastFlag(broadcastId, { status: "closed" }, "Broadcast closed successfully");
   }
 
   async deleteBroadcast(broadcastId: string) {
-    if (!Types.ObjectId.isValid(broadcastId)) {
+    return this.setBroadcastFlag(
+      broadcastId,
+      { isDeleted: true },
+      "Broadcast deleted successfully",
+    );
+  }
+
+  /** close/delete differed only in the field written and the message. */
+  private async setBroadcastFlag(
+    broadcastId: string,
+    data: Prisma.BroadcastUpdateInput,
+    message: string,
+  ) {
+    if (!isObjectIdLike(broadcastId)) {
       throw new BadRequestException("Invalid broadcast id");
     }
-    const broadcast = await this.broadcastModel.findByIdAndUpdate(
-      broadcastId,
-      { $set: { isDeleted: true } },
-      { new: true },
-    );
-    if (!broadcast) {
+    const existing = await this.prisma.broadcast.findUnique({
+      where: { id: broadcastId },
+      select: { id: true },
+    });
+    if (!existing) {
       throw new NotFoundException("Broadcast not found");
     }
-    return { message: "Broadcast deleted successfully", data: broadcast };
+    const broadcast = await this.prisma.broadcast.update({
+      where: { id: broadcastId },
+      data,
+    });
+    return { message, data: this.toApiShape(broadcast) };
   }
 }

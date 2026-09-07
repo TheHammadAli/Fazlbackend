@@ -2,29 +2,24 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 import { I18nService } from "nestjs-i18n";
 import { ClsService } from "nestjs-cls";
 
-import { Broadcast } from "./schema/broadcast.schema";
-import { BroadcastThread } from "./schema/broadcast-thread.schema";
-import { BroadcastOffer } from "./schema/broadcast-offer.schema";
 import { NotificationsService } from "src/notifications/notifications.service";
 import { BroadcastGateway } from "./broadcast.gateway";
 import { CreateBroadcastOfferDto } from "./dto/create-broadcast-offer.dto";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
 
 @Injectable()
 export class BroadcastOfferService {
+  private readonly logger = new Logger(BroadcastOfferService.name);
+
   constructor(
-    @InjectModel(Broadcast.name)
-    private readonly broadcastModel: Model<Broadcast>,
-    @InjectModel(BroadcastThread.name)
-    private readonly threadModel: Model<BroadcastThread>,
-    @InjectModel(BroadcastOffer.name)
-    private readonly offerModel: Model<BroadcastOffer>,
+    private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly broadcastGateway: BroadcastGateway,
     private readonly i18n: I18nService,
@@ -35,17 +30,21 @@ export class BroadcastOfferService {
     return this.cls.get("lang") || "en";
   }
 
+  /** Clients read `_id`; Prisma rows carry `id`. */
+  private withLegacyId<T extends { id: string }>(row: T): T & { _id: string } {
+    return { ...row, _id: row.id };
+  }
+
   /** Recipients only ever reach a thread they were actually dispatched to — the thread is
    *  derived server-side from {broadcast, seller}, never trusted from the client. */
   private async requireOwnThread(broadcastId: string, offererId: string) {
-    if (!Types.ObjectId.isValid(broadcastId)) {
+    if (!isObjectIdLike(broadcastId)) {
       throw new NotFoundException(
         this.i18n.translate("auth.broadcast.broadcast_not_found", { lang: this.lang }),
       );
     }
-    const thread = await this.threadModel.findOne({
-      broadcast: new Types.ObjectId(broadcastId),
-      seller: new Types.ObjectId(offererId),
+    const thread = await this.prisma.broadcastThread.findUnique({
+      where: { broadcastId_sellerId: { broadcastId, sellerId: offererId } },
     });
     if (!thread) {
       throw new NotFoundException(
@@ -58,7 +57,11 @@ export class BroadcastOfferService {
   async submitOffer(offererId: string, dto: CreateBroadcastOfferDto) {
     const thread = await this.requireOwnThread(dto.broadcastId, offererId);
 
-    const existing = await this.offerModel.findOne({ thread: thread._id });
+    // One offer per thread — enforced by a unique index on thread_id as well.
+    const existing = await this.prisma.broadcastOffer.findUnique({
+      where: { threadId: thread.id },
+      select: { id: true },
+    });
     if (existing) {
       throw new BadRequestException(
         this.i18n.translate("auth.broadcast.offer_already_submitted", { lang: this.lang }),
@@ -79,33 +82,48 @@ export class BroadcastOfferService {
       );
     }
 
-    const offer = await this.offerModel.create({
-      broadcast: thread.broadcast,
-      thread: thread._id,
-      offerer: new Types.ObjectId(offererId),
-      creator: thread.buyer,
-      price: dto.price ?? null,
-      message,
-      status: "pending",
+    const offer = await this.prisma.broadcastOffer.create({
+      data: {
+        id: generateObjectId(),
+        broadcastId: thread.broadcastId,
+        threadId: thread.id,
+        offererId,
+        creatorId: thread.buyerId,
+        price: dto.price != null ? Math.round(dto.price) : null,
+        message: message.slice(0, 1000),
+        status: "pending",
+      },
     });
+
+    const payloadOffer = this.withLegacyId(offer);
 
     this.notificationsService
       .createAndNotify(
-        thread.buyer.toString(),
+        thread.buyerId,
         "broadcast.offer_submitted",
         "BROADCAST",
-        { thread: { id: thread._id, broadcast: thread.broadcast }, offer },
+        {
+          thread: { id: thread.id, broadcast: thread.broadcastId },
+          offer: payloadOffer,
+        },
         {},
       )
-      .catch((err) => console.error("Failed to send offer-submitted notification:", err));
+      .catch((err) =>
+        this.logger.error("Failed to send offer-submitted notification", err),
+      );
 
-    this.broadcastGateway.emitToThreadAndUser(String(thread._id), thread.buyer.toString(), {
+    this.broadcastGateway.emitToThreadAndUser(thread.id, thread.buyerId, {
       type: "offer_submitted",
-      offer,
-      thread: { id: thread._id, buyer: thread.buyer, seller: thread.seller, broadcast: thread.broadcast },
+      offer: payloadOffer,
+      thread: {
+        id: thread.id,
+        buyer: thread.buyerId,
+        seller: thread.sellerId,
+        broadcast: thread.broadcastId,
+      },
     });
 
-    return { data: { offer } };
+    return { data: { offer: payloadOffer } };
   }
 
   /** Broadcasts the current user created, that have at least one offer — grouped with a count. */
@@ -113,50 +131,41 @@ export class BroadcastOfferService {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
-    const creatorObjectId = new Types.ObjectId(creatorId);
 
-    const basePipeline: any[] = [
-      { $match: { creator: creatorObjectId } },
-      {
-        $group: {
-          _id: "$broadcast",
-          offerCount: { $sum: 1 },
-          latestOfferAt: { $max: "$createdAt" },
-        },
-      },
-    ];
-
-    const [rows, countResult] = await Promise.all([
-      this.offerModel
-        .aggregate([
-          ...basePipeline,
-          { $sort: { latestOfferAt: -1 } },
-          { $skip: skip },
-          { $limit: limitNum },
-          {
-            $lookup: {
-              from: "broadcasts",
-              localField: "_id",
-              foreignField: "_id",
-              as: "broadcast",
-            },
-          },
-          { $unwind: { path: "$broadcast", preserveNullAndEmptyArrays: true } },
-          {
-            $project: {
-              _id: 0,
-              broadcastId: "$_id",
-              offerCount: 1,
-              latestOfferAt: 1,
-              broadcast: 1,
-            },
-          },
-        ])
-        .exec(),
-      this.offerModel.aggregate([...basePipeline, { $count: "total" }]).exec(),
+    // Was a $group + $lookup(broadcasts) + $project pipeline, run twice (the
+    // second time only to $count).
+    const [groups, distinctCount] = await Promise.all([
+      this.prisma.broadcastOffer.groupBy({
+        by: ["broadcastId"],
+        where: { creatorId },
+        _count: { _all: true },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: "desc" } },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT count(DISTINCT broadcast_id) AS count
+        FROM broadcast_offers
+        WHERE creator_id = ${creatorId}
+      `,
     ]);
 
-    const total = countResult[0]?.total ?? 0;
+    const broadcasts = await this.prisma.broadcast.findMany({
+      where: { id: { in: groups.map((g) => g.broadcastId) } },
+    });
+    const broadcastsById = new Map(broadcasts.map((b) => [b.id, b]));
+
+    const rows = groups.map((g) => ({
+      broadcastId: g.broadcastId,
+      offerCount: g._count._all,
+      latestOfferAt: g._max.createdAt,
+      broadcast: broadcastsById.get(g.broadcastId)
+        ? this.withLegacyId(broadcastsById.get(g.broadcastId)!)
+        : null,
+    }));
+
+    const total = Number(distinctCount[0]?.count ?? 0);
     return {
       data: rows,
       meta: {
@@ -173,21 +182,23 @@ export class BroadcastOfferService {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
-    const offererObjectId = new Types.ObjectId(offererId);
 
     const [offers, total] = await Promise.all([
-      this.offerModel
-        .find({ offerer: offererObjectId })
-        .populate("broadcast", "message type")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .exec(),
-      this.offerModel.countDocuments({ offerer: offererObjectId }),
+      this.prisma.broadcastOffer.findMany({
+        where: { offererId },
+        include: { broadcast: { select: { id: true, message: true, type: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.broadcastOffer.count({ where: { offererId } }),
     ]);
 
     return {
-      data: offers,
+      data: offers.map(({ broadcast, ...o }) => ({
+        ...this.withLegacyId(o),
+        broadcast: broadcast ? { ...broadcast, _id: broadcast.id } : null,
+      })),
       meta: {
         total,
         page: pageNum,
@@ -199,78 +210,106 @@ export class BroadcastOfferService {
 
   /** All offers on one broadcast — only the broadcast's own creator may view them. */
   async getOffersForBroadcast(broadcastId: string, requesterId: string) {
-    if (!Types.ObjectId.isValid(broadcastId)) {
+    if (!isObjectIdLike(broadcastId)) {
       throw new NotFoundException(
         this.i18n.translate("auth.broadcast.broadcast_not_found", { lang: this.lang }),
       );
     }
-    const broadcast = await this.broadcastModel.findById(broadcastId);
+    const broadcast = await this.prisma.broadcast.findUnique({
+      where: { id: broadcastId },
+    });
     if (!broadcast) {
       throw new NotFoundException(
         this.i18n.translate("auth.broadcast.broadcast_not_found", { lang: this.lang }),
       );
     }
-    if (broadcast.buyer.toString() !== requesterId) {
+    if (broadcast.buyerId !== requesterId) {
       throw new ForbiddenException(
         this.i18n.translate("auth.broadcast.not_broadcast_owner", { lang: this.lang }),
       );
     }
 
-    const offers = await this.offerModel
-      .find({ broadcast: broadcast._id })
-      .populate("offerer", "name image")
-      .sort({ createdAt: -1 });
+    const offers = await this.prisma.broadcastOffer.findMany({
+      where: { broadcastId: broadcast.id },
+      include: { offerer: { select: { id: true, name: true, image: true } } },
+      orderBy: { createdAt: "desc" },
+    });
 
-    return { data: { broadcast, offers } };
+    return {
+      data: {
+        broadcast: this.withLegacyId(broadcast),
+        offers: offers.map(({ offerer, ...o }) => ({
+          ...this.withLegacyId(o),
+          offerer: offerer ? { ...offerer, _id: offerer.id } : null,
+        })),
+      },
+    };
   }
 
-  async respondToOffer(offerId: string, requesterId: string, action: "accept" | "decline") {
-    if (!Types.ObjectId.isValid(offerId)) {
+  async respondToOffer(
+    offerId: string,
+    requesterId: string,
+    action: "accept" | "decline",
+  ) {
+    if (!isObjectIdLike(offerId)) {
       throw new NotFoundException(
         this.i18n.translate("auth.broadcast.offer_not_found", { lang: this.lang }),
       );
     }
-    const offer = await this.offerModel.findById(offerId);
-    if (!offer) {
+    const existing = await this.prisma.broadcastOffer.findUnique({
+      where: { id: offerId },
+    });
+    if (!existing) {
       throw new NotFoundException(
         this.i18n.translate("auth.broadcast.offer_not_found", { lang: this.lang }),
       );
     }
-    if (offer.creator.toString() !== requesterId) {
+    if (existing.creatorId !== requesterId) {
       throw new ForbiddenException(
         this.i18n.translate("auth.broadcast.not_broadcast_owner", { lang: this.lang }),
       );
     }
-    if (offer.status !== "pending") {
+    if (existing.status !== "pending") {
       throw new BadRequestException(
         this.i18n.translate("auth.broadcast.offer_already_responded", { lang: this.lang }),
       );
     }
 
-    offer.status = action === "accept" ? "accepted" : "declined";
-    offer.respondedAt = new Date();
-    await offer.save();
+    const offer = await this.prisma.broadcastOffer.update({
+      where: { id: offerId },
+      data: {
+        status: action === "accept" ? "accepted" : "declined",
+        respondedAt: new Date(),
+      },
+    });
+
+    const payloadOffer = this.withLegacyId(offer);
 
     this.notificationsService
       .createAndNotify(
-        offer.offerer.toString(),
+        offer.offererId,
         action === "accept" ? "broadcast.offer_accepted" : "broadcast.offer_declined",
         "BROADCAST",
-        { thread: { id: offer.thread, broadcast: offer.broadcast }, offer },
+        {
+          thread: { id: offer.threadId, broadcast: offer.broadcastId },
+          offer: payloadOffer,
+        },
         {},
       )
-      .catch((err) => console.error("Failed to send offer-response notification:", err));
+      .catch((err) =>
+        this.logger.error("Failed to send offer-response notification", err),
+      );
 
-    this.broadcastGateway.emitToThreadAndUser(offer.thread.toString(), offer.offerer.toString(), {
+    this.broadcastGateway.emitToThreadAndUser(offer.threadId, offer.offererId, {
       type: "offer_status",
-      offer,
+      offer: payloadOffer,
     });
 
     return {
       data: {
-        offer,
-        threadId: offer.thread,
-        broadcastId: offer.broadcast,
+        offer: payloadOffer,
+        threadId: offer.threadId,
+        broadcastId: offer.broadcastId,
       },
     };
   }

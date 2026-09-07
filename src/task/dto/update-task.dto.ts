@@ -7,7 +7,12 @@ import {
   IsOptional,
   IsString,
 } from "class-validator";
-import { TASK_PRIORITIES, TASK_STATUSES, TaskPriority, TaskStatus } from "../schema/task.schema";
+import {
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  type TaskPriority,
+  type TaskStatus,
+} from "../model/task.model";
 
 export class UpdateTaskDto {
   @ApiPropertyOptional({ example: "Follow up on pending shop approvals" })

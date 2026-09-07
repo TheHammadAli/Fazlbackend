@@ -5,9 +5,8 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
-import { Task, TaskDocument, TASK_STATUSES } from "./schema/task.schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
 import { CreateTaskDto } from "./dto/create-task.dto";
 import { UpdateTaskDto } from "./dto/update-task.dto";
 import { SubmitTaskDto } from "./dto/submit-task.dto";
@@ -16,20 +15,54 @@ import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { UsersService } from "src/users/users.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
+import {
+  SUBMITTABLE_STATUSES,
+  TASK_STATUSES,
+  type TaskAttachment,
+  type TaskPriority,
+  type TaskStatus,
+} from "./model/task.model";
+import type { Prisma } from "../../generated/prisma/client";
 
-/** Statuses a member is allowed to submit work from. */
-const SUBMITTABLE_STATUSES = ["pending", "in_progress", "revision"] as const;
+/** Selects the joined rows needed to rebuild the task shape clients expect. */
+const TASK_INCLUDE = {
+  assignees: {
+    include: {
+      user: { select: { id: true, name: true, email: true, image: true } },
+    },
+  },
+  createdBy: { select: { id: true, name: true, email: true } },
+  submissions: {
+    orderBy: { submittedAt: "asc" as const },
+    include: {
+      submittedBy: { select: { id: true, name: true, email: true } },
+    },
+  },
+} satisfies Prisma.TaskInclude;
 
 @Injectable()
 export class TaskService {
   private readonly logger = new Logger(TaskService.name);
 
   constructor(
-    @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
+    private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
     private readonly fileUploadService: FileUploadService,
   ) {}
+
+  /**
+   * `assignees` was an array of ObjectIds on the task document and is now a
+   * junction table. Flattening it here keeps the API shape identical — a plain
+   * array of users — so the admin panel needs no change.
+   */
+  private toApiShape(task: any) {
+    if (!task) return task;
+    return {
+      ...task,
+      assignees: (task.assignees ?? []).map((a: any) => a.user).filter(Boolean),
+    };
+  }
 
   /** Fire-and-forget: an email failure must never fail the task API call. */
   private sendTaskAssignedEmails(
@@ -53,32 +86,44 @@ export class TaskService {
       `;
       this.emailService
         .sendEmail(recipient.email, "New task assigned to you", html)
-        .catch((err) => this.logger.error(`Task-assigned email to ${recipient.email} failed`, err));
+        .catch((err) =>
+          this.logger.error(`Task-assigned email to ${recipient.email} failed`, err),
+        );
     }
   }
 
   async createTask(dto: CreateTaskDto, createdBy: string, files: any[] = []) {
     const assignees = await this.usersService.assertMemberIds(dto.assignees);
+    const assigneeIds = assignees.map((a: any) => String(a?.id ?? a));
+    const taskId = generateObjectId();
 
-    const task = await this.taskModel.create({
-      title: dto.title,
-      description: dto.description,
-      assignees,
-      priority: dto.priority ?? "medium",
-      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-      createdBy: new Types.ObjectId(createdBy),
+    await this.prisma.task.create({
+      data: {
+        id: taskId,
+        title: dto.title,
+        description: dto.description ?? null,
+        priority: (dto.priority ?? "medium") as TaskPriority,
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        createdById: createdBy,
+        // Junction rows are created with the task in one statement, so a task
+        // can never briefly exist with no assignees.
+        assignees: { create: assigneeIds.map((userId) => ({ userId })) },
+      },
     });
 
     if (files.length > 0) {
       const attachments = await this.fileUploadService.uploadTaskSubmissionFiles(
-        String(task._id),
+        taskId,
         files,
         "task-files",
       );
-      await this.taskModel.findByIdAndUpdate(task._id, { $set: { attachments } }).exec();
+      await this.prisma.task.update({
+        where: { id: taskId },
+        data: { attachments: attachments as unknown as Prisma.InputJsonValue },
+      });
     }
 
-    const populated = await this.getTaskById(String(task._id));
+    const populated = await this.getTaskById(taskId);
     this.sendTaskAssignedEmails(populated as any, (populated as any).assignees ?? []);
 
     return { message: "Task created successfully", data: populated };
@@ -94,30 +139,27 @@ export class TaskService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const query: Record<string, any> = {};
+    const where: Prisma.TaskWhereInput = {};
     if (search?.trim()) {
-      query.title = { $regex: search.trim(), $options: "i" };
+      where.title = { contains: search.trim(), mode: "insensitive" };
     }
     if (status?.trim() && (TASK_STATUSES as readonly string[]).includes(status.trim())) {
-      query.status = status.trim();
+      where.status = status.trim() as TaskStatus;
     }
 
     const [tasks, total] = await Promise.all([
-      this.taskModel
-        .find(query)
-        .populate("assignees", "name email image")
-        .populate("createdBy", "name email")
-        .populate("submissions.submittedBy", "name email")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean()
-        .exec(),
-      this.taskModel.countDocuments(query),
+      this.prisma.task.findMany({
+        where,
+        include: TASK_INCLUDE,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.task.count({ where }),
     ]);
 
     return {
-      data: tasks,
+      data: tasks.map((t) => this.toApiShape(t)),
       meta: {
         total,
         page: pageNum,
@@ -128,27 +170,28 @@ export class TaskService {
   }
 
   async getTaskById(id: string) {
-    if (!Types.ObjectId.isValid(id)) {
+    if (!isObjectIdLike(id)) {
       throw new BadRequestException("Invalid task id");
     }
-    const task = await this.taskModel
-      .findById(id)
-      .populate("assignees", "name email image")
-      .populate("createdBy", "name email")
-      .populate("submissions.submittedBy", "name email")
-      .lean()
-      .exec();
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: TASK_INCLUDE,
+    });
     if (!task) {
       throw new NotFoundException("Task not found");
     }
-    return task;
+    return this.toApiShape(task);
   }
 
-  private async findTaskOrThrow(id: string): Promise<TaskDocument> {
-    if (!Types.ObjectId.isValid(id)) {
+  /** Loads the raw row plus its assignee ids, for the membership checks below. */
+  private async findTaskOrThrow(id: string) {
+    if (!isObjectIdLike(id)) {
       throw new BadRequestException("Invalid task id");
     }
-    const task = await this.taskModel.findById(id).exec();
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: { assignees: { select: { userId: true } } },
+    });
     if (!task) {
       throw new NotFoundException("Task not found");
     }
@@ -157,38 +200,50 @@ export class TaskService {
 
   async updateTask(id: string, dto: UpdateTaskDto, files: any[] = []) {
     const existing = await this.findTaskOrThrow(id);
-    const previousAssigneeIds = new Set(existing.assignees.map((a) => a.toString()));
+    const previousAssigneeIds = new Set(existing.assignees.map((a) => a.userId));
 
-    const updateData: Record<string, unknown> = {};
-    if (dto.title !== undefined) updateData.title = dto.title;
-    if (dto.description !== undefined) updateData.description = dto.description;
-    if (dto.priority !== undefined) updateData.priority = dto.priority;
-    if (dto.status !== undefined) updateData.status = dto.status;
-    if (dto.dueDate !== undefined) updateData.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    const data: Prisma.TaskUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.priority !== undefined) data.priority = dto.priority as TaskPriority;
+    if (dto.status !== undefined) data.status = dto.status as TaskStatus;
+    if (dto.dueDate !== undefined) data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+
     if (dto.assignees !== undefined) {
       if (dto.assignees.length === 0) {
         throw new BadRequestException("A task must have at least one assignee");
       }
-      updateData.assignees = await this.usersService.assertMemberIds(dto.assignees);
+      const members = await this.usersService.assertMemberIds(dto.assignees);
+      const ids = members.map((a: any) => String(a?.id ?? a));
+      // Replace the whole set, matching the old $set on the assignees array.
+      data.assignees = {
+        deleteMany: {},
+        create: ids.map((userId) => ({ userId })),
+      };
     }
 
-    const update: Record<string, unknown> = { $set: updateData };
     if (files.length > 0) {
       const newAttachments = await this.fileUploadService.uploadTaskSubmissionFiles(
         id,
         files,
         "task-files",
       );
-      update.$push = { attachments: { $each: newAttachments } };
+      // Was $push with $each. JSONB has no append operator through Prisma, so
+      // the existing array is read and concatenated.
+      const current = (existing.attachments ?? []) as unknown as TaskAttachment[];
+      data.attachments = [
+        ...current,
+        ...newAttachments,
+      ] as unknown as Prisma.InputJsonValue;
     }
 
-    await this.taskModel.findByIdAndUpdate(id, update, { new: true }).exec();
+    await this.prisma.task.update({ where: { id }, data });
 
     const populated = await this.getTaskById(id);
 
     if (dto.assignees !== undefined) {
       const newlyAdded = ((populated as any).assignees ?? []).filter(
-        (a: any) => !previousAssigneeIds.has(String(a?._id ?? a)),
+        (a: any) => !previousAssigneeIds.has(String(a?.id ?? a)),
       );
       this.sendTaskAssignedEmails(populated as any, newlyAdded);
     }
@@ -208,21 +263,23 @@ export class TaskService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const query: Record<string, any> = { assignees: new Types.ObjectId(userId) };
+    // Was a direct match on the assignees array; now a relation filter.
+    const where: Prisma.TaskWhereInput = { assignees: { some: { userId } } };
     if (status?.trim() && (TASK_STATUSES as readonly string[]).includes(status.trim())) {
-      query.status = status.trim();
+      where.status = status.trim() as TaskStatus;
     }
 
     const [tasks, total] = await Promise.all([
-      this.taskModel
-        .find(query)
-        .populate("createdBy", "name email")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean()
-        .exec(),
-      this.taskModel.countDocuments(query),
+      this.prisma.task.findMany({
+        where,
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.task.count({ where }),
     ]);
 
     return {
@@ -237,13 +294,15 @@ export class TaskService {
   }
 
   async getMyTaskStats(userId: string) {
-    const base = { assignees: new Types.ObjectId(userId) };
+    const base: Prisma.TaskWhereInput = { assignees: { some: { userId } } };
     // "assigned" = still on the member's plate; a completed/cancelled task leaves that count.
     const [assigned, completed, revision, submitted] = await Promise.all([
-      this.taskModel.countDocuments({ ...base, status: { $nin: ["completed", "cancelled"] } }),
-      this.taskModel.countDocuments({ ...base, status: "completed" }),
-      this.taskModel.countDocuments({ ...base, status: "revision" }),
-      this.taskModel.countDocuments({ ...base, status: "submitted" }),
+      this.prisma.task.count({
+        where: { ...base, status: { notIn: ["completed", "cancelled"] } },
+      }),
+      this.prisma.task.count({ where: { ...base, status: "completed" } }),
+      this.prisma.task.count({ where: { ...base, status: "revision" } }),
+      this.prisma.task.count({ where: { ...base, status: "submitted" } }),
     ]);
     return { data: { assigned, completed, revision, submitted } };
   }
@@ -251,7 +310,7 @@ export class TaskService {
   async submitTask(taskId: string, userId: string, dto: SubmitTaskDto, files: any[] = []) {
     const task = await this.findTaskOrThrow(taskId);
 
-    if (!task.assignees.some((a) => a.toString() === userId)) {
+    if (!task.assignees.some((a) => a.userId === userId)) {
       throw new ForbiddenException("You are not assigned to this task");
     }
     if (!(SUBMITTABLE_STATUSES as readonly string[]).includes(task.status)) {
@@ -270,21 +329,26 @@ export class TaskService {
         ? await this.fileUploadService.uploadTaskSubmissionFiles(taskId, files)
         : [];
 
-    await this.taskModel
-      .findByIdAndUpdate(taskId, {
-        $push: {
-          submissions: {
-            notes,
-            link: dto.link?.trim() || undefined,
-            attachments,
-            submittedBy: new Types.ObjectId(userId),
-            submittedAt: new Date(),
-          },
+    // Was a $push on the embedded submissions array plus a $set and $unset, all
+    // in one document write. Submissions are their own table now, so the insert
+    // and the status change are wrapped in a transaction to keep that atomicity.
+    await this.prisma.$transaction([
+      this.prisma.taskSubmission.create({
+        data: {
+          taskId,
+          notes,
+          link: dto.link?.trim() || null,
+          attachments: attachments as unknown as Prisma.InputJsonValue,
+          submittedById: userId,
+          submittedAt: new Date(),
         },
-        $set: { status: "submitted" },
-        $unset: { revisionReason: "" },
-      })
-      .exec();
+      }),
+      this.prisma.task.update({
+        where: { id: taskId },
+        // $unset: { revisionReason } becomes an explicit null.
+        data: { status: "submitted", revisionReason: null },
+      }),
+    ]);
 
     return { message: "Task submitted for review", data: await this.getTaskById(taskId) };
   }
@@ -304,24 +368,28 @@ export class TaskService {
       throw new BadRequestException("A reason is required when requesting a revision");
     }
 
-    const update: Record<string, any> = { $set: { status: dto.decision } };
-    if (dto.decision === "revision") {
-      update.$set.revisionReason = reason;
-    } else {
-      update.$unset = { revisionReason: "" };
-    }
-
-    await this.taskModel.findByIdAndUpdate(taskId, update).exec();
+    await this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        status: dto.decision as TaskStatus,
+        revisionReason: dto.decision === "revision" ? reason : null,
+      },
+    });
 
     return {
-      message: dto.decision === "completed" ? "Task approved as completed" : "Revision requested",
+      message:
+        dto.decision === "completed" ? "Task approved as completed" : "Revision requested",
       data: await this.getTaskById(taskId),
     };
   }
 
   async deleteTask(id: string) {
     const task = await this.findTaskOrThrow(id);
-    await this.taskModel.findByIdAndDelete(id).exec();
-    return { message: "Task deleted successfully", data: { _id: task._id, title: task.title } };
+    // Assignee and submission rows cascade from the task.
+    await this.prisma.task.delete({ where: { id } });
+    return {
+      message: "Task deleted successfully",
+      data: { id: task.id, _id: task.id, title: task.title },
+    };
   }
 }

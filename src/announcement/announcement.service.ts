@@ -1,42 +1,37 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
 
-import { Announcement } from "./schema/announcement.schema";
-import { AnnouncementView, AnnouncementViewDocument } from "./schema/announcement-view.schema";
-import { Counter, CounterDocument } from "src/common/schema/counter.schema";
+import { PrismaService } from "src/prisma/prisma.service";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
 import { CreateAnnouncementDto } from "./dto/create-announcement.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { UsersService } from "src/users/users.service";
 import { NotificationsService } from "src/notifications/notifications.service";
-
-const STATUS_MESSAGE: Record<string, string> = {
-  sent: "Announcement sent successfully",
-  scheduled: "Announcement scheduled successfully",
-  draft: "Announcement saved as draft",
-};
+import {
+  ANNOUNCEMENT_PRIORITIES,
+  ANNOUNCEMENT_STATUSES,
+  STATUS_MESSAGE,
+  type Announcement,
+  type AnnouncementPriority,
+  type AnnouncementStatus,
+} from "./model/announcement.model";
+import { resolvePagination } from "../common/utils/pagination.util";
 
 @Injectable()
 export class AnnouncementService {
   constructor(
-    @InjectModel(Announcement.name)
-    private readonly announcementModel: Model<Announcement>,
-    @InjectModel(Counter.name)
-    private readonly counterModel: Model<CounterDocument>,
-    @InjectModel(AnnouncementView.name)
-    private readonly announcementViewModel: Model<AnnouncementViewDocument>,
+    private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
   /** Atomically reserves the next sequential announcement code (e.g. ANN-000001). */
   private async generateNextAnnouncementCode(): Promise<string> {
-    const counter = await this.counterModel.findByIdAndUpdate(
-      "announcementCode",
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true },
-    );
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "announcementCode" },
+      create: { id: "announcementCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
     return `ANN-${String(counter.seq).padStart(6, "0")}`;
   }
 
@@ -45,7 +40,7 @@ export class AnnouncementService {
     const userIds = await this.usersService.getUserIdsByRoles(roles);
 
     const payload = {
-      announcementId: (announcement as any)._id?.toString?.(),
+      announcementId: announcement.id,
       announcementCode: announcement.announcementCode,
       title: announcement.title,
       image: announcement.image,
@@ -54,14 +49,14 @@ export class AnnouncementService {
       ctaDestination: announcement.ctaDestination,
       priority: announcement.priority,
       location: announcement.location,
-      category: announcement.category?.toString?.(),
+      category: announcement.categoryId ?? undefined,
       expiresAt: announcement.expiresAt,
     };
 
     await Promise.allSettled(
       userIds.map((userId) =>
         this.notificationsService.notifyRaw(
-          userId,
+          String(userId),
           announcement.title,
           announcement.message,
           "ANNOUNCEMENT",
@@ -81,22 +76,24 @@ export class AnnouncementService {
     }
 
     const status = dto.status ?? defaultStatus;
-    if (!["draft", "scheduled", "sent"].includes(status)) {
+    if (!(ANNOUNCEMENT_STATUSES as readonly string[]).includes(status)) {
       throw new BadRequestException("Invalid status");
     }
     if (status === "scheduled" && !dto.scheduledAt) {
-      throw new BadRequestException("Schedule date & time is required when scheduling an announcement");
+      throw new BadRequestException(
+        "Schedule date & time is required when scheduling an announcement",
+      );
     }
 
-    if (dto.priority && !["low", "medium", "high"].includes(dto.priority)) {
+    if (dto.priority && !(ANNOUNCEMENT_PRIORITIES as readonly string[]).includes(dto.priority)) {
       throw new BadRequestException("Invalid priority");
     }
 
-    if (dto.category && !Types.ObjectId.isValid(dto.category)) {
+    if (dto.category && !isObjectIdLike(dto.category)) {
       throw new BadRequestException("Invalid category id");
     }
 
-    return { title, message, status };
+    return { title, message, status: status as AnnouncementStatus };
   }
 
   async create(dto: CreateAnnouncementDto, createdBy: string) {
@@ -104,23 +101,26 @@ export class AnnouncementService {
 
     const announcementCode = await this.generateNextAnnouncementCode();
 
-    const announcement = await this.announcementModel.create({
-      announcementCode,
-      title,
-      message,
-      image: dto.image,
-      video: dto.video,
-      targetAudience: dto.targetAudience ?? [],
-      category: dto.category ? new Types.ObjectId(dto.category) : undefined,
-      location: dto.location?.trim() || undefined,
-      ctaLabel: dto.ctaLabel?.trim() || undefined,
-      ctaDestination: dto.ctaDestination?.trim() || undefined,
-      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
-      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
-      priority: dto.priority ?? "medium",
-      status,
-      sentAt: status === "sent" ? new Date() : undefined,
-      createdBy: new Types.ObjectId(createdBy),
+    const announcement = await this.prisma.announcement.create({
+      data: {
+        id: generateObjectId(),
+        announcementCode,
+        title,
+        message,
+        image: dto.image ?? null,
+        video: dto.video ?? null,
+        targetAudience: dto.targetAudience ?? [],
+        categoryId: dto.category || null,
+        location: dto.location?.trim() || null,
+        ctaLabel: dto.ctaLabel?.trim() || null,
+        ctaDestination: dto.ctaDestination?.trim() || null,
+        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        priority: (dto.priority ?? "medium") as AnnouncementPriority,
+        status,
+        sentAt: status === "sent" ? new Date() : null,
+        createdById: createdBy,
+      },
     });
 
     if (status === "sent") {
@@ -135,42 +135,41 @@ export class AnnouncementService {
 
   /** Only drafts can be edited — scheduled/sent announcements are treated as final. */
   async update(id: string, dto: CreateAnnouncementDto) {
-    if (!Types.ObjectId.isValid(id)) {
+    if (!isObjectIdLike(id)) {
       throw new BadRequestException("Invalid announcement id");
     }
 
-    const announcement = await this.announcementModel.findById(id);
-    if (!announcement) {
+    const existing = await this.prisma.announcement.findUnique({ where: { id } });
+    if (!existing) {
       throw new NotFoundException("Announcement not found");
     }
-    if (announcement.status !== "draft") {
+    if (existing.status !== "draft") {
       throw new BadRequestException("Only draft announcements can be edited");
     }
 
     const { title, message, status } = this.validateDto(dto, "draft");
 
-    announcement.title = title;
-    announcement.message = message;
-    if (dto.image) {
-      announcement.image = dto.image;
-    }
-    if (dto.video) {
-      announcement.video = dto.video;
-    }
-    announcement.targetAudience = dto.targetAudience ?? [];
-    announcement.category = dto.category ? new Types.ObjectId(dto.category) : undefined;
-    announcement.location = dto.location?.trim() || undefined;
-    announcement.ctaLabel = dto.ctaLabel?.trim() || undefined;
-    announcement.ctaDestination = dto.ctaDestination?.trim() || undefined;
-    announcement.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : undefined;
-    announcement.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : undefined;
-    announcement.priority = dto.priority ?? "medium";
-    announcement.status = status;
-    if (status === "sent") {
-      announcement.sentAt = new Date();
-    }
-
-    await announcement.save();
+    const announcement = await this.prisma.announcement.update({
+      where: { id },
+      data: {
+        title,
+        message,
+        // image/video are only overwritten when a new one is supplied, so an
+        // edit that leaves them out keeps the existing media — unchanged.
+        ...(dto.image ? { image: dto.image } : {}),
+        ...(dto.video ? { video: dto.video } : {}),
+        targetAudience: dto.targetAudience ?? [],
+        categoryId: dto.category || null,
+        location: dto.location?.trim() || null,
+        ctaLabel: dto.ctaLabel?.trim() || null,
+        ctaDestination: dto.ctaDestination?.trim() || null,
+        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        priority: (dto.priority ?? "medium") as AnnouncementPriority,
+        status,
+        ...(status === "sent" ? { sentAt: new Date() } : {}),
+      },
+    });
 
     if (status === "sent") {
       await this.fanOutToUsers(announcement, announcement.targetAudience);
@@ -183,24 +182,24 @@ export class AnnouncementService {
   }
 
   async getAll(paginationDto: PaginationDto): Promise<PaginatedResponseDto<Announcement>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
 
     const [data, total] = await Promise.all([
-      this.announcementModel
-        .find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("createdBy", "name email")
-        .populate("category", "name")
-        .lean()
-        .exec(),
-      this.announcementModel.countDocuments(),
+      this.prisma.announcement.findMany({
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.announcement.count(),
     ]);
 
     return {
-      data,
+      data: data as unknown as Announcement[],
       meta: {
         total,
         page,
@@ -213,20 +212,19 @@ export class AnnouncementService {
   /** Records that a user opened an announcement: day-deduped per (announcement, user) —
    *  reopening it later the same day never recounts, a later day does. */
   async trackView(announcementId: string, userId: string): Promise<void> {
-    if (!Types.ObjectId.isValid(announcementId)) return;
+    if (!isObjectIdLike(announcementId)) return;
 
     const day = new Date().toISOString().slice(0, 10);
-    await this.announcementViewModel.updateOne(
-      { announcementId: new Types.ObjectId(announcementId), userId: new Types.ObjectId(userId), day },
-      {
-        $setOnInsert: {
-          announcementId: new Types.ObjectId(announcementId),
-          userId: new Types.ObjectId(userId),
-          day,
-        },
+
+    // Was updateOne(..., { $setOnInsert }, { upsert: true }); `update: {}` leaves
+    // an existing row untouched in exactly the same way.
+    await this.prisma.announcementView.upsert({
+      where: {
+        announcementId_userId_day: { announcementId, userId, day },
       },
-      { upsert: true },
-    );
+      create: { id: generateObjectId(), announcementId, userId, day },
+      update: {},
+    });
   }
 
   /** Admin: paginated list of the distinct users who viewed one announcement, most recent
@@ -235,50 +233,49 @@ export class AnnouncementService {
     announcementId: string,
     page = 1,
     limit = 20,
-  ): Promise<{ data: unknown[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  ): Promise<{
+    data: unknown[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
-    const match = { announcementId: new Types.ObjectId(announcementId) };
 
-    const basePipeline: any[] = [
-      { $match: match },
-      { $group: { _id: "$userId", lastViewedAt: { $max: "$createdAt" } } },
-      { $sort: { lastViewedAt: -1 } },
-    ];
-
-    const [rows, countResult] = await Promise.all([
-      this.announcementViewModel.aggregate([
-        ...basePipeline,
-        { $skip: skip },
-        { $limit: limitNum },
-        {
-          $lookup: {
-            from: "users",
-            localField: "_id",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            _id: 0,
-            createdAt: "$lastViewedAt",
-            "user._id": 1,
-            "user.name": 1,
-            "user.email": 1,
-            "user.image": 1,
-          },
-        },
-      ]),
-      this.announcementViewModel.aggregate([...basePipeline, { $count: "total" }]),
+    // Was a $group by userId taking $max(createdAt), then a $lookup into users
+    // and a second $count pipeline. groupBy does the first half; the users are
+    // fetched once for the page rather than joined per row.
+    const [groups, distinctCount] = await Promise.all([
+      this.prisma.announcementView.groupBy({
+        by: ["userId"],
+        where: { announcementId },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: "desc" } },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT count(DISTINCT user_id) AS count
+        FROM announcement_views
+        WHERE announcement_id = ${announcementId}
+      `,
     ]);
 
-    const total = countResult[0]?.total ?? 0;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: groups.map((g) => g.userId) } },
+      select: { id: true, name: true, email: true, image: true },
+    });
+    const usersById = new Map(users.map((u) => [u.id, u]));
+
+    // Same output shape as the old $project: { createdAt, user }.
+    const data = groups.map((g) => ({
+      createdAt: g._max.createdAt,
+      user: usersById.get(g.userId) ?? null,
+    }));
+
+    const total = Number(distinctCount[0]?.count ?? 0);
 
     return {
-      data: rows,
+      data,
       meta: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
     };
   }

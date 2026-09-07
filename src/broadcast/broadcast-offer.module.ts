@@ -1,24 +1,14 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
 
 import { BroadcastOfferController } from "./broadcast-offer.controller";
 import { BroadcastOfferService } from "./broadcast-offer.service";
-import { Broadcast, BroadcastSchema } from "./schema/broadcast.schema";
-import { BroadcastThread, BroadcastThreadSchema } from "./schema/broadcast-thread.schema";
-import { BroadcastOffer, BroadcastOfferSchema } from "./schema/broadcast-offer.schema";
 import { NotificationsModule } from "src/notifications/notifications.module";
 import { BroadcastModule } from "./broadcast.module";
 
+// PrismaModule is @Global, so PrismaService needs no import here — this
+// replaces the Broadcast + BroadcastThread + BroadcastOffer registrations.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Broadcast.name, schema: BroadcastSchema },
-      { name: BroadcastThread.name, schema: BroadcastThreadSchema },
-      { name: BroadcastOffer.name, schema: BroadcastOfferSchema },
-    ]),
-    NotificationsModule,
-    BroadcastModule,
-  ],
+  imports: [NotificationsModule, BroadcastModule],
   controllers: [BroadcastOfferController],
   providers: [BroadcastOfferService],
 })

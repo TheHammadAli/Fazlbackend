@@ -3,26 +3,16 @@ import { forwardRef, Module } from "@nestjs/common";
 
 import { NotificationsService } from "./notifications.service";
 import { NotificationsController } from "./notifications.controller";
-import {
-  Notification,
-  NotificationSchema,
-} from "./schema/notifications.schema";
 import { FirebaseService } from "./firebase.service";
-import { MongooseModule } from "@nestjs/mongoose";
 import { UsersModule } from "src/users/users.module";
 import { NotificationsGateway } from "./notification.gateway";
 import { ConfigModule } from "@nestjs/config";
 import { PresenceModule } from "src/presence/presence.module";
 
+// PrismaModule is @Global, so PrismaService needs no import here — this
+// replaces the Notification model registration.
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Notification.name, schema: NotificationSchema },
-    ]),
-    forwardRef(() => UsersModule),
-    ConfigModule,
-    PresenceModule,
-  ],
+  imports: [forwardRef(() => UsersModule), ConfigModule, PresenceModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway, FirebaseService],
   exports: [NotificationsService, NotificationsGateway],

@@ -1,0 +1,1985 @@
+// =============================================================================
+// Fazl — PostgreSQL schema (migrated from MongoDB/Mongoose)
+//
+// Conventions, applied consistently across every model:
+//
+//  1. PRIMARY KEYS. Every model that had a Mongo ObjectId keeps that exact
+//     24-character hex string as its primary key (`@db.VarChar(24)`). No UUIDs
+//     are minted. This preserves every JWT `sub`, every S3 object key path,
+//     every FCM payload id and all 807 `_id` references across the three
+//     clients, and removes the need for an ID mapping table during migration.
+//
+//     VarChar(24) rather than Char(24): Postgres `char(n)` is blank-padded and
+//     ignores trailing spaces when comparing, which silently masks id bugs in
+//     raw SQL. VarChar has identical storage cost for fixed-width content.
+//
+//  2. NAMING. snake_case tables/columns via @@map/@map; camelCase in the Prisma
+//     client so the TypeScript surface matches the existing Mongoose one.
+//
+//  3. MONEY. Always integer minor units (`Int`), never Float, never Decimal —
+//     the existing wallet logic is already integer-correct end to end.
+//
+//  4. GEO. `latitude`/`longitude` are plain nullable Floats here; a PostGIS
+//     `geography(Point,4326)` column plus its GiST index is added by manual
+//     migration SQL and is invisible to Prisma. See prisma/migrations/.
+//
+//  5. DELETE RULES. Cascade only where the child is meaningless without its
+//     parent. Restrict on every financial row and on categories in use.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+// Prisma 7 no longer accepts `url` here. The connection string reaches the CLI
+// through prisma.config.ts and the runtime through the node-postgres driver
+// adapter in src/prisma/prisma.service.ts. Both read DATABASE_URL.
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// ENUMS
+// Every closed set that Mongoose declared with `enum:` becomes a real Postgres
+// enum. Values that are not valid Prisma identifiers are @map'd to the exact
+// string the existing data and the three clients already use.
+// =============================================================================
+
+enum UserRole {
+  buyer
+  seller
+  admin
+  subadmin
+  super_admin
+  moderator
+}
+
+enum AdminPermissionPage {
+  users
+  shops
+  listings
+  services
+  categories
+  bookings
+  broadcasts
+  announcements
+  feed
+  reports
+  email_logs    @map("email-logs")
+  settings
+  members
+  wallet
+  reviews
+}
+
+enum AdminAction {
+  view
+  edit
+  delete
+}
+
+enum CategoryType {
+  service
+  product
+}
+
+enum CategoryRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ProductType {
+  retail
+  classified
+}
+
+enum ServicePaymentType {
+  hourly
+  fixed
+  call_for_price
+}
+
+// Mongoose enforces only the first three values. The TypeScript `JobStatus`
+// union in service_request.schema.ts additionally declares "verified" and
+// "disputed"; both are carried here so a stray legacy value can never abort the
+// import. The enum audit in scripts/audit-enums.ts reports whether either is
+// actually present in production data.
+enum JobStatus {
+  not_started
+  in_progress
+  completed
+  verified
+  disputed
+}
+
+enum ServiceRequestStatus {
+  pending
+  accepted
+  rejected
+  proposed
+  cancelled
+  confirmed
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  shipped
+  delivered
+  cancelled
+}
+
+enum OrderPaymentType {
+  cashonDelivery
+  Easypaisa
+}
+
+enum DeliveryOption {
+  self_pickup @map("self-pickup")
+  delivery
+}
+
+enum OwnerModel {
+  Shop
+  User
+}
+
+enum ItemType {
+  product
+  service
+}
+
+enum ConversationStatus {
+  open
+  closed
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+}
+
+enum ProductOfferStatus {
+  pending
+  accepted
+  declined
+  expired
+}
+
+enum BroadcastOfferStatus {
+  pending
+  accepted
+  declined
+}
+
+enum BroadcastPurpose {
+  Buying
+  Selling
+}
+
+enum BroadcastStatus {
+  open
+  closed
+}
+
+enum ReportEntityType {
+  shop
+  product
+  service
+  user
+}
+
+enum ReportReason {
+  Spam
+  AdultContent @map("Adult Content")
+  Fraud
+  Duplicate
+  Other
+}
+
+enum ReportStatus {
+  open
+  closed
+}
+
+enum NotificationType {
+  ORDER
+  MESSAGE
+  PROMOTION
+  SERVICE_REQUEST
+  BROADCAST
+  ANNOUNCEMENT
+  LIKE
+  REPORT
+  PRODUCT_OFFER
+}
+
+enum AnnouncementStatus {
+  draft
+  scheduled
+  sent
+}
+
+enum AnnouncementPriority {
+  low
+  medium
+  high
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  submitted
+  revision
+  completed
+  cancelled
+}
+
+enum PromotionTargetType {
+  Product
+  Shop
+  Service
+}
+
+enum PromotionStatus {
+  active
+  expired
+  cancelled
+  scheduled
+}
+
+enum SubscriptionTargetType {
+  Product
+  Shop
+}
+
+enum SubscriptionScreenType {
+  listing
+  feed
+}
+
+enum ActivityLogAction {
+  admin_login
+  admin_logout
+  user_suspended
+  user_enabled
+  user_updated
+  shop_suspended
+  shop_enabled
+  listing_suspended
+  listing_enabled
+  listing_deleted
+  broadcast_deleted
+  member_created
+  member_updated
+  member_deleted
+  member_password_reset
+  task_created
+  task_assigned
+  task_updated
+  task_deleted
+  task_submitted
+  task_reviewed
+  admin_password_reset
+}
+
+enum ActivityLogTargetType {
+  User
+  Shop
+  Product
+  Broadcast
+  Task
+}
+
+enum EmailLogEvent {
+  shop_created
+  listing_created
+  service_created
+  booking_accepted
+  broadcast_created
+}
+
+enum EmailLogStatus {
+  sent
+  failed
+}
+
+enum WalletType {
+  user
+  merchant
+}
+
+enum WalletTransactionType {
+  order_payment
+  manual_credit
+  manual_debit
+  withdrawal_debit
+  refund_credit
+}
+
+enum WalletPaymentMethod {
+  fazl_wallet
+  cash
+}
+
+enum WalletTransactionStatus {
+  pending
+  completed
+  failed
+  reversed
+}
+
+enum WalletTransactionRefundStatus {
+  none
+  partial
+  full
+}
+
+enum WalletRefModel {
+  User
+  Wallet
+}
+
+enum LedgerDirection {
+  credit
+  debit
+}
+
+enum LedgerBalanceType {
+  available
+  pending
+}
+
+enum LedgerRelatedEntityType {
+  WalletTransaction
+  Withdrawal
+  Refund
+  ManualAdjustment
+}
+
+enum WithdrawalStatus {
+  pending
+  approved
+  processing
+  completed
+  rejected
+  cancelled
+}
+
+enum WithdrawalMethod {
+  bank_transfer
+  jazzcash
+  easypaisa
+  other
+}
+
+enum RefundStatus {
+  pending
+  completed
+  rejected
+}
+
+enum WalletAuditAction {
+  manual_balance_addition
+  manual_balance_deduction
+  wallet_freeze
+  wallet_unfreeze
+  refund
+  refund_rejection
+  withdrawal_created
+  withdrawal_approval
+  withdrawal_rejection
+  withdrawal_status_change
+  withdrawal_cancelled
+  deal_change
+  wallet_settings_change
+  wallet_recalculated
+}
+
+enum WalletAuditTargetType {
+  Wallet
+  WalletTransaction
+  Withdrawal
+  Refund
+  MerchantDeal
+  WalletSettings
+}
+
+// =============================================================================
+// IDENTITY
+// =============================================================================
+
+model User {
+  id             String     @id @db.VarChar(24)
+  userCode       String?    @unique @map("user_code")
+  name           String?
+  email          String     @unique
+  // `select: false` in Mongoose silently kept these out of every response.
+  // Prisma has no equivalent — every read path must use the shared
+  // `userPublicSelect` constant instead. See src/users/user-select.ts.
+  password       String?
+  memberPassword String?    @map("member_password")
+  roles          UserRole[]
+  phone          String?    @unique
+  latitude       Float?
+  longitude      Float?
+  image          String?    @default("default-avatar.png")
+  address        String?
+  refreshToken   String?    @map("refresh_token")
+
+  resetPasswordToken   String?   @map("reset_password_token")
+  resetPasswordExpires DateTime? @map("reset_password_expires") @db.Timestamptz(3)
+  provider             String?
+
+  // Legacy single-device token, kept so devices registered before multi-device
+  // support still receive pushes; new registrations append to fcmTokens.
+  fcmToken  String?  @map("fcm_token")
+  fcmTokens String[] @default([]) @map("fcm_tokens")
+
+  isDisabled Boolean   @default(false) @map("is_disabled")
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // NOTE: users.schema.ts also declares `language` and `isVerified` as plain
+  // class properties with no @Prop decorator, so Mongoose never persisted them
+  // and no column exists to migrate. They are deliberately omitted here.
+
+  permissions UserPermission[]
+
+  shops    Shop[]
+  products Product[]
+  services Service[]
+
+  ordersAsBuyer Order[] @relation("OrderBuyer")
+  ordersAsOwner Order[] @relation("OrderUserOwner")
+
+  conversationsAsBuyer  Conversation[] @relation("ConversationBuyer")
+  conversationsAsSeller Conversation[] @relation("ConversationSeller")
+  messagesSent          Message[]      @relation("MessageSender")
+  messagesReceived      Message[]      @relation("MessageReceiver")
+
+  productOffersMade     ProductOffer[] @relation("ProductOfferOfferer")
+  productOffersReceived ProductOffer[] @relation("ProductOfferSeller")
+
+  broadcasts                Broadcast[]        @relation("BroadcastBuyer")
+  broadcastThreadsAsBuyer   BroadcastThread[]  @relation("BroadcastThreadBuyer")
+  broadcastThreadsAsSeller  BroadcastThread[]  @relation("BroadcastThreadSeller")
+  broadcastMessagesSent     BroadcastMessage[] @relation("BroadcastMessageSender")
+  broadcastMessagesReceived BroadcastMessage[] @relation("BroadcastMessageReceiver")
+  broadcastOffersMade       BroadcastOffer[]   @relation("BroadcastOfferOfferer")
+  broadcastOffersReceived   BroadcastOffer[]   @relation("BroadcastOfferCreator")
+
+  likes   Like[]
+  shares  Share[]
+  reviews Review[]
+
+  reportsFiled     Report[] @relation("ReportReporter")
+  reportsClosed    Report[] @relation("ReportClosedBy")
+  reportsResponded Report[] @relation("ReportRespondedBy")
+
+  notifications     Notification[]
+  announcements     Announcement[]     @relation("AnnouncementCreatedBy")
+  announcementViews AnnouncementView[]
+
+  categoryRequestsMade     CategoryRequest[] @relation("CategoryRequestRequestedBy")
+  categoryRequestsReviewed CategoryRequest[] @relation("CategoryRequestReviewedBy")
+
+  serviceRequestsAsCustomer ServiceRequest[] @relation("ServiceRequestCustomer")
+  serviceRequestsAsProvider ServiceRequest[] @relation("ServiceRequestProvider")
+
+  tasksCreated    Task[]           @relation("TaskCreatedBy")
+  taskAssignments TaskAssignee[]
+  taskSubmissions TaskSubmission[]
+
+  activityLogs ActivityLog[] @relation("ActivityLogActor")
+
+  wallets       Wallet[] @relation("WalletOwner")
+  walletsFrozen Wallet[] @relation("WalletFrozenBy")
+
+  walletTransactionsAsUser     WalletTransaction[] @relation("WalletTransactionUser")
+  walletTransactionsAsMerchant WalletTransaction[] @relation("WalletTransactionMerchant")
+  walletTransactionsCreated    WalletTransaction[] @relation("WalletTransactionCreatedBy")
+
+  ledgerEntriesCreated WalletLedgerEntry[] @relation("LedgerEntryCreatedBy")
+
+  withdrawalsAsMerchant Withdrawal[] @relation("WithdrawalMerchant")
+  withdrawalsCreated    Withdrawal[] @relation("WithdrawalCreatedBy")
+
+  refundsAsCustomer Refund[] @relation("RefundCustomer")
+  refundsAsMerchant Refund[] @relation("RefundMerchant")
+  refundsCreated    Refund[] @relation("RefundCreatedBy")
+
+  merchantDeals        MerchantDeal[] @relation("MerchantDealMerchant")
+  merchantDealsCreated MerchantDeal[] @relation("MerchantDealCreatedBy")
+
+  walletAuditLogsAsAdmin   WalletAuditLog[] @relation("WalletAuditLogAdmin")
+  walletAuditLogsAsSubject WalletAuditLog[] @relation("WalletAuditLogSubject")
+
+  walletSettingsUpdated WalletSettings[] @relation("WalletSettingsUpdatedBy")
+
+  productViews          ProductView[]
+  productContactClicks  ProductContactClick[]
+  productWhatsappClicks ProductWhatsappClick[]
+  serviceViews          ServiceView[]
+  serviceContactClicks  ServiceContactClick[]
+  serviceWhatsappClicks ServiceWhatsappClick[]
+  shopViews             ShopView[]
+  shopProductViews      ShopProductView[]
+  shopContactClicks     ShopContactClick[]
+  shopWhatsappClicks    ShopWhatsappClick[]
+
+  @@index([email])
+  @@index([isDisabled])
+  @@map("users")
+}
+
+/// Was an embedded `permissions[]` array on the user document. Promoted to a
+/// table because PermissionsGuard reads it on every authorised request and the
+/// admin panel edits entries individually.
+model UserPermission {
+  id      String              @id @default(uuid())
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String              @map("user_id") @db.VarChar(24)
+  page    AdminPermissionPage
+  actions AdminAction[]       @default([])
+
+  @@unique([userId, page])
+  @@index([userId])
+  @@map("user_permissions")
+}
+
+model Otp {
+  id          String    @id @db.VarChar(24)
+  phoneNumber String?   @map("phone_number")
+  email       String?
+  code        String
+  type        String    @default("phone")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+// =============================================================================
+// CATALOGUE
+// =============================================================================
+
+model Category {
+  /// Locale-keyed map, e.g. { "en": "Electronics", "ur": "..." }.
+  /// Was a Mongoose Map<string,string>; read and written whole, never queried
+  /// by inner key, so JSONB is the correct shape rather than a locale table.
+  name        Json
+  description Json?
+
+  id String @id @db.VarChar(24)
+
+  /// { en: [{name, values[], isOptional, allowCustomValue, allowMultiple}], ur: [...] }
+  /// Deeply irregular and always read whole — JSONB, not a parameters table.
+  parameters Json? @default("{\"en\":[],\"ur\":[]}")
+
+  sortNumber Int          @default(0) @map("sort_number")
+  isDisabled Boolean      @default(false) @map("is_disabled")
+  icon       String?
+  type       CategoryType
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products       Product[]
+  services       Service[]
+  shopsPrimary   Shop[]         @relation("ShopCategory")
+  shopsSecondary Shop[]         @relation("ShopSubcategory")
+  broadcasts     Broadcast[]
+  announcements  Announcement[]
+
+  @@index([type, isDisabled])
+  @@index([sortNumber])
+  @@map("categories")
+}
+
+model CategoryRequest {
+  id            String                @id @db.VarChar(24)
+  name          String
+  description   String?
+  requestedBy   User                  @relation("CategoryRequestRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedById String                @map("requested_by") @db.VarChar(24)
+  status        CategoryRequestStatus @default(pending)
+  reviewedBy    User?                 @relation("CategoryRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedById  String?               @map("reviewed_by") @db.VarChar(24)
+  adminComment  String?               @map("admin_comment")
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  reviewedAt    DateTime?             @map("reviewed_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@index([requestedById])
+  @@map("category_requests")
+}
+
+model Shop {
+  id       String  @id @db.VarChar(24)
+  shopCode String? @unique @map("shop_code")
+
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String @map("owner_id") @db.VarChar(24)
+
+  title       String
+  image       String?
+  banner      String?
+  address     String
+  description String
+
+  category   Category @relation("ShopCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String   @map("category_id") @db.VarChar(24)
+
+  subcategory   Category? @relation("ShopSubcategory", fields: [subcategoryId], references: [id], onDelete: Restrict)
+  subcategoryId String?   @map("subcategory_id") @db.VarChar(24)
+
+  marketName   String? @map("market_name")
+  area         String
+  city         String
+  contact      String
+  openingHours String? @map("opening_hours")
+
+  isDisabled Boolean @default(false) @map("is_disabled")
+
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products       Product[]
+  ordersAsOwner  Order[]             @relation("OrderShopOwner")
+  views          ShopView[]
+  productViews   ShopProductView[]
+  contactClicks  ShopContactClick[]
+  whatsappClicks ShopWhatsappClick[]
+  promotions     Promotion[]
+
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([city, area])
+  @@index([isDisabled])
+  @@map("shops")
+}
+
+model Product {
+  id          String  @id @db.VarChar(24)
+  listingCode String? @unique @map("listing_code")
+  /// Sequential display id (e.g. VID-000001), assigned only when this product
+  /// carries a video (i.e. appears in the feed).
+  videoCode   String? @unique @map("video_code")
+
+  shop   Shop?   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String? @map("shop_id") @db.VarChar(24)
+
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String? @map("owner_id") @db.VarChar(24)
+
+  title       String
+  description String?
+  price       Int
+  type        ProductType
+
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String   @map("category_id") @db.VarChar(24)
+
+  images String[] @default([])
+  video  String?
+
+  latitude  Float?
+  longitude Float?
+
+  /// [{ name, variants[] }] — only ever rendered, never queried by inner field.
+  /// Searching goes through `searchableTags` instead.
+  parameters Json? @default("[]")
+
+  /// Denormalised from `parameters` by the two ProductSchema pre-hooks in
+  /// Mongoose. Prisma has no equivalent middleware, so ProductsService.create()
+  /// and .update() now compute this explicitly.
+  searchableTags String[] @default([]) @map("searchable_tags")
+
+  isDeleted   Boolean @default(false) @map("is_deleted")
+  isDisabled  Boolean @default(false) @map("is_disabled")
+  /// True for a lightweight "just a video" shop post (no real category/price).
+  isVideoPost Boolean @default(false) @map("is_video_post")
+
+  address String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  orders         Order[]
+  offers         ProductOffer[]
+  views          ProductView[]
+  contactClicks  ProductContactClick[]
+  whatsappClicks ProductWhatsappClick[]
+  promotions     Promotion[]
+
+  @@index([shopId, isVideoPost, isDeleted, isDisabled])
+  @@index([categoryId])
+  @@index([ownerId])
+  @@index([createdAt(sort: Desc)])
+  @@index([searchableTags], type: Gin)
+  @@map("products")
+}
+
+model Service {
+  id          String  @id @db.VarChar(24)
+  serviceCode String? @unique @map("service_code")
+
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String @map("owner_id") @db.VarChar(24)
+
+  title       String
+  description String?
+  price       Int?
+
+  paymentType         ServicePaymentType @default(fixed) @map("payment_type")
+  requiresAppointment Boolean            @default(true) @map("requires_appointment")
+
+  images String[] @default([])
+  video  String?
+
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String   @map("category_id") @db.VarChar(24)
+
+  latitude  Float?
+  longitude Float?
+
+  parameters Json? @default("[]")
+
+  isDeleted  Boolean @default(false) @map("is_deleted")
+  isDisabled Boolean @default(false) @map("is_disabled")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  requests       ServiceRequest[]
+  views          ServiceView[]
+  contactClicks  ServiceContactClick[]
+  whatsappClicks ServiceWhatsappClick[]
+  promotions     Promotion[]
+
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([isDeleted, isDisabled])
+  @@index([createdAt(sort: Desc)])
+  @@map("services")
+}
+
+// =============================================================================
+// COMMERCE
+// =============================================================================
+
+/// `owner` + `ownerModel` was a Mongoose refPath pointing at either Shop or
+/// User. Split into two nullable typed FKs with a CHECK constraint (added in
+/// manual migration SQL) asserting exactly one is set — orders are financially
+/// significant and deserve real referential integrity.
+model Order {
+  id String @id @db.VarChar(24)
+
+  buyer   User   @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  buyerId String @map("buyer_id") @db.VarChar(24)
+
+  ownerModel OwnerModel @map("owner_model")
+
+  shopOwner   Shop?   @relation("OrderShopOwner", fields: [shopOwnerId], references: [id], onDelete: Restrict)
+  shopOwnerId String? @map("shop_owner_id") @db.VarChar(24)
+
+  userOwner   User?   @relation("OrderUserOwner", fields: [userOwnerId], references: [id], onDelete: Restrict)
+  userOwnerId String? @map("user_owner_id") @db.VarChar(24)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId String  @map("product_id") @db.VarChar(24)
+
+  deliveryOption DeliveryOption   @map("delivery_option")
+  status         OrderStatus      @default(pending)
+  paymentType    OrderPaymentType @default(cashonDelivery) @map("payment_type")
+
+  amount   Int
+  quantity Int
+
+  /// Purchase-time snapshot of arbitrary product options.
+  variant Json?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  walletTransactions WalletTransaction[]
+  refunds            Refund[]
+
+  @@index([buyerId, createdAt(sort: Desc)])
+  @@index([shopOwnerId])
+  @@index([userOwnerId])
+  @@index([productId])
+  @@index([status])
+  @@map("orders")
+}
+
+model ProductOffer {
+  id String @id @db.VarChar(24)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id") @db.VarChar(24)
+
+  offerer   User   @relation("ProductOfferOfferer", fields: [offererId], references: [id], onDelete: Cascade)
+  offererId String @map("offerer_id") @db.VarChar(24)
+
+  seller   User   @relation("ProductOfferSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId String @map("seller_id") @db.VarChar(24)
+
+  price       Int?
+  message     String             @db.VarChar(1000)
+  status      ProductOfferStatus @default(pending)
+  respondedAt DateTime?          @map("responded_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([productId, offererId])
+  @@index([sellerId, status, updatedAt(sort: Desc)])
+  @@index([offererId, updatedAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("product_offers")
+}
+
+model ServiceRequest {
+  id      String  @id @db.VarChar(24)
+  jobCode String? @unique @map("job_code")
+
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String  @map("service_id") @db.VarChar(24)
+
+  customer   User   @relation("ServiceRequestCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  customerId String @map("customer_id") @db.VarChar(24)
+
+  provider   User   @relation("ServiceRequestProvider", fields: [providerId], references: [id], onDelete: Restrict)
+  providerId String @map("provider_id") @db.VarChar(24)
+
+  requestedDateTime DateTime  @map("requested_date_time") @db.Timestamptz(3)
+  proposedDateTime  DateTime? @map("proposed_date_time") @db.Timestamptz(3)
+
+  status    ServiceRequestStatus @default(pending)
+  jobStatus JobStatus            @default(not_started) @map("job_status")
+
+  message     String?
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([providerId, createdAt(sort: Desc)])
+  @@index([serviceId])
+  @@index([status])
+  @@map("service_requests")
+}
+
+model Subscription {
+  id             String                  @id @db.VarChar(24)
+  targetType     SubscriptionTargetType  @map("target_type")
+  name           String
+  price          Int
+  durationInDays Int                     @map("duration_in_days")
+  screenType     SubscriptionScreenType? @default(listing) @map("screen_type")
+  description    String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  promotions Promotion[]
+
+  @@map("subscriptions")
+}
+
+/// `targetId` + `targetType` was a Mongoose refPath over Product | Shop |
+/// Service. Split into three nullable typed FKs with a CHECK constraint (manual
+/// migration SQL) — promotions are queried by target constantly and there are
+/// only three of them.
+model Promotion {
+  id String @id @db.VarChar(24)
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  subscriptionId String       @map("subscription_id") @db.VarChar(24)
+
+  targetType PromotionTargetType @map("target_type")
+
+  // Exactly one of these three is set, asserted by a CHECK constraint added in
+  // the 20260906000001_postgis_and_constraints migration.
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String?  @map("product_id") @db.VarChar(24)
+
+  shop   Shop?   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String? @map("shop_id") @db.VarChar(24)
+
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String?  @map("service_id") @db.VarChar(24)
+
+  startDate DateTime        @map("start_date") @db.Timestamptz(3)
+  endDate   DateTime        @map("end_date") @db.Timestamptz(3)
+  status    PromotionStatus @default(active)
+
+  isAutoRenew Boolean @default(false) @map("is_auto_renew")
+  isInFeed    Boolean @default(false) @map("is_in_feed")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([targetType, status])
+  @@index([productId])
+  @@index([shopId])
+  @@index([serviceId])
+  @@index([status, endDate])
+  @@map("promotions")
+}
+
+// =============================================================================
+// CHAT
+// =============================================================================
+
+model Conversation {
+  id String @id @db.VarChar(24)
+
+  buyer   User   @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId String @map("buyer_id") @db.VarChar(24)
+
+  seller   User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId String @map("seller_id") @db.VarChar(24)
+
+  status        ConversationStatus @default(open)
+  lastMessageAt DateTime?          @map("last_message_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  messages Message[]
+
+  @@unique([buyerId, sellerId])
+  @@index([buyerId, lastMessageAt(sort: Desc)])
+  @@index([sellerId, lastMessageAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model Message {
+  id String @id @db.VarChar(24)
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String       @map("conversation_id") @db.VarChar(24)
+
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  senderId String @map("sender_id") @db.VarChar(24)
+
+  receiver   User   @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Restrict)
+  receiverId String @map("receiver_id") @db.VarChar(24)
+
+  text String?
+
+  /// Only set on system-generated messages (offer accept/decline/expiry) where
+  /// what happened reads differently for each participant. The sender's own
+  /// client renders this instead of `text`.
+  senderText String? @map("sender_text")
+
+  imageUrl      String? @map("image_url")
+  audioUrl      String? @map("audio_url")
+  audioDuration Int?    @map("audio_duration")
+
+  /// Kept in sync with `status` (status == read <=> read == true) so every
+  /// existing unread-count query that filters on `read` keeps working.
+  read        Boolean       @default(false)
+  status      MessageStatus @default(sent)
+  deliveredAt DateTime?     @map("delivered_at") @db.Timestamptz(3)
+  readAt      DateTime?     @map("read_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  /// Drives the offline delivery flush on socket connect.
+  @@index([receiverId, status])
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([receiverId, read])
+  @@map("messages")
+}
+
+// =============================================================================
+// BROADCAST
+// =============================================================================
+
+model Broadcast {
+  id            String  @id @db.VarChar(24)
+  broadcastCode String? @unique @map("broadcast_code")
+
+  buyer   User   @relation("BroadcastBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId String @map("buyer_id") @db.VarChar(24)
+
+  message String
+  address String?
+  purpose BroadcastPurpose
+
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String?   @map("category_id") @db.VarChar(24)
+
+  /// Search radius in kilometres.
+  radius Int
+
+  latitude  Float?
+  longitude Float?
+
+  type           ItemType
+  expiresAt      DateTime?       @map("expires_at") @db.Timestamptz(3)
+  lastResponseAt DateTime?       @map("last_response_at") @db.Timestamptz(3)
+  status         BroadcastStatus @default(open)
+  isDeleted      Boolean         @default(false) @map("is_deleted")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  threads  BroadcastThread[]
+  messages BroadcastMessage[]
+  offers   BroadcastOffer[]
+
+  @@index([buyerId, createdAt(sort: Desc)])
+  @@index([status, isDeleted])
+  @@map("broadcasts")
+}
+
+model BroadcastThread {
+  id String @id @db.VarChar(24)
+
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  broadcastId String    @map("broadcast_id") @db.VarChar(24)
+
+  buyer   User   @relation("BroadcastThreadBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId String @map("buyer_id") @db.VarChar(24)
+
+  seller   User   @relation("BroadcastThreadSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId String @map("seller_id") @db.VarChar(24)
+
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  messages BroadcastMessage[]
+  offer    BroadcastOffer?
+
+  @@unique([broadcastId, sellerId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@map("broadcast_threads")
+}
+
+model BroadcastMessage {
+  id String @id @db.VarChar(24)
+
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  broadcastId String    @map("broadcast_id") @db.VarChar(24)
+
+  thread   BroadcastThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId String          @map("thread_id") @db.VarChar(24)
+
+  sender   User   @relation("BroadcastMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  senderId String @map("sender_id") @db.VarChar(24)
+
+  receiver   User   @relation("BroadcastMessageReceiver", fields: [receiverId], references: [id], onDelete: Restrict)
+  receiverId String @map("receiver_id") @db.VarChar(24)
+
+  message       String?
+  imageUrls     String[] @default([]) @map("image_urls")
+  audioUrl      String?  @map("audio_url")
+  audioDuration Int?     @map("audio_duration")
+  isRead        Boolean  @default(false) @map("is_read")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([threadId, createdAt(sort: Desc)])
+  @@index([receiverId, isRead])
+  @@map("broadcast_messages")
+}
+
+model BroadcastOffer {
+  id String @id @db.VarChar(24)
+
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  broadcastId String    @map("broadcast_id") @db.VarChar(24)
+
+  /// One offer per thread — was a @Prop({ unique: true }) in Mongoose.
+  thread   BroadcastThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId String          @unique @map("thread_id") @db.VarChar(24)
+
+  offerer   User   @relation("BroadcastOfferOfferer", fields: [offererId], references: [id], onDelete: Cascade)
+  offererId String @map("offerer_id") @db.VarChar(24)
+
+  creator   User   @relation("BroadcastOfferCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId String @map("creator_id") @db.VarChar(24)
+
+  price       Int?
+  message     String               @db.VarChar(1000)
+  status      BroadcastOfferStatus @default(pending)
+  respondedAt DateTime?            @map("responded_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([creatorId, status, updatedAt(sort: Desc)])
+  @@map("broadcast_offers")
+}
+
+// =============================================================================
+// SOCIAL
+// `itemId` + `itemType` stays denormalised here rather than splitting into
+// typed FKs: these are high-write, low-integrity-risk rows, and splitting them
+// would multiply every analytics query that currently works on one table.
+// =============================================================================
+
+model Like {
+  id String @id @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  itemId     String     @map("item_id") @db.VarChar(24)
+  itemType   ItemType   @map("item_type")
+  ownerModel OwnerModel @map("owner_model")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([userId, itemId, itemType])
+  @@index([itemId, itemType])
+  @@map("likes")
+}
+
+model Share {
+  id String @id @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  itemId   String   @map("item_id") @db.VarChar(24)
+  itemType ItemType @map("item_type")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([userId, itemId, itemType])
+  @@index([itemId, itemType])
+  @@map("shares")
+}
+
+model Review {
+  id String @id @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  itemId   String   @map("item_id") @db.VarChar(24)
+  itemType ItemType @map("item_type")
+
+  /// When set, scopes the review to one booking rather than the item overall,
+  /// so a user can review each booking of the same service separately.
+  requestId String? @map("request_id") @db.VarChar(24)
+
+  rating    Int
+  comment   String? @db.VarChar(1000)
+  isFlagged Boolean @default(false) @map("is_flagged")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([itemId, itemType])
+  @@index([userId])
+  @@index([requestId])
+  @@map("reviews")
+}
+
+/// Polymorphic over four entity types, admin-only reads, low volume — kept
+/// denormalised. The four-way entity resolution moves to a raw SQL LEFT JOIN
+/// (src/prisma/repositories/report.repository.ts), which also replaces the one
+/// raw-driver call that existed in reports.service.ts.
+model Report {
+  id         String  @id @db.VarChar(24)
+  reportCode String? @unique @map("report_code")
+
+  reporter   User   @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId String @map("reporter_id") @db.VarChar(24)
+
+  entityId   String           @map("entity_id") @db.VarChar(24)
+  entityType ReportEntityType @map("entity_type")
+
+  reason  ReportReason
+  details String       @db.VarChar(1000)
+
+  status         ReportStatus @default(open)
+  contentRemoved Boolean      @default(false) @map("content_removed")
+
+  closedBy   User?     @relation("ReportClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  closedById String?   @map("closed_by") @db.VarChar(24)
+  closedAt   DateTime? @map("closed_at") @db.Timestamptz(3)
+
+  adminResponse String?   @map("admin_response") @db.VarChar(1000)
+  respondedBy   User?     @relation("ReportRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
+  respondedById String?   @map("responded_by") @db.VarChar(24)
+  respondedAt   DateTime? @map("responded_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([reporterId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([entityId, entityType])
+  @@map("reports")
+}
+
+// =============================================================================
+// PLATFORM
+// =============================================================================
+
+model Notification {
+  id String @id @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  type    NotificationType
+  message String
+
+  /// Free-form per notification type; the shape differs across all nine types.
+  metadata Json? @default("{}")
+  payload  Json? @default("{}")
+
+  read Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model Announcement {
+  id               String  @id @db.VarChar(24)
+  announcementCode String? @unique @map("announcement_code")
+
+  title   String
+  message String
+  image   String?
+  video   String?
+
+  /// Roles to notify, e.g. ["buyer","seller"]. Empty means all users.
+  targetAudience String[] @default([]) @map("target_audience")
+
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId String?   @map("category_id") @db.VarChar(24)
+
+  location       String?
+  ctaLabel       String?   @map("cta_label")
+  ctaDestination String?   @map("cta_destination")
+  scheduledAt    DateTime? @map("scheduled_at") @db.Timestamptz(3)
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  priority AnnouncementPriority? @default(medium)
+  status   AnnouncementStatus    @default(sent)
+  sentAt   DateTime?             @map("sent_at") @db.Timestamptz(3)
+
+  createdBy   User   @relation("AnnouncementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  views AnnouncementView[]
+
+  @@index([status, scheduledAt])
+  @@index([createdById])
+  @@map("announcements")
+}
+
+model Task {
+  id String @id @db.VarChar(24)
+
+  title       String
+  description String?
+
+  priority TaskPriority @default(medium)
+  status   TaskStatus   @default(pending)
+  dueDate  DateTime?    @map("due_date") @db.Timestamptz(3)
+
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @map("created_by") @db.VarChar(24)
+
+  /// Files the admin attached when assigning the task: [{ url, name }].
+  /// Nothing queries an individual attachment, so JSONB rather than a table.
+  attachments Json? @default("[]")
+
+  /// Latest admin revision reason; set on "revision" review, cleared on
+  /// resubmit or approve.
+  revisionReason String? @map("revision_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assignees   TaskAssignee[]
+  submissions TaskSubmission[]
+
+  @@index([status, dueDate])
+  @@index([createdById])
+  @@map("tasks")
+}
+
+/// Was `Task.assignees: [ObjectId]`. A junction table so the relation is
+/// indexable in both directions and enforced by FKs.
+model TaskAssignee {
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String @map("task_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+/// Was the embedded `Task.submissions[]` array. A real timeline with an author
+/// and a timestamp, so it becomes a table; its own nested `attachments[]` stay
+/// JSONB because nothing queries an individual attachment.
+model TaskSubmission {
+  id String @id @default(uuid())
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String @map("task_id") @db.VarChar(24)
+
+  notes String
+  link  String?
+
+  attachments Json? @default("[]")
+
+  submittedBy   User     @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  submittedById String   @map("submitted_by") @db.VarChar(24)
+  submittedAt   DateTime @map("submitted_at") @db.Timestamptz(3)
+
+  @@index([taskId, submittedAt])
+  @@map("task_submissions")
+}
+
+model ActivityLog {
+  id      String @id @db.VarChar(24)
+  logCode Int    @map("log_code")
+
+  actor   User   @relation("ActivityLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+  actorId String @map("actor_id") @db.VarChar(24)
+
+  action ActivityLogAction
+
+  /// Polymorphic over five types, write-only audit trail — kept denormalised.
+  targetType ActivityLogTargetType? @map("target_type")
+  targetId   String?                @map("target_id") @db.VarChar(24)
+
+  details   String?
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([targetType, targetId])
+  @@map("activity_logs")
+}
+
+model EmailLog {
+  id      String @id @db.VarChar(24)
+  emailId String @unique @map("email_id")
+
+  recipient String
+
+  /// Human-readable code of the record the email is about (shop/listing/
+  /// service/job/broadcast code) — not an ObjectId, so no FK.
+  relatedRecordId String? @map("related_record_id")
+
+  eventType      EmailLogEvent  @map("event_type")
+  deliveryStatus EmailLogStatus @map("delivery_status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([deliveryStatus])
+  @@map("email_logs")
+}
+
+/// Fixed string primary key (e.g. "site-settings"), not an ObjectId.
+model SiteSettings {
+  id String @id @db.VarChar(64)
+
+  facebookUrl String? @map("facebook_url")
+  twitterUrl  String? @map("twitter_url")
+  threadsUrl  String? @map("threads_url")
+  linkedinUrl String? @map("linkedin_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("site_settings")
+}
+
+/// Generic atomic-sequence counter (userCode, shopCode, listingCode, ...).
+/// Fixed string primary key, not an ObjectId.
+model Counter {
+  id  String @id @db.VarChar(64)
+  seq Int    @default(0)
+
+  @@map("counters")
+}
+
+// =============================================================================
+// ENGAGEMENT ANALYTICS
+// Dedup tables used as counters: counting rows IS the metric. Views dedup per
+// (item, user, day); clicks dedup per (item, user) for all time.
+// =============================================================================
+
+model ProductView {
+  id String @id @db.VarChar(24)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  day String @db.VarChar(10)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([productId, userId, day])
+  @@index([productId])
+  @@map("product_views")
+}
+
+model ProductContactClick {
+  id String @id @db.VarChar(24)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@map("product_contact_clicks")
+}
+
+model ProductWhatsappClick {
+  id String @id @db.VarChar(24)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@map("product_whatsapp_clicks")
+}
+
+model ServiceView {
+  id String @id @db.VarChar(24)
+
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String  @map("service_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  day String @db.VarChar(10)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([serviceId, userId, day])
+  @@index([serviceId])
+  @@map("service_views")
+}
+
+model ServiceContactClick {
+  id String @id @db.VarChar(24)
+
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String  @map("service_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([serviceId, userId])
+  @@index([serviceId])
+  @@map("service_contact_clicks")
+}
+
+model ServiceWhatsappClick {
+  id String @id @db.VarChar(24)
+
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String  @map("service_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([serviceId, userId])
+  @@index([serviceId])
+  @@map("service_whatsapp_clicks")
+}
+
+model ShopView {
+  id String @id @db.VarChar(24)
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String @map("shop_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([shopId, userId])
+  @@index([shopId])
+  @@map("shop_views")
+}
+
+model ShopProductView {
+  id String @id @db.VarChar(24)
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String @map("shop_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([shopId, userId])
+  @@index([shopId])
+  @@map("shop_product_views")
+}
+
+model ShopContactClick {
+  id String @id @db.VarChar(24)
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String @map("shop_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([shopId, userId])
+  @@index([shopId])
+  @@map("shop_contact_clicks")
+}
+
+model ShopWhatsappClick {
+  id String @id @db.VarChar(24)
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String @map("shop_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([shopId, userId])
+  @@index([shopId])
+  @@map("shop_whatsapp_clicks")
+}
+
+model AnnouncementView {
+  id String @id @db.VarChar(24)
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  announcementId String       @map("announcement_id") @db.VarChar(24)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @map("user_id") @db.VarChar(24)
+
+  day String @db.VarChar(10)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([announcementId, userId, day])
+  @@index([announcementId])
+  @@map("announcement_views")
+}
+
+// =============================================================================
+// WALLET
+// All amounts are integer minor units (PKR paisa). onDelete: Restrict on every
+// financial row — history must never disappear because a parent was removed.
+// =============================================================================
+
+model Wallet {
+  id         String  @id @db.VarChar(24)
+  walletCode String? @unique @map("wallet_code")
+
+  owner   User   @relation("WalletOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  ownerId String @map("owner_id") @db.VarChar(24)
+
+  walletType WalletType @map("wallet_type")
+
+  availableBalanceMinor Int @default(0) @map("available_balance_minor")
+  pendingBalanceMinor   Int @default(0) @map("pending_balance_minor")
+
+  /// Merchant-only lifetime running totals, denormalised for fast display.
+  totalReceivedMinor  Int @default(0) @map("total_received_minor")
+  totalWithdrawnMinor Int @default(0) @map("total_withdrawn_minor")
+
+  isFrozen     Boolean   @default(false) @map("is_frozen")
+  frozenReason String?   @map("frozen_reason")
+  frozenAt     DateTime? @map("frozen_at") @db.Timestamptz(3)
+  frozenBy     User?     @relation("WalletFrozenBy", fields: [frozenById], references: [id], onDelete: SetNull)
+  frozenById   String?   @map("frozen_by") @db.VarChar(24)
+
+  currency String @default("PKR") @db.VarChar(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ledgerEntries WalletLedgerEntry[]
+  withdrawals   Withdrawal[]
+
+  @@unique([ownerId, walletType])
+  @@index([walletType, isFrozen])
+  @@map("wallets")
+}
+
+/// The business/reporting record behind Transaction Management. Distinct from
+/// WalletLedgerEntry: one transaction produces 0, 1 or 2 ledger entries. Deal/
+/// discount/margin fields are a snapshot taken once at creation, never
+/// re-derived from the live MerchantDeal later.
+model WalletTransaction {
+  id              String  @id @db.VarChar(24)
+  transactionCode String? @unique @map("transaction_code")
+
+  type WalletTransactionType
+
+  user   User   @relation("WalletTransactionUser", fields: [userId], references: [id], onDelete: Restrict)
+  userId String @map("user_id") @db.VarChar(24)
+
+  merchant   User?   @relation("WalletTransactionMerchant", fields: [merchantId], references: [id], onDelete: Restrict)
+  merchantId String? @map("merchant_id") @db.VarChar(24)
+
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderId String? @map("order_id") @db.VarChar(24)
+
+  originalAmountMinor           Int @default(0) @map("original_amount_minor")
+  customerDiscountPercent       Int @default(0) @map("customer_discount_percent")
+  customerDiscountAmountMinor   Int @default(0) @map("customer_discount_amount_minor")
+  finalCustomerPaymentMinor     Int @default(0) @map("final_customer_payment_minor")
+  merchantDealPercent           Int @default(0) @map("merchant_deal_percent")
+  fazlMarginPercent             Int @default(0) @map("fazl_margin_percent")
+  fazlMarginAmountMinor         Int @default(0) @map("fazl_margin_amount_minor")
+  merchantSettlementAmountMinor Int @default(0) @map("merchant_settlement_amount_minor")
+
+  dealSnapshot   MerchantDeal? @relation(fields: [dealSnapshotId], references: [id], onDelete: Restrict)
+  dealSnapshotId String?       @map("deal_snapshot_id") @db.VarChar(24)
+
+  paymentMethod WalletPaymentMethod @map("payment_method")
+
+  /// Audit snapshots of who paid whom, not navigational relations — kept
+  /// denormalised as (type, id) pairs exactly as in Mongo.
+  senderRefType   WalletRefModel? @map("sender_ref_type")
+  senderRefId     String?         @map("sender_ref_id") @db.VarChar(24)
+  receiverRefType WalletRefModel? @map("receiver_ref_type")
+  receiverRefId   String?         @map("receiver_ref_id") @db.VarChar(24)
+
+  status       WalletTransactionStatus       @default(completed)
+  refundStatus WalletTransactionRefundStatus @default(none) @map("refund_status")
+
+  reason String?
+
+  createdBy   User?   @relation("WalletTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String? @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  /// `ledgerEntryIds: [ObjectId]` is dropped: the relationship was already
+  /// stored on both sides, and WalletLedgerEntry.relatedTransactionId is the
+  /// normalised single source of truth.
+  ledgerEntries WalletLedgerEntry[]
+  refunds       Refund[]
+  withdrawals   Withdrawal[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([merchantId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([paymentMethod])
+  @@index([createdAt(sort: Desc)])
+  @@map("wallet_transactions")
+}
+
+/// The append-only ledger core — every money movement creates one immutable
+/// row. No service method ever updates or deletes a row; corrections are always
+/// new rows. Opening/closing balances come from the same transaction that moved
+/// the money, so they can never be based on stale data.
+model WalletLedgerEntry {
+  id         String  @id @db.VarChar(24)
+  ledgerCode String? @unique @map("ledger_code")
+
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  walletId String @map("wallet_id") @db.VarChar(24)
+
+  direction   LedgerDirection
+  balanceType LedgerBalanceType @map("balance_type")
+
+  amountMinor         Int @map("amount_minor")
+  openingBalanceMinor Int @map("opening_balance_minor")
+  closingBalanceMinor Int @map("closing_balance_minor")
+
+  relatedTransaction   WalletTransaction? @relation(fields: [relatedTransactionId], references: [id], onDelete: Restrict)
+  relatedTransactionId String?            @map("related_transaction_id") @db.VarChar(24)
+
+  relatedEntityType LedgerRelatedEntityType @map("related_entity_type")
+  relatedEntityId   String?                 @map("related_entity_id") @db.VarChar(24)
+
+  reason String?
+
+  createdBy   User?   @relation("LedgerEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String? @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([walletId, createdAt(sort: Desc)])
+  @@index([relatedTransactionId])
+  @@index([relatedEntityType, relatedEntityId])
+  @@map("wallet_ledger_entries")
+}
+
+/// Full withdrawal state machine. Fazl's own platform fee is always 0% —
+/// externalFeeAmountMinor is informational (what the bank/provider took) and is
+/// never subtracted from requestedAmountMinor by this system.
+model Withdrawal {
+  id             String  @id @db.VarChar(24)
+  withdrawalCode String? @unique @map("withdrawal_code")
+
+  merchant   User   @relation("WithdrawalMerchant", fields: [merchantId], references: [id], onDelete: Restrict)
+  merchantId String @map("merchant_id") @db.VarChar(24)
+
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  walletId String @map("wallet_id") @db.VarChar(24)
+
+  requestedAmountMinor          Int @map("requested_amount_minor")
+  availableBalanceSnapshotMinor Int @map("available_balance_snapshot_minor")
+
+  withdrawalMethod WithdrawalMethod @map("withdrawal_method")
+
+  /// Was an embedded `accountDetails` subdocument. Four fixed, always-present,
+  /// financially auditable fields — flattened to columns.
+  accountTitle  String  @map("account_title")
+  accountNumber String  @map("account_number")
+  bankName      String? @map("bank_name")
+  iban          String?
+
+  status WithdrawalStatus @default(pending)
+
+  processingDate DateTime? @map("processing_date") @db.Timestamptz(3)
+  completedDate  DateTime? @map("completed_date") @db.Timestamptz(3)
+
+  transaction   WalletTransaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  transactionId String?            @map("transaction_id") @db.VarChar(24)
+
+  platformFeePercent     Int     @default(0) @map("platform_fee_percent")
+  externalFeeAmountMinor Int?    @map("external_fee_amount_minor")
+  externalFeeNote        String? @map("external_fee_note")
+  rejectionReason        String? @map("rejection_reason")
+  cancellationReason     String? @map("cancellation_reason")
+
+  createdBy   User   @relation("WithdrawalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([merchantId, createdAt(sort: Desc)])
+  @@index([walletId])
+  @@map("withdrawals")
+}
+
+/// One-step refund workflow: creating a refund immediately posts the crediting
+/// ledger entry and marks it completed, or it is rejected with a reason. The
+/// admin action log is derived from WalletAuditLog (targetType "Refund") rather
+/// than duplicated here.
+model Refund {
+  id         String  @id @db.VarChar(24)
+  refundCode String? @unique @map("refund_code")
+
+  originalTransaction   WalletTransaction @relation(fields: [originalTransactionId], references: [id], onDelete: Restrict)
+  originalTransactionId String            @map("original_transaction_id") @db.VarChar(24)
+
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderId String? @map("order_id") @db.VarChar(24)
+
+  customer   User   @relation("RefundCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  customerId String @map("customer_id") @db.VarChar(24)
+
+  merchant   User?   @relation("RefundMerchant", fields: [merchantId], references: [id], onDelete: Restrict)
+  merchantId String? @map("merchant_id") @db.VarChar(24)
+
+  refundAmountMinor Int    @map("refund_amount_minor")
+  refundReason      String @map("refund_reason")
+
+  refundStatus RefundStatus @default(pending) @map("refund_status")
+
+  /// As on WalletTransaction, `ledgerEntryIds: [ObjectId]` is dropped in favour
+  /// of the WalletLedgerEntry.relatedEntityType/relatedEntityId back-reference.
+  rejectionReason String? @map("rejection_reason")
+
+  createdBy   User   @relation("RefundCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([refundStatus, createdAt(sort: Desc)])
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([merchantId, createdAt(sort: Desc)])
+  @@index([originalTransactionId])
+  @@map("refunds")
+}
+
+/// Append-only version history of a merchant's commercial deal. A row is never
+/// updated in place — changing terms closes the active row (sets effectiveTo)
+/// and inserts a new one. `merchantDealPercent` is always server-computed as
+/// customerDiscountPercent + fazlMarginPercent.
+///
+/// NOTE: the "at most one active deal per merchant" rule was a Mongo partial
+/// unique index. Prisma cannot express partial indexes, so it is created by
+/// hand in the migration SQL:
+///   CREATE UNIQUE INDEX merchant_deals_active_uniq
+///     ON merchant_deals (merchant_id) WHERE effective_to IS NULL;
+model MerchantDeal {
+  id String @id @db.VarChar(24)
+
+  merchant   User   @relation("MerchantDealMerchant", fields: [merchantId], references: [id], onDelete: Restrict)
+  merchantId String @map("merchant_id") @db.VarChar(24)
+
+  customerDiscountPercent Int @map("customer_discount_percent")
+  fazlMarginPercent       Int @map("fazl_margin_percent")
+  merchantDealPercent     Int @map("merchant_deal_percent")
+
+  effectiveFrom DateTime  @map("effective_from") @db.Timestamptz(3)
+  effectiveTo   DateTime? @map("effective_to") @db.Timestamptz(3)
+
+  createdBy   User   @relation("MerchantDealCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @map("created_by") @db.VarChar(24)
+
+  reason String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  transactions WalletTransaction[]
+
+  @@index([merchantId, createdAt(sort: Desc)])
+  @@map("merchant_deals")
+}
+
+/// Singleton wallet-wide configuration. Fixed string primary key
+/// ("wallet-settings"), mirroring SiteSettings and Counter.
+model WalletSettings {
+  id String @id @db.VarChar(64)
+
+  minTopUpAmountMinor        Int @default(10000) @map("min_top_up_amount_minor")
+  maxTopUpAmountMinor        Int @default(100000000) @map("max_top_up_amount_minor")
+  minWithdrawalAmountMinor   Int @default(50000) @map("min_withdrawal_amount_minor")
+  maxWithdrawalAmountMinor   Int @default(100000000) @map("max_withdrawal_amount_minor")
+  dailyTransactionLimitMinor Int @default(500000000) @map("daily_transaction_limit_minor")
+
+  walletStatus     Boolean @default(true) @map("wallet_status")
+  withdrawalStatus Boolean @default(true) @map("withdrawal_status")
+
+  updatedBy   User?   @relation("WalletSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedById String? @map("updated_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("wallet_settings")
+}
+
+/// Dedicated audit trail for every wallet-admin action. Append-only. Kept
+/// separate from ActivityLog, which has no structured oldValue/newValue/reason
+/// fields and closed enums that do not cover wallet concepts.
+model WalletAuditLog {
+  id      String  @id @db.VarChar(24)
+  logCode String? @unique @map("log_code")
+
+  admin   User   @relation("WalletAuditLogAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  adminId String @map("admin_id") @db.VarChar(24)
+
+  action     WalletAuditAction
+  targetType WalletAuditTargetType @map("target_type")
+
+  /// Plain string, never an ObjectId FK: most targets are real documents, but
+  /// WalletSettings uses the fixed singleton id "wallet-settings".
+  targetId String @map("target_id") @db.VarChar(64)
+
+  subjectUser   User?   @relation("WalletAuditLogSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subjectUserId String? @map("subject_user_id") @db.VarChar(24)
+
+  transactionId String? @map("transaction_id") @db.VarChar(24)
+
+  /// Arbitrary before/after snapshots — JSONB is the correct model here, not a
+  /// compromise.
+  oldValue Json? @map("old_value")
+  newValue Json? @map("new_value")
+
+  reason    String?
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([subjectUserId, createdAt(sort: Desc)])
+  @@index([adminId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([targetType, targetId])
+  @@map("wallet_audit_logs")
+}

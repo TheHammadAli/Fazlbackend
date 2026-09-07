@@ -1,6 +1,6 @@
 import { IsIn, IsString, MinLength, MaxLength } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
-import { ReportReason, REPORT_REASONS } from "../schema/report.schema";
+import { ReportReason, REPORT_REASONS } from "../model/report.model";
 
 export class CreateReportDto {
   @ApiProperty({ example: "64f0c2abc1234567890abcd" })

@@ -1,53 +1,58 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
-import { WalletSettings, WalletSettingsDocument } from "./schema/wallet-settings.schema";
+import { PrismaService } from "src/prisma/prisma.service";
 import { UpdateWalletSettingsDto } from "./dto/update-wallet-settings.dto";
+import { WALLET_SETTINGS_DEFAULTS, WALLET_SETTINGS_ID } from "./model/wallet.model";
 import { WalletAuditLogService } from "./wallet-audit-log.service";
 
-const WALLET_SETTINGS_ID = "wallet-settings";
-
-const DEFAULTS = {
-  minTopUpAmountMinor: 10000,
-  maxTopUpAmountMinor: 100000000,
-  minWithdrawalAmountMinor: 50000,
-  maxWithdrawalAmountMinor: 100000000,
-  dailyTransactionLimitMinor: 500000000,
-  walletStatus: true,
-  withdrawalStatus: true,
+export type WalletSettingsResult = {
+  minTopUpAmountMinor: number;
+  maxTopUpAmountMinor: number;
+  minWithdrawalAmountMinor: number;
+  maxWithdrawalAmountMinor: number;
+  dailyTransactionLimitMinor: number;
+  walletStatus: boolean;
+  withdrawalStatus: boolean;
+  updatedBy: string | null;
 };
 
-type WalletSettingsResult = typeof DEFAULTS & { updatedBy: string | null };
+/** `{ a: 1, b: undefined }` would overwrite a real value with undefined when spread over
+ *  the current settings, so explicitly-absent DTO keys are dropped first. */
+function definedOnly<T extends object>(input: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
+}
 
-/** Singleton wallet-wide configuration (spec §11) — mirrors SettingsService's
- *  fixed-`_id` singleton idiom. */
+/** Singleton wallet-wide configuration (spec §11) — one row under the fixed primary key
+ *  `WALLET_SETTINGS_ID`, mirroring SiteSettings' singleton idiom. */
 @Injectable()
 export class WalletSettingsService {
   constructor(
-    @InjectModel(WalletSettings.name)
-    private readonly settingsModel: Model<WalletSettingsDocument>,
+    private readonly prisma: PrismaService,
     private readonly auditLogService: WalletAuditLogService,
   ) {}
 
   async get(): Promise<WalletSettingsResult> {
-    const doc = await this.settingsModel.findById(WALLET_SETTINGS_ID).lean();
-    if (!doc) return { ...DEFAULTS, updatedBy: null };
+    const row = await this.prisma.walletSettings.findUnique({
+      where: { id: WALLET_SETTINGS_ID },
+    });
+    if (!row) return { ...WALLET_SETTINGS_DEFAULTS, updatedBy: null };
     return {
-      minTopUpAmountMinor: doc.minTopUpAmountMinor,
-      maxTopUpAmountMinor: doc.maxTopUpAmountMinor,
-      minWithdrawalAmountMinor: doc.minWithdrawalAmountMinor,
-      maxWithdrawalAmountMinor: doc.maxWithdrawalAmountMinor,
-      dailyTransactionLimitMinor: doc.dailyTransactionLimitMinor,
-      walletStatus: doc.walletStatus,
-      withdrawalStatus: doc.withdrawalStatus,
-      updatedBy: doc.updatedBy ? doc.updatedBy.toString() : null,
+      minTopUpAmountMinor: row.minTopUpAmountMinor,
+      maxTopUpAmountMinor: row.maxTopUpAmountMinor,
+      minWithdrawalAmountMinor: row.minWithdrawalAmountMinor,
+      maxWithdrawalAmountMinor: row.maxWithdrawalAmountMinor,
+      dailyTransactionLimitMinor: row.dailyTransactionLimitMinor,
+      walletStatus: row.walletStatus,
+      withdrawalStatus: row.withdrawalStatus,
+      updatedBy: row.updatedById,
     };
   }
 
   // No global ValidationPipe is registered in this app, so class-validator decorators on the
   // DTO are documentation only, not enforcement — cross-field bounds must be checked here.
   private validate(dto: UpdateWalletSettingsDto, current: WalletSettingsResult) {
-    const merged = { ...current, ...dto };
+    const merged = { ...current, ...definedOnly(dto) };
     if (merged.minTopUpAmountMinor > merged.maxTopUpAmountMinor) {
       throw new BadRequestException("Minimum top-up cannot exceed maximum top-up");
     }
@@ -60,13 +65,14 @@ export class WalletSettingsService {
     const current = await this.get();
     this.validate(dto, current);
 
-    const doc = await this.settingsModel
-      .findByIdAndUpdate(
-        WALLET_SETTINGS_ID,
-        { $set: { ...DEFAULTS, ...current, ...dto, updatedBy: new Types.ObjectId(adminId) } },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      )
-      .lean();
+    const { updatedBy: _ignored, ...currentValues } = current;
+    const merged = { ...currentValues, ...definedOnly(dto) };
+
+    const row = await this.prisma.walletSettings.upsert({
+      where: { id: WALLET_SETTINGS_ID },
+      create: { id: WALLET_SETTINGS_ID, ...merged, updatedById: adminId },
+      update: { ...merged, updatedById: adminId },
+    });
 
     await this.auditLogService.record({
       adminId,
@@ -79,14 +85,14 @@ export class WalletSettingsService {
     });
 
     return {
-      minTopUpAmountMinor: doc!.minTopUpAmountMinor,
-      maxTopUpAmountMinor: doc!.maxTopUpAmountMinor,
-      minWithdrawalAmountMinor: doc!.minWithdrawalAmountMinor,
-      maxWithdrawalAmountMinor: doc!.maxWithdrawalAmountMinor,
-      dailyTransactionLimitMinor: doc!.dailyTransactionLimitMinor,
-      walletStatus: doc!.walletStatus,
-      withdrawalStatus: doc!.withdrawalStatus,
-      updatedBy: doc!.updatedBy ? doc!.updatedBy.toString() : null,
+      minTopUpAmountMinor: row.minTopUpAmountMinor,
+      maxTopUpAmountMinor: row.maxTopUpAmountMinor,
+      minWithdrawalAmountMinor: row.minWithdrawalAmountMinor,
+      maxWithdrawalAmountMinor: row.maxWithdrawalAmountMinor,
+      dailyTransactionLimitMinor: row.dailyTransactionLimitMinor,
+      walletStatus: row.walletStatus,
+      withdrawalStatus: row.withdrawalStatus,
+      updatedBy: row.updatedById,
     };
   }
 
@@ -118,7 +124,10 @@ export class WalletSettingsService {
 
   async assertWithdrawalAmountWithinLimits(amountMinor: number): Promise<void> {
     const settings = await this.get();
-    if (amountMinor < settings.minWithdrawalAmountMinor || amountMinor > settings.maxWithdrawalAmountMinor) {
+    if (
+      amountMinor < settings.minWithdrawalAmountMinor ||
+      amountMinor > settings.maxWithdrawalAmountMinor
+    ) {
       throw new BadRequestException(
         `Withdrawal amount must be between ${settings.minWithdrawalAmountMinor} and ${settings.maxWithdrawalAmountMinor} minor units`,
       );
