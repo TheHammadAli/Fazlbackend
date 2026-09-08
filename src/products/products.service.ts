@@ -313,7 +313,11 @@ export class ProductsService {
           ownerId,
           title: dto.title,
           description: dto.description ?? null,
-          price: Math.round(Number(isVideoPost ? (dto.price ?? 0) : dto.price)),
+          // Price is optional on every listing, not just video posts: a classified
+          // or "contact for price" item has none. Absent means 0, which the feed
+          // and detail cards already render as "no price shown" rather than "Rs 0".
+          // Without the ?? the missing value became NaN and Postgres rejected the row.
+          price: Math.round(Number(dto.price ?? 0)),
           categoryId,
           type: (isVideoPost ? dto.type || "retail" : dto.type) as ProductType,
           images,

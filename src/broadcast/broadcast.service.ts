@@ -62,11 +62,26 @@ export class BroadcastService {
     return { ...row, _id: row.id };
   }
 
-  /** Rebuilds the broadcast shape clients expect: GeoJSON `location`, `_id`. */
+  /**
+   * Rebuilds the broadcast shape clients expect: GeoJSON `location`, `_id`, and the
+   * `buyer`/`category` field names the Mongoose schema used.
+   *
+   * Prisma splits each reference into an id column plus a relation (`buyerId` +
+   * `buyer`), and only some queries load the relation. Mongoose exposed a single
+   * field that held either the raw id or the populated document, and every client
+   * reads that name — the web chat derives the whole broadcast thread from
+   * `thread.buyer`, so leaving it undefined silently skips the messages query and
+   * the conversation renders empty.
+   */
   private toApiShape<T extends Record<string, any>>(broadcast: T | null): any {
     if (!broadcast) return broadcast;
     const shaped = withGeoJson(broadcast as any) as any;
-    return { ...shaped, _id: shaped.id };
+    return {
+      ...shaped,
+      _id: shaped.id,
+      buyer: shaped.buyer ?? shaped.buyerId,
+      category: shaped.category ?? shaped.categoryId,
+    };
   }
 
   /** Fire-and-forget: dispatching the broadcast must succeed even if the email provider is down. */

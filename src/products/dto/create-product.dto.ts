@@ -53,9 +53,9 @@ export class CreateProductDto {
 
   @ApiPropertyOptional({
     example: 1999,
-    description: "Not required when isVideoPost is true (defaults to 0)",
+    description: "Optional on every listing. Omitted means no price is shown (stored as 0).",
   })
-  @ValidateIf((o) => !o.isVideoPost)
+  @IsOptional()
   @IsNumber()
   price?: number;
 
