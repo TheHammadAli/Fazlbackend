@@ -11,7 +11,7 @@ import { ChatGateway } from "./chat.gateway";
 import { PresenceService } from "src/presence/presence.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { ConversationRepository } from "src/prisma/repositories/conversation.repository";
-import { generateObjectId } from "src/common/utils/object-id.util";
+import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
 import type { Conversation, Message } from "./model/chat.model";
 
 @Injectable()
@@ -99,6 +99,12 @@ export class ChatService {
 
   /** Read-only lookup — unlike getOrCreateConversation, never creates one. */
   async findConversationBetween(userIdA: string, userIdB: string) {
+    // Mongo ignored an undefined field in a filter and simply matched nothing;
+    // Prisma rejects an incomplete compound key outright, turning a caller that
+    // omits either id into a 500 instead of the empty result the callers all
+    // already handle.
+    if (!isObjectIdLike(userIdA) || !isObjectIdLike(userIdB)) return null;
+
     const [user1, user2] =
       userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
 

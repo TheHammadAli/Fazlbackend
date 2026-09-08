@@ -54,7 +54,8 @@ export class NotificationsController {
     @Query() query: GetNotificationsQueryDto,
   ) {
     const { page: rawPage, limit: rawLimit } = query;
-    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);return this.notificationsService.findByUser(userId, page, limit);
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+    return this.notificationsService.findByUser(userId, page, limit);
   }
 
   @Get(":userId/unread-count")

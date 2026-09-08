@@ -288,7 +288,8 @@ export class ChatController {
 
     if (!conversation) {
       const { page: rawPage, limit: rawLimit } = paginationDto;
-      const { page, limit, skip } = resolvePagination(rawPage, rawLimit);return {
+      const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+      return {
         conversation: null,
         messages: [],
         meta: { total: 0, page, limit, totalPages: 0 },
