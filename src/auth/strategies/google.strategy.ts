@@ -15,6 +15,17 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
     });
   }
 
+  /**
+   * Extra query parameters added to the Google authorization URL.
+   *
+   * `select_account` forces the account chooser. Without it Google silently
+   * reuses whichever session is already signed in to the browser, so a user
+   * with more than one account never gets to pick which one to continue with.
+   */
+  authorizationParams(): Record<string, string> {
+    return { prompt: "select_account" };
+  }
+
   async validate(
     req: any,
     accessToken: string,
