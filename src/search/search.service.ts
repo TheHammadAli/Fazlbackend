@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { PrismaService } from "src/prisma/prisma.service";
 
 @Injectable()
 export class SearchService {
@@ -8,36 +9,40 @@ export class SearchService {
   private readonly DETAILS_URL =
     "https://maps.googleapis.com/maps/api/place/details/json";
 
-  constructor(private readonly configService: ConfigService) {}
+  private readonly logger = new Logger(SearchService.name);
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  private readonly GEOCODE_URL =
+    "https://maps.googleapis.com/maps/api/geocode/json";
 
   /**
-   * Google Places autocomplete, restricted to Pakistan.
+   * How the area list is built.
    *
-   * The options exist for the shop form's City and Area fields:
+   * Google has no call that enumerates a city's neighbourhoods. Autocomplete
+   * returns nothing without input, Nearby Search with sublocality or
+   * neighborhood returns one or two results, and asking for "areas in Lahore"
+   * returns Lahore. So the city is sampled instead: reverse-geocode a grid of
+   * points across it and keep the sublocality and neighborhood components.
    *
-   * - `types: "(cities)"` makes the City field offer cities rather than
-   *   shops and street addresses that happen to match.
-   * - `lat`/`lng` bias results towards the city already chosen, so typing
-   *   "gulberg" after picking Lahore offers Lahore's Gulberg first.
-   * - `withCoordinates: false` skips the per-prediction Details lookup. That
-   *   lookup is one extra Google request PER RESULT, on every keystroke — worth
-   *   it for a city, whose coordinates then bias the area search, and pure waste
-   *   for the area itself, which is only ever saved as a name.
+   * 7x7 at ~2.7km spacing covers roughly 16km across, which holds a small
+   * city whole and a large city's built-up centre. It found 7 areas in Taxila,
+   * where autocomplete found none, and 52 in Lahore.
    *
-   * Defaults keep the original behaviour, since the profile and broadcast
-   * screens call this with just a query and read `coordinates`.
+   * 49 Geocoding requests is far too many to repeat per shop form, so the
+   * result is written to city_area_cache and every later visitor is served
+   * from the database.
    */
-  /**
-   * Seeds for listing a city's areas.
-   *
-   * Google will not enumerate the neighbourhoods of a city — autocomplete
-   * returns nothing without input, Nearby Search with sublocality/neighborhood
-   * returns one or two results, and asking it for "areas in Lahore" gives the
-   * city itself. Searching the words Pakistani area names are built from, and
-   * keeping only what sits in the requested city, is what actually produces a
-   * usable list.
-   */
-  private readonly AREA_SEEDS = ["town", "block", "phase", "colony", "sector"];
+  private readonly AREA_GRID_STEPS = 7;
+  private readonly AREA_GRID_SPACING_DEG = 0.025;
+  private readonly AREA_COMPONENT_TYPES = [
+    "sublocality",
+    "sublocality_level_1",
+    "neighborhood",
+  ];
 
   /** True when a prediction actually belongs to the named city. */
   private belongsToCity(prediction: any, city: string): boolean {
@@ -65,53 +70,129 @@ export class SearchService {
     };
   }
 
-  /**
-   * The areas of one city, for a field that should offer something the moment
-   * it opens rather than waiting for the user to type.
-   */
-  async listCityAreas(city: string, lat?: number, lng?: number) {
-    const apiKey = this.configService.getOrThrow<string>(
-      "GOOGLE_LOCATION_API_KEY",
-    );
-    const trimmedCity = city?.trim();
-    if (!trimmedCity) return [];
+  /** One reverse-geocode. A failure is skipped: a hole in the grid is fine. */
+  private async areaNamesAt(lat: number, lng: number, apiKey: string) {
+    const params = new URLSearchParams({
+      latlng: `${lat},${lng}`,
+      key: apiKey,
+      language: "en",
+    });
+    try {
+      const res = await fetch(`${this.GEOCODE_URL}?${params.toString()}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const names: string[] = [];
+      for (const result of data.results ?? []) {
+        for (const component of result.address_components ?? []) {
+          const isArea = (component.types ?? []).some((t: string) =>
+            this.AREA_COMPONENT_TYPES.includes(t),
+          );
+          if (isArea && component.long_name) names.push(component.long_name);
+        }
+      }
+      return names;
+    } catch {
+      return [];
+    }
+  }
 
-    const batches = await Promise.all(
-      this.AREA_SEEDS.map(async (seed) => {
-        const params = new URLSearchParams({
-          input: seed,
-          key: apiKey,
-          language: "en",
-          components: "country:pk",
-          types: "(regions)",
+  /** Samples the city and returns its distinct area names. */
+  private async discoverAreas(lat: number, lng: number, apiKey: string) {
+    const half = (this.AREA_GRID_STEPS - 1) / 2;
+    const points: { lat: number; lng: number }[] = [];
+    for (let row = -half; row <= half; row++) {
+      for (let col = -half; col <= half; col++) {
+        points.push({
+          lat: lat + row * this.AREA_GRID_SPACING_DEG,
+          lng: lng + col * this.AREA_GRID_SPACING_DEG,
         });
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          params.set("location", `${lat},${lng}`);
-          params.set("radius", "30000");
-        }
-        try {
-          const res = await fetch(`${this.AUTOCOMPLETE_URL}?${params.toString()}`);
-          if (!res.ok) return [];
-          const data = await res.json();
-          return (data.predictions ?? []) as any[];
-        } catch {
-          // One seed failing must not empty the whole list.
-          return [];
-        }
-      }),
-    );
-
-    const byPlaceId = new Map<string, any>();
-    for (const prediction of batches.flat()) {
-      if (!this.belongsToCity(prediction, trimmedCity)) continue;
-      if (!byPlaceId.has(prediction.place_id)) {
-        byPlaceId.set(prediction.place_id, this.toOption(prediction, false));
       }
     }
 
-    return [...byPlaceId.values()];
+    // In batches rather than all at once, to stay inside Google's per-second
+    // limits without making the whole grid serial.
+    const found = new Set<string>();
+    const BATCH = 10;
+    for (let i = 0; i < points.length; i += BATCH) {
+      const batch = points.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map((p) => this.areaNamesAt(p.lat, p.lng, apiKey)),
+      );
+      for (const names of results) for (const n of names) found.add(n);
+    }
+
+    // Geocoding also hands back fragments that are not places anyone would
+    // pick — a bare "1", a lone "A Block". Anything under three characters or
+    // with no letter in it is dropped.
+    return [...found]
+      .map((name) => name.trim())
+      .filter((name) => name.length >= 3 && /\p{L}{2,}/u.test(name))
+      .sort((a, b) => a.localeCompare(b));
   }
 
+  /**
+   * The areas of one city, for a field that should offer something the moment
+   * it opens rather than waiting for the user to type.
+   *
+   * Served from the cache when it has been worked out before; otherwise the
+   * grid runs, the answer is stored, and everyone after is served instantly.
+   */
+  async listCityAreas(city: string, lat?: number, lng?: number) {
+    const cityName = city?.trim();
+    if (!cityName) return [];
+    const cityKey = cityName.toLowerCase();
+
+    const cached = await this.prisma.cityAreaCache.findUnique({ where: { cityKey } });
+    if (cached) {
+      return cached.areas as { name: string; description: string }[];
+    }
+
+    // Without a point to sample around there is nothing to do; the caller sends
+    // the coordinates it got when the city was chosen.
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+
+    const apiKey = this.configService.getOrThrow<string>(
+      "GOOGLE_LOCATION_API_KEY",
+    );
+    const names = await this.discoverAreas(lat as number, lng as number, apiKey);
+    const areas = names.map((name) => ({
+      name,
+      description: `${name}, ${cityName}`,
+    }));
+
+    // upsert, not create: two people opening the same new city at once would
+    // otherwise collide on the primary key.
+    await this.prisma.cityAreaCache
+      .upsert({
+        where: { cityKey },
+        create: { cityKey, cityName, latitude: lat, longitude: lng, areas },
+        update: { cityName, latitude: lat, longitude: lng, areas },
+      })
+      .catch((err) => {
+        // A cache write failing must not fail the request that just did the work.
+        this.logger.error(`Caching areas for ${cityName} failed`, err);
+      });
+
+    return areas;
+  }
+
+  /**
+   * Google Places autocomplete, restricted to Pakistan.
+   *
+   * The options exist for the shop form's City and Area fields:
+   *
+   * - `types: "(cities)"` makes the City field offer cities rather than
+   *   shops and street addresses that happen to match.
+   * - `lat`/`lng` bias results towards the city already chosen, so typing
+   *   "gulberg" after picking Lahore offers Lahore's Gulberg first.
+   * - `withCoordinates: false` skips the per-prediction Details lookup. That
+   *   lookup is one extra Google request PER RESULT, on every keystroke — worth
+   *   it for a city, whose coordinates then bias the area search, and pure waste
+   *   for the area itself, which is only ever saved as a name.
+   *
+   * Defaults keep the original behaviour, since the profile and broadcast
+   * screens call this with just a query and read `coordinates`.
+   */
   async autocompleteLocations(
     input: string,
     opts: {

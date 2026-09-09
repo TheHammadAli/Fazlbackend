@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SearchService } from "./search.service";
 import { ConfigService } from "@nestjs/config";
+import { PrismaService } from "src/prisma/prisma.service";
 
 /**
  * Constructed with every dependency mocked, so this exercises the class's
@@ -16,6 +17,8 @@ describe("SearchService", () => {
       providers: [
         SearchService,
         { provide: ConfigService, useValue: {} },
+        // The service reads and writes the city area cache.
+        { provide: PrismaService, useValue: { cityAreaCache: {} } },
       ],
     }).compile();
 

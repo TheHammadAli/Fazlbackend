@@ -650,6 +650,35 @@ model AdminPermission {
   @@map("admin_permissions")
 }
 
+/// A city's areas, discovered once and kept.
+///
+/// Google has no call that lists the neighbourhoods of a city — autocomplete
+/// returns nothing without input and Nearby Search returns one or two results,
+/// which is why a small town like Taxila offered none at all. Reverse-geocoding
+/// a grid of points across the city and collecting the sublocality and
+/// neighborhood components does produce them, at ~50 Geocoding requests per
+/// city. Far too many to repeat per shop form, so the result is stored here and
+/// every later visitor is served from the database.
+model CityAreaCache {
+  /// Lowercased, trimmed city name — what the lookup is keyed on.
+  cityKey String @id @map("city_key")
+
+  /// The name as it was requested, for display.
+  cityName String @map("city_name")
+
+  latitude  Float?
+  longitude Float?
+
+  /// [{ name, description }] — no row per area, since nothing queries one
+  /// individually and they are always read as a whole list.
+  areas Json @default("[]")
+
+  fetchedAt DateTime @default(now()) @map("fetched_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("city_area_cache")
+}
+
 model Otp {
   id          String    @id @db.VarChar(24)
   phoneNumber String?   @map("phone_number")
