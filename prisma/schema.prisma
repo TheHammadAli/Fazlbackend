@@ -551,9 +551,12 @@ model Admin {
   /// Never selected into a response — see src/admins/admin-select.ts.
   password String
 
-  role  AdminRole
-  phone String?   @unique
-  image String?   @default("default-avatar.png")
+  role AdminRole
+  /// Contact detail only, deliberately not unique: two staff sharing an office
+  /// line is normal, and uniqueness here bought nothing.
+  phone   String?
+  address String?
+  image   String? @default("default-avatar.png")
 
   isDisabled   Boolean   @default(false) @map("is_disabled")
   lastSeenAt   DateTime? @map("last_seen_at") @db.Timestamptz(3)
@@ -605,8 +608,9 @@ model Member {
   /// Never selected into a response — see src/admins/admin-select.ts.
   password String
 
-  phone String?
-  image String? @default("default-avatar.png")
+  phone   String?
+  address String?
+  image   String? @default("default-avatar.png")
 
   isDisabled   Boolean   @default(false) @map("is_disabled")
   lastSeenAt   DateTime? @map("last_seen_at") @db.Timestamptz(3)

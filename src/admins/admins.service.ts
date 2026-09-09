@@ -29,6 +29,7 @@ import { PermissionEntryDto } from "./dto/create-admin-account.dto";
 import type { CreateAdminAccountDto } from "./dto/create-admin-account.dto";
 import type { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
 import type { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
+import type { UpdateOwnProfileDto } from "./dto/update-own-profile.dto";
 
 /**
  * Staff accounts. Admins and members are separate tables from `users` — a
@@ -469,6 +470,85 @@ export class AdminsService {
     }
 
     return uniqueIds;
+  }
+
+  // ---------------------------------------------------------------------------
+  // The signed-in staff member's own profile
+  //
+  // The panel used to read and write these through /users/:id, which stopped
+  // resolving when staff left that table. Routed by the JWT principal rather
+  // than an id in the URL, so one account can never edit another's profile.
+  // ---------------------------------------------------------------------------
+
+  async getOwnProfile(principal: "admin" | "member", id: string) {
+    const found = await this.findStaffById(id);
+    if (!found || found.principal !== principal) {
+      throw new NotFoundException("Account not found");
+    }
+    return { data: found.staff };
+  }
+
+  async updateOwnProfile(
+    principal: "admin" | "member",
+    id: string,
+    dto: UpdateOwnProfileDto,
+  ) {
+    // Empty strings clear the field rather than storing "", so removing a phone
+    // number from the form actually removes it.
+    const data: { phone?: string | null; address?: string | null } = {};
+    if (dto.phone !== undefined) data.phone = dto.phone.trim() || null;
+    if (dto.address !== undefined) data.address = dto.address.trim() || null;
+
+    if (Object.keys(data).length === 0) {
+      return this.getOwnProfile(principal, id);
+    }
+
+    if (principal === "admin") {
+      const updated = await this.prisma.admin.update({
+        where: { id },
+        data,
+        select: adminPublicSelect,
+      });
+      return { message: "Profile updated successfully", data: this.toAdminApiShape(updated) };
+    }
+
+    const updated = await this.prisma.member.update({
+      where: { id },
+      data,
+      select: memberPublicSelect,
+    });
+    return { message: "Profile updated successfully", data: this.toMemberApiShape(updated) };
+  }
+
+  /**
+   * Self-service "delete account" from the profile page. Disables rather than
+   * deletes: task history, announcements and the audit trail are Restrict
+   * relations, so a staff member who has done any work cannot be removed
+   * without taking that history with them.
+   */
+  async deactivateOwnAccount(principal: "admin" | "member", id: string) {
+    if (principal === "admin") {
+      const admin = await this.prisma.admin.findUnique({ where: { id } });
+      if (!admin) throw new NotFoundException("Account not found");
+      if (admin.role === "super_admin") {
+        // There is no endpoint that can create another one, so a super admin
+        // disabling itself would lock everybody out of the panel for good.
+        throw new ForbiddenException("The Super Admin account cannot be disabled");
+      }
+      await this.prisma.admin.update({
+        where: { id },
+        data: { isDisabled: true, refreshToken: null },
+      });
+    } else {
+      const member = await this.prisma.member.findUnique({ where: { id } });
+      if (!member) throw new NotFoundException("Account not found");
+      await this.prisma.member.update({
+        where: { id },
+        data: { isDisabled: true, refreshToken: null },
+      });
+    }
+
+    return { message: "Account disabled successfully", data: { id } };
   }
 
   // ---------------------------------------------------------------------------

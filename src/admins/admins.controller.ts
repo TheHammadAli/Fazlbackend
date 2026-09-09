@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -29,6 +30,21 @@ import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
 import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
 import { CreateMemberDto } from "./dto/create-member.dto";
 import { UpdateMemberDto } from "./dto/update-member.dto";
+import { UpdateOwnProfileDto } from "./dto/update-own-profile.dto";
+
+/**
+ * Narrows a JWT principal to a staff one.
+ *
+ * JwtAuthGuard proves the token is valid, not that it belongs to staff — a
+ * customer's app token would also pass it. The self-profile routes below take
+ * no id from the URL, so this is what stops such a token reaching a staff row.
+ */
+function assertStaff(user: JwtPayload): "admin" | "member" {
+  if (user?.principal === "admin" || user?.principal === "member") {
+    return user.principal;
+  }
+  throw new ForbiddenException("This endpoint is for staff accounts only");
+}
 
 /**
  * Admin Management — super_admin only.
@@ -46,6 +62,46 @@ export class AdminsController {
     private readonly adminsService: AdminsService,
     private readonly activityLogService: ActivityLogService,
   ) {}
+
+  // --- The signed-in staff member's own profile ---
+  //
+  // Declared before the ":id" routes below so "me" is never captured as an id.
+  // No role guard: any signed-in staff account may read and edit its own
+  // profile, and the principal in the token decides which row that is.
+
+  @Get("me")
+  @ApiOperation({ summary: "Get the signed-in staff member's own profile" })
+  async getOwnProfile(@CurrentUser() currentUser: JwtPayload) {
+    return this.adminsService.getOwnProfile(
+      assertStaff(currentUser),
+      currentUser.sub,
+    );
+  }
+
+  @Patch("me")
+  @ApiOperation({ summary: "Update the signed-in staff member's own phone/address" })
+  @ApiBody({ type: UpdateOwnProfileDto })
+  async updateOwnProfile(
+    @Body() dto: UpdateOwnProfileDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.adminsService.updateOwnProfile(
+      assertStaff(currentUser),
+      currentUser.sub,
+      dto,
+    );
+  }
+
+  @Delete("me")
+  @ApiOperation({ summary: "Disable the signed-in staff member's own account" })
+  async deactivateOwnAccount(@CurrentUser() currentUser: JwtPayload) {
+    return this.adminsService.deactivateOwnAccount(
+      assertStaff(currentUser),
+      currentUser.sub,
+    );
+  }
+
+  // --- Admin Management (super_admin only) ---
 
   @Get()
   @UseGuards(RolesGuard)
