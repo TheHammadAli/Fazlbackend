@@ -37,12 +37,20 @@ export class SearchController {
     description:
       'Defaults to true. Pass "false" to skip the per-result coordinate lookup when only the name is needed.',
   })
+  @ApiQuery({
+    name: "city",
+    type: String,
+    required: false,
+    description:
+      "Drop results outside this city. The lat/lng bias only reorders results — a same-named area in another city still appears without this.",
+  })
   async autocomplete(
     @Query("q") query: string,
     @Query("types") types?: string,
     @Query("lat") lat?: string,
     @Query("lng") lng?: string,
     @Query("withCoordinates") withCoordinates?: string,
+    @Query("city") city?: string,
   ) {
     return this.searchService.autocompleteLocations(query, {
       types,
@@ -51,7 +59,27 @@ export class SearchController {
       lat: lat?.trim() ? Number(lat) : undefined,
       lng: lng?.trim() ? Number(lng) : undefined,
       withCoordinates: withCoordinates !== "false",
+      city,
     });
+  }
+
+  @Get("city-areas")
+  @ApiOperation({
+    summary: "List the areas of one city, for a field that shows options before anything is typed",
+  })
+  @ApiQuery({ name: "city", type: String, required: true })
+  @ApiQuery({ name: "lat", type: Number, required: false })
+  @ApiQuery({ name: "lng", type: Number, required: false })
+  async cityAreas(
+    @Query("city") city: string,
+    @Query("lat") lat?: string,
+    @Query("lng") lng?: string,
+  ) {
+    return this.searchService.listCityAreas(
+      city,
+      lat?.trim() ? Number(lat) : undefined,
+      lng?.trim() ? Number(lng) : undefined,
+    );
   }
 
   @Get()
