@@ -281,6 +281,14 @@ export class TaskService {
         where,
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
+          // The member portal's "Last Submitted" column reads the final entry
+          // of this array. Without it the column had nothing to show, however
+          // many times the task had been submitted. Ascending, because the page
+          // takes the LAST element as the most recent.
+          submissions: {
+            orderBy: { submittedAt: "asc" },
+            select: { id: true, notes: true, link: true, submittedAt: true },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
