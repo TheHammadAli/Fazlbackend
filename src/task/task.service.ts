@@ -12,7 +12,7 @@ import { UpdateTaskDto } from "./dto/update-task.dto";
 import { SubmitTaskDto } from "./dto/submit-task.dto";
 import { ReviewTaskDto, REVIEW_DECISIONS } from "./dto/review-task.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
-import { UsersService } from "src/users/users.service";
+import { AdminsService } from "src/admins/admins.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import {
@@ -28,7 +28,7 @@ import type { Prisma } from "../../generated/prisma/client";
 const TASK_INCLUDE = {
   assignees: {
     include: {
-      user: { select: { id: true, name: true, email: true, image: true } },
+      member: { select: { id: true, name: true, email: true, image: true } },
     },
   },
   createdBy: { select: { id: true, name: true, email: true } },
@@ -46,7 +46,7 @@ export class TaskService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly usersService: UsersService,
+    private readonly adminsService: AdminsService,
     private readonly emailService: EmailService,
     private readonly fileUploadService: FileUploadService,
   ) {}
@@ -60,7 +60,7 @@ export class TaskService {
     if (!task) return task;
     return {
       ...task,
-      assignees: (task.assignees ?? []).map((a: any) => a.user).filter(Boolean),
+      assignees: (task.assignees ?? []).map((a: any) => a.member).filter(Boolean),
     };
   }
 
@@ -93,7 +93,7 @@ export class TaskService {
   }
 
   async createTask(dto: CreateTaskDto, createdBy: string, files: any[] = []) {
-    const assignees = await this.usersService.assertMemberIds(dto.assignees);
+    const assignees = await this.adminsService.assertMemberIds(dto.assignees);
     const assigneeIds = assignees.map((a: any) => String(a?.id ?? a));
     const taskId = generateObjectId();
 
@@ -107,7 +107,7 @@ export class TaskService {
         createdById: createdBy,
         // Junction rows are created with the task in one statement, so a task
         // can never briefly exist with no assignees.
-        assignees: { create: assigneeIds.map((userId) => ({ userId })) },
+        assignees: { create: assigneeIds.map((memberId) => ({ memberId })) },
       },
     });
 
@@ -190,7 +190,7 @@ export class TaskService {
     }
     const task = await this.prisma.task.findUnique({
       where: { id },
-      include: { assignees: { select: { userId: true } } },
+      include: { assignees: { select: { memberId: true } } },
     });
     if (!task) {
       throw new NotFoundException("Task not found");
@@ -200,7 +200,7 @@ export class TaskService {
 
   async updateTask(id: string, dto: UpdateTaskDto, files: any[] = []) {
     const existing = await this.findTaskOrThrow(id);
-    const previousAssigneeIds = new Set(existing.assignees.map((a) => a.userId));
+    const previousAssigneeIds = new Set(existing.assignees.map((a) => a.memberId));
 
     const data: Prisma.TaskUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
@@ -213,12 +213,12 @@ export class TaskService {
       if (dto.assignees.length === 0) {
         throw new BadRequestException("A task must have at least one assignee");
       }
-      const members = await this.usersService.assertMemberIds(dto.assignees);
+      const members = await this.adminsService.assertMemberIds(dto.assignees);
       const ids = members.map((a: any) => String(a?.id ?? a));
       // Replace the whole set, matching the old $set on the assignees array.
       data.assignees = {
         deleteMany: {},
-        create: ids.map((userId) => ({ userId })),
+        create: ids.map((memberId) => ({ memberId })),
       };
     }
 
@@ -264,7 +264,7 @@ export class TaskService {
     const skip = (pageNum - 1) * limitNum;
 
     // Was a direct match on the assignees array; now a relation filter.
-    const where: Prisma.TaskWhereInput = { assignees: { some: { userId } } };
+    const where: Prisma.TaskWhereInput = { assignees: { some: { memberId: userId } } };
     if (status?.trim() && (TASK_STATUSES as readonly string[]).includes(status.trim())) {
       where.status = status.trim() as TaskStatus;
     }
@@ -294,7 +294,7 @@ export class TaskService {
   }
 
   async getMyTaskStats(userId: string) {
-    const base: Prisma.TaskWhereInput = { assignees: { some: { userId } } };
+    const base: Prisma.TaskWhereInput = { assignees: { some: { memberId: userId } } };
     // "assigned" = still on the member's plate; a completed/cancelled task leaves that count.
     const [assigned, completed, revision, submitted] = await Promise.all([
       this.prisma.task.count({
@@ -310,7 +310,7 @@ export class TaskService {
   async submitTask(taskId: string, userId: string, dto: SubmitTaskDto, files: any[] = []) {
     const task = await this.findTaskOrThrow(taskId);
 
-    if (!task.assignees.some((a) => a.userId === userId)) {
+    if (!task.assignees.some((a) => a.memberId === userId)) {
       throw new ForbiddenException("You are not assigned to this task");
     }
     if (!(SUBMITTABLE_STATUSES as readonly string[]).includes(task.status)) {

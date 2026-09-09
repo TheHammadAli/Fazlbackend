@@ -792,7 +792,7 @@ export class ProductsService {
 
     if (currentUser && resolvedOwnerId && resolvedOwnerId !== currentUser.sub) {
       await this.activityLogService.record(
-        currentUser.sub,
+        currentUser,
         "listing_deleted",
         "Product",
         productId,

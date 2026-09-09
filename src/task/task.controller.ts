@@ -72,7 +72,7 @@ export class TaskController {
     this.parseAssignees(dto);
     const result = await this.taskService.createTask(dto, currentUser.sub, files ?? []);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "task_assigned",
       "Task",
       result.data?._id?.toString(),
@@ -136,7 +136,7 @@ export class TaskController {
   ) {
     const result = await this.taskService.submitTask(id, currentUser.sub, dto, files ?? []);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "task_submitted",
       "Task",
       id,
@@ -158,7 +158,7 @@ export class TaskController {
   ) {
     const result = await this.taskService.reviewTask(id, dto);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "task_reviewed",
       "Task",
       id,
@@ -191,7 +191,7 @@ export class TaskController {
     this.parseAssignees(dto);
     const result = await this.taskService.updateTask(id, dto, files ?? []);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "task_updated",
       "Task",
       id,
@@ -211,7 +211,7 @@ export class TaskController {
   ) {
     const result = await this.taskService.deleteTask(id);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "task_deleted",
       "Task",
       id,

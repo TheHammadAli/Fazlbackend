@@ -3,7 +3,7 @@ import type { Prisma } from "../../generated/prisma/client";
 /**
  * Replaces Mongoose's `select: false`, which has NO Prisma equivalent.
  *
- * users.schema.ts marked `password`, `memberPassword`, `refreshToken`,
+ * users.schema.ts marked `password`, `refreshToken`,
  * `resetPasswordToken`, `resetPasswordExpires` and `provider` as select:false,
  * which silently kept them out of every query result. Prisma returns every
  * scalar column by default, so porting the model without this would start
@@ -31,18 +31,11 @@ export const userPublicSelect = {
   lastSeenAt: true,
   createdAt: true,
   updatedAt: true,
-  permissions: {
-    select: {
-      page: true,
-      actions: true,
-    },
-  },
 } satisfies Prisma.UserSelect;
 
 /**
- * The same set minus permissions, for the many places that embed a user as a
- * relation (message sender, shop owner, review author) and never render their
- * admin permission matrix.
+ * A narrower set, for the many places that embed a user as a relation (message
+ * sender, shop owner, review author) and need only enough to render a name.
  */
 export const userSummarySelect = {
   id: true,

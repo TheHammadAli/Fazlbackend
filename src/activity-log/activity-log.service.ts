@@ -5,9 +5,17 @@ import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.uti
 import type {
   ActivityLogAction,
   ActivityLogTargetType,
+  AdminRole,
   Prisma,
-  UserRole,
 } from "../../generated/prisma/client";
+import type { PrincipalType } from "src/auth/strategies/jwt-strategy";
+
+/**
+ * Who performed the action. Since staff were split out of `users` an id alone
+ * no longer says which table to write the foreign key against, so callers pass
+ * the JWT principal rather than a bare id.
+ */
+export type ActivityActor = { sub: string; principal?: PrincipalType };
 
 @Injectable()
 export class ActivityLogService {
@@ -26,7 +34,7 @@ export class ActivityLogService {
 
   /** Fire-and-forget: an audit-log write must never break the real action it's describing. */
   async record(
-    actorId: string,
+    actor: ActivityActor,
     action: ActivityLogAction,
     targetType?: string,
     targetId?: string,
@@ -34,12 +42,24 @@ export class ActivityLogService {
     ipAddress?: string,
   ): Promise<void> {
     try {
+      // Only staff actions are auditable, and the actor column is a real foreign
+      // key into one of the two staff tables. A customer principal has no row to
+      // point at, so the write is skipped rather than left to fail on the FK.
+      if (actor?.principal !== "admin" && actor?.principal !== "member") {
+        this.logger.warn(
+          `Skipping activity log "${action}": actor ${actor?.sub} is not staff`,
+        );
+        return;
+      }
+
       const logCode = await this.generateNextLogCode();
       await this.prisma.activityLog.create({
         data: {
           id: generateObjectId(),
           logCode,
-          actorId,
+          ...(actor.principal === "admin"
+            ? { actorAdminId: actor.sub }
+            : { actorMemberId: actor.sub }),
           action,
           targetType: (targetType as ActivityLogTargetType) ?? null,
           targetId: targetId ?? null,
@@ -73,18 +93,35 @@ export class ActivityLogService {
     if (action?.trim()) {
       where.action = action.trim() as ActivityLogAction;
     }
+    // "moderator" is no longer a role on any row — it is what being in the
+    // `members` table means, so it filters by which actor column is set.
     if (role?.trim()) {
-      where.actor = { roles: { has: role.trim() as UserRole } };
+      const wanted = role.trim();
+      where.AND = [
+        wanted === "moderator"
+          ? { actorMemberId: { not: null } }
+          : { actorAdmin: { role: wanted as AdminRole } },
+      ];
     }
     if (actorId?.trim() && isObjectIdLike(actorId.trim())) {
-      where.actorId = actorId.trim();
+      const id = actorId.trim();
+      where.OR = [{ actorAdminId: id }, { actorMemberId: id }];
     }
     if (search?.trim()) {
       const term = search.trim();
-      where.OR = [
-        { actor: { name: { contains: term, mode: "insensitive" } } },
-        { actor: { email: { contains: term, mode: "insensitive" } } },
-        { details: { contains: term, mode: "insensitive" } },
+      const contains = { contains: term, mode: "insensitive" as const };
+      // Nested under AND so it cannot overwrite the actorId OR above.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { actorAdmin: { name: contains } },
+            { actorAdmin: { email: contains } },
+            { actorMember: { name: contains } },
+            { actorMember: { email: contains } },
+            { details: contains },
+          ],
+        },
       ];
     }
 
@@ -103,15 +140,25 @@ export class ActivityLogService {
           details: true,
           ipAddress: true,
           createdAt: true,
-          actor: { select: { id: true, name: true, email: true } },
+          actorAdmin: { select: { id: true, name: true, email: true, role: true } },
+          actorMember: { select: { id: true, name: true, email: true } },
         },
       }),
       this.prisma.activityLog.count({ where }),
     ]);
 
     // The old $project emitted the joined user as `actorInfo`; the admin panel
-    // reads that key, so the response shape is preserved exactly.
-    const data = rows.map(({ actor, ...rest }) => ({ ...rest, actorInfo: actor }));
+    // reads that key, so the response shape is preserved exactly — including a
+    // `roles` array, which staff rows no longer store but every role check in
+    // the panel still reads.
+    const data = rows.map(({ actorAdmin, actorMember, ...rest }) => ({
+      ...rest,
+      actorInfo: actorAdmin
+        ? { id: actorAdmin.id, name: actorAdmin.name, email: actorAdmin.email, roles: [actorAdmin.role] }
+        : actorMember
+          ? { id: actorMember.id, name: actorMember.name, email: actorMember.email, roles: ["moderator"] }
+          : null,
+    }));
 
     return {
       data,

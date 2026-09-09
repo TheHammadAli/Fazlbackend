@@ -15,6 +15,7 @@ import { OAuth2Client } from "google-auth-library";
 import { ClsService } from "nestjs-cls";
 import { EmailService } from "src/common/email-service/email-service";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
+import { AdminsService } from "src/admins/admins.service";
 
 @Injectable()
 export class AuthService {
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly cls: ClsService,
     private readonly emailService: EmailService,
     private readonly activityLogService: ActivityLogService,
+    private readonly adminsService: AdminsService,
   ) {
     this.googleClient = new OAuth2Client();
     // this.twilioClient = new Twilio(
@@ -42,11 +44,20 @@ export class AuthService {
     return this.cls.get("lang") || "en";
   }
 
+  /**
+   * Two entirely separate credential stores since staff were split out of
+   * `users`: loginContext "admin" authenticates against `admins`/`members`,
+   * anything else against `users`. A customer account can no longer open the
+   * admin panel, and a staff account can no longer sign in to the app.
+   */
   async loginUser(loginDto: LoginDto, ipAddress?: string) {
+    if ((loginDto.loginContext ?? "web") === "admin") {
+      return this.loginStaff(loginDto, ipAddress);
+    }
+
     const user = await this.userService.validateUserForLogin(
       loginDto.email,
       loginDto.password,
-      loginDto.loginContext ?? "web",
     );
     if (!user) {
       throw new UnauthorizedException(
@@ -68,7 +79,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       roles: user.roles, // if you have roles
-      permissions: user.permissions,
+      principal: "user" as const,
       // Stored as latitude/longitude columns; the token has always carried
       // GeoJSON, so it is rebuilt here rather than changing the token shape.
       location: toGeoJson(user.latitude, user.longitude),
@@ -87,18 +98,6 @@ export class AuthService {
     // Save refresh token in DB (optionally hashed)
     await this.userService.updateUser(user.id, { refreshToken });
 
-    const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
-    if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
-      await this.activityLogService.record(
-        user.id,
-        "admin_login",
-        undefined,
-        undefined,
-        undefined,
-        ipAddress,
-      );
-    }
-
     return {
       message: this.i18n.translate("auth.auth.login_success", {
         lang: this.getLang(),
@@ -111,9 +110,78 @@ export class AuthService {
     };
   }
 
+  /** Admin-panel login. `staff` is already in the shape the panel expects,
+   *  including the `roles` array it reads to decide what to render. */
+  private async loginStaff(loginDto: LoginDto, ipAddress?: string) {
+    const result = await this.adminsService.validateStaffForLogin(
+      loginDto.email,
+      loginDto.password,
+    );
+
+    if (!result) {
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.invalid_credentials", {
+          lang: this.getLang(),
+        }),
+      );
+    }
+
+    const { principal, staff } = result;
+
+    if (staff.isDisabled) {
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.account_disabled", {
+          lang: this.getLang(),
+        }),
+      );
+    }
+
+    const payload = {
+      sub: staff.id,
+      email: staff.email,
+      roles: staff.roles,
+      principal,
+      permissions: staff.permissions,
+      // Staff carry no location; the token's shape is kept so every consumer of
+      // it keeps working unchanged.
+      location: toGeoJson(null, null),
+      image: staff.image,
+      isDisabled: staff.isDisabled,
+    };
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: "1d" });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: "3d" });
+
+    await this.adminsService.storeRefreshToken(principal, staff.id, refreshToken);
+
+    await this.activityLogService.record(
+      { sub: staff.id, principal },
+      "admin_login",
+      undefined,
+      undefined,
+      undefined,
+      ipAddress,
+    );
+
+    return {
+      message: this.i18n.translate("auth.auth.login_success", {
+        lang: this.getLang(),
+      }),
+      data: {
+        refreshToken,
+        accessToken,
+        user: staff,
+      },
+    };
+  }
+
   async refreshTokens(refreshToken: RefreshTokenDto) {
     try {
       const payload = this.jwtService.verify(refreshToken.token); // Verifies expiration and signature
+
+      if (payload.principal === "admin" || payload.principal === "member") {
+        return await this.refreshStaffTokens(payload.sub, refreshToken.token);
+      }
 
       const user = await this.userService.findByIdWithToken(payload.sub);
 
@@ -129,7 +197,7 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         roles: user.roles,
-        permissions: user.permissions,
+        principal: "user" as const,
         location: toGeoJson(user.latitude, user.longitude),
         image: user.image,
         isDisabled: user.isDisabled,
@@ -165,27 +233,80 @@ export class AuthService {
       );
     }
   }
+  /** Issues a fresh pair for a staff principal, rebuilding the payload from the
+   *  staff row so a role or permission change takes effect on refresh. */
+  private async refreshStaffTokens(id: string, presentedToken: string) {
+    const found = await this.adminsService.findStaffById(id);
+
+    if (!found || found.refreshToken !== presentedToken) {
+      throw new UnauthorizedException(
+        this.i18n.translate("auth.auth.refresh_token_invalid", {
+          lang: this.getLang(),
+        }),
+      );
+    }
+
+    const { principal, staff } = found;
+
+    const newPayload = {
+      sub: staff.id,
+      email: staff.email,
+      roles: staff.roles,
+      principal,
+      permissions: staff.permissions,
+      location: toGeoJson(null, null),
+      image: staff.image,
+      isDisabled: staff.isDisabled,
+    };
+
+    const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: "1d" });
+    const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: "3d" });
+
+    await this.adminsService.storeRefreshToken(principal, staff.id, newRefreshToken);
+
+    return {
+      message: this.i18n.translate("auth.auth.refresh_token_success", {
+        lang: this.getLang(),
+      }),
+      data: {
+        accessToken: newAccessToken,
+        user: staff,
+        refreshToken: newRefreshToken,
+      },
+    };
+  }
+
   async logout(refreshToken: string, ipAddress?: string) {
     try {
       const payload = this.jwtService.verify(refreshToken);
-      const user = await this.userService.findByIdWithToken(payload.sub);
 
-      if (!user) throw new UnauthorizedException();
+      if (payload.principal === "admin" || payload.principal === "member") {
+        const found = await this.adminsService.findStaffById(payload.sub);
+        if (!found) throw new UnauthorizedException();
 
-      // Invalidate refresh token in DB
-      await this.userService.updateUser(user.id, { refreshToken: null });
-
-      const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"];
-      if (user.roles?.some((role) => ADMIN_PANEL_ROLES.includes(role))) {
+        await this.adminsService.storeRefreshToken(found.principal, payload.sub, null);
         await this.activityLogService.record(
-          user.id,
+          { sub: payload.sub, principal: found.principal },
           "admin_logout",
           undefined,
           undefined,
           undefined,
           ipAddress,
         );
+
+        return {
+          message: this.i18n.translate("auth.auth.logout_success", {
+            lang: this.getLang(),
+          }),
+        };
       }
+
+      const user = await this.userService.findByIdWithToken(payload.sub);
+
+      if (!user) throw new UnauthorizedException();
+
+      // Invalidate refresh token in DB
+      await this.userService.updateUser(user.id, { refreshToken: null });
 
       return {
         message: this.i18n.translate("auth.auth.logout_success", {
@@ -252,12 +373,10 @@ export class AuthService {
     };
   }
   async verifyEmailToken(token: string) {
-    console.log("Verifying email token:", token);
     // Find OTP record for email verification
     const record = await this.prisma.otp.findFirst({
       where: { code: token, type: "email_verification" },
     });
-    console.log("Record", record);
     if (!record) {
       throw new UnauthorizedException(
         this.i18n.translate("auth.auth.google_verification_failed", {
@@ -322,7 +441,6 @@ export class AuthService {
 
   async sendForgotPasswordEmail(email: string, lang: string = "en") {
     const user = await this.userService.findUserByEmail(email);
-    console.log("User found for forgot password:", user);
     if (!user) {
       throw new UnauthorizedException(
         this.i18n.translate("auth.auth.email_not_found", {
@@ -495,15 +613,7 @@ export class AuthService {
   }
 
   async verifyGoogleToken(idToken: string) {
-    console.log(
-      "Verifying Google ID token:",
-      idToken,
-      this.configService.get<string>("GOOGLE_CLIENT_ID"),
-    );
     try {
-
-
-
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
         audience: [
@@ -520,8 +630,6 @@ export class AuthService {
         throw new UnauthorizedException("Invalid Google token");
       }
 
-
-
       const user = await this.findOrCreateUserByEmail({
         sub: payload["sub"],
         email: payload["email"] as string,
@@ -529,7 +637,6 @@ export class AuthService {
         lastName: payload["family_name"],
         name: payload["name"],
       });
-
 
       return { user, accessToken: user.accessToken };
     } catch (err) {

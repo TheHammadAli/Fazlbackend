@@ -10,6 +10,7 @@ import { GoogleStrategy } from "./strategies/google.strategy";
 import { EmailService } from "src/common/email-service/email-service";
 import { SmsService } from "src/common/sms-service/sms-service";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
+import { AdminsModule } from "src/admins/admins.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ActivityLogModule } from "src/activity-log/activity-log.module";
     UsersModule,
     PassportModule,
     ActivityLogModule,
+    AdminsModule,
 
     JwtModule.registerAsync({
       imports: [ConfigModule],

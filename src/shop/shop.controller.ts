@@ -230,7 +230,7 @@ export class ShopController {
   ) {
     const shop = await this.shopService.setShopDisabled(id, true);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "shop_suspended",
       "Shop",
       id,
@@ -251,7 +251,7 @@ export class ShopController {
   ) {
     const shop = await this.shopService.setShopDisabled(id, false);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "shop_enabled",
       "Shop",
       id,

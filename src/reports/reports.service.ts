@@ -192,15 +192,16 @@ export class ReportsService {
     reporterName: string,
     reporterEmail: string,
   ) {
-    // The $elemMatch on the embedded permissions array becomes a relation
-    // filter now that permissions are their own table.
-    const recipients = await this.prisma.user.findMany({
+    // Notifies staff, not customers, so this reads `admins` — super admins
+    // unconditionally, everyone else only if they hold the reports permission.
+    // Members are excluded: they have no reports access to notify them about.
+    const recipients = await this.prisma.admin.findMany({
       where: {
         isDisabled: false,
         OR: [
-          { roles: { has: "super_admin" } },
+          { role: "super_admin" },
           {
-            roles: { hasSome: ["admin", "moderator"] },
+            role: { in: ["admin", "subadmin"] },
             permissions: { some: { page: "reports" } },
           },
         ],

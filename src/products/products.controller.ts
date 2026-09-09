@@ -294,7 +294,7 @@ export class ProductsController {
   ) {
     const product = await this.productsService.setProductDisabled(id, true);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "listing_suspended",
       "Product",
       id,
@@ -317,7 +317,7 @@ export class ProductsController {
   ) {
     const product = await this.productsService.setProductDisabled(id, false);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "listing_enabled",
       "Product",
       id,

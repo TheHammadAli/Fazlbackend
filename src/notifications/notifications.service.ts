@@ -161,12 +161,7 @@ export class NotificationsService {
     i18nArgs: Record<string, any> = {},
     titleOverride?: string,
   ) {
-    console.log(
-      "lang args", i18nArgs
-    );
-
     const user = await this.usersService.findUserById(userId.toString());
-    console.log("User for notification:", userId, user);
 
     if (!user) {
       throw new BadRequestException(
@@ -185,11 +180,6 @@ export class NotificationsService {
       args: i18nArgs,
     }) as string;;
 
-    console.log("Does it reach here", userId,
-      translatedMessage,
-      type,
-      payload,)
-
     const notifPayload = this.buildNotificationPayload(payload);
 
     const notif = await this.create<T>(userId, translatedMessage, type, notifPayload as T);
@@ -197,13 +187,6 @@ export class NotificationsService {
     if (this.server && notif) {
       this.server.to(userId.toString()).emit("notification", notif);
     }
-
-    console.log(
-      "Notification worked for user:",
-      userId,
-      "devices:",
-      this.collectFcmTokens(user).length,
-    );
 
     const notificationTitle =
       titleOverride ||

@@ -46,51 +46,6 @@ describe("UsersService", () => {
     expect(service).toBeDefined();
   });
 
-  it("rejects a malformed member id before querying", async () => {
-    // Was Types.ObjectId.isValid; isObjectIdLike preserves the same guard.
-    await expect(service.assertMemberIds(["not-an-id"])).rejects.toMatchObject({
-      status: 400,
-    });
-    expect(prisma.user.findMany).not.toHaveBeenCalled();
-  });
-
-  it("rejects ids that are not moderator accounts", async () => {
-    // Two ids requested, one row back -> at least one is not a member.
-    prisma.user.findMany.mockResolvedValue([{ id: "6a8d9c1828b1818429e64faa" }]);
-    await expect(
-      service.assertMemberIds([
-        "6a8d9c1828b1818429e64faa",
-        "6a8d9c1828b1818429e64fbb",
-      ]),
-    ).rejects.toMatchObject({ status: 400 });
-  });
-
-  it("returns the ids when every account is a member", async () => {
-    prisma.user.findMany.mockResolvedValue([
-      { id: "6a8d9c1828b1818429e64faa" },
-      { id: "6a8d9c1828b1818429e64fbb" },
-    ]);
-    await expect(
-      service.assertMemberIds([
-        "6a8d9c1828b1818429e64faa",
-        "6a8d9c1828b1818429e64fbb",
-      ]),
-    ).resolves.toEqual([
-      "6a8d9c1828b1818429e64faa",
-      "6a8d9c1828b1818429e64fbb",
-    ]);
-  });
-
-  it("de-duplicates ids before validating them", async () => {
-    prisma.user.findMany.mockResolvedValue([{ id: "6a8d9c1828b1818429e64faa" }]);
-    await expect(
-      service.assertMemberIds([
-        "6a8d9c1828b1818429e64faa",
-        "6a8d9c1828b1818429e64faa",
-      ]),
-    ).resolves.toEqual(["6a8d9c1828b1818429e64faa"]);
-  });
-
   it("returns an empty map of last-seen times for no ids", async () => {
     await expect(service.getLastSeenFor([])).resolves.toEqual({});
     expect(prisma.user.findMany).not.toHaveBeenCalled();

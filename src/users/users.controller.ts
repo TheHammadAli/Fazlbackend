@@ -20,12 +20,6 @@ import { Request } from "express";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { UsersService } from "./users.service";
 import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
-import { CreateAdminAccountDto } from "./dto/create-admin-account.dto";
-import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
-import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
-import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
-import { CreateMemberDto } from "./dto/create-member.dto";
-import { UpdateMemberDto } from "./dto/update-member.dto";
 import type { User } from "./model/user.model";
 import { UserModel } from "./model/user.model";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
@@ -112,7 +106,6 @@ export class UsersController {
       updateUserDto.image = files.image[0];
     }
     if (updateUserDto.location) {
-      console.log("Location before parsing:", updateUserDto.location);
       updateUserDto.location = JSON.parse(
         updateUserDto.location?.toString() || "{}",
       );
@@ -120,7 +113,7 @@ export class UsersController {
     const result = await this.usersService.updateUser(userId, updateUserDto);
     if (currentUser.sub !== userId) {
       await this.activityLogService.record(
-        currentUser.sub,
+        currentUser,
         "user_updated",
         "User",
         userId,
@@ -227,7 +220,7 @@ export class UsersController {
     const result = await this.usersService.disableAccount(userId);
     if (currentUser.sub !== userId) {
       await this.activityLogService.record(
-        currentUser.sub,
+        currentUser,
         "user_suspended",
         "User",
         userId,
@@ -252,238 +245,11 @@ export class UsersController {
   ): Promise<{ message: string; data: User }> {
     const result = await this.usersService.reactivateAccount(userId);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "user_enabled",
       "User",
       userId,
       result.data?.name ?? result.data?.email,
-      req.ip,
-    );
-    return result;
-  }
-
-  // --- Admin Management (super_admin only) ---
-
-  @Get("admins")
-  @UseGuards(RolesGuard)
-  @Roles("super_admin")
-  @ApiOperation({ summary: "Get paginated list of admin-panel accounts (super_admin only)" })
-  @ApiQuery({ name: "page", required: false, type: Number })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "search", required: false, type: String, description: "Search by name or email" })
-  async getAllAdminAccounts(
-    @Query("page") page = 1,
-    @Query("limit") limit = 10,
-    @Query("search") search?: string,
-  ) {
-    return this.usersService.getAllAdminAccounts({ page, limit, search });
-  }
-
-  @Post("admins")
-  @UseGuards(RolesGuard)
-  @Roles("super_admin")
-  @ApiOperation({ summary: "Create a new admin-panel account (super_admin only)" })
-  @ApiBody({ type: CreateAdminAccountDto })
-  async createAdminAccount(@Body() dto: CreateAdminAccountDto) {
-    return this.usersService.createAdminAccount(dto);
-  }
-
-  @Patch("admins/:id")
-  @UseGuards(RolesGuard)
-  @Roles("super_admin")
-  @ApiOperation({ summary: "Update an admin-panel account's name/email/role (super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  @ApiBody({ type: UpdateAdminAccountDto })
-  async updateAdminAccount(
-    @Param("id") id: string,
-    @Body() dto: UpdateAdminAccountDto,
-  ) {
-    return this.usersService.updateAdminAccount(id, dto);
-  }
-
-  @Patch("admins/:id/disable")
-  @UseGuards(RolesGuard)
-  @Roles("super_admin")
-  @ApiOperation({ summary: "Disable an admin-panel account (super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  async disableAdminAccount(
-    @Param("id") id: string,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ): Promise<{ message: string; data: User }> {
-    const target = await this.usersService.findUserById(id);
-    if (target.roles?.includes("super_admin")) {
-      throw new ForbiddenException("The Super Admin account cannot be disabled");
-    }
-    const result = await this.usersService.disableAccount(id);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "user_suspended",
-      "User",
-      id,
-      result.data?.name ?? result.data?.email,
-      req.ip,
-    );
-    return result;
-  }
-
-  @Patch("admins/:id/enable")
-  @UseGuards(RolesGuard)
-  @Roles("super_admin")
-  @ApiOperation({ summary: "Re-enable a disabled admin-panel account (super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  async enableAdminAccount(
-    @Param("id") id: string,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ): Promise<{ message: string; data: User }> {
-    const result = await this.usersService.reactivateAccount(id);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "user_enabled",
-      "User",
-      id,
-      result.data?.name ?? result.data?.email,
-      req.ip,
-    );
-    return result;
-  }
-
-  @Patch("admins/:id/reset-password")
-  @UseGuards(RolesGuard)
-  @Roles("super_admin")
-  @ApiOperation({ summary: "Update an admin-panel account's password (super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  @ApiBody({ type: ResetAdminPasswordDto })
-  async resetAdminPassword(
-    @Param("id") id: string,
-    @Body() dto: ResetAdminPasswordDto,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ) {
-    const target = await this.usersService.findUserById(id);
-    const result = await this.usersService.resetAdminPassword(id, dto);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "admin_password_reset",
-      "User",
-      id,
-      target?.name ?? target?.email,
-      req.ip,
-    );
-    return result;
-  }
-
-  // --- Member Management (admin/super_admin) ---
-  // Members (moderator accounts) are the pool of people tasks can be assigned to.
-  // Distinct from Admin Management above, which is super_admin-only.
-
-  @Get("members")
-  @UseGuards(RolesGuard, PermissionsGuard)
-  @Roles("admin", "super_admin")
-  @RequirePermission("members")
-  @ApiOperation({ summary: "Get all members (admin/super_admin only)" })
-  async getAllMembers() {
-    return { data: await this.usersService.getMembers() };
-  }
-
-  @Post("members")
-  @UseGuards(RolesGuard, PermissionsGuard)
-  @Roles("admin", "super_admin")
-  @RequirePermission("members")
-  @RequireAction("edit")
-  @ApiOperation({ summary: "Create a new member account (admin/super_admin only)" })
-  @ApiBody({ type: CreateMemberDto })
-  async createMember(
-    @Body() dto: CreateMemberDto,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ) {
-    const result = await this.usersService.createMemberAccount(dto.name, dto.email);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "member_created",
-      "User",
-      result.data?._id?.toString(),
-      // `name` is nullable on the row; ActivityLogService takes string | undefined.
-      result.data?.name ?? undefined,
-      req.ip,
-    );
-    return result;
-  }
-
-  @Patch("members/:id")
-  @UseGuards(RolesGuard, PermissionsGuard)
-  @Roles("admin", "super_admin")
-  @RequirePermission("members")
-  @RequireAction("edit")
-  @ApiOperation({ summary: "Update a member account's name/email (admin/super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  @ApiBody({ type: UpdateMemberDto })
-  async updateMember(
-    @Param("id") id: string,
-    @Body() dto: UpdateMemberDto,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ) {
-    const result = await this.usersService.updateMemberAccount(id, dto.name, dto.email);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "member_updated",
-      "User",
-      id,
-      result.data?.name ?? undefined,
-      req.ip,
-    );
-    return result;
-  }
-
-  @Delete("members/:id")
-  @UseGuards(RolesGuard, PermissionsGuard)
-  @Roles("admin", "super_admin")
-  @RequirePermission("members")
-  @RequireAction("delete")
-  @ApiOperation({ summary: "Delete a member account (admin/super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  async deleteMember(
-    @Param("id") id: string,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ) {
-    const result = await this.usersService.deleteMemberAccount(id);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "member_deleted",
-      "User",
-      id,
-      result.data?.name ?? undefined,
-      req.ip,
-    );
-    return result;
-  }
-
-  @Patch("members/:id/reset-password")
-  @UseGuards(RolesGuard, PermissionsGuard)
-  @Roles("admin", "super_admin")
-  @RequirePermission("members")
-  @RequireAction("edit")
-  @ApiOperation({ summary: "Reset a member account's password (admin/super_admin only)" })
-  @ApiParam({ name: "id", type: String })
-  @ApiBody({ type: ResetMemberPasswordDto })
-  async resetMemberPassword(
-    @Param("id") id: string,
-    @Body() dto: ResetMemberPasswordDto,
-    @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
-  ) {
-    const target = await this.usersService.findUserById(id);
-    const result = await this.usersService.resetMemberPassword(id, dto);
-    await this.activityLogService.record(
-      currentUser.sub,
-      "member_password_reset",
-      "User",
-      id,
-      target?.name ?? target?.email,
       req.ip,
     );
     return result;

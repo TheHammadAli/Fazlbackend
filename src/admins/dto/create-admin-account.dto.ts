@@ -20,11 +20,17 @@ import {
 export { ADMIN_PERMISSIONS, ADMIN_ACTIONS };
 export type { AdminAction, AdminPermission };
 
-export const ADMIN_PANEL_ROLES = ["super_admin", "admin", "moderator"] as const;
+export const ADMIN_PANEL_ROLES = ["super_admin", "admin", "subadmin", "moderator"] as const;
 export type AdminPanelRole = (typeof ADMIN_PANEL_ROLES)[number];
 
-/** Super Admin is a single, fixed account and is never created/assigned through the admin panel. */
-export const CREATABLE_ADMIN_ROLES = ["admin", "moderator"] as const;
+/**
+ * Super Admin is a single, fixed account and is never created/assigned through
+ * the admin panel.
+ *
+ * "moderator" is absent because members are no longer admins: they live in the
+ * `members` table and are created through POST /members.
+ */
+export const CREATABLE_ADMIN_ROLES = ["admin", "subadmin"] as const;
 export type CreatableAdminRole = (typeof CREATABLE_ADMIN_ROLES)[number];
 
 export class PermissionEntryDto {

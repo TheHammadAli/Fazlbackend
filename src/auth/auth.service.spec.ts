@@ -8,6 +8,7 @@ import { ClsService } from "nestjs-cls";
 import { PrismaService } from "src/prisma/prisma.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
+import { AdminsService } from "src/admins/admins.service";
 
 describe("AuthService", () => {
   let service: AuthService;
@@ -33,6 +34,16 @@ describe("AuthService", () => {
         { provide: ClsService, useValue: { get: jest.fn() } },
         { provide: EmailService, useValue: { sendEmail: jest.fn() } },
         { provide: ActivityLogService, useValue: { record: jest.fn() } },
+        // Staff live in their own tables now; the admin-panel login path goes
+        // through AdminsService, never UsersService.
+        {
+          provide: AdminsService,
+          useValue: {
+            validateStaffForLogin: jest.fn(),
+            findStaffById: jest.fn(),
+            storeRefreshToken: jest.fn(),
+          },
+        },
         { provide: PrismaService, useValue: {} },
       ],
     }).compile();
@@ -89,7 +100,6 @@ describe("AuthService", () => {
       latitude: 24.8607,
       longitude: 67.0011,
       password: "$2a$10$hashed",
-      memberPassword: "$2a$10$other",
       refreshToken: "old-token",
       resetPasswordToken: "reset",
       provider: "google",
@@ -103,7 +113,6 @@ describe("AuthService", () => {
     // Mongoose's select:false used to keep these out; Prisma returns every
     // scalar, so stripUserSecrets has to.
     expect(result.password).toBeUndefined();
-    expect(result.memberPassword).toBeUndefined();
     expect(result.resetPasswordToken).toBeUndefined();
     expect(result.provider).toBeUndefined();
     expect(result.sub).toBe("6a8d9c1828b1818429e64fbb");

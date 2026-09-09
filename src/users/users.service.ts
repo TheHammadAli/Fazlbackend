@@ -11,14 +11,6 @@ import { CreateUpdateUserDto } from "./dto/create-update-User.dto";
 import { AppError } from "src/common/exceptions/app-error";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
-import { CreateAdminAccountDto, PermissionEntryDto } from "./dto/create-admin-account.dto";
-import { UpdateAdminAccountDto } from "./dto/update-admin-account.dto";
-import {
-  ADMIN_ACTIONS,
-  ADMIN_PERMISSIONS,
-} from "src/common/constants/admin-permissions.constants";
-import { ResetAdminPasswordDto } from "./dto/reset-admin-password.dto";
-import { ResetMemberPasswordDto } from "./dto/reset-member-password.dto";
 import { I18nService } from "nestjs-i18n";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
 import { PaginationDto } from "src/common/dto/pagination.dto";
@@ -35,20 +27,15 @@ import { EmailService } from "src/common/email-service/email-service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
 import { toGeoJson, toLatLng } from "src/common/utils/geo.util";
-import { adminPermissionPage } from "src/common/utils/enum-wire.util";
 import { userPublicSelect } from "./user-select";
 import {
-  ADMIN_TIER_ROLES,
   SELF_ASSIGNABLE_ROLES,
-  USER_PERMISSIONS_INCLUDE,
+  USER_ROLES,
   stripUserSecrets,
   type User,
   type UserRole,
 } from "./model/user.model";
-import type {
-  AdminPermissionPage,
-  Prisma,
-} from "../../generated/prisma/client";
+import type { Prisma } from "../../generated/prisma/client";
 import { resolvePagination } from "../common/utils/pagination.util";
 
 @Injectable()
@@ -83,15 +70,11 @@ export class UsersService {
    */
   private toApiShape<T extends Record<string, any>>(user: T | null): any {
     if (!user) return user;
-    const { latitude, longitude, permissions, ...rest } = user as any;
+    const { latitude, longitude, ...rest } = user as any;
     return {
       ...rest,
       _id: rest.id,
       location: toGeoJson(latitude, longitude),
-      permissions: (permissions ?? []).map((p: any) => ({
-        page: adminPermissionPage.toWire(p.page),
-        actions: p.actions,
-      })),
     };
   }
 
@@ -147,7 +130,6 @@ export class UsersService {
           userCode,
           image: "default-avatar.png",
         },
-        include: USER_PERMISSIONS_INCLUDE,
       });
 
       if (createUserDto.image) {
@@ -158,7 +140,6 @@ export class UsersService {
         const withImage = await this.prisma.user.update({
           where: { id: userId },
           data: { image: imageUrl },
-          include: USER_PERMISSIONS_INCLUDE,
         });
         return {
           message: this.i18n.translate("auth.users.created_success", { lang: this.lang }),
@@ -201,14 +182,12 @@ export class UsersService {
   async findUserByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      include: USER_PERMISSIONS_INCLUDE,
     });
   }
 
   async findByResetToken(resetPasswordToken: string) {
     const result = await this.prisma.user.findFirst({
       where: { resetPasswordToken },
-      include: USER_PERMISSIONS_INCLUDE,
     });
     if (!result) {
       throw new NotFoundException(
@@ -231,34 +210,24 @@ export class UsersService {
     });
   }
 
-  async validateUserForLogin(
-    email: string,
-    password: string,
-    loginContext: "web" | "admin" = "web",
-  ): Promise<any | false> {
+  /**
+   * Main-app login only. The admin panel authenticates against `admins` /
+   * `members` instead — see AdminsService.validateStaffForLogin. Since the
+   * split there is no second password column here and no login context to
+   * branch on: a customer row has exactly one credential, for the app.
+   */
+  async validateUserForLogin(email: string, password: string): Promise<any | false> {
     // Emails are stored trimmed + lowercased at signup — the lookup must match
     // that or any casing/whitespace difference at login silently fails here.
     const normalizedEmail = email?.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
-      include: USER_PERMISSIONS_INCLUDE,
     });
-    if (!user) {
+    if (!user?.password) {
       return false;
     }
 
-    // A user promoted to member gets a separate admin-panel password (memberPassword),
-    // scoped to that context — their original `password` keeps working only on the main
-    // app. Member-only accounts created fresh never have memberPassword, so "admin"
-    // logins for them fall back to the single password they were created with.
-    const passwordField =
-      loginContext === "admin" && user.memberPassword ? user.memberPassword : user.password;
-
-    if (!passwordField) {
-      return false;
-    }
-
-    const isMatch = await bcrypt.compare(password, passwordField);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return false;
     }
@@ -299,15 +268,6 @@ export class UsersService {
       if (!existingUser) {
         throw new NotFoundException(
           this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
-        );
-      }
-
-      // Only block attempts to change roles on a super_admin account — this method
-      // is also used internally (login/refresh-token/password-reset flows), which
-      // only ever touch refreshToken/password and must keep working.
-      if (updateData.roles && existingUser.roles?.includes("super_admin")) {
-        throw new ForbiddenException(
-          "The Super Admin account's roles cannot be changed through this endpoint",
         );
       }
 
@@ -395,7 +355,6 @@ export class UsersService {
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data,
-        include: USER_PERMISSIONS_INCLUDE,
       });
 
       return {
@@ -427,7 +386,6 @@ export class UsersService {
   async findByIdWithToken(userId: string, lang: string = "en") {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: USER_PERMISSIONS_INCLUDE,
     });
 
     if (!user) {
@@ -442,7 +400,6 @@ export class UsersService {
   async findUserById(userId: string, lang: string = "en") {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: USER_PERMISSIONS_INCLUDE,
     });
 
     if (!user) {
@@ -712,54 +669,23 @@ export class UsersService {
     }
   }
 
-  private generateRandomPassword(): string {
-    return crypto.randomBytes(9).toString("base64").replace(/[+/=]/g, "");
-  }
 
-  async getAllAdminAccounts(
-    paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<any>> {
-    const { page: rawPage, limit: rawLimit, search } = paginationDto;
-    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
-
-    // Super Admin is a single, fixed, protected account — never listed here.
-    const where: Prisma.UserWhereInput = {
-      roles: { hasSome: ["admin", "moderator"] },
-    };
-
-    if (search?.trim()) {
-      const term = search.trim();
-      where.OR = [
-        { name: { contains: term, mode: "insensitive" } },
-        { email: { contains: term, mode: "insensitive" } },
-      ];
-    }
-
-    const [admins, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        select: userPublicSelect,
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-
-    return {
-      data: admins.map((a) => this.toApiShape(a)),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
-  }
 
   /** Ids of all non-disabled users, optionally filtered by role. Empty/undefined roles = all users. */
   async getUserIdsByRoles(roles?: string[]): Promise<string[]> {
+    // announcements.target_audience is a free-form String[], and staff roles
+    // were removed from UserRole when admins/members moved to their own tables.
+    // An announcement saved before that still carries e.g. "admin", which is no
+    // longer a valid enum value and would make the query throw — so unknown
+    // roles are dropped rather than passed through.
+    const validRoles = (roles ?? []).filter((role): role is UserRole =>
+      (USER_ROLES as readonly string[]).includes(role),
+    );
+
     const users = await this.prisma.user.findMany({
       where: {
         isDisabled: false,
-        ...(roles && roles.length > 0
-          ? { roles: { hasSome: roles as UserRole[] } }
-          : {}),
+        ...(validRoles.length > 0 ? { roles: { hasSome: validRoles } } : {}),
       },
       select: { id: true },
     });
@@ -767,422 +693,16 @@ export class UsersService {
     return users.map((user) => user.id);
   }
 
-  /** No global ValidationPipe is registered in this app, so class-validator decorators on the
-   *  DTO are documentation only, not enforcement — the page/action shape must be checked
-   *  explicitly at runtime before it's persisted. */
-  private sanitizePermissions(permissions?: PermissionEntryDto[]): PermissionEntryDto[] {
-    if (!permissions) return [];
-    for (const entry of permissions) {
-      if (!ADMIN_PERMISSIONS.includes(entry?.page as (typeof ADMIN_PERMISSIONS)[number])) {
-        throw new BadRequestException(`Invalid permission page: ${entry?.page}`);
-      }
-      if (
-        !Array.isArray(entry.actions) ||
-        entry.actions.some(
-          (action) => !ADMIN_ACTIONS.includes(action as (typeof ADMIN_ACTIONS)[number]),
-        )
-      ) {
-        throw new BadRequestException(`Invalid permission actions for page: ${entry.page}`);
-      }
-    }
-    return permissions;
-  }
 
-  /**
-   * The embedded permissions array is now its own table, so replacing a user's
-   * permissions means clearing and re-creating the rows. `page` also has to be
-   * translated: "email-logs" is stored under the Prisma identifier email_logs.
-   */
-  private permissionsWriteInput(permissions?: PermissionEntryDto[]) {
-    const clean = this.sanitizePermissions(permissions);
-    return {
-      deleteMany: {},
-      create: clean.map((p) => ({
-        page: adminPermissionPage.fromWire(p.page) as AdminPermissionPage,
-        actions: p.actions as any,
-      })),
-    };
-  }
 
-  async createAdminAccount(dto: CreateAdminAccountDto) {
-    // No global ValidationPipe is registered in this app, so class-validator decorators on the
-    // DTO are documentation only, not enforcement — this must be checked explicitly at runtime.
-    if ((dto.role as string) === "super_admin") {
-      throw new ForbiddenException("A new Super Admin cannot be created this way");
-    }
 
-    const trimmedPassword = dto.password?.trim();
-    if (trimmedPassword && trimmedPassword.length < 8) {
-      throw new BadRequestException("Password must be at least 8 characters long");
-    }
 
-    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existingUser) {
-      // Already registered (a regular buyer/seller account, or already an admin/moderator
-      // from an earlier attempt) — grant/refresh admin-panel access instead of blocking.
-      // Separate admin-panel password so the two logins never collide: their original
-      // password keeps working on the main app (loginContext "web"), this one only works
-      // on the admin panel ("admin"), and it's whatever was entered on this form (or a
-      // generated one, if left blank).
-      const adminPassword = trimmedPassword || this.generateRandomPassword();
-      const savedExistingUser = await this.prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          memberPassword: await this.hashPassword(adminPassword),
-          roles: [...new Set([...(existingUser.roles ?? []), dto.role])] as UserRole[],
-          permissions: this.permissionsWriteInput(dto.permissions),
-        },
-        include: USER_PERMISSIONS_INCLUDE,
-      });
 
-      this.sendMemberAddedEmail(
-        savedExistingUser.name ?? "",
-        savedExistingUser.email,
-        adminPassword,
-      );
 
-      return {
-        message: "Admin account created successfully",
-        data: {
-          ...this.toApiShape(stripUserSecrets(savedExistingUser)),
-          generatedPassword: adminPassword,
-        },
-      };
-    }
 
-    const adminPassword = trimmedPassword || this.generateRandomPassword();
-    const hashedPassword = await this.hashPassword(adminPassword);
-    const userCode = await this.generateNextUserCode();
 
-    const savedUser = await this.prisma.user.create({
-      data: {
-        id: generateObjectId(),
-        name: dto.name,
-        email: dto.email,
-        password: hashedPassword,
-        roles: [dto.role] as UserRole[],
-        permissions: { create: this.permissionsWriteInput(dto.permissions).create },
-        userCode,
-        image: "default-avatar.png",
-      },
-      include: USER_PERMISSIONS_INCLUDE,
-    });
 
-    return {
-      message: "Admin account created successfully",
-      data: {
-        ...this.toApiShape(stripUserSecrets(savedUser)),
-        generatedPassword: adminPassword,
-      },
-    };
-  }
 
-  /** Creates a moderator account for use as a task-assignable member — callable by
-   *  Admin/Super Admin (unlike createAdminAccount, which is super_admin only), since
-   *  member management is a separate, less-privileged capability. */
-  async createMemberAccount(name: string, email: string) {
-    const existingUser = await this.prisma.user.findUnique({ where: { email } });
 
-    if (existingUser) {
-      if (existingUser.roles?.includes("moderator")) {
-        throw new ConflictException(
-          this.i18n.translate("auth.users.already_a_member", { lang: this.lang }),
-        );
-      }
 
-      // Not a member yet, but already has a regular account (buyer/seller/etc.) —
-      // add member access on top of it rather than creating a duplicate account.
-      // They get a SEPARATE admin-panel password so the two logins never collide:
-      // their original password keeps working on the main app (loginContext "web"),
-      // this new one only works on the admin panel (loginContext "admin").
-      const generatedMemberPassword = this.generateRandomPassword();
-      const savedExistingUser = await this.prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          memberPassword: await this.hashPassword(generatedMemberPassword),
-          roles: [...new Set([...(existingUser.roles ?? []), "moderator"])] as UserRole[],
-        },
-        include: USER_PERMISSIONS_INCLUDE,
-      });
-
-      this.sendMemberAddedEmail(
-        savedExistingUser.name ?? "",
-        savedExistingUser.email,
-        generatedMemberPassword,
-      );
-
-      return {
-        message: "Existing user added as a member successfully",
-        data: {
-          ...this.toApiShape(stripUserSecrets(savedExistingUser)),
-          generatedPassword: generatedMemberPassword,
-        },
-      };
-    }
-
-    const generatedPassword = this.generateRandomPassword();
-    const hashedPassword = await this.hashPassword(generatedPassword);
-    const userCode = await this.generateNextUserCode();
-
-    const savedUser = await this.prisma.user.create({
-      data: {
-        id: generateObjectId(),
-        name,
-        email,
-        password: hashedPassword,
-        roles: ["moderator"] as UserRole[],
-        userCode,
-        image: "default-avatar.png",
-      },
-      include: USER_PERMISSIONS_INCLUDE,
-    });
-
-    this.sendMemberWelcomeEmail(name, email, generatedPassword);
-
-    return {
-      message: "Member created successfully",
-      data: {
-        ...this.toApiShape(stripUserSecrets(savedUser)),
-        generatedPassword,
-      },
-    };
-  }
-
-  /** Fire-and-forget: creation must succeed even when the email provider is down. */
-  private sendMemberWelcomeEmail(name: string, email: string, password: string) {
-    const loginUrl = `${process.env.ADMIN_PANEL_URL}/signin`;
-    const html = `
-      <h2>Your account has been created</h2>
-      <p>Hi ${name},</p>
-      <p>Your Fazl member account has been created. You can log in with the credentials below:</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Password:</strong> ${password}</p>
-      <p>This is your password — use it to log in here:</p>
-      <p><a href="${loginUrl}">${loginUrl}</a></p>
-    `;
-    this.emailService
-      .sendEmail(email, "Your Fazl account has been created", html)
-      .catch((err) => this.logger.error(`Member welcome email to ${email} failed`, err));
-  }
-
-  /** Fire-and-forget: for an existing account promoted to member — they get a second,
-   *  admin-panel-only password; their original account password is untouched. */
-  private sendMemberAddedEmail(name: string, email: string, memberPassword: string) {
-    const loginUrl = `${process.env.ADMIN_PANEL_URL}/signin`;
-    const html = `
-      <h2>You've been added as a member</h2>
-      <p>Hi ${name},</p>
-      <p>Your existing Fazl account now also has member access on the admin panel. Your password there is separate from your regular account — use the credentials below:</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Admin panel password:</strong> ${memberPassword}</p>
-      <p>Your existing password still works as before on the main Fazl app — only the admin panel uses this new one.</p>
-      <p><a href="${loginUrl}">${loginUrl}</a></p>
-    `;
-    this.emailService
-      .sendEmail(email, "You've been added as a member on Fazl", html)
-      .catch((err) => this.logger.error(`Member-added email to ${email} failed`, err));
-  }
-
-  async updateMemberAccount(userId: string, name?: string, email?: string) {
-    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!existingUser || !existingUser.roles?.includes("moderator")) {
-      throw new NotFoundException("Member not found");
-    }
-
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(name ? { name } : {}),
-        ...(email ? { email } : {}),
-      },
-      include: USER_PERMISSIONS_INCLUDE,
-    });
-
-    return {
-      message: "Member updated successfully",
-      data: this.toApiShape(stripUserSecrets(updatedUser)),
-    };
-  }
-
-  async resetMemberPassword(userId: string, dto: ResetMemberPasswordDto) {
-    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!existingUser || !existingUser.roles?.includes("moderator")) {
-      throw new NotFoundException("Member not found");
-    }
-
-    // Same reason as createAdminAccount: no global ValidationPipe enforces the DTO's decorators.
-    const trimmed = dto.newPassword?.trim();
-    if (trimmed && trimmed.length < 8) {
-      throw new BadRequestException("Password must be at least 8 characters long");
-    }
-
-    const newPassword = trimmed || this.generateRandomPassword();
-    const hashedPassword = await this.hashPassword(newPassword);
-
-    // A promoted account (has memberPassword) keeps its admin-panel password separate from
-    // its regular one — reset that field, not the account's main password. A member-only
-    // account created fresh has just the one password field.
-    const isDualPersona = Boolean(existingUser.memberPassword);
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: isDualPersona
-        ? { memberPassword: hashedPassword }
-        : { password: hashedPassword },
-    });
-
-    if (isDualPersona) {
-      this.sendMemberAddedEmail(existingUser.name ?? "", existingUser.email, newPassword);
-    } else {
-      this.sendMemberWelcomeEmail(existingUser.name ?? "", existingUser.email, newPassword);
-    }
-
-    return {
-      message: "Password updated successfully",
-      data: { generatedPassword: newPassword },
-    };
-  }
-
-  async deleteMemberAccount(userId: string) {
-    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!existingUser || !existingUser.roles?.includes("moderator")) {
-      throw new NotFoundException("Member not found");
-    }
-
-    const otherRoles = (existingUser.roles ?? []).filter((role) => role !== "moderator");
-
-    if (otherRoles.length > 0) {
-      // This account existed before it was made a member (buyer/seller/etc.) — removing
-      // member access must only demote it, never delete the account those other roles rely on.
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { roles: otherRoles, memberPassword: null },
-      });
-
-      return {
-        message: "Member access removed successfully",
-        data: { _id: existingUser.id, id: existingUser.id, name: existingUser.name },
-      };
-    }
-
-    await this.prisma.user.delete({ where: { id: userId } });
-
-    return {
-      message: "Member deleted successfully",
-      data: { _id: existingUser.id, id: existingUser.id, name: existingUser.name },
-    };
-  }
-
-  async updateAdminAccount(userId: string, dto: UpdateAdminAccountDto) {
-    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!existingUser) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
-      );
-    }
-    if (existingUser.roles?.includes("super_admin")) {
-      throw new ForbiddenException("The Super Admin account cannot be edited");
-    }
-    // Same reason as createAdminAccount: no global ValidationPipe enforces the DTO's enum.
-    if ((dto.role as string) === "super_admin") {
-      throw new ForbiddenException("A new Super Admin cannot be assigned this way");
-    }
-
-    const data: Prisma.UserUpdateInput = {};
-    if (dto.name) data.name = dto.name;
-    if (dto.email) data.email = dto.email;
-    if (dto.role) {
-      // Replace only the admin-tier role (admin/subadmin/moderator) being reassigned here —
-      // never drop the account's underlying buyer/seller roles, which this form doesn't
-      // manage at all.
-      const nonAdminRoles = (existingUser.roles ?? []).filter(
-        (role) => !(ADMIN_TIER_ROLES as readonly string[]).includes(role),
-      );
-      data.roles = [...new Set([...nonAdminRoles, dto.role])] as UserRole[];
-    }
-    if (dto.permissions) {
-      data.permissions = this.permissionsWriteInput(dto.permissions);
-    }
-
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data,
-      include: USER_PERMISSIONS_INCLUDE,
-    });
-
-    return {
-      message: "Admin account updated successfully",
-      data: this.toApiShape(stripUserSecrets(updatedUser)),
-    };
-  }
-
-  async resetAdminPassword(userId: string, dto: ResetAdminPasswordDto) {
-    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!existingUser) {
-      throw new NotFoundException(
-        this.i18n.translate("auth.users.user_not_found", { lang: this.lang }),
-      );
-    }
-    if (existingUser.roles?.includes("super_admin")) {
-      throw new ForbiddenException(
-        "The Super Admin account's password cannot be reset this way",
-      );
-    }
-
-    // Same reason as createAdminAccount: no global ValidationPipe enforces the DTO's decorators.
-    const trimmed = dto.newPassword?.trim();
-    if (trimmed && trimmed.length < 8) {
-      throw new BadRequestException("Password must be at least 8 characters long");
-    }
-
-    const newPassword = trimmed || this.generateRandomPassword();
-    const hashedPassword = await this.hashPassword(newPassword);
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { password: hashedPassword },
-    });
-
-    return {
-      message: "Password updated successfully",
-      data: { generatedPassword: newPassword },
-    };
-  }
-
-  /** Moderator accounts — the pool of members Admin/Super Admin can assign tasks to. */
-  async getMembers() {
-    const members = await this.prisma.user.findMany({
-      where: { roles: { has: "moderator" } },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        roles: true,
-        image: true,
-        createdAt: true,
-      },
-      orderBy: { name: "asc" },
-    });
-    return members.map((m) => ({ ...m, _id: m.id }));
-  }
-
-  /** Validates that every id belongs to an existing moderator account; returns the ids. */
-  async assertMemberIds(ids: string[]): Promise<string[]> {
-    const uniqueIds = Array.from(new Set(ids));
-    const invalidId = uniqueIds.find((id) => !isObjectIdLike(id));
-    if (invalidId) {
-      throw new BadRequestException(`Invalid user id: ${invalidId}`);
-    }
-
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: uniqueIds }, roles: { has: "moderator" } },
-      select: { id: true },
-    });
-
-    if (users.length !== uniqueIds.length) {
-      throw new BadRequestException("One or more accounts are not valid member accounts");
-    }
-
-    return uniqueIds;
-  }
 }

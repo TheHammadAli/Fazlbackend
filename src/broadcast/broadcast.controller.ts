@@ -77,10 +77,8 @@ export class BroadcastController {
         : dto.location;
     }
 
-
     let imageUrls: string[] = [];
 
-    console.log("Received files for broadcast:", files);
     // Upload to S3 if a file exists
     if (files?.length) {
       imageUrls = await Promise.all(
@@ -90,7 +88,6 @@ export class BroadcastController {
       );
     }
 
-    console.log("Final image URLs for broadcast:", imageUrls);
     // Pass imageUrl to your service
     return this.broadcastService.createBroadcastAndDispatch(
       dto,
@@ -326,7 +323,7 @@ export class BroadcastController {
   ) {
     const result = await this.broadcastService.deleteBroadcast(broadcastId);
     await this.activityLogService.record(
-      currentUser.sub,
+      currentUser,
       "broadcast_deleted",
       "Broadcast",
       broadcastId,

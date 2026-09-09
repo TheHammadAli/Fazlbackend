@@ -3,6 +3,7 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
+import { AdminsModule } from "./admins/admins.module";
 import { ProductsModule } from "./products/products.module";
 import { ProductOfferModule } from "./products/product-offer.module";
 import { SearchModule } from "./search/search.module";
@@ -66,6 +67,7 @@ const isProduction = process.env.NODE_ENV === "production";
     PrismaModule,
     AuthModule,
     UsersModule,
+    AdminsModule,
     ClsConfigModule,
     ProductsModule,
     ProductOfferModule,

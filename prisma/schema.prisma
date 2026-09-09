@@ -46,13 +46,13 @@ datasource db {
 // string the existing data and the three clients already use.
 // =============================================================================
 
+/// Customer-facing roles only. Staff roles (super_admin/admin/subadmin) moved to
+/// `AdminRole` on the `admins` table when staff were split out of `users`;
+/// `moderator` became the `members` table. A row in `users` can never grant
+/// admin-panel access.
 enum UserRole {
   buyer
   seller
-  admin
-  subadmin
-  super_admin
-  moderator
 }
 
 enum AdminPermissionPage {
@@ -427,7 +427,6 @@ model User {
   // Prisma has no equivalent — every read path must use the shared
   // `userPublicSelect` constant instead. See src/users/user-select.ts.
   password       String?
-  memberPassword String?    @map("member_password")
   roles          UserRole[]
   phone          String?    @unique
   latitude       Float?
@@ -454,8 +453,6 @@ model User {
   // NOTE: users.schema.ts also declares `language` and `isVerified` as plain
   // class properties with no @Prop decorator, so Mongoose never persisted them
   // and no column exists to migrate. They are deliberately omitted here.
-
-  permissions UserPermission[]
 
   shops    Shop[]
   products Product[]
@@ -484,49 +481,29 @@ model User {
   shares  Share[]
   reviews Review[]
 
-  reportsFiled     Report[] @relation("ReportReporter")
-  reportsClosed    Report[] @relation("ReportClosedBy")
-  reportsResponded Report[] @relation("ReportRespondedBy")
+  reportsFiled Report[] @relation("ReportReporter")
 
   notifications     Notification[]
-  announcements     Announcement[]     @relation("AnnouncementCreatedBy")
   announcementViews AnnouncementView[]
 
-  categoryRequestsMade     CategoryRequest[] @relation("CategoryRequestRequestedBy")
-  categoryRequestsReviewed CategoryRequest[] @relation("CategoryRequestReviewedBy")
+  categoryRequestsMade CategoryRequest[] @relation("CategoryRequestRequestedBy")
 
   serviceRequestsAsCustomer ServiceRequest[] @relation("ServiceRequestCustomer")
   serviceRequestsAsProvider ServiceRequest[] @relation("ServiceRequestProvider")
 
-  tasksCreated    Task[]           @relation("TaskCreatedBy")
-  taskAssignments TaskAssignee[]
-  taskSubmissions TaskSubmission[]
-
-  activityLogs ActivityLog[] @relation("ActivityLogActor")
-
-  wallets       Wallet[] @relation("WalletOwner")
-  walletsFrozen Wallet[] @relation("WalletFrozenBy")
+  wallets Wallet[] @relation("WalletOwner")
 
   walletTransactionsAsUser     WalletTransaction[] @relation("WalletTransactionUser")
   walletTransactionsAsMerchant WalletTransaction[] @relation("WalletTransactionMerchant")
-  walletTransactionsCreated    WalletTransaction[] @relation("WalletTransactionCreatedBy")
-
-  ledgerEntriesCreated WalletLedgerEntry[] @relation("LedgerEntryCreatedBy")
 
   withdrawalsAsMerchant Withdrawal[] @relation("WithdrawalMerchant")
-  withdrawalsCreated    Withdrawal[] @relation("WithdrawalCreatedBy")
 
   refundsAsCustomer Refund[] @relation("RefundCustomer")
   refundsAsMerchant Refund[] @relation("RefundMerchant")
-  refundsCreated    Refund[] @relation("RefundCreatedBy")
 
-  merchantDeals        MerchantDeal[] @relation("MerchantDealMerchant")
-  merchantDealsCreated MerchantDeal[] @relation("MerchantDealCreatedBy")
+  merchantDeals MerchantDeal[] @relation("MerchantDealMerchant")
 
-  walletAuditLogsAsAdmin   WalletAuditLog[] @relation("WalletAuditLogAdmin")
   walletAuditLogsAsSubject WalletAuditLog[] @relation("WalletAuditLogSubject")
-
-  walletSettingsUpdated WalletSettings[] @relation("WalletSettingsUpdatedBy")
 
   productViews          ProductView[]
   productContactClicks  ProductContactClick[]
@@ -544,19 +521,128 @@ model User {
   @@map("users")
 }
 
-/// Was an embedded `permissions[]` array on the user document. Promoted to a
-/// table because PermissionsGuard reads it on every authorised request and the
-/// admin panel edits entries individually.
-model UserPermission {
+// =============================================================================
+// STAFF IDENTITY
+//
+// Staff live in their own tables, entirely separate from `users`. A person who
+// works the admin panel and a person who shops on the app are different rows in
+// different tables even when they share an email address — nothing about a
+// customer account grants panel access, and nothing about a staff account
+// appears in customer-facing queries.
+//
+// super_admin / admin / subadmin share every column and every code path, so
+// they are one table separated by `role`. Members (the moderators tasks get
+// assigned to) are a distinct table because they are created *by* an admin and
+// can only ever touch tasks.
+// =============================================================================
+
+enum AdminRole {
+  super_admin
+  admin
+  subadmin
+}
+
+model Admin {
+  id        String @id @db.VarChar(24)
+  adminCode String @unique @map("admin_code")
+
+  name  String
+  email String @unique
+  /// Never selected into a response — see src/admins/admin-select.ts.
+  password String
+
+  role  AdminRole
+  phone String?   @unique
+  image String?   @default("default-avatar.png")
+
+  isDisabled   Boolean   @default(false) @map("is_disabled")
+  lastSeenAt   DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  refreshToken String?   @map("refresh_token")
+
+  /// Which admin created this one. Null for the seeded first super_admin, which
+  /// no one created, and for any admin whose creator row is later removed.
+  createdBy   Admin?  @relation("AdminCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String? @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  adminsCreated Admin[]           @relation("AdminCreatedBy")
+  permissions   AdminPermission[]
+  members       Member[]          @relation("MemberCreatedBy")
+
+  reportsClosed    Report[] @relation("ReportClosedBy")
+  reportsResponded Report[] @relation("ReportRespondedBy")
+
+  announcements            Announcement[]    @relation("AnnouncementCreatedBy")
+  categoryRequestsReviewed CategoryRequest[] @relation("CategoryRequestReviewedBy")
+
+  tasksCreated Task[]        @relation("TaskCreatedBy")
+  activityLogs ActivityLog[] @relation("ActivityLogAdminActor")
+
+  walletsFrozen             Wallet[]            @relation("WalletFrozenBy")
+  walletTransactionsCreated WalletTransaction[] @relation("WalletTransactionCreatedBy")
+  ledgerEntriesCreated      WalletLedgerEntry[] @relation("LedgerEntryCreatedBy")
+  withdrawalsCreated        Withdrawal[]        @relation("WithdrawalCreatedBy")
+  refundsCreated            Refund[]            @relation("RefundCreatedBy")
+  merchantDealsCreated      MerchantDeal[]      @relation("MerchantDealCreatedBy")
+  walletSettingsUpdated     WalletSettings[]    @relation("WalletSettingsUpdatedBy")
+  walletAuditLogs           WalletAuditLog[]    @relation("WalletAuditLogAdmin")
+
+  @@index([email])
+  @@index([role])
+  @@index([isDisabled])
+  @@index([createdById])
+  @@map("admins")
+}
+
+model Member {
+  id         String @id @db.VarChar(24)
+  memberCode String @unique @map("member_code")
+
+  name  String
+  email String @unique
+  /// Never selected into a response — see src/admins/admin-select.ts.
+  password String
+
+  phone String?
+  image String? @default("default-avatar.png")
+
+  isDisabled   Boolean   @default(false) @map("is_disabled")
+  lastSeenAt   DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  refreshToken String?   @map("refresh_token")
+
+  /// Restrict, not Cascade: an admin leaving must not silently delete the
+  /// members they onboarded along with their task history.
+  createdBy   Admin  @relation("MemberCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @map("created_by") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  taskAssignments TaskAssignee[]
+  taskSubmissions TaskSubmission[]
+  activityLogs    ActivityLog[]    @relation("ActivityLogMemberActor")
+
+  @@index([email])
+  @@index([isDisabled])
+  @@index([createdById])
+  @@map("members")
+}
+
+/// Per-page admin panel permissions. Was `user_permissions` hanging off `users`;
+/// now hangs off `admins`, since only staff have permissions at all.
+/// Members are not listed here — their access is fixed to the task endpoints.
+model AdminPermission {
   id      String              @id @default(uuid())
-  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String              @map("user_id") @db.VarChar(24)
+  admin   Admin               @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  adminId String              @map("admin_id") @db.VarChar(24)
   page    AdminPermissionPage
   actions AdminAction[]       @default([])
 
-  @@unique([userId, page])
-  @@index([userId])
-  @@map("user_permissions")
+  @@unique([adminId, page])
+  @@index([adminId])
+  @@map("admin_permissions")
 }
 
 model Otp {
@@ -618,7 +704,7 @@ model CategoryRequest {
   requestedBy   User                  @relation("CategoryRequestRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
   requestedById String                @map("requested_by") @db.VarChar(24)
   status        CategoryRequestStatus @default(pending)
-  reviewedBy    User?                 @relation("CategoryRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedBy    Admin?                 @relation("CategoryRequestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedById  String?               @map("reviewed_by") @db.VarChar(24)
   adminComment  String?               @map("admin_comment")
   createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1229,12 +1315,12 @@ model Report {
   status         ReportStatus @default(open)
   contentRemoved Boolean      @default(false) @map("content_removed")
 
-  closedBy   User?     @relation("ReportClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  closedBy   Admin?     @relation("ReportClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
   closedById String?   @map("closed_by") @db.VarChar(24)
   closedAt   DateTime? @map("closed_at") @db.Timestamptz(3)
 
   adminResponse String?   @map("admin_response") @db.VarChar(1000)
-  respondedBy   User?     @relation("ReportRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
+  respondedBy   Admin?     @relation("ReportRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
   respondedById String?   @map("responded_by") @db.VarChar(24)
   respondedAt   DateTime? @map("responded_at") @db.Timestamptz(3)
 
@@ -1298,7 +1384,7 @@ model Announcement {
   status   AnnouncementStatus    @default(sent)
   sentAt   DateTime?             @map("sent_at") @db.Timestamptz(3)
 
-  createdBy   User   @relation("AnnouncementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   Admin   @relation("AnnouncementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdById String @map("created_by") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1321,7 +1407,7 @@ model Task {
   status   TaskStatus   @default(pending)
   dueDate  DateTime?    @map("due_date") @db.Timestamptz(3)
 
-  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   Admin   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdById String @map("created_by") @db.VarChar(24)
 
   /// Files the admin attached when assigning the task: [{ url, name }].
@@ -1349,11 +1435,11 @@ model TaskAssignee {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId String @map("task_id") @db.VarChar(24)
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @map("user_id") @db.VarChar(24)
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String @map("member_id") @db.VarChar(24)
 
-  @@id([taskId, userId])
-  @@index([userId])
+  @@id([taskId, memberId])
+  @@index([memberId])
   @@map("task_assignees")
 }
 
@@ -1371,7 +1457,7 @@ model TaskSubmission {
 
   attachments Json? @default("[]")
 
-  submittedBy   User     @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  submittedBy   Member   @relation(fields: [submittedById], references: [id], onDelete: Restrict)
   submittedById String   @map("submitted_by") @db.VarChar(24)
   submittedAt   DateTime @map("submitted_at") @db.Timestamptz(3)
 
@@ -1383,8 +1469,15 @@ model ActivityLog {
   id      String @id @db.VarChar(24)
   logCode Int    @map("log_code")
 
-  actor   User   @relation("ActivityLogActor", fields: [actorId], references: [id], onDelete: Restrict)
-  actorId String @map("actor_id") @db.VarChar(24)
+  /// The actor is staff, and staff are two tables — an admin or a member can
+  /// both log in to the panel. Two nullable FKs rather than one untyped column
+  /// so the audit trail keeps referential integrity either way; a CHECK
+  /// constraint (see the migration) enforces that exactly one is set.
+  actorAdmin   Admin?  @relation("ActivityLogAdminActor", fields: [actorAdminId], references: [id], onDelete: Restrict)
+  actorAdminId String? @map("actor_admin_id") @db.VarChar(24)
+
+  actorMember   Member? @relation("ActivityLogMemberActor", fields: [actorMemberId], references: [id], onDelete: Restrict)
+  actorMemberId String? @map("actor_member_id") @db.VarChar(24)
 
   action ActivityLogAction
 
@@ -1398,7 +1491,8 @@ model ActivityLog {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  @@index([actorId, createdAt(sort: Desc)])
+  @@index([actorAdminId, createdAt(sort: Desc)])
+  @@index([actorMemberId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
   @@index([targetType, targetId])
   @@map("activity_logs")
@@ -1673,7 +1767,7 @@ model Wallet {
   isFrozen     Boolean   @default(false) @map("is_frozen")
   frozenReason String?   @map("frozen_reason")
   frozenAt     DateTime? @map("frozen_at") @db.Timestamptz(3)
-  frozenBy     User?     @relation("WalletFrozenBy", fields: [frozenById], references: [id], onDelete: SetNull)
+  frozenBy     Admin?     @relation("WalletFrozenBy", fields: [frozenById], references: [id], onDelete: SetNull)
   frozenById   String?   @map("frozen_by") @db.VarChar(24)
 
   currency String @default("PKR") @db.VarChar(3)
@@ -1734,7 +1828,7 @@ model WalletTransaction {
 
   reason String?
 
-  createdBy   User?   @relation("WalletTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   Admin?   @relation("WalletTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String? @map("created_by") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1781,7 +1875,7 @@ model WalletLedgerEntry {
 
   reason String?
 
-  createdBy   User?   @relation("LedgerEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   Admin?   @relation("LedgerEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String? @map("created_by") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1831,7 +1925,7 @@ model Withdrawal {
   rejectionReason        String? @map("rejection_reason")
   cancellationReason     String? @map("cancellation_reason")
 
-  createdBy   User   @relation("WithdrawalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   Admin   @relation("WithdrawalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdById String @map("created_by") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1872,7 +1966,7 @@ model Refund {
   /// of the WalletLedgerEntry.relatedEntityType/relatedEntityId back-reference.
   rejectionReason String? @map("rejection_reason")
 
-  createdBy   User   @relation("RefundCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   Admin   @relation("RefundCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdById String @map("created_by") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1908,7 +2002,7 @@ model MerchantDeal {
   effectiveFrom DateTime  @map("effective_from") @db.Timestamptz(3)
   effectiveTo   DateTime? @map("effective_to") @db.Timestamptz(3)
 
-  createdBy   User   @relation("MerchantDealCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   Admin   @relation("MerchantDealCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdById String @map("created_by") @db.VarChar(24)
 
   reason String?
@@ -1936,7 +2030,7 @@ model WalletSettings {
   walletStatus     Boolean @default(true) @map("wallet_status")
   withdrawalStatus Boolean @default(true) @map("withdrawal_status")
 
-  updatedBy   User?   @relation("WalletSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy   Admin?   @relation("WalletSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedById String? @map("updated_by") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1952,7 +2046,7 @@ model WalletAuditLog {
   id      String  @id @db.VarChar(24)
   logCode String? @unique @map("log_code")
 
-  admin   User   @relation("WalletAuditLogAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  admin   Admin   @relation("WalletAuditLogAdmin", fields: [adminId], references: [id], onDelete: Restrict)
   adminId String @map("admin_id") @db.VarChar(24)
 
   action     WalletAuditAction

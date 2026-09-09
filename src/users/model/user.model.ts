@@ -1,30 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import type {
-  User as UserRow,
-  UserPermission as UserPermissionRow,
-  Prisma,
-} from "../../../generated/prisma/client";
+import type { User as UserRow } from "../../../generated/prisma/client";
 
-/** Module model file — replaces schema/users.schema.ts and schema/permission-entry.schema.ts. */
+/** Module model file — replaces schema/users.schema.ts. */
 
 export type User = UserRow;
-export type UserPermission = UserPermissionRow;
 
-export const USER_ROLES = [
-  "buyer",
-  "seller",
-  "admin",
-  "subadmin",
-  "super_admin",
-  "moderator",
-] as const;
+/**
+ * Customer roles only. Staff roles left this list when admins and members were
+ * split into their own tables — see src/admins/. Every role here is now
+ * self-assignable, so SELF_ASSIGNABLE_ROLES is the same set.
+ */
+export const USER_ROLES = ["buyer", "seller"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 /** Roles a user may assign to themselves through the self-service update endpoint. */
-export const SELF_ASSIGNABLE_ROLES = ["buyer", "seller"] as const;
-
-/** Roles managed exclusively through the admin-account endpoints. */
-export const ADMIN_TIER_ROLES = ["admin", "subadmin", "moderator", "super_admin"] as const;
+export const SELF_ASSIGNABLE_ROLES = USER_ROLES;
 
 /**
  * Columns that must never reach a client.
@@ -36,7 +26,6 @@ export const ADMIN_TIER_ROLES = ["admin", "subadmin", "moderator", "super_admin"
  */
 export const USER_SECRET_FIELDS = [
   "password",
-  "memberPassword",
   "refreshToken",
   "resetPasswordToken",
   "resetPasswordExpires",
@@ -47,8 +36,8 @@ export const USER_SECRET_FIELDS = [
  * Strips the secret columns from a row.
  *
  * Replaces the `UserSchema.methods.toJSON` override, which deleted `password`
- * and `memberPassword` on serialisation. Used where a full row had to be read
- * (login, password reset) but the result is still returned to a caller.
+ * on serialisation. Used where a full row had to be read (login, password
+ * reset) but the result is still returned to a caller.
  */
 export function stripUserSecrets<T extends Record<string, any>>(
   user: T,
@@ -58,19 +47,6 @@ export function stripUserSecrets<T extends Record<string, any>>(
     delete (clean as Record<string, unknown>)[field];
   }
   return clean;
-}
-
-/** The relation include that rebuilds the embedded `permissions` array. */
-export const USER_PERMISSIONS_INCLUDE = {
-  permissions: { select: { page: true, actions: true } },
-} satisfies Prisma.UserInclude;
-
-export class UserPermissionModel {
-  @ApiProperty({ example: "listings" })
-  page: string;
-
-  @ApiProperty({ type: [String], example: ["view", "edit"] })
-  actions: string[];
 }
 
 export class UserModel {
@@ -91,9 +67,6 @@ export class UserModel {
 
   @ApiProperty({ enum: USER_ROLES, isArray: true, default: ["buyer"] })
   roles: UserRole[];
-
-  @ApiProperty({ type: [UserPermissionModel] })
-  permissions: UserPermissionModel[];
 
   @ApiPropertyOptional()
   phone?: string | null;
