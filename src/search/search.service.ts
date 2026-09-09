@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "src/prisma/prisma.service";
 
@@ -94,6 +94,49 @@ export class SearchService {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Turns a point into a readable address, for a pin dropped on the map.
+   *
+   * Kept server-side so the picker only needs a browser key for drawing the
+   * map itself, and the key that can spend on Geocoding stays here.
+   */
+  async reverseGeocode(lat: number, lng: number) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new BadRequestException("lat and lng are required");
+    }
+
+    const apiKey = this.configService.getOrThrow<string>(
+      "GOOGLE_LOCATION_API_KEY",
+    );
+    const params = new URLSearchParams({
+      latlng: `${lat},${lng}`,
+      key: apiKey,
+      language: "en",
+    });
+
+    const res = await fetch(`${this.GEOCODE_URL}?${params.toString()}`);
+    if (!res.ok) throw new Error(`Google API error: ${res.statusText}`);
+    const data = await res.json();
+    const best = (data.results ?? [])[0];
+
+    const component = (type: string) =>
+      best?.address_components?.find((c: any) => (c.types ?? []).includes(type))
+        ?.long_name ?? null;
+
+    return {
+      // Falls back to the coordinates so the field is never left blank when
+      // Google has no address for a point — open ground, a new development.
+      description: best?.formatted_address ?? `${lat}, ${lng}`,
+      place_id: best?.place_id ?? null,
+      coordinates: { lat, lng },
+      city: component("locality") ?? component("administrative_area_level_2"),
+      area:
+        component("sublocality_level_1") ??
+        component("sublocality") ??
+        component("neighborhood"),
+    };
   }
 
   /** Samples the city and returns its distinct area names. */

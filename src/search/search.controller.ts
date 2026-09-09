@@ -63,6 +63,20 @@ export class SearchController {
     });
   }
 
+  @Get("reverse-geocode")
+  @ApiOperation({ summary: "Turn a map point into a readable address" })
+  @ApiQuery({ name: "lat", type: Number, required: true })
+  @ApiQuery({ name: "lng", type: Number, required: true })
+  async reverseGeocode(@Query("lat") lat: string, @Query("lng") lng: string) {
+    // Number("") is 0 — a perfectly valid-looking coordinate — so an empty
+    // value has to be rejected before it is converted, or a missing pin
+    // silently geocodes the middle of the Atlantic.
+    if (!lat?.trim() || !lng?.trim()) {
+      throw new BadRequestException("lat and lng are required");
+    }
+    return this.searchService.reverseGeocode(Number(lat), Number(lng));
+  }
+
   @Get("city-areas")
   @ApiOperation({
     summary: "List the areas of one city, for a field that shows options before anything is typed",
