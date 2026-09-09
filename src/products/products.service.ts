@@ -890,6 +890,76 @@ export class ProductsService {
     );
   }
 
+  /**
+   * Every offer placed on one listing, for the admin Listings screen.
+   *
+   * The seller-facing offer endpoints are scoped to the signed-in user; this
+   * one is not, because the caller is an admin holding the "listings"
+   * permission.
+   */
+  async getProductOffersForAdmin(productId: string) {
+    if (!isObjectIdLike(productId)) {
+      throw new BadRequestException("Invalid product id");
+    }
+
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, title: true, listingCode: true, price: true },
+    });
+    if (!product) {
+      throw new NotFoundException("Product not found");
+    }
+
+    const offers = await this.prisma.productOffer.findMany({
+      where: { productId },
+      include: {
+        offerer: { select: { id: true, name: true, email: true, image: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const data = offers.map((o) => ({
+      _id: o.id,
+      id: o.id,
+      price: o.price,
+      message: o.message,
+      status: o.status,
+      createdAt: o.createdAt,
+      respondedAt: o.respondedAt,
+      offerer: o.offerer
+        ? { _id: o.offerer.id, ...o.offerer }
+        : { _id: o.offererId, id: o.offererId, name: null, email: null, image: null, phone: null },
+    }));
+
+    const byStatus = data.reduce<Record<string, number>>((acc, o) => {
+      acc[o.status] = (acc[o.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    // A buyer may offer more than once on the same listing, so "how many users
+    // offered" is a count of distinct offerers, not of rows.
+    const distinctOfferers = new Set(data.map((o) => o.offerer.id)).size;
+
+    return {
+      data,
+      meta: {
+        total: data.length,
+        offererCount: distinctOfferers,
+        product: {
+          _id: product.id,
+          id: product.id,
+          title: product.title,
+          listingCode: product.listingCode,
+          price: product.price,
+        },
+        pending: byStatus.pending ?? 0,
+        accepted: byStatus.accepted ?? 0,
+        declined: byStatus.declined ?? 0,
+        expired: byStatus.expired ?? 0,
+      },
+    };
+  }
+
   async getAllForAdmin(
     paginationDto: PaginationDto,
     search?: string,
@@ -915,7 +985,13 @@ export class ProductsService {
     const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        include: { category: true, shop: true, owner: true },
+        include: {
+          category: true,
+          shop: true,
+          owner: true,
+          // One aggregate on the join rather than a query per row.
+          _count: { select: { offers: true } },
+        },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -925,7 +1001,10 @@ export class ProductsService {
 
     return {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      data: items.map((p) => this.toApiShape(p)),
+      data: items.map(({ _count, ...p }) => ({
+        ...this.toApiShape(p),
+        offerCount: _count?.offers ?? 0,
+      })),
     };
   }
 

@@ -874,6 +874,72 @@ export class BroadcastService {
     };
   }
 
+  /**
+   * Every offer placed on one broadcast, for the admin Broadcasts screen.
+   *
+   * Unlike getOffersForBroadcast, which is the broadcaster's own view and is
+   * scoped to their user id, this is not scoped to anyone — the caller is an
+   * admin holding the "broadcasts" permission.
+   */
+  async getBroadcastOffersForAdmin(broadcastId: string) {
+    if (!isObjectIdLike(broadcastId)) {
+      throw new BadRequestException("Invalid broadcast id");
+    }
+
+    const broadcast = await this.prisma.broadcast.findFirst({
+      where: { id: broadcastId, isDeleted: false },
+      select: { id: true, broadcastCode: true, message: true },
+    });
+    if (!broadcast) {
+      throw new NotFoundException("Broadcast not found");
+    }
+
+    const offers = await this.prisma.broadcastOffer.findMany({
+      where: { broadcastId },
+      include: {
+        offerer: { select: { id: true, name: true, email: true, image: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const data = offers.map((o) => ({
+      _id: o.id,
+      id: o.id,
+      price: o.price,
+      message: o.message,
+      status: o.status,
+      createdAt: o.createdAt,
+      respondedAt: o.respondedAt,
+      threadId: o.threadId,
+      offerer: o.offerer
+        ? { _id: o.offerer.id, ...o.offerer }
+        : { _id: o.offererId, id: o.offererId, name: null, email: null, image: null, phone: null },
+    }));
+
+    // The screen shows "N users offered" alongside the list, and a seller can
+    // only hold one offer per thread, so a count of rows is a count of people.
+    const byStatus = data.reduce<Record<string, number>>((acc, o) => {
+      acc[o.status] = (acc[o.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      data,
+      meta: {
+        total: data.length,
+        broadcast: {
+          _id: broadcast.id,
+          id: broadcast.id,
+          broadcastCode: broadcast.broadcastCode,
+          message: broadcast.message,
+        },
+        pending: byStatus.pending ?? 0,
+        accepted: byStatus.accepted ?? 0,
+        declined: byStatus.declined ?? 0,
+      },
+    };
+  }
+
   async getBroadcastRecipients(broadcastId: string) {
     if (!isObjectIdLike(broadcastId)) {
       throw new BadRequestException("Invalid broadcast id");

@@ -269,6 +269,20 @@ export class BroadcastController {
     return this.broadcastService.getBroadcastDetailForAdmin(broadcastId);
   }
 
+  // 🛠️ Admin: every offer placed on a broadcast
+  @Get("admin/:broadcastId/offers")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("broadcasts")
+  @ApiOperation({ summary: "Get all offers placed on a broadcast (admin)" })
+  @ApiParam({ name: "broadcastId", required: true })
+  @ApiResponse({
+    status: 200,
+    description: "Offers with the offering user, price, message and status, plus per-status counts",
+  })
+  async getBroadcastOffers(@Param("broadcastId") broadcastId: string) {
+    return this.broadcastService.getBroadcastOffersForAdmin(broadcastId);
+  }
+
   // 🛠️ Admin: get recipient sellers for a broadcast
   @Get("admin/:broadcastId/recipients")
   @UseGuards(PermissionsGuard)

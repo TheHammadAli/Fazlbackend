@@ -386,6 +386,19 @@ export class ProductsController {
     return { message: "Product deleted successfully" };
   }
 
+  @Get("admin/:productId/offers")
+  @UseGuards(PermissionsGuard)
+  @RequirePermission("listings")
+  @ApiOperation({ summary: "Get all offers placed on a listing (admin)" })
+  @ApiParam({ name: "productId", required: true })
+  @ApiResponse({
+    status: 200,
+    description: "Offers with the offering user, price, message and status, plus per-status counts",
+  })
+  async getProductOffers(@Param("productId") productId: string) {
+    return this.productsService.getProductOffersForAdmin(productId);
+  }
+
   @Get("admin/all")
   @ApiOperation({ summary: "Get paginated products for admin, including disabled and deleted" })
   @ApiQuery({ name: "page", required: false, type: Number })

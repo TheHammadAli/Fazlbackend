@@ -26,6 +26,8 @@ export interface AdminBroadcastRow {
   createdAt: Date;
   sentTo: number;
   repliedSellers: number;
+  /** How many sellers put a price on this broadcast. */
+  offerCount: number;
   buyerInfo: { _id: string; id: string; name: string | null } | null;
 }
 
@@ -193,6 +195,7 @@ export class BroadcastRepository {
           created_at: Date;
           sent_to: number;
           replied_sellers: number;
+          offer_count: number;
           buyer_id: string | null;
           buyer_name: string | null;
         }[]
@@ -210,6 +213,8 @@ export class BroadcastRepository {
                   FROM broadcast_messages m
                  WHERE m.broadcast_id = b.id AND m.sender_id <> b.buyer_id)::int
                  AS replied_sellers,
+               (SELECT count(*) FROM broadcast_offers o WHERE o.broadcast_id = b.id)::int
+                 AS offer_count,
                u.id   AS buyer_id,
                u.name AS buyer_name
         FROM broadcasts b
@@ -238,6 +243,7 @@ export class BroadcastRepository {
         createdAt: r.created_at,
         sentTo: Number(r.sent_to),
         repliedSellers: Number(r.replied_sellers),
+        offerCount: Number(r.offer_count),
         buyerInfo: r.buyer_id
           ? { _id: r.buyer_id, id: r.buyer_id, name: r.buyer_name }
           : null,
