@@ -67,6 +67,7 @@ enum AdminPermissionPage {
   feed
   reports
   email_logs    @map("email-logs")
+  analytics
   settings
   members
   wallet
