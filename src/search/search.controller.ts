@@ -22,8 +22,36 @@ export class SearchController {
     required: true,
     description: "Search query (e.g. partial city or address)",
   })
-  async autocomplete(@Query("q") query: string) {
-    return this.searchService.autocompleteLocations(query);
+  @ApiQuery({
+    name: "types",
+    type: String,
+    required: false,
+    description: 'Google place type filter, e.g. "(cities)" for the City field',
+  })
+  @ApiQuery({ name: "lat", type: Number, required: false, description: "Bias results near this point" })
+  @ApiQuery({ name: "lng", type: Number, required: false })
+  @ApiQuery({
+    name: "withCoordinates",
+    type: Boolean,
+    required: false,
+    description:
+      'Defaults to true. Pass "false" to skip the per-result coordinate lookup when only the name is needed.',
+  })
+  async autocomplete(
+    @Query("q") query: string,
+    @Query("types") types?: string,
+    @Query("lat") lat?: string,
+    @Query("lng") lng?: string,
+    @Query("withCoordinates") withCoordinates?: string,
+  ) {
+    return this.searchService.autocompleteLocations(query, {
+      types,
+      // Query strings arrive as strings; Number("") is 0, which would be a
+      // valid-looking coordinate, so empty values must not become numbers.
+      lat: lat?.trim() ? Number(lat) : undefined,
+      lng: lng?.trim() ? Number(lng) : undefined,
+      withCoordinates: withCoordinates !== "false",
+    });
   }
 
   @Get()

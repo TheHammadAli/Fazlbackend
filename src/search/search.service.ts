@@ -10,7 +10,32 @@ export class SearchService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  async autocompleteLocations(input: string) {
+  /**
+   * Google Places autocomplete, restricted to Pakistan.
+   *
+   * The options exist for the shop form's City and Area fields:
+   *
+   * - `types: "(cities)"` makes the City field offer cities rather than
+   *   shops and street addresses that happen to match.
+   * - `lat`/`lng` bias results towards the city already chosen, so typing
+   *   "gulberg" after picking Lahore offers Lahore's Gulberg first.
+   * - `withCoordinates: false` skips the per-prediction Details lookup. That
+   *   lookup is one extra Google request PER RESULT, on every keystroke — worth
+   *   it for a city, whose coordinates then bias the area search, and pure waste
+   *   for the area itself, which is only ever saved as a name.
+   *
+   * Defaults keep the original behaviour, since the profile and broadcast
+   * screens call this with just a query and read `coordinates`.
+   */
+  async autocompleteLocations(
+    input: string,
+    opts: {
+      types?: string;
+      lat?: number;
+      lng?: number;
+      withCoordinates?: boolean;
+    } = {},
+  ) {
     const apiKey = this.configService.getOrThrow<string>(
       "GOOGLE_LOCATION_API_KEY",
     );
@@ -22,17 +47,40 @@ export class SearchService {
       components: "country:pk", // optional: restrict to Pakistan
     });
 
+    if (opts.types) {
+      params.set("types", opts.types);
+    }
+    // A bias, not a filter: somewhere just outside the radius still appears,
+    // it simply ranks lower. 30km covers a city and its suburbs.
+    if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
+      params.set("location", `${opts.lat},${opts.lng}`);
+      params.set("radius", "30000");
+    }
+
     const res = await fetch(`${this.AUTOCOMPLETE_URL}?${params.toString()}`);
     if (!res.ok) throw new Error(`Google API error: ${res.statusText}`);
     const data = await res.json();
+    const predictions: any[] = data.predictions ?? [];
+
+    if (opts.withCoordinates === false) {
+      return predictions.map((p) => ({
+        description: p.description,
+        place_id: p.place_id,
+        // The leading part of the description — "Gulberg" out of
+        // "Gulberg, Lahore, Pakistan" — which is what a city/area field stores.
+        mainText: p.structured_formatting?.main_text ?? p.description,
+        coordinates: null,
+      }));
+    }
 
     // Get coordinates for each prediction
     const enriched = await Promise.all(
-      data.predictions.map(async (p: any) => {
+      predictions.map(async (p: any) => {
         const coords = await this.getCoordinates(p.place_id, apiKey);
         return {
           description: p.description,
           place_id: p.place_id,
+          mainText: p.structured_formatting?.main_text ?? p.description,
           coordinates: coords,
         };
       }),
