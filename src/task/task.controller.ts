@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -14,6 +15,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { Request } from "express";
+import { isObjectIdLike } from "src/common/utils/object-id.util";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
@@ -47,14 +49,30 @@ export class TaskController {
     private readonly activityLogService: ActivityLogService,
   ) {}
 
-  /** With multipart form-data every field arrives as a string — arrays come JSON-encoded. */
+  /**
+   * With multipart form-data every field arrives as a string — arrays come
+   * JSON-encoded.
+   *
+   * A malformed value used to become an empty array, which then created a task
+   * assigned to nobody: no error, no email, and a task no member could ever see.
+   * A single bare id is accepted too, since that is the obvious thing to send
+   * and silently dropping it is worse than understanding it.
+   */
   private parseAssignees(dto: { assignees?: unknown }) {
-    if (typeof dto.assignees === "string") {
-      try {
-        dto.assignees = JSON.parse(dto.assignees);
-      } catch {
-        dto.assignees = [];
+    if (typeof dto.assignees !== "string") return;
+
+    const raw = dto.assignees.trim();
+    try {
+      const parsed = JSON.parse(raw);
+      dto.assignees = Array.isArray(parsed) ? parsed : [parsed];
+      return;
+    } catch {
+      // Not JSON. A lone id is still a usable answer; anything else is not.
+      if (isObjectIdLike(raw)) {
+        dto.assignees = [raw];
+        return;
       }
+      throw new BadRequestException("assignees must be a JSON array of member ids");
     }
   }
 

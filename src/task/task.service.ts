@@ -93,6 +93,13 @@ export class TaskService {
   }
 
   async createTask(dto: CreateTaskDto, createdBy: string, files: any[] = []) {
+    // updateTask has always refused an empty list; creation did not, so a task
+    // could be saved assigned to nobody — invisible to every member and with no
+    // one to email about it. Same rule both ways now.
+    if (!Array.isArray(dto.assignees) || dto.assignees.length === 0) {
+      throw new BadRequestException("A task must be assigned to at least one member");
+    }
+
     const assignees = await this.adminsService.assertMemberIds(dto.assignees);
     const assigneeIds = assignees.map((a: any) => String(a?.id ?? a));
     const taskId = generateObjectId();
