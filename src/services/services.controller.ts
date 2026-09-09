@@ -163,7 +163,6 @@ export class ServicesController {
   @HttpCode(HttpStatus.OK)
   async delete(@Param('serviceId') serviceId: string, @CurrentUser() currentUser: JwtPayload) {
     const results = await this.servicesService.delete(serviceId, currentUser);
-    console.log("Results", results)
     return { message: results.message }
   }
   @Public()
@@ -384,7 +383,6 @@ export class ServicesController {
     @Query() query: GetWithVideosDto,
     @Query("userId") userId?: string,
   ): Promise<PaginatedResponseDto<any>> {
-    console.log("Recieved pagination", query);
     return this.servicesService.getServicesWithVideos(query, userId, query.category);
   }
 
@@ -478,7 +476,6 @@ export class ServicesController {
   async searchNearbyServices(
     @Query() query: SearchNearbyServiceDto,
   ) {
-    console.log("Searching nearby services with query:", query);
     return this.servicesService.searchNearbyServices(query);
   }
 

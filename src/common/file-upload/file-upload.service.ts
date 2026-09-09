@@ -482,7 +482,6 @@ export class FileUploadService {
       const listed = await this.s3.send(listCommand);
 
       if (!listed.Contents || listed.Contents.length === 0) {
-        console.log(`No files found for prefix: ${prefix}`);
         return;
       }
 
@@ -496,7 +495,6 @@ export class FileUploadService {
       });
 
       await this.s3.send(deleteCommand);
-      console.log(`Deleted ${listed.Contents.length} files under: ${prefix}`);
     } catch (err) {
       console.error("S3 delete error:", err);
       throw new InternalServerErrorException("Failed to delete product files");
@@ -532,7 +530,6 @@ export class FileUploadService {
       });
 
       await this.s3.send(deleteCommand);
-      console.log(`Deleted ${keysToDelete.length} files`);
     } catch (err) {
       console.error("S3 delete error:", err);
       throw new InternalServerErrorException("File deletion failed");

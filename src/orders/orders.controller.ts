@@ -94,7 +94,6 @@ export class OrdersController {
       pagination.limit,
       status
     );
-    console.log("getOrdersByOwner results", results);
     return results;
   }
 

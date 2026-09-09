@@ -148,20 +148,16 @@ export class BroadcastGateway
     receiverId: string,
     payload: any,
   ) {
-
     const server = this.server || BroadcastGateway.serverInstance;
-    console.log("-------->", server, threadId, receiverId)
     if (!server) {
       this.logger.error("Socket.IO server is not initialized yet");
       return;
     }
-    console.log("Emitting to thread and user:", { threadId, receiverId, payload });
     // Emit to the thread room
     server.to(threadId).emit("receiveBroadcastMessage", payload);
 
     // Emit to the personal user room (fallback)
     server.to(receiverId).emit("receiveBroadcastMessage", payload);
-    console.log("-------->", server, threadId, receiverId)
     this.logger.debug(
       `Emiter receiveBroadcastMessage → thread:${threadId} + user:${receiverId}`,
     );

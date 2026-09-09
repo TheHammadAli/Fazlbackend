@@ -74,7 +74,6 @@ export class SearchController {
 
   @Get("all-products")
   async searchAllProducts(@Query() query: SearchAllProductsServiceDto) {
-    console.log("Search query:", query);
     const { name, category, page = 1, limit = 20, startDate, endDate } = query;
 
     // Validate pagination parameters
@@ -94,7 +93,6 @@ export class SearchController {
 
   @Get("all-services")
   async searchAllServices(@Query() query: SearchAllProductsServiceDto) {
-    console.log("Search query:", query);
     const { name, category, page = 1, limit = 20, startDate, endDate } = query;
 
     // Validate pagination parameters
