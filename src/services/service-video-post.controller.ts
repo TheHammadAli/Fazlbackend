@@ -66,7 +66,10 @@ export class ServiceVideoPostController {
       title,
       isVideoPost: true,
       images: [],
-      video: files?.video?.[0] ?? null,
+      // Unlike a Product (which always takes dto.video as a single file),
+      // ServicesService.create() reads dto.video as the whole array — the
+      // same shape services.controller.ts's regular create() already sends.
+      video: files?.video ?? [],
       taggedProductId: taggedProductId || undefined,
     });
   }

@@ -1332,6 +1332,10 @@ export class ProductsService {
           owner: {
             select: { id: true, name: true, image: true, address: true, phone: true },
           },
+          // Only meaningful on a video post — the real listing it optionally
+          // promotes, so the feed card can show that listing's own price and
+          // link to it instead of the video post's own nominal price/no price.
+          taggedProduct: { select: { id: true, title: true, images: true, price: true } },
         },
         orderBy: { createdAt: "desc" },
         skip,
