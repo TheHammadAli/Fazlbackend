@@ -6,7 +6,6 @@ import {
   Param,
   Body,
   Query,
-  Req,
   UploadedFiles,
   UseInterceptors,
   UseGuards,
@@ -21,29 +20,28 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from "@nestjs/swagger";
-import { Request } from "express";
-import { ProductsService } from "./products.service";
+import { ServicesService } from "./services.service";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth-guard";
 import { CurrentUser } from "src/common/decorators/current-user.decorator";
 import { JwtPayload } from "src/auth/strategies/jwt-strategy";
 
-/** A shop video post is a lightweight "just a video + caption" entry — no
- *  category/price to pick. It's stored as a Product under the hood (so it
- *  automatically shows up in the existing product/video feed alongside real
- *  listings), but exposed here through its own route rather than under
- *  `/products`, since conceptually it isn't one. */
+/** A service video post is a lightweight "just a video + caption" entry — no
+ *  category/price to pick. It's stored as a Service under the hood (so it
+ *  automatically shows up alongside a provider's real service), but exposed
+ *  here through its own route rather than under `/services`, since
+ *  conceptually it isn't one. Unlike a shop's video posts, a service is
+ *  always owned by a user directly — no shop id in the path. */
 @ApiTags("Video Posts")
 @ApiBearerAuth("jwt")
 @UseGuards(JwtAuthGuard)
-@Controller("video-posts")
-export class VideoPostController {
-  constructor(private readonly productsService: ProductsService) {}
+@Controller("service-video-posts")
+export class ServiceVideoPostController {
+  constructor(private readonly servicesService: ServicesService) {}
 
-  @Post(":shopId")
-  @ApiOperation({ summary: "Post a video to a shop (just a video + caption, no category/price)" })
+  @Post()
+  @ApiOperation({ summary: "Post a video as a service provider (just a video + caption)" })
   @ApiConsumes("multipart/form-data")
-  @ApiParam({ name: "shopId", required: true })
   @ApiBody({
     schema: {
       type: "object",
@@ -52,19 +50,19 @@ export class VideoPostController {
         video: { type: "string", format: "binary" },
         taggedProductId: {
           type: "string",
-          description: "Optional: id of one of this shop's own listings to tag",
+          description: "Optional: id of one of this provider's own listings to tag",
         },
       },
     },
   })
   @UseInterceptors(FileFieldsInterceptor([{ name: "video", maxCount: 1 }]))
   async create(
-    @Param("shopId") shopId: string,
+    @CurrentUser() currentUser: JwtPayload,
     @Body("title") title: string,
     @Body("taggedProductId") taggedProductId: string,
     @UploadedFiles() files: { video?: Express.Multer.File[] },
   ) {
-    return this.productsService.create(shopId, "shop", {
+    return this.servicesService.create(currentUser.sub, {
       title,
       isVideoPost: true,
       images: [],
@@ -73,30 +71,28 @@ export class VideoPostController {
     });
   }
 
-  @Get("shop/:shopId")
-  @ApiOperation({ summary: "Get a shop's own posted videos (paginated)" })
-  @ApiParam({ name: "shopId", required: true })
+  @Get("mine")
+  @ApiOperation({ summary: "Get my own posted videos (paginated)" })
   @ApiQuery({ name: "page", required: false, type: Number })
   @ApiQuery({ name: "limit", required: false, type: Number })
-  async getByShop(
-    @Param("shopId") shopId: string,
+  async getMine(
+    @CurrentUser() currentUser: JwtPayload,
     @Query() paginationDto: PaginationDto,
   ) {
-    return this.productsService.getVideoPostsByShop(shopId, paginationDto);
+    return this.servicesService.getMyVideoPosts(currentUser.sub, paginationDto);
   }
 
   @Delete(":id")
   @ApiOperation({
     summary:
-      "Delete a video from 'My Videos' — a video post is removed entirely; a real listing just loses its video and stays listed",
+      "Delete a video from 'My Videos' — a video post is removed entirely; a real service just loses its video and stays listed",
   })
   @ApiParam({ name: "id", required: true })
   async delete(
     @Param("id") id: string,
     @CurrentUser() currentUser: JwtPayload,
-    @Req() req: Request,
   ): Promise<{ message: string }> {
-    await this.productsService.deleteVideoEntry(id, currentUser, req.ip);
+    await this.servicesService.deleteVideoPost(id, currentUser);
     return { message: "Video deleted successfully" };
   }
 }

@@ -82,7 +82,7 @@ class CategoryParameterEntryDto {
   @ApiPropertyOptional({
     example: { toyota: ["corolla", "yaris"], honda: ["city", "civic"] },
     description:
-      "Same shape as valuesByParent but holding this parameter's own value keys instead of display text — what a further, grandchild parameter resolves against. Auto-generated per bucket when omitted.",
+      "Same shape as valuesByParent but holding this parameter's own value keys instead of display text â€” what a further, grandchild parameter resolves against. Auto-generated per bucket when omitted.",
   })
   @IsOptional()
   @IsObject()
@@ -107,7 +107,7 @@ export class CreateUpdateCategoryDto {
   @ApiProperty({
     example: {
       en: "Cleaning",
-      ur: "صفائی",
+      ur: "ØµÙØ§Ø¦ÛŒ",
     },
   })
   @IsObject()
@@ -116,7 +116,7 @@ export class CreateUpdateCategoryDto {
   @ApiPropertyOptional({
     example: {
       en: "Home cleaning and sanitization services",
-      ur: "گھر کی صفائی اور جراثیم کش خدمات",
+      ur: "Ú¯Ú¾Ø± Ú©ÛŒ ØµÙØ§Ø¦ÛŒ Ø§ÙˆØ± Ø¬Ø±Ø§Ø«ÛŒÙ… Ú©Ø´ Ø®Ø¯Ù…Ø§Øª",
     },
   })
   @IsOptional()
@@ -130,8 +130,8 @@ export class CreateUpdateCategoryDto {
         { name: "Color", values: ["Red", "Blue"] },
       ],
       ur: [
-        { name: "سائز", values: ["S", "M", "L"] },
-        { name: "رنگ", values: ["Red", "Blue"] },
+        { name: "Ø³Ø§Ø¦Ø²", values: ["S", "M", "L"] },
+        { name: "Ø±Ù†Ú¯", values: ["Red", "Blue"] },
       ],
     },
     type: CategoryParametersDto,
@@ -166,4 +166,9 @@ export class CreateUpdateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isDisabled?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: "Keeps an unfinished category out of public category lists" })
+  @IsOptional()
+  @IsBoolean()
+  isDraft?: boolean;
 }
