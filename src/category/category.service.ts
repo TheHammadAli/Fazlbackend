@@ -705,17 +705,22 @@ export class CategoryService {
     return translated;
   }
 
-  /** Sentinel category for lightweight "just a video" product posts, which don't
-   *  collect a real category from the owner. Query ignores `isDisabled` so this
-   *  stays idempotent even if it were ever re-enabled; `isDisabled: true` on
-   *  create is what keeps it out of every user-facing category picker/listing
-   *  (`findAll`/`findById` above both filter on `isDisabled: false`) while still
-   *  resolving normally through the `category` relation elsewhere. */
-  async findOrCreateVideoPostCategory(): Promise<Category> {
+  /** Sentinel category for a lightweight "just a video" post, which doesn't
+   *  collect a real category from the owner — one per listing type (a
+   *  service's video post needs its own, distinct from a product's, since
+   *  Category.type is required to match the row it's attached to). Query
+   *  ignores `isDisabled` so this stays idempotent even if it were ever
+   *  re-enabled; `isDisabled: true` on create is what keeps it out of every
+   *  user-facing category picker/listing (`findAll`/`findById` above both
+   *  filter on `isDisabled: false`) while still resolving normally through
+   *  the `category` relation elsewhere. */
+  async findOrCreateVideoPostCategory(
+    type: CategoryType = CategoryType.PRODUCT,
+  ): Promise<Category> {
     const existing = await this.prisma.category.findFirst({
       where: {
         name: { path: ["en"], equals: VIDEO_POST_CATEGORY_NAME },
-        type: CategoryType.PRODUCT,
+        type,
       },
     });
     if (existing) return existing;
@@ -724,7 +729,7 @@ export class CategoryService {
       data: {
         id: generateObjectId(),
         name: { en: VIDEO_POST_CATEGORY_NAME, ur: "ویڈیو پوسٹ" } as Prisma.InputJsonValue,
-        type: CategoryType.PRODUCT,
+        type,
         isDisabled: true,
       },
     });

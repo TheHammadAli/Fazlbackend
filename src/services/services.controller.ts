@@ -117,6 +117,8 @@ export class ServicesController {
       dto.parameters?.toString() || "{}",
     );
 
+    dto.isVideoPost = (dto.isVideoPost as unknown) === true || (dto.isVideoPost as unknown) === "true";
+
     return await this.servicesService.create(user.sub, dto);
   }
 

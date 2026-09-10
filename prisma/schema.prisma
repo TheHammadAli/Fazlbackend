@@ -848,6 +848,13 @@ model Product {
   city String?
   area String?
 
+  /// A video post can optionally point at one real listing to promote — "look
+  /// what we have" rather than just a caption. Only meaningful on a row with
+  /// isVideoPost true, but not restricted to it at the schema level, since a
+  /// service's video post tags a product the same way (see Service below).
+  taggedProduct   Product? @relation("ProductTaggedProduct", fields: [taggedProductId], references: [id], onDelete: SetNull)
+  taggedProductId String?  @map("tagged_product_id") @db.VarChar(24)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -857,12 +864,17 @@ model Product {
   contactClicks  ProductContactClick[]
   whatsappClicks ProductWhatsappClick[]
   promotions     Promotion[]
+  /// Other products that tag this one (self-relation back side).
+  taggingPosts     Product[] @relation("ProductTaggedProduct")
+  /// Services whose video post tags this product.
+  taggedByServices Service[] @relation("ServiceTaggedProduct")
 
   @@index([shopId, isVideoPost, isDeleted, isDisabled])
   @@index([categoryId])
   @@index([ownerId])
   @@index([createdAt(sort: Desc)])
   @@index([city, area])
+  @@index([taggedProductId])
   @@index([searchableTags], type: Gin)
   @@map("products")
 }
@@ -894,6 +906,18 @@ model Service {
 
   isDeleted  Boolean @default(false) @map("is_deleted")
   isDisabled Boolean @default(false) @map("is_disabled")
+  /// True for a lightweight "just a video" post — the same idea as a shop's
+  /// isVideoPost product, one level up: a provider can post as many of these
+  /// as they like even though a REAL service is capped at one per user.
+  isVideoPost Boolean @default(false) @map("is_video_post")
+  /// Sequential display id (e.g. VID-000001), assigned only when this service
+  /// carries a video (i.e. appears in the feed) — same scheme as Product.
+  videoCode   String? @unique @map("video_code")
+
+  /// Same idea as Product.taggedProduct — an optional real listing this
+  /// video post promotes.
+  taggedProduct   Product? @relation("ServiceTaggedProduct", fields: [taggedProductId], references: [id], onDelete: SetNull)
+  taggedProductId String?  @map("tagged_product_id") @db.VarChar(24)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -908,6 +932,8 @@ model Service {
   @@index([categoryId])
   @@index([isDeleted, isDisabled])
   @@index([createdAt(sort: Desc)])
+  @@index([ownerId, isVideoPost, isDeleted, isDisabled])
+  @@index([taggedProductId])
   @@map("services")
 }
 

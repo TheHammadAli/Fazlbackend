@@ -15,6 +15,7 @@ import { ReviewService } from "src/reviews/reviews.service";
 import { ShareService } from "src/share/share.service";
 import { UsersService } from "src/users/users.service";
 import { ListingUtilsService } from "src/shared/listing-util-service";
+import { CategoryService } from "src/category/category.service";
 import { bookingStatusFilter, computeBookingStatus } from "./model/service.model";
 
 /**
@@ -52,6 +53,7 @@ describe("ServicesService", () => {
         { provide: ReviewService, useValue: {} },
         { provide: EmailService, useValue: {} },
         { provide: EmailLogService, useValue: {} },
+        { provide: CategoryService, useValue: {} },
       ],
     }).compile();
 

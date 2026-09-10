@@ -29,6 +29,8 @@ import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
+import { CategoryService } from "src/category/category.service";
+import { CategoryType } from "src/category/model/category.model";
 import { PrismaService } from "src/prisma/prisma.service";
 import { GeoRepository } from "src/prisma/repositories/geo.repository";
 import { FeedRepository } from "src/prisma/repositories/feed.repository";
@@ -72,6 +74,8 @@ export class ServicesService {
     private readonly reviewService: ReviewService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
+    @Inject(forwardRef(() => CategoryService))
+    private readonly categoryService: CategoryService,
   ) {}
 
   private get lang(): string {
@@ -82,12 +86,13 @@ export class ServicesService {
    *  relation back under `ownerId`, and `_id` alongside `id`. */
   private toApiShape<T extends Record<string, any>>(service: T | null): any {
     if (!service) return service;
-    const { owner, ...rest } = service as any;
+    const { owner, taggedProduct, ...rest } = service as any;
     const shaped = withGeoJson(rest as any) as any;
     return {
       ...shaped,
       _id: shaped.id,
       ownerId: owner ?? shaped.ownerId,
+      taggedProductId: taggedProduct ?? shaped.taggedProductId,
     };
   }
 
@@ -210,6 +215,34 @@ export class ServicesService {
     return `JOB-${String(counter.seq).padStart(6, "0")}`;
   }
 
+  /** Atomically reserves the next sequential video code (e.g. VID-000001), for a service's posted video. */
+  private async generateNextVideoCode(): Promise<string> {
+    const counter = await this.prisma.counter.upsert({
+      where: { id: "serviceVideoCode" },
+      create: { id: "serviceVideoCode", seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
+    return `VID-${String(counter.seq).padStart(6, "0")}`;
+  }
+
+  /**
+   * Resolves an optional "tag a product" id (used on a video post) to a real,
+   * same-owner Product — or to nothing at all. Every failure mode (doesn't
+   * exist, belongs to someone else, is itself a video post) resolves to
+   * `null` rather than throwing: a stale or malformed tag shouldn't block the
+   * post the provider is actually trying to make.
+   */
+  private async resolveTaggedProductId(
+    candidateId: string,
+    ownerId: string,
+  ): Promise<string | null> {
+    const candidate = await this.prisma.product.findFirst({
+      where: { id: candidateId, isDeleted: false, isDisabled: false, isVideoPost: false, ownerId },
+      select: { id: true },
+    });
+    return candidate ? candidate.id : null;
+  }
+
   async create(userId: string, dto: CreateServiceDto) {
     const user = await this.userService.findUserById(userId);
     if (!user) {
@@ -218,14 +251,20 @@ export class ServicesService {
       );
     }
 
-    const existingService = await this.prisma.service.findFirst({
-      where: { ownerId: userId, isDeleted: false, isDisabled: false },
-      select: { id: true },
-    });
-    if (existingService) {
-      throw new BadRequestException(
-        this.i18n.translate("auth.services.user_duplicate_service", { lang: this.lang }),
-      );
+    const isVideoPost = !!dto.isVideoPost;
+
+    // The one-real-service-per-user cap never applied to video posts — a
+    // provider can post any number of these even with a real service already up.
+    if (!isVideoPost) {
+      const existingService = await this.prisma.service.findFirst({
+        where: { ownerId: userId, isDeleted: false, isDisabled: false, isVideoPost: false },
+        select: { id: true },
+      });
+      if (existingService) {
+        throw new BadRequestException(
+          this.i18n.translate("auth.services.user_duplicate_service", { lang: this.lang }),
+        );
+      }
     }
 
     if (
@@ -237,6 +276,26 @@ export class ServicesService {
         this.i18n.translate("auth.services.user_location_missing", { lang: this.lang }),
       );
     }
+
+    // Lightweight "just a video" post: skip the category the provider would
+    // otherwise have to pick, using an internal sentinel category (hidden
+    // from every normal category picker) instead.
+    const categoryId = isVideoPost
+      ? (await this.categoryService.findOrCreateVideoPostCategory(CategoryType.SERVICE)).id
+      : dto.category;
+    if (!categoryId) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.products.category_required", { lang: this.lang }) ||
+          "A category is required",
+      );
+    }
+
+    // Optional, and only meaningful on a video post: which of the provider's
+    // own real listings this clip is promoting. Silently ignored rather than
+    // rejected outright if it doesn't resolve to one.
+    const taggedProductId = dto.taggedProductId
+      ? await this.resolveTaggedProductId(dto.taggedProductId, userId)
+      : null;
 
     const imageFiles = (dto.images as Express.Multer.File[]) ?? [];
     if (imageFiles.length > 5) {
@@ -260,6 +319,7 @@ export class ServicesService {
     }
 
     let video: string | null = null;
+    let videoCode: string | null = null;
     if (videoFiles.length > 0) {
       const uploaded = await this.fileUploadService.uploadServiceFile(
         userId,
@@ -268,35 +328,42 @@ export class ServicesService {
         "video",
       );
       video = uploaded[0]; // Assuming only one video file is uploaded
+      videoCode = await this.generateNextVideoCode();
     }
 
     const created = await this.prisma.service.create({
       data: {
         id: serviceId,
         serviceCode,
+        videoCode,
         ownerId: userId,
         title: dto.title,
         description: dto.description ?? null,
         price: dto.price != null ? Math.round(Number(dto.price)) : null,
         paymentType: (dto.paymentType ?? "fixed") as ServicePaymentType,
         requiresAppointment: dto.requiresAppointment ?? true,
-        categoryId: dto.category,
+        categoryId,
         latitude,
         longitude,
         images,
         video,
         parameters: (dto.parameters || []) as unknown as Prisma.InputJsonValue,
+        isVideoPost,
+        taggedProductId,
       },
       include: { category: true },
     });
 
-    this.sendServiceCreatedEmail(
-      user.name,
-      user.email,
-      created.title,
-      created.id,
-      created.serviceCode,
-    );
+    // A video post isn't a real listing — don't send the "service created" email for it.
+    if (!isVideoPost) {
+      this.sendServiceCreatedEmail(
+        user.name,
+        user.email,
+        created.title,
+        created.id,
+        created.serviceCode,
+      );
+    }
 
     return {
       message: this.i18n.translate("auth.services.created_success", { lang: this.lang }),
@@ -473,6 +540,68 @@ export class ServicesService {
     });
 
     return true;
+  }
+
+  /** A provider's own posted videos — both lightweight video posts and their
+   *  real service if it happens to carry a video. Delete behaves differently
+   *  per item (see `deleteVideoPost`): a video post is removed entirely, the
+   *  real service just loses its video and stays listed. */
+  async getMyVideoPosts(
+    userId: string,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<any>> {
+    const { page: rawPage, limit: rawLimit } = paginationDto;
+    const { page, limit, skip } = resolvePagination(rawPage, rawLimit);
+
+    const where: Prisma.ServiceWhereInput = {
+      ownerId: userId,
+      video: { not: null, notIn: [""] },
+      isDeleted: false,
+      isDisabled: false,
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.service.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.service.count({ where }),
+    ]);
+
+    return {
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: items.map((s) => this.toApiShape(s)),
+    };
+  }
+
+  /** Delete action for one row in "My Videos". A video post only exists for
+   *  its video, so removing it deletes the whole entry; a real service stays
+   *  listed (title/price/category/images intact) with just its video removed. */
+  async deleteVideoPost(
+    serviceId: string,
+    currentUser?: { sub: string; roles?: string[]; permissions?: PermissionEntry[] },
+  ) {
+    const existingService = await this.prisma.service.findFirst({
+      where: { id: serviceId, isDeleted: false, isDisabled: false },
+    });
+    if (!existingService || !existingService.video) {
+      throw new NotFoundException(
+        this.i18n.translate("auth.services.service_not_found", { lang: this.lang }),
+      );
+    }
+    if (currentUser) {
+      assertOwnerOrPermission(currentUser, existingService.ownerId ?? "", "services", "delete");
+    }
+
+    if (existingService.isVideoPost) {
+      await this.delete(serviceId, currentUser);
+      return { deletedListing: true };
+    }
+
+    await this.deleteServiceMedia(serviceId, [existingService.video], currentUser);
+    return { deletedListing: false };
   }
 
   async getById(serviceId: string, userId?: string): Promise<any> {
@@ -652,6 +781,11 @@ export class ServicesService {
       ownerId: userId,
       isDeleted: false,
       isDisabled: false,
+      // Unlike a Product, a Service is always owned directly by its user, so a
+      // video post (also ownerId-scoped, via /service-video-posts) would
+      // otherwise show up mixed into this "my services" list — it belongs
+      // only in getMyVideoPosts.
+      isVideoPost: false,
     };
 
     const [data, total] = await Promise.all([

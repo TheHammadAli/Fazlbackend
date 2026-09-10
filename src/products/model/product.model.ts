@@ -30,6 +30,7 @@ export type ProductApi = Omit<ProductRow, "latitude" | "longitude"> & {
   shopId?: unknown;
   ownerId?: unknown;
   category?: unknown;
+  taggedProductId?: unknown;
   distance?: number;
 };
 export type ProductOffer = ProductOfferRow;
@@ -81,6 +82,9 @@ export const PRODUCT_INCLUDE = {
   category: true,
   shop: { include: { owner: { select: { id: true, name: true, phone: true } } } },
   owner: { select: { id: true, name: true, email: true, image: true, phone: true } },
+  // Only ever set on a video post — the real listing it optionally promotes.
+  // Minimal fields: enough for a card/thumbnail, not a second full product.
+  taggedProduct: { select: { id: true, title: true, images: true, price: true } },
 } satisfies Prisma.ProductInclude;
 
 export class ProductModel {
@@ -116,6 +120,11 @@ export class ProductModel {
 
   @ApiProperty({ description: "Category id, or the populated category." })
   category: unknown;
+
+  @ApiPropertyOptional({
+    description: "Only ever set on a video post: the real listing it optionally promotes, id or populated.",
+  })
+  taggedProductId?: unknown;
 
   @ApiProperty({ enum: PRODUCT_TYPES })
   type: ProductType;

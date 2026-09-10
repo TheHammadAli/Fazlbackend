@@ -82,7 +82,7 @@ export class ProductsService {
    */
   private toApiShape<T extends Record<string, any>>(product: T | null): any {
     if (!product) return product;
-    const { shop, owner, ...rest } = product as any;
+    const { shop, owner, taggedProduct, ...rest } = product as any;
     const shaped = withGeoJson(rest as any) as any;
     return {
       ...shaped,
@@ -91,6 +91,9 @@ export class ProductsService {
       // `shopId`/`ownerId`, carrying either the raw id or the populated row.
       shopId: shop ?? shaped.shopId,
       ownerId: owner ?? shaped.ownerId,
+      // Only ever populated on a video post — a plain client without
+      // `PRODUCT_INCLUDE` still gets the raw id it wrote/reads directly.
+      taggedProductId: taggedProduct ?? shaped.taggedProductId,
     };
   }
 
@@ -226,6 +229,31 @@ export class ProductsService {
     );
   }
 
+  /**
+   * Resolves an optional "tag a product" id (used on a video post) to a real,
+   * same-owner listing — or to nothing at all. Every failure mode (doesn't
+   * exist, belongs to someone else, is itself a video post) resolves to
+   * `null` rather than throwing: a stale or malformed tag shouldn't block the
+   * post the seller is actually trying to make, since this is entirely
+   * optional to begin with.
+   */
+  private async resolveTaggedProductId(
+    candidateId: string,
+    type: "shop" | "personal",
+    shopId: string | null,
+    ownerId: string | null,
+  ): Promise<string | null> {
+    const candidate = await this.prisma.product.findFirst({
+      where: { id: candidateId, isDeleted: false, isDisabled: false, isVideoPost: false },
+      select: { id: true, shopId: true, ownerId: true },
+    });
+    if (!candidate) return null;
+
+    const sameOwner =
+      type === "shop" ? candidate.shopId === shopId : candidate.ownerId === ownerId;
+    return sameOwner ? candidate.id : null;
+  }
+
   async create(
     entityId: string,
     type: "shop" | "personal",
@@ -321,6 +349,14 @@ export class ProductsService {
         throw new BadRequestException('Invalid type. Must be "shop" or "personal".');
       }
 
+      // Optional, and only meaningful on a video post: which of the SAME
+      // shop's/owner's own real listings this clip is promoting. Silently
+      // ignored rather than rejected outright if it doesn't resolve to one —
+      // a stale or since-deleted id shouldn't block the whole post going up.
+      const taggedProductId = dto.taggedProductId
+        ? await this.resolveTaggedProductId(dto.taggedProductId, type, shopId, ownerId)
+        : null;
+
       const listingCode = await this.generateNextListingCode();
       const productId = generateObjectId();
       const { latitude, longitude } = toLatLng(location);
@@ -381,6 +417,7 @@ export class ProductsService {
           // through the shop, which holds its own city and area.
           city: dto.city?.trim() || null,
           area: dto.area?.trim() || null,
+          taggedProductId,
         },
       });
 

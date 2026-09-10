@@ -85,6 +85,15 @@ export class CreateProductDto {
   isVideoPost?: boolean;
 
   @ApiPropertyOptional({
+    example: "6a8d9c1828b1818429e64faa",
+    description:
+      "Only meaningful on a video post: id of one of the same shop's/owner's own real listings to promote. Optional.",
+  })
+  @IsOptional()
+  @IsString()
+  taggedProductId?: string;
+
+  @ApiPropertyOptional({
     type: [String],
     example: ["https://img.com/p1.jpg", "https://img.com/p2.jpg"],
   })

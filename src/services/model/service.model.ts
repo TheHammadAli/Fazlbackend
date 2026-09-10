@@ -26,6 +26,7 @@ export type ServiceApi = Omit<ServiceRow, "latitude" | "longitude"> & {
   location: { type: "Point"; coordinates: [number, number] } | null;
   ownerId?: unknown;
   category?: unknown;
+  taggedProductId?: unknown;
   distance?: number;
 };
 
@@ -119,6 +120,8 @@ export const SERVICE_INCLUDE = {
       longitude: true,
     },
   },
+  // Only ever set on a video post — the real listing it optionally promotes.
+  taggedProduct: { select: { id: true, title: true, images: true, price: true } },
 } satisfies Prisma.ServiceInclude;
 
 export class ServiceModel {
@@ -157,6 +160,11 @@ export class ServiceModel {
 
   @ApiProperty({ description: "Category id, or the populated category." })
   category: unknown;
+
+  @ApiPropertyOptional({
+    description: "Only ever set on a video post: the real listing it optionally promotes, id or populated.",
+  })
+  taggedProductId?: unknown;
 
   @ApiPropertyOptional({
     description: "GeoJSON Point. Stored as latitude/longitude and converted on read.",
