@@ -819,8 +819,10 @@ model Product {
   price       Int
   type        ProductType
 
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  categoryId String   @map("category_id") @db.VarChar(24)
+  /// Null only for a video post (isVideoPost) — it has no real category to
+  /// pick, and no longer gets a fake sentinel one either.
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String?   @map("category_id") @db.VarChar(24)
 
   images String[] @default([])
   video  String?
@@ -897,8 +899,10 @@ model Service {
   images String[] @default([])
   video  String?
 
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  categoryId String   @map("category_id") @db.VarChar(24)
+  /// Null only for a video post (isVideoPost) — it has no real category to
+  /// pick, and no longer gets a fake sentinel one either.
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId String?   @map("category_id") @db.VarChar(24)
 
   latitude  Float?
   longitude Float?

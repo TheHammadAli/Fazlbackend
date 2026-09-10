@@ -29,8 +29,6 @@ import { assertOwnerOrPermission } from "src/common/utils/permission.utils";
 import { PermissionEntry } from "src/common/constants/admin-permissions.constants";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
-import { CategoryService } from "src/category/category.service";
-import { CategoryType } from "src/category/model/category.model";
 import { PrismaService } from "src/prisma/prisma.service";
 import { GeoRepository } from "src/prisma/repositories/geo.repository";
 import { FeedRepository } from "src/prisma/repositories/feed.repository";
@@ -74,8 +72,6 @@ export class ServicesService {
     private readonly reviewService: ReviewService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
-    @Inject(forwardRef(() => CategoryService))
-    private readonly categoryService: CategoryService,
   ) {}
 
   private get lang(): string {
@@ -278,12 +274,10 @@ export class ServicesService {
     }
 
     // Lightweight "just a video" post: skip the category the provider would
-    // otherwise have to pick, using an internal sentinel category (hidden
-    // from every normal category picker) instead.
-    const categoryId = isVideoPost
-      ? (await this.categoryService.findOrCreateVideoPostCategory(CategoryType.SERVICE)).id
-      : dto.category;
-    if (!categoryId) {
+    // otherwise have to pick — categoryId stays null rather than standing
+    // in for a real choice.
+    const categoryId = isVideoPost ? null : dto.category;
+    if (!isVideoPost && !categoryId) {
       throw new BadRequestException(
         this.i18n.translate("auth.products.category_required", { lang: this.lang }) ||
           "A category is required",

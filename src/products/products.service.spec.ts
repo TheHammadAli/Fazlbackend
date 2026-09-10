@@ -9,7 +9,6 @@ import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
 import { FileUploadService } from "src/common/file-upload/file-upload.service";
-import { CategoryService } from "src/category/category.service";
 import { LikeService } from "src/like/like.service";
 import { PromotionService } from "src/promotion/promotion.service";
 import { ReviewService } from "src/reviews/reviews.service";
@@ -54,7 +53,6 @@ describe("ProductsService", () => {
         { provide: ActivityLogService, useValue: {} },
         { provide: EmailService, useValue: {} },
         { provide: EmailLogService, useValue: {} },
-        { provide: CategoryService, useValue: {} },
       ],
     }).compile();
 

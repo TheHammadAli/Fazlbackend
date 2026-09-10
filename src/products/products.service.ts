@@ -28,7 +28,6 @@ import { PermissionEntry } from "src/common/constants/admin-permissions.constant
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogService } from "src/email-log/email-log.service";
-import { CategoryService } from "src/category/category.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { FeedRepository } from "src/prisma/repositories/feed.repository";
 import { generateObjectId, isObjectIdLike } from "src/common/utils/object-id.util";
@@ -68,8 +67,6 @@ export class ProductsService {
     private readonly activityLogService: ActivityLogService,
     private readonly emailService: EmailService,
     private readonly emailLogService: EmailLogService,
-    @Inject(forwardRef(() => CategoryService))
-    private readonly categoryService: CategoryService,
   ) {}
 
   private get lang(): string {
@@ -268,18 +265,16 @@ export class ProductsService {
       let address: string | null = null;
 
       // Lightweight "just a video" post: skip the category/price the owner
-      // would otherwise have to pick, using an internal sentinel category
-      // (hidden from every normal category picker) and a nominal price instead.
+      // would otherwise have to pick — categoryId stays null rather than
+      // standing in for a real choice.
       const isVideoPost = !!dto.isVideoPost;
-      const categoryId = isVideoPost
-        ? (await this.categoryService.findOrCreateVideoPostCategory()).id
-        : dto.category;
+      const categoryId = isVideoPost ? null : dto.category;
 
-      // categoryId is NOT NULL in the schema. Mongoose enforced this with
-      // `required: true`; with no global ValidationPipe the DTO alone does not,
-      // so a missing category must be rejected explicitly rather than reaching
-      // Postgres as a null.
-      if (!categoryId) {
+      // categoryId is only required for a real listing. Mongoose enforced
+      // this with `required: true`; with no global ValidationPipe the DTO
+      // alone does not, so a missing category must be rejected explicitly
+      // rather than reaching Postgres as an unintended null.
+      if (!isVideoPost && !categoryId) {
         throw new BadRequestException(
           this.i18n.translate("auth.products.category_required", { lang: this.lang }) ||
             "A category is required",
@@ -312,10 +307,11 @@ export class ProductsService {
         shopId = shop.id;
         location = shop.location;
 
-        // A video post carries the internal sentinel category, not a chosen
-        // one, so the shop's category doesn't apply to it.
+        // A video post has no category at all, so the shop's category
+        // restriction doesn't apply to it. categoryId is validated non-empty
+        // above whenever !isVideoPost, so this cast is safe.
         if (!isVideoPost) {
-          await this.assertCategoryAllowedForShop(shop.id, categoryId);
+          await this.assertCategoryAllowedForShop(shop.id, categoryId as string);
         }
       } else if (type === "personal") {
         const user = await this.userService.findUserById(entityId);

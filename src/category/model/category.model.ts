@@ -23,9 +23,6 @@ export const CATEGORY_TYPES = ["service", "product", "shop"] as const;
 export const CATEGORY_REQUEST_STATUSES = ["pending", "approved", "rejected"] as const;
 export type CategoryRequestStatus = (typeof CATEGORY_REQUEST_STATUSES)[number];
 
-/** Name of the hidden sentinel category used by lightweight video posts. */
-export const VIDEO_POST_CATEGORY_NAME = "Video Post";
-
 /** One localised parameter definition inside `Category.parameters`. */
 export interface CategoryParameter {
   name: string;

@@ -10,7 +10,6 @@ import { ShareModule } from "src/share/share.module";
 import { ReviewsModule } from "src/reviews/reviews.module";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogModule } from "src/email-log/email-log.module";
-import { CategoryModule } from "src/category/category.module";
 
 // PrismaModule is @Global and exports PrismaService plus the repositories, so
 // neither needs importing here — this replaces the Service, ServiceRequest,
@@ -25,11 +24,6 @@ import { CategoryModule } from "src/category/category.module";
     forwardRef(() => NotificationsModule),
     forwardRef(() => ReviewsModule),
     EmailLogModule,
-    // CategoryModule imports SharedModule, which imports this module back —
-    // same cycle ProductsModule already guards against with this same
-    // forwardRef, for the same reason (a video post resolves its sentinel
-    // category through CategoryService).
-    forwardRef(() => CategoryModule),
   ],
   providers: [ServicesService, EmailService],
   controllers: [ServicesController, ServiceVideoPostController],

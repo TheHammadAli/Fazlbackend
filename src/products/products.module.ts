@@ -13,7 +13,6 @@ import { ReviewsModule } from "src/reviews/reviews.module";
 import { ActivityLogModule } from "src/activity-log/activity-log.module";
 import { EmailService } from "src/common/email-service/email-service";
 import { EmailLogModule } from "src/email-log/email-log.module";
-import { CategoryModule } from "src/category/category.module";
 
 // PrismaModule is @Global and exports PrismaService plus the repositories, so
 // neither needs importing here — this replaces the Product, ProductView,
@@ -29,10 +28,6 @@ import { CategoryModule } from "src/category/category.module";
     forwardRef(() => ReviewsModule),
     ActivityLogModule,
     EmailLogModule,
-    // CategoryModule imports SharedModule, which imports this module back
-    // (forwardRef(() => ProductsModule) in shared.module.ts) — same cycle every
-    // other entry above is already guarded against, so this one needs it too.
-    forwardRef(() => CategoryModule),
   ],
   controllers: [ProductsController, VideoPostController],
   providers: [ProductsService, EmailService],
