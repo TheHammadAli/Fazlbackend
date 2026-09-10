@@ -11,6 +11,7 @@ import { FileUploadService } from "src/common/file-upload/file-upload.service";
 import { OrdersService } from "src/orders/orders.service";
 import { ProductsService } from "src/products/products.service";
 import { UsersService } from "src/users/users.service";
+import { BadRequestException } from "@nestjs/common";
 
 /**
  * Now backed by Prisma rather than Mongoose, so the injected dependencies are
@@ -19,15 +20,17 @@ import { UsersService } from "src/users/users.service";
 describe("ShopService", () => {
   let service: ShopService;
   let prisma: {
-    shop: { findUnique: jest.Mock };
+    shop: { findUnique: jest.Mock; count: jest.Mock };
     shopView: { upsert: jest.Mock };
   };
+  let usersService: { findUserById: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
-      shop: { findUnique: jest.fn() },
+      shop: { findUnique: jest.fn(), count: jest.fn() },
       shopView: { upsert: jest.fn() },
     };
+    usersService = { findUserById: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -35,7 +38,7 @@ describe("ShopService", () => {
         { provide: PrismaService, useValue: prisma },
         { provide: GeoRepository, useValue: { findNearby: jest.fn() } },
         { provide: ProductsService, useValue: {} },
-        { provide: UsersService, useValue: {} },
+        { provide: UsersService, useValue: usersService },
         { provide: FileUploadService, useValue: {} },
         { provide: OrdersService, useValue: {} },
         { provide: I18nService, useValue: { translate: (k: string) => k } },
@@ -76,6 +79,18 @@ describe("ShopService", () => {
     });
     // `update: {}` is what makes a repeat view a no-op, as $setOnInsert did.
     expect(call.update).toEqual({});
+  });
+
+  it("refuses to create a 4th shop for the same owner", async () => {
+    usersService.findUserById.mockResolvedValue({ id: "6a8d9c1828b1818429e64faa" });
+    prisma.shop.count.mockResolvedValue(3);
+
+    await expect(
+      service.createShop("6a8d9c1828b1818429e64faa", {} as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.shop.count).toHaveBeenCalledWith({
+      where: { ownerId: "6a8d9c1828b1818429e64faa", isDisabled: false },
+    });
   });
 
   it("returns nothing from a radius search that matched no shops", async () => {

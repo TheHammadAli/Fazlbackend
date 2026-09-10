@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PaginationDto } from "src/common/dto/pagination.dto";
 import { PaginatedResponseDto } from "src/common/dto/pagination-response.dto";
@@ -114,12 +115,26 @@ export class ShopService {
     return `SHP-${String(counter.seq).padStart(6, "0")}`;
   }
 
+  /** A user can own at most this many shops at once. A shop an admin has
+   *  disabled doesn't count against it — the same "isDisabled: false" scoping
+   *  every other shop-count query in this service already uses. */
+  private static readonly MAX_SHOPS_PER_OWNER = 3;
+
   async createShop(ownerId: string, dto: CreateUpdateShopDto) {
     const ownerIdStr = ownerId;
     const existingUser = await this.usersService.findUserById(ownerIdStr);
     if (!existingUser) {
       throw new NotFoundException(
         this.i18n.translate("auth.shop.user_not_found", { lang: this.lang }),
+      );
+    }
+
+    const shopCount = await this.prisma.shop.count({
+      where: { ownerId: ownerIdStr, isDisabled: false },
+    });
+    if (shopCount >= ShopService.MAX_SHOPS_PER_OWNER) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.shop.shop_limit_reached", { lang: this.lang }),
       );
     }
 
