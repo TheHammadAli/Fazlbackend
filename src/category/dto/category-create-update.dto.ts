@@ -50,6 +50,34 @@ class CategoryParameterEntryDto {
   @IsOptional()
   @IsBoolean()
   allowMultiple?: boolean;
+
+  @ApiPropertyOptional({
+    example: ["toyota", "honda"],
+    description:
+      "Stable ids parallel to `values`, identical across en/ur. Auto-generated from `values` when omitted but `valuesByParent` is used elsewhere in the category.",
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  valueKeys?: string[];
+
+  @ApiPropertyOptional({
+    example: "Make",
+    description:
+      "Name of an earlier parameter in the same locale array whose chosen value narrows this parameter's options.",
+  })
+  @IsOptional()
+  @IsString()
+  dependsOn?: string;
+
+  @ApiPropertyOptional({
+    example: { toyota: ["Corolla", "Yaris"], honda: ["City", "Civic"] },
+    description:
+      "Present when dependsOn is set: parent valueKeys entry -> this parameter's values under that parent value. `values` is recomputed from this on every save.",
+  })
+  @IsOptional()
+  @IsObject()
+  valuesByParent?: Record<string, string[]>;
 }
 
 class CategoryParametersDto {

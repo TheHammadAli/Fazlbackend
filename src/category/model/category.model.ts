@@ -29,10 +29,36 @@ export const VIDEO_POST_CATEGORY_NAME = "Video Post";
 /** One localised parameter definition inside `Category.parameters`. */
 export interface CategoryParameter {
   name: string;
+  /**
+   * The full option list. On a dependent parameter (see `dependsOn`) this is
+   * a server-recomputed union of every `valuesByParent` list — never a value
+   * a client can set directly — kept so an old client that has never heard of
+   * `dependsOn` still gets a usable (if unfiltered) list instead of an empty,
+   * unfillable field.
+   */
   values: string[];
   isOptional?: boolean;
   allowCustomValue?: boolean;
   allowMultiple?: boolean;
+  /**
+   * Stable ids parallel to `values`, e.g. `values: ["Toyota","Honda"]` →
+   * `valueKeys: ["toyota","honda"]`. Identical across `en`/`ur` so a value's
+   * display text can be translated without touching what addresses it.
+   * Present only once some parameter in the category actually depends on
+   * another.
+   */
+  valueKeys?: string[];
+  /**
+   * Name of an earlier entry in the SAME locale array whose chosen value
+   * narrows this parameter's options. "Earlier" is enforced on write, which
+   * is what makes a dependency cycle unrepresentable.
+   */
+  dependsOn?: string;
+  /**
+   * Present when `dependsOn` is set: parent `valueKeys` entry → the list of
+   * this parameter's values available under that parent value.
+   */
+  valuesByParent?: Record<string, string[]>;
 }
 
 /**

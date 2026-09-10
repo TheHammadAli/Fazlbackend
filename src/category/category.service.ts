@@ -16,6 +16,7 @@ import {
   CategoryType,
   VIDEO_POST_CATEGORY_NAME,
   type Category,
+  type CategoryParameter,
   type CategoryParameters,
   type LocalizedText,
 } from "./model/category.model";
@@ -44,7 +45,13 @@ export class CategoryService {
 
   /**
    * Normalize category parameters into a safe structure:
-   * { en: [{ name, values }], ur: [{ name, values }] }
+   * { en: [{ name, values, ... }], ur: [{ name, values, ... }] }
+   *
+   * Also validates the dependency graph a cascading parameter (e.g. "Model"
+   * depending on "Make") describes — this is the only enforcement point that
+   * will ever see this field: `parameters` arrives as a JSON string,
+   * JSON.parse'd in the controller, and there is no global ValidationPipe to
+   * catch a malformed graph before it gets here.
    */
   private normalizeParameters(parameters: any): CategoryParameters {
     if (!parameters) {
@@ -56,42 +63,60 @@ export class CategoryService {
         parameters = JSON.parse(parameters);
       } catch {
         throw new BadRequestException(
-          this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }),
+          this.i18n.translate("auth.category.invalid_parameters_format", { lang: this.lang }),
         );
       }
     }
 
     if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
       throw new BadRequestException(
-        this.i18n.translate("category.invalid_parameters_format", { lang: this.lang }),
+        this.i18n.translate("auth.category.invalid_parameters_format", { lang: this.lang }),
       );
     }
 
-    const normalized: Record<string, any> = {};
+    const normalized: CategoryParameters = { en: [], ur: [] };
 
     for (const lang of ["en", "ur"] as const) {
-      const rawValue = parameters?.[lang];
-      normalized[lang] = this.normalizeParameterList(rawValue);
+      const items = this.normalizeParameterList(parameters?.[lang]);
+      this.validateParameterGraph(items);
+      normalized[lang] = items;
     }
 
-    return normalized as CategoryParameters;
+    this.validateParameterLocaleAlignment(normalized.en, normalized.ur);
+
+    return normalized;
   }
 
-  private normalizeParameterList(value: any): Array<{ name: string; values: string[] }> {
-    if (!value) return [];
+  private normalizeParameterList(value: any): CategoryParameter[] {
+    const items: CategoryParameter[] = !value
+      ? []
+      : Array.isArray(value)
+        ? value.map((item) => this.normalizeParameterItem(item))
+        : typeof value === "object"
+          ? [this.normalizeParameterItem(value)]
+          : [];
 
-    if (Array.isArray(value)) {
-      return value.map((item) => this.normalizeParameterItem(item));
+    // A parameter that a later one depends on needs stable ids for its own
+    // values whether or not it is itself dependent (e.g. "Make", which has no
+    // `dependsOn` of its own but is what "Model" addresses). Auto-generate
+    // rather than requiring every API caller to invent ids by hand — the
+    // admin UI supplies its own, and this is only the fallback.
+    const dependedOnNames = new Set(
+      items.map((item) => item.dependsOn).filter((name): name is string => !!name),
+    );
+    for (const item of items) {
+      if (
+        dependedOnNames.has(item.name) &&
+        (!item.valueKeys || item.valueKeys.length !== item.values.length)
+      ) {
+        item.valueKeys = this.generateValueKeys(item.values);
+      }
     }
 
-    if (typeof value === "object") {
-      return [this.normalizeParameterItem(value)];
-    }
-
-    return [];
+    return items;
   }
 
-  private normalizeParameterItem(item: any): { name: string; values: string[] } {
+  private normalizeParameterItem(item: any): CategoryParameter {
     if (typeof item === "string") {
       return { name: item.trim(), values: [] };
     }
@@ -115,10 +140,176 @@ export class CategoryService {
       ? item.values.filter((value: any) => typeof value === "string")
       : [];
 
-    return {
+    const result: CategoryParameter = {
       name: rawName?.trim?.() || "",
       values: rawValues,
     };
+
+    // Preserve the three behaviour flags rather than defaulting them away —
+    // they used to be silently dropped here on every write and every read.
+    if (typeof item.isOptional === "boolean") result.isOptional = item.isOptional;
+    if (typeof item.allowCustomValue === "boolean") result.allowCustomValue = item.allowCustomValue;
+    if (typeof item.allowMultiple === "boolean") result.allowMultiple = item.allowMultiple;
+
+    const dependsOn = typeof item.dependsOn === "string" ? item.dependsOn.trim() : "";
+    const valuesByParent =
+      item.valuesByParent &&
+      typeof item.valuesByParent === "object" &&
+      !Array.isArray(item.valuesByParent)
+        ? this.normalizeValuesByParent(item.valuesByParent)
+        : null;
+
+    // `dependsOn` is preserved on its own, even when `valuesByParent` is
+    // missing or empty — that incomplete-but-declared state has to reach
+    // validateParameterGraph as a real, named error ("depends on Make but has
+    // no values"), not disappear silently into a parameter that looks
+    // ordinary.
+    if (dependsOn) {
+      result.dependsOn = dependsOn;
+    }
+
+    if (dependsOn && valuesByParent && Object.keys(valuesByParent).length > 0) {
+      result.valuesByParent = valuesByParent;
+      // Never trust a client-sent `values` on a dependent entry — it is
+      // always the recomputed union of valuesByParent. This is what lets an
+      // old client, which has never heard of `dependsOn`, still see a real,
+      // usable (if unfiltered) list instead of an empty, unfillable field.
+      result.values = this.unionOfValuesByParent(valuesByParent);
+    }
+
+    if (
+      Array.isArray(item.valueKeys) &&
+      item.valueKeys.every((key: unknown) => typeof key === "string")
+    ) {
+      result.valueKeys = item.valueKeys as string[];
+    }
+
+    return result;
+  }
+
+  private normalizeValuesByParent(raw: Record<string, any>): Record<string, string[]> {
+    const normalized: Record<string, string[]> = {};
+    for (const [key, list] of Object.entries(raw)) {
+      if (typeof key !== "string" || !key.trim()) continue;
+      if (!Array.isArray(list)) continue;
+      const values = list.filter((value): value is string => typeof value === "string");
+      if (values.length > 0) normalized[key.trim()] = values;
+    }
+    return normalized;
+  }
+
+  private unionOfValuesByParent(valuesByParent: Record<string, string[]>): string[] {
+    const seen = new Set<string>();
+    const union: string[] = [];
+    for (const values of Object.values(valuesByParent)) {
+      for (const value of values) {
+        if (!seen.has(value)) {
+          seen.add(value);
+          union.push(value);
+        }
+      }
+    }
+    return union;
+  }
+
+  /** Deterministic, collision-safe ids for a value list: "Toyota" -> "toyota". */
+  private generateValueKeys(values: string[]): string[] {
+    const used = new Map<string, number>();
+    return values.map((value, index) => {
+      const base = this.slugifyValue(value) || `value-${index}`;
+      const seen = used.get(base) ?? 0;
+      used.set(base, seen + 1);
+      return seen === 0 ? base : `${base}-${seen + 1}`;
+    });
+  }
+
+  private slugifyValue(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  /**
+   * Validates one locale's parameter array. `dependsOn` must name an entry at
+   * a strictly earlier index in the SAME array — that single rule is what
+   * makes a dependency cycle unrepresentable, so no graph walk is needed.
+   */
+  private validateParameterGraph(items: CategoryParameter[]) {
+    const nameToIndex = new Map<string, number>();
+    items.forEach((item, index) => {
+      if (item.name) nameToIndex.set(item.name, index);
+    });
+
+    items.forEach((item, index) => {
+      if (!item.dependsOn) return;
+
+      const parentIndex = nameToIndex.get(item.dependsOn);
+      if (parentIndex === undefined) {
+        throw new BadRequestException(
+          this.i18n.translate("auth.category.dependency_unknown_parent", {
+            lang: this.lang,
+            args: { name: item.name, parent: item.dependsOn },
+          }),
+        );
+      }
+      if (parentIndex >= index) {
+        throw new BadRequestException(
+          this.i18n.translate("auth.category.dependency_must_precede", {
+            lang: this.lang,
+            args: { name: item.name, parent: item.dependsOn },
+          }),
+        );
+      }
+
+      if (!item.valuesByParent || Object.keys(item.valuesByParent).length === 0) {
+        throw new BadRequestException(
+          this.i18n.translate("auth.category.dependency_values_required", {
+            lang: this.lang,
+            args: { name: item.name, parent: item.dependsOn },
+          }),
+        );
+      }
+
+      const parentKeys = new Set(items[parentIndex].valueKeys ?? []);
+      for (const key of Object.keys(item.valuesByParent)) {
+        if (!parentKeys.has(key)) {
+          throw new BadRequestException(
+            this.i18n.translate("auth.category.dependency_unknown_value", {
+              lang: this.lang,
+              args: { name: item.name, parent: item.dependsOn },
+            }),
+          );
+        }
+      }
+    });
+  }
+
+  /**
+   * A light cross-locale check — same count, and the same positions carry a
+   * dependency — rather than requiring identical value keys. Value keys may
+   * legitimately differ between locales when the server had to auto-generate
+   * them independently for each (an Urdu value slugifies very differently
+   * from its English counterpart); resolution never needs them to match,
+   * since each locale's array is resolved entirely against itself.
+   */
+  private validateParameterLocaleAlignment(en: CategoryParameter[], ur: CategoryParameter[]) {
+    if (en.length === 0 || ur.length === 0) return;
+
+    if (en.length !== ur.length) {
+      throw new BadRequestException(
+        this.i18n.translate("auth.category.parameters_locale_mismatch", { lang: this.lang }),
+      );
+    }
+
+    for (let index = 0; index < en.length; index++) {
+      if (!!en[index].dependsOn !== !!ur[index].dependsOn) {
+        throw new BadRequestException(
+          this.i18n.translate("auth.category.parameters_locale_mismatch", { lang: this.lang }),
+        );
+      }
+    }
   }
 
   private extractNameFromKeyedObject(item: Record<string, any>): string {
@@ -256,7 +447,17 @@ export class CategoryService {
         ...(dto.description !== undefined
           ? { description: dto.description as Prisma.InputJsonValue }
           : {}),
-        parameters: this.normalizeParameters(dto.parameters) as unknown as Prisma.InputJsonValue,
+        // Was unconditional, so a PUT that simply omitted `parameters` (e.g.
+        // the admin's activate/deactivate toggle, which sends only
+        // isDisabled) wiped every parameter to `{en:[],ur:[]}`. Conditional
+        // like every other field on this method.
+        ...(dto.parameters !== undefined
+          ? {
+              parameters: this.normalizeParameters(
+                dto.parameters,
+              ) as unknown as Prisma.InputJsonValue,
+            }
+          : {}),
         ...(dto.sortNumber !== undefined ? { sortNumber: Number(dto.sortNumber) } : {}),
         ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
         ...(dto.type !== undefined ? { type: dto.type as CategoryType } : {}),
