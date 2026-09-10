@@ -1,5 +1,5 @@
 // =============================================================================
-// Fazl — PostgreSQL schema (migrated from MongoDB/Mongoose)
+// Fazl â€” PostgreSQL schema (migrated from MongoDB/Mongoose)
 //
 // Conventions, applied consistently across every model:
 //
@@ -16,7 +16,7 @@
 //  2. NAMING. snake_case tables/columns via @@map/@map; camelCase in the Prisma
 //     client so the TypeScript surface matches the existing Mongoose one.
 //
-//  3. MONEY. Always integer minor units (`Int`), never Float, never Decimal —
+//  3. MONEY. Always integer minor units (`Int`), never Float, never Decimal â€”
 //     the existing wallet logic is already integer-correct end to end.
 //
 //  4. GEO. `latitude`/`longitude` are plain nullable Floats here; a PostGIS
@@ -428,7 +428,7 @@ model User {
   name           String?
   email          String     @unique
   // `select: false` in Mongoose silently kept these out of every response.
-  // Prisma has no equivalent — every read path must use the shared
+  // Prisma has no equivalent â€” every read path must use the shared
   // `userPublicSelect` constant instead. See src/users/user-select.ts.
   password       String?
   roles          UserRole[]
@@ -530,7 +530,7 @@ model User {
 //
 // Staff live in their own tables, entirely separate from `users`. A person who
 // works the admin panel and a person who shops on the app are different rows in
-// different tables even when they share an email address — nothing about a
+// different tables even when they share an email address â€” nothing about a
 // customer account grants panel access, and nothing about a staff account
 // appears in customer-facing queries.
 //
@@ -552,7 +552,7 @@ model Admin {
 
   name  String
   email String @unique
-  /// Never selected into a response — see src/admins/admin-select.ts.
+  /// Never selected into a response â€” see src/admins/admin-select.ts.
   password String
 
   role AdminRole
@@ -609,7 +609,7 @@ model Member {
 
   name  String
   email String @unique
-  /// Never selected into a response — see src/admins/admin-select.ts.
+  /// Never selected into a response â€” see src/admins/admin-select.ts.
   password String
 
   phone   String?
@@ -640,7 +640,7 @@ model Member {
 
 /// Per-page admin panel permissions. Was `user_permissions` hanging off `users`;
 /// now hangs off `admins`, since only staff have permissions at all.
-/// Members are not listed here — their access is fixed to the task endpoints.
+/// Members are not listed here â€” their access is fixed to the task endpoints.
 model AdminPermission {
   id      String              @id @default(uuid())
   admin   Admin               @relation(fields: [adminId], references: [id], onDelete: Cascade)
@@ -655,7 +655,7 @@ model AdminPermission {
 
 /// A city's areas, discovered once and kept.
 ///
-/// Google has no call that lists the neighbourhoods of a city — autocomplete
+/// Google has no call that lists the neighbourhoods of a city â€” autocomplete
 /// returns nothing without input and Nearby Search returns one or two results,
 /// which is why a small town like Taxila offered none at all. Reverse-geocoding
 /// a grid of points across the city and collecting the sublocality and
@@ -663,7 +663,7 @@ model AdminPermission {
 /// city. Far too many to repeat per shop form, so the result is stored here and
 /// every later visitor is served from the database.
 model CityAreaCache {
-  /// Lowercased, trimmed city name — what the lookup is keyed on.
+  /// Lowercased, trimmed city name â€” what the lookup is keyed on.
   cityKey String @id @map("city_key")
 
   /// The name as it was requested, for display.
@@ -672,7 +672,7 @@ model CityAreaCache {
   latitude  Float?
   longitude Float?
 
-  /// [{ name, description }] — no row per area, since nothing queries one
+  /// [{ name, description }] â€” no row per area, since nothing queries one
   /// individually and they are always read as a whole list.
   areas Json @default("[]")
 
@@ -711,11 +711,12 @@ model Category {
   id String @id @db.VarChar(24)
 
   /// { en: [{name, values[], isOptional, allowCustomValue, allowMultiple}], ur: [...] }
-  /// Deeply irregular and always read whole — JSONB, not a parameters table.
+  /// Deeply irregular and always read whole â€” JSONB, not a parameters table.
   parameters Json? @default("{\"en\":[],\"ur\":[]}")
 
   sortNumber Int          @default(0) @map("sort_number")
   isDisabled Boolean      @default(false) @map("is_disabled")
+  isDraft    Boolean      @default(false) @map("is_draft")
   icon       String?
   type       CategoryType
 
@@ -827,7 +828,7 @@ model Product {
   latitude  Float?
   longitude Float?
 
-  /// [{ name, variants[] }] — only ever rendered, never queried by inner field.
+  /// [{ name, variants[] }] â€” only ever rendered, never queried by inner field.
   /// Searching goes through `searchableTags` instead.
   parameters Json? @default("[]")
 
@@ -848,7 +849,7 @@ model Product {
   city String?
   area String?
 
-  /// A video post can optionally point at one real listing to promote — "look
+  /// A video post can optionally point at one real listing to promote â€” "look
   /// what we have" rather than just a caption. Only meaningful on a row with
   /// isVideoPost true, but not restricted to it at the schema level, since a
   /// service's video post tags a product the same way (see Service below).
@@ -906,15 +907,15 @@ model Service {
 
   isDeleted  Boolean @default(false) @map("is_deleted")
   isDisabled Boolean @default(false) @map("is_disabled")
-  /// True for a lightweight "just a video" post — the same idea as a shop's
+  /// True for a lightweight "just a video" post â€” the same idea as a shop's
   /// isVideoPost product, one level up: a provider can post as many of these
   /// as they like even though a REAL service is capped at one per user.
   isVideoPost Boolean @default(false) @map("is_video_post")
   /// Sequential display id (e.g. VID-000001), assigned only when this service
-  /// carries a video (i.e. appears in the feed) — same scheme as Product.
+  /// carries a video (i.e. appears in the feed) â€” same scheme as Product.
   videoCode   String? @unique @map("video_code")
 
-  /// Same idea as Product.taggedProduct — an optional real listing this
+  /// Same idea as Product.taggedProduct â€” an optional real listing this
   /// video post promotes.
   taggedProduct   Product? @relation("ServiceTaggedProduct", fields: [taggedProductId], references: [id], onDelete: SetNull)
   taggedProductId String?  @map("tagged_product_id") @db.VarChar(24)
@@ -943,7 +944,7 @@ model Service {
 
 /// `owner` + `ownerModel` was a Mongoose refPath pointing at either Shop or
 /// User. Split into two nullable typed FKs with a CHECK constraint (added in
-/// manual migration SQL) asserting exactly one is set — orders are financially
+/// manual migration SQL) asserting exactly one is set â€” orders are financially
 /// significant and deserve real referential integrity.
 model Order {
   id String @id @db.VarChar(24)
@@ -1065,7 +1066,7 @@ model Subscription {
 
 /// `targetId` + `targetType` was a Mongoose refPath over Product | Shop |
 /// Service. Split into three nullable typed FKs with a CHECK constraint (manual
-/// migration SQL) — promotions are queried by target constantly and there are
+/// migration SQL) â€” promotions are queried by target constantly and there are
 /// only three of them.
 model Promotion {
   id String @id @db.VarChar(24)
@@ -1274,7 +1275,7 @@ model BroadcastOffer {
   broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
   broadcastId String    @map("broadcast_id") @db.VarChar(24)
 
-  /// One offer per thread — was a @Prop({ unique: true }) in Mongoose.
+  /// One offer per thread â€” was a @Prop({ unique: true }) in Mongoose.
   thread   BroadcastThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   threadId String          @unique @map("thread_id") @db.VarChar(24)
 
@@ -1364,7 +1365,7 @@ model Review {
   @@map("reviews")
 }
 
-/// Polymorphic over four entity types, admin-only reads, low volume — kept
+/// Polymorphic over four entity types, admin-only reads, low volume â€” kept
 /// denormalised. The four-way entity resolution moves to a raw SQL LEFT JOIN
 /// (src/prisma/repositories/report.repository.ts), which also replaces the one
 /// raw-driver call that existed in reports.service.ts.
@@ -1538,7 +1539,7 @@ model ActivityLog {
   id      String @id @db.VarChar(24)
   logCode Int    @map("log_code")
 
-  /// The actor is staff, and staff are two tables — an admin or a member can
+  /// The actor is staff, and staff are two tables â€” an admin or a member can
   /// both log in to the panel. Two nullable FKs rather than one untyped column
   /// so the audit trail keeps referential integrity either way; a CHECK
   /// constraint (see the migration) enforces that exactly one is set.
@@ -1550,7 +1551,7 @@ model ActivityLog {
 
   action ActivityLogAction
 
-  /// Polymorphic over five types, write-only audit trail — kept denormalised.
+  /// Polymorphic over five types, write-only audit trail â€” kept denormalised.
   targetType ActivityLogTargetType? @map("target_type")
   targetId   String?                @map("target_id") @db.VarChar(24)
 
@@ -1574,7 +1575,7 @@ model EmailLog {
   recipient String
 
   /// Human-readable code of the record the email is about (shop/listing/
-  /// service/job/broadcast code) — not an ObjectId, so no FK.
+  /// service/job/broadcast code) â€” not an ObjectId, so no FK.
   relatedRecordId String? @map("related_record_id")
 
   eventType      EmailLogEvent  @map("event_type")
@@ -1814,7 +1815,7 @@ model AnnouncementView {
 // =============================================================================
 // WALLET
 // All amounts are integer minor units (PKR paisa). onDelete: Restrict on every
-// financial row — history must never disappear because a parent was removed.
+// financial row â€” history must never disappear because a parent was removed.
 // =============================================================================
 
 model Wallet {
@@ -1885,7 +1886,7 @@ model WalletTransaction {
 
   paymentMethod WalletPaymentMethod @map("payment_method")
 
-  /// Audit snapshots of who paid whom, not navigational relations — kept
+  /// Audit snapshots of who paid whom, not navigational relations â€” kept
   /// denormalised as (type, id) pairs exactly as in Mongo.
   senderRefType   WalletRefModel? @map("sender_ref_type")
   senderRefId     String?         @map("sender_ref_id") @db.VarChar(24)
@@ -1918,7 +1919,7 @@ model WalletTransaction {
   @@map("wallet_transactions")
 }
 
-/// The append-only ledger core — every money movement creates one immutable
+/// The append-only ledger core â€” every money movement creates one immutable
 /// row. No service method ever updates or deletes a row; corrections are always
 /// new rows. Opening/closing balances come from the same transaction that moved
 /// the money, so they can never be based on stale data.
@@ -1955,7 +1956,7 @@ model WalletLedgerEntry {
   @@map("wallet_ledger_entries")
 }
 
-/// Full withdrawal state machine. Fazl's own platform fee is always 0% —
+/// Full withdrawal state machine. Fazl's own platform fee is always 0% â€”
 /// externalFeeAmountMinor is informational (what the bank/provider took) and is
 /// never subtracted from requestedAmountMinor by this system.
 model Withdrawal {
@@ -1974,7 +1975,7 @@ model Withdrawal {
   withdrawalMethod WithdrawalMethod @map("withdrawal_method")
 
   /// Was an embedded `accountDetails` subdocument. Four fixed, always-present,
-  /// financially auditable fields — flattened to columns.
+  /// financially auditable fields â€” flattened to columns.
   accountTitle  String  @map("account_title")
   accountNumber String  @map("account_number")
   bankName      String? @map("bank_name")
@@ -2049,7 +2050,7 @@ model Refund {
 }
 
 /// Append-only version history of a merchant's commercial deal. A row is never
-/// updated in place — changing terms closes the active row (sets effectiveTo)
+/// updated in place â€” changing terms closes the active row (sets effectiveTo)
 /// and inserts a new one. `merchantDealPercent` is always server-computed as
 /// customerDiscountPercent + fazlMarginPercent.
 ///
@@ -2130,7 +2131,7 @@ model WalletAuditLog {
 
   transactionId String? @map("transaction_id") @db.VarChar(24)
 
-  /// Arbitrary before/after snapshots — JSONB is the correct model here, not a
+  /// Arbitrary before/after snapshots â€” JSONB is the correct model here, not a
   /// compromise.
   oldValue Json? @map("old_value")
   newValue Json? @map("new_value")

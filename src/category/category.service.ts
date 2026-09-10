@@ -48,7 +48,7 @@ export class CategoryService {
    * { en: [{ name, values, ... }], ur: [{ name, values, ... }] }
    *
    * Also validates the dependency graph a cascading parameter (e.g. "Model"
-   * depending on "Make") describes — this is the only enforcement point that
+   * depending on "Make") describes â€” this is the only enforcement point that
    * will ever see this field: `parameters` arrives as a JSON string,
    * JSON.parse'd in the controller, and there is no global ValidationPipe to
    * catch a malformed graph before it gets here.
@@ -99,7 +99,7 @@ export class CategoryService {
     // A parameter that a later one depends on needs stable ids for its own
     // values whether or not it is itself dependent (e.g. "Make", which has no
     // `dependsOn` of its own but is what "Model" addresses). Auto-generate
-    // rather than requiring every API caller to invent ids by hand — the
+    // rather than requiring every API caller to invent ids by hand â€” the
     // admin UI supplies its own, and this is only the fallback.
     const dependedOnNames = new Set(
       items.map((item) => item.dependsOn).filter((name): name is string => !!name),
@@ -145,7 +145,7 @@ export class CategoryService {
       values: rawValues,
     };
 
-    // Preserve the three behaviour flags rather than defaulting them away —
+    // Preserve the three behaviour flags rather than defaulting them away â€”
     // they used to be silently dropped here on every write and every read.
     if (typeof item.isOptional === "boolean") result.isOptional = item.isOptional;
     if (typeof item.allowCustomValue === "boolean") result.allowCustomValue = item.allowCustomValue;
@@ -166,7 +166,7 @@ export class CategoryService {
         : null;
 
     // `dependsOn` is preserved on its own, even when `valuesByParent` is
-    // missing or empty — that incomplete-but-declared state has to reach
+    // missing or empty â€” that incomplete-but-declared state has to reach
     // validateParameterGraph as a real, named error ("depends on Make but has
     // no values"), not disappear silently into a parameter that looks
     // ordinary.
@@ -178,19 +178,19 @@ export class CategoryService {
       result.valuesByParent = valuesByParent;
 
       // Every bucket needs a matching bucket of keys, whether the caller
-      // supplied one or not — this is deliberately never the flat
+      // supplied one or not â€” this is deliberately never the flat
       // `item.valueKeys` array read on its own (see below): a bucket's
       // values and a bucket's keys must come from the SAME per-bucket
       // source, or a later Postgres jsonb round-trip (which reorders an
       // object's top-level keys, but never an array's elements) can silently
       // pair "Vitz" from Toyota's bucket with a key that belonged to a
-      // different make's bucket the first time this was ever true — them
+      // different make's bucket the first time this was ever true â€” them
       // both being derived from `valuesByParent` bucket-by-bucket, in the
       // same pass, is what keeps that impossible.
       const valueKeysByParent = this.resolveValueKeysByParent(valuesByParent, valueKeysByParentInput);
       result.valueKeysByParent = valueKeysByParent;
 
-      // Never trust a client-sent `values`/`valueKeys` on a dependent entry —
+      // Never trust a client-sent `values`/`valueKeys` on a dependent entry â€”
       // both are always recomputed together from valuesByParent/
       // valueKeysByParent, bucket by bucket, so position i in one always
       // names the same value as position i in the other. This is also what
@@ -214,7 +214,7 @@ export class CategoryService {
   }
 
   /**
-   * Ensures every bucket in `valuesByParent` has a matching bucket of keys —
+   * Ensures every bucket in `valuesByParent` has a matching bucket of keys â€”
    * whatever the caller supplied, when its length matches that bucket's
    * values; freshly generated (slug + collision suffix, unique across the
    * WHOLE entry, not just within one bucket) otherwise.
@@ -246,7 +246,7 @@ export class CategoryService {
 
   /**
    * Flattens `valuesByParent` and its matching `valueKeysByParent` into one
-   * values array and one keys array, bucket by bucket, in the SAME pass —
+   * values array and one keys array, bucket by bucket, in the SAME pass â€”
    * which is what guarantees `values[i]` and `valueKeys[i]` always name the
    * same value no matter what order Postgres hands the buckets back in.
    */
@@ -283,7 +283,7 @@ export class CategoryService {
    * Flattens every parent bucket into one list, in parent order. Deliberately
    * NOT deduplicated by text: a value's identity is its key (parallel to
    * `valueKeys`), not its display text, and two different keyed slots can
-   * legitimately share the same text — e.g. "Samsung" is a real value under
+   * legitimately share the same text â€” e.g. "Samsung" is a real value under
    * both a "Mobile Phone" and a "TV" parent in an Electronics category.
    * Dropping one as a duplicate would silently shrink `values` below
    * `valueKeys`'s length, which is exactly what used to make a client-sent
@@ -318,7 +318,7 @@ export class CategoryService {
 
   /**
    * Validates one locale's parameter array. `dependsOn` must name an entry at
-   * a strictly earlier index in the SAME array — that single rule is what
+   * a strictly earlier index in the SAME array â€” that single rule is what
    * makes a dependency cycle unrepresentable, so no graph walk is needed.
    */
   private validateParameterGraph(items: CategoryParameter[]) {
@@ -372,8 +372,8 @@ export class CategoryService {
   }
 
   /**
-   * A light cross-locale check — same count, and the same positions carry a
-   * dependency — rather than requiring identical value keys. Value keys may
+   * A light cross-locale check â€” same count, and the same positions carry a
+   * dependency â€” rather than requiring identical value keys. Value keys may
    * legitimately differ between locales when the server had to auto-generate
    * them independently for each (an Urdu value slugifies very differently
    * from its English counterpart); resolution never needs them to match,
@@ -469,7 +469,7 @@ export class CategoryService {
     }
   }
 
-  /** A sort number must be unique within its own type (product/service) — the two
+  /** A sort number must be unique within its own type (product/service) â€” the two
    *  types are sorted/displayed independently, so the same number can be reused
    *  across types but not within one. */
   private async checkDuplicateSortNumber(
@@ -510,6 +510,7 @@ export class CategoryService {
         icon: dto.icon ?? null,
         type: dto.type as CategoryType,
         isDisabled: dto.isDisabled ?? false,
+        isDraft: dto.isDraft ?? false,
       },
     });
   }
@@ -547,6 +548,7 @@ export class CategoryService {
         ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
         ...(dto.type !== undefined ? { type: dto.type as CategoryType } : {}),
         ...(dto.isDisabled !== undefined ? { isDisabled: dto.isDisabled } : {}),
+        ...(dto.isDraft !== undefined ? { isDraft: dto.isDraft } : {}),
       },
     });
   }
@@ -570,7 +572,7 @@ export class CategoryService {
 
   async findAll(type?: string) {
     const categories = await this.prisma.category.findMany({
-      where: { isDisabled: false, ...(type ? { type: type as CategoryType } : {}) },
+      where: { isDisabled: false, isDraft: false, ...(type ? { type: type as CategoryType } : {}) },
       orderBy: { sortNumber: "asc" },
     });
 
@@ -587,7 +589,7 @@ export class CategoryService {
 
   async findById(id: string, lang: string = "en") {
     const category = await this.prisma.category.findFirst({
-      where: { id, isDisabled: false },
+      where: { id, isDisabled: false, isDraft: false },
     });
 
     if (!category)
@@ -601,7 +603,7 @@ export class CategoryService {
     };
   }
 
-  /** Soft delete — the row stays so listings referencing it keep resolving. */
+  /** Soft delete â€” the row stays so listings referencing it keep resolving. */
   async delete(id: string): Promise<void> {
     const existing = await this.prisma.category.findUnique({ where: { id } });
     if (!existing)
@@ -706,7 +708,7 @@ export class CategoryService {
   }
 
   /** Sentinel category for a lightweight "just a video" post, which doesn't
-   *  collect a real category from the owner — one per listing type (a
+   *  collect a real category from the owner â€” one per listing type (a
    *  service's video post needs its own, distinct from a product's, since
    *  Category.type is required to match the row it's attached to). Query
    *  ignores `isDisabled` so this stays idempotent even if it were ever
@@ -728,7 +730,7 @@ export class CategoryService {
     return this.prisma.category.create({
       data: {
         id: generateObjectId(),
-        name: { en: VIDEO_POST_CATEGORY_NAME, ur: "ویڈیو پوسٹ" } as Prisma.InputJsonValue,
+        name: { en: VIDEO_POST_CATEGORY_NAME, ur: "ÙˆÛŒÚˆÛŒÙˆ Ù¾ÙˆØ³Ù¹" } as Prisma.InputJsonValue,
         type,
         isDisabled: true,
       },
