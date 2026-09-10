@@ -58,6 +58,9 @@ export class CategoryController {
     @Body() dto: CreateUpdateCategoryDto,
     @UploadedFile() icon?: any,
   ) {
+    if (typeof dto.isDraft === "string") {
+      dto.isDraft = dto.isDraft === "true";
+    }
     if (typeof dto.name === "string") {
       dto.name = JSON.parse(dto.name);
     }
@@ -130,6 +133,9 @@ export class CategoryController {
     @Body() dto: CreateUpdateCategoryDto,
     @UploadedFile() icon?: any,
   ) {
+    if (typeof dto.isDraft === "string") {
+      dto.isDraft = dto.isDraft === "true";
+    }
     if (typeof dto.name === "string") {
       dto.name = JSON.parse(dto.name);
     }
