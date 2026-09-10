@@ -44,6 +44,22 @@ export class SearchService {
     "neighborhood",
   ];
 
+  /**
+   * The key the browser uses to draw the map.
+   *
+   * A browser map cannot be drawn without a key reaching the browser, and the
+   * web app is deployed separately so it cannot read this one from here. Served
+   * rather than duplicated into the frontend's environment, so there is one
+   * place to change it.
+   *
+   * Note this key is then public to anyone who opens the shop form — restrict
+   * it by HTTP referrer in the Google console.
+   */
+  getMapsBrowserKey(): string {
+    return this.configService.get<string>("GOOGLE_MAPS_BROWSER_KEY")
+      ?? this.configService.getOrThrow<string>("GOOGLE_LOCATION_API_KEY");
+  }
+
   /** True when a prediction actually belongs to the named city. */
   private belongsToCity(prediction: any, city: string): boolean {
     const needle = city.trim().toLowerCase();

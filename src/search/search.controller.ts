@@ -63,6 +63,16 @@ export class SearchController {
     });
   }
 
+  @Get("maps-key")
+  @ApiOperation({
+    summary: "The browser key for drawing the map",
+    description:
+      "The map is drawn by the browser, which cannot read the server's environment, so the key has to be served. Anyone who can open the shop form can read it — restrict the key by HTTP referrer in the Google console.",
+  })
+  mapsKey() {
+    return { key: this.searchService.getMapsBrowserKey() };
+  }
+
   @Get("reverse-geocode")
   @ApiOperation({ summary: "Turn a map point into a readable address" })
   @ApiQuery({ name: "lat", type: Number, required: true })
