@@ -59,6 +59,22 @@ export interface CategoryParameter {
    * this parameter's values available under that parent value.
    */
   valuesByParent?: Record<string, string[]>;
+  /**
+   * Present when `dependsOn` is set: the same keys as `valuesByParent`, but
+   * mapping to THIS parameter's own value keys instead of display text —
+   * parallel array, same length, per bucket.
+   *
+   * This is what a grandchild parameter (e.g. Variant, depending on Model,
+   * which itself depends on Make) has to resolve against instead of the flat
+   * `valueKeys`: once a cascade narrows Model's shown options down to one
+   * Make's models, "Vitz"'s position *within that narrowed list* has nothing
+   * to do with its position in the full `valueKeys` array — using the flat
+   * array there silently returns a different model's key for every Make
+   * except whichever one happens to occupy the first slots. Looking the key
+   * up in the same bucket the option list itself came from is what keeps the
+   * two aligned regardless of how many other makes/models exist before it.
+   */
+  valueKeysByParent?: Record<string, string[]>;
 }
 
 /**

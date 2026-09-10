@@ -78,6 +78,15 @@ class CategoryParameterEntryDto {
   @IsOptional()
   @IsObject()
   valuesByParent?: Record<string, string[]>;
+
+  @ApiPropertyOptional({
+    example: { toyota: ["corolla", "yaris"], honda: ["city", "civic"] },
+    description:
+      "Same shape as valuesByParent but holding this parameter's own value keys instead of display text — what a further, grandchild parameter resolves against. Auto-generated per bucket when omitted.",
+  })
+  @IsOptional()
+  @IsObject()
+  valueKeysByParent?: Record<string, string[]>;
 }
 
 class CategoryParametersDto {

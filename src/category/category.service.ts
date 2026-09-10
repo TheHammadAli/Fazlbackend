@@ -158,6 +158,12 @@ export class CategoryService {
       !Array.isArray(item.valuesByParent)
         ? this.normalizeValuesByParent(item.valuesByParent)
         : null;
+    const valueKeysByParentInput =
+      item.valueKeysByParent &&
+      typeof item.valueKeysByParent === "object" &&
+      !Array.isArray(item.valueKeysByParent)
+        ? this.normalizeValuesByParent(item.valueKeysByParent)
+        : null;
 
     // `dependsOn` is preserved on its own, even when `valuesByParent` is
     // missing or empty — that incomplete-but-declared state has to reach
@@ -170,11 +176,31 @@ export class CategoryService {
 
     if (dependsOn && valuesByParent && Object.keys(valuesByParent).length > 0) {
       result.valuesByParent = valuesByParent;
-      // Never trust a client-sent `values` on a dependent entry — it is
-      // always the recomputed union of valuesByParent. This is what lets an
-      // old client, which has never heard of `dependsOn`, still see a real,
-      // usable (if unfiltered) list instead of an empty, unfillable field.
-      result.values = this.unionOfValuesByParent(valuesByParent);
+
+      // Every bucket needs a matching bucket of keys, whether the caller
+      // supplied one or not — this is deliberately never the flat
+      // `item.valueKeys` array read on its own (see below): a bucket's
+      // values and a bucket's keys must come from the SAME per-bucket
+      // source, or a later Postgres jsonb round-trip (which reorders an
+      // object's top-level keys, but never an array's elements) can silently
+      // pair "Vitz" from Toyota's bucket with a key that belonged to a
+      // different make's bucket the first time this was ever true — them
+      // both being derived from `valuesByParent` bucket-by-bucket, in the
+      // same pass, is what keeps that impossible.
+      const valueKeysByParent = this.resolveValueKeysByParent(valuesByParent, valueKeysByParentInput);
+      result.valueKeysByParent = valueKeysByParent;
+
+      // Never trust a client-sent `values`/`valueKeys` on a dependent entry —
+      // both are always recomputed together from valuesByParent/
+      // valueKeysByParent, bucket by bucket, so position i in one always
+      // names the same value as position i in the other. This is also what
+      // lets an old client, which has never heard of `dependsOn`, still see
+      // a real, usable (if unfiltered) list instead of an empty, unfillable
+      // field.
+      const flattened = this.flattenBuckets(valuesByParent, valueKeysByParent);
+      result.values = flattened.values;
+      result.valueKeys = flattened.valueKeys;
+      return result;
     }
 
     if (
@@ -185,6 +211,61 @@ export class CategoryService {
     }
 
     return result;
+  }
+
+  /**
+   * Ensures every bucket in `valuesByParent` has a matching bucket of keys —
+   * whatever the caller supplied, when its length matches that bucket's
+   * values; freshly generated (slug + collision suffix, unique across the
+   * WHOLE entry, not just within one bucket) otherwise.
+   */
+  private resolveValueKeysByParent(
+    valuesByParent: Record<string, string[]>,
+    providedKeysByParent: Record<string, string[]> | null,
+  ): Record<string, string[]> {
+    const used = new Map<string, number>();
+    const result: Record<string, string[]> = {};
+
+    for (const [bucketKey, values] of Object.entries(valuesByParent)) {
+      const provided = providedKeysByParent?.[bucketKey];
+      if (provided && provided.length === values.length) {
+        result[bucketKey] = provided;
+        continue;
+      }
+
+      result[bucketKey] = values.map((value, index) => {
+        const base = this.slugifyValue(value) || `value-${index}`;
+        const seen = used.get(base) ?? 0;
+        used.set(base, seen + 1);
+        return seen === 0 ? base : `${base}-${seen + 1}`;
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Flattens `valuesByParent` and its matching `valueKeysByParent` into one
+   * values array and one keys array, bucket by bucket, in the SAME pass —
+   * which is what guarantees `values[i]` and `valueKeys[i]` always name the
+   * same value no matter what order Postgres hands the buckets back in.
+   */
+  private flattenBuckets(
+    valuesByParent: Record<string, string[]>,
+    valueKeysByParent: Record<string, string[]>,
+  ): { values: string[]; valueKeys: string[] } {
+    const values: string[] = [];
+    const valueKeys: string[] = [];
+
+    for (const [bucketKey, bucketValues] of Object.entries(valuesByParent)) {
+      const bucketKeys = valueKeysByParent[bucketKey] ?? [];
+      bucketValues.forEach((value, index) => {
+        values.push(value);
+        valueKeys.push(bucketKeys[index] ?? `${bucketKey}-${index}`);
+      });
+    }
+
+    return { values, valueKeys };
   }
 
   private normalizeValuesByParent(raw: Record<string, any>): Record<string, string[]> {
@@ -198,16 +279,20 @@ export class CategoryService {
     return normalized;
   }
 
+  /**
+   * Flattens every parent bucket into one list, in parent order. Deliberately
+   * NOT deduplicated by text: a value's identity is its key (parallel to
+   * `valueKeys`), not its display text, and two different keyed slots can
+   * legitimately share the same text — e.g. "Samsung" is a real value under
+   * both a "Mobile Phone" and a "TV" parent in an Electronics category.
+   * Dropping one as a duplicate would silently shrink `values` below
+   * `valueKeys`'s length, which is exactly what used to make a client-sent
+   * key set look stale and get regenerated out from under it.
+   */
   private unionOfValuesByParent(valuesByParent: Record<string, string[]>): string[] {
-    const seen = new Set<string>();
     const union: string[] = [];
     for (const values of Object.values(valuesByParent)) {
-      for (const value of values) {
-        if (!seen.has(value)) {
-          seen.add(value);
-          union.push(value);
-        }
-      }
+      union.push(...values);
     }
     return union;
   }

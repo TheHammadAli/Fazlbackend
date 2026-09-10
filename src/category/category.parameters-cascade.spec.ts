@@ -97,6 +97,128 @@ describe("CategoryService — cascading parameters", () => {
     });
   });
 
+  it("keeps a repeated value TEXT under two different parents distinct via valueKeysByParent (e.g. \"Samsung\" under both Mobile Phone and TV)", async () => {
+    // A middle-tier parameter (Brand) is itself dependent (on Item) AND
+    // depended on (by Model). Its client-sent `valueKeysByParent` — one
+    // globally-unique key per bucket, exactly what the admin panel sends —
+    // must survive as-is, keyed the same way in the flattened `valueKeys`.
+    const dto: any = {
+      name: { en: "Electronics" },
+      type: CategoryType.PRODUCT,
+      parameters: {
+        en: [
+          {
+            name: "Item",
+            values: ["Mobile Phone", "TV"],
+            valueKeys: ["mobile-phone", "tv"],
+          },
+          {
+            name: "Brand",
+            dependsOn: "Item",
+            values: [],
+            valuesByParent: {
+              "mobile-phone": ["Samsung"],
+              tv: ["Samsung"],
+            },
+            valueKeysByParent: {
+              "mobile-phone": ["brand-1"],
+              tv: ["brand-2"],
+            },
+          },
+          {
+            name: "Model",
+            dependsOn: "Brand",
+            values: [],
+            valuesByParent: {
+              "brand-1": ["Galaxy S24"],
+              "brand-2": ["Crystal UHD 55"],
+            },
+          },
+        ],
+        ur: [],
+      },
+    };
+
+    const result = await service.create(dto);
+    const en = (result as any).parameters.en;
+    const brand = en[1];
+    const model = en[2];
+
+    // Both "Samsung" slots survive with their own distinct keys.
+    expect(brand.values).toEqual(["Samsung", "Samsung"]);
+    expect(brand.valueKeys).toEqual(["brand-1", "brand-2"]);
+    expect(brand.valueKeysByParent).toEqual({
+      "mobile-phone": ["brand-1"],
+      tv: ["brand-2"],
+    });
+    expect(model.valuesByParent).toEqual({
+      "brand-1": ["Galaxy S24"],
+      "brand-2": ["Crystal UHD 55"],
+    });
+  });
+
+  it("gives every value a bucket-scoped key that survives being flattened in a different order — a Postgres jsonb round-trip reorders an object's top-level keys, never an array's elements, so `values`/`valueKeys` must stay correct regardless of which order the buckets come back in", async () => {
+    // This is the exact shape of the real bug: Make -> Model -> Variant,
+    // three levels, more than one Make. Before the fix, Variant resolved a
+    // Model's key by searching for its position in Model's globally FLAT
+    // valueKeys using its index within the CURRENTLY SHOWN (Make-filtered)
+    // options list — correct only when the selected Make happened to occupy
+    // the first slots of that flat array. Toyota (first) accidentally
+    // worked; Honda never did.
+    const dto: any = {
+      name: { en: "Cars" },
+      type: CategoryType.PRODUCT,
+      parameters: {
+        en: [
+          { name: "Make", values: ["Toyota", "Honda"], valueKeys: ["toyota", "honda"] },
+          {
+            name: "Model",
+            dependsOn: "Make",
+            values: [],
+            valuesByParent: { toyota: ["Corolla", "Vitz"], honda: ["City", "Civic"] },
+          },
+        ],
+        ur: [],
+      },
+    };
+
+    // Created without a Variant level first, then Variant is added in a
+    // second save — keyed by whatever Model's own resolved keys turn out to
+    // be, read back from the create response rather than guessed, exactly
+    // like a real second save (e.g. the admin's own paired editor) would do.
+    const created = await service.create(dto);
+    const model = (created as any).parameters.en[1];
+    const vitzIndex = model.values.indexOf("Vitz");
+    const vitzKey = model.valueKeys[vitzIndex];
+    const cityIndex = model.values.indexOf("City");
+    const cityKey = model.valueKeys[cityIndex];
+
+    const updated = await service.update("cat1", {
+      parameters: {
+        en: [
+          dto.parameters.en[0],
+          dto.parameters.en[1],
+          {
+            name: "Variant",
+            dependsOn: "Model",
+            values: [],
+            valuesByParent: {
+              [vitzKey]: ["Standard", "Euro II"],
+              [cityKey]: ["Aspire", "i-VTEC"],
+            },
+          },
+        ],
+        ur: [],
+      },
+    } as any);
+
+    const variant = (updated as any).parameters.en[2];
+    // Vitz (under Toyota, NOT the first Make) must get exactly Vitz's own
+    // variants — not Corolla's, Honda's, or anything positional.
+    expect(variant.valuesByParent[vitzKey]).toEqual(["Standard", "Euro II"]);
+    expect(variant.valuesByParent[cityKey]).toEqual(["Aspire", "i-VTEC"]);
+  });
+
   it("recomputes `values` on a dependent entry as the union of valuesByParent, ignoring whatever the client sent", async () => {
     const dto: any = {
       name: { en: "Cars" },
