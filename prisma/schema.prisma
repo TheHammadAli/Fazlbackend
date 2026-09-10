@@ -840,6 +840,11 @@ model Product {
 
   address String?
 
+  /// Where a private listing is, chosen the same way a shop's is. A shop's
+  /// products inherit their location from the shop, so these stay null there.
+  city String?
+  area String?
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -854,6 +859,7 @@ model Product {
   @@index([categoryId])
   @@index([ownerId])
   @@index([createdAt(sort: Desc)])
+  @@index([city, area])
   @@index([searchableTags], type: Gin)
   @@map("products")
 }

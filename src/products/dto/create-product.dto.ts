@@ -139,4 +139,20 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @ApiPropertyOptional({
+    example: "Karachi",
+    description: "City of a private listing. A shop's products take the shop's location instead.",
+  })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({
+    example: "DHA Phase 6",
+    description: "Area within the city, for a private listing.",
+  })
+  @IsOptional()
+  @IsString()
+  area?: string;
 }

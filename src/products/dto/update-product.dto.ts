@@ -108,5 +108,15 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @ApiPropertyOptional({ example: "Karachi", description: "City of a private listing" })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({ example: "DHA Phase 6", description: "Area within the city" })
+  @IsOptional()
+  @IsString()
+  area?: string;
   // --------------------------------
 }

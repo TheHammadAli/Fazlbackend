@@ -329,6 +329,10 @@ export class ProductsService {
           searchableTags: buildSearchableTags(parameters),
           isVideoPost,
           address,
+          // Only a private listing carries these; a shop's products are found
+          // through the shop, which holds its own city and area.
+          city: dto.city?.trim() || null,
+          area: dto.area?.trim() || null,
         },
       });
 
@@ -694,6 +698,8 @@ export class ProductsService {
     if (dto.price !== undefined) data.price = Math.round(Number(dto.price));
     if (dto.type !== undefined) data.type = dto.type as ProductType;
     if (dto.address !== undefined) data.address = dto.address;
+    if (dto.city !== undefined) data.city = dto.city.trim() || null;
+    if (dto.area !== undefined) data.area = dto.area.trim() || null;
     if (dto.category) data.category = { connect: { id: dto.category } };
 
     if (dto.location) {
