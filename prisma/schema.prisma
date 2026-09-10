@@ -83,6 +83,9 @@ enum AdminAction {
 enum CategoryType {
   service
   product
+  /// Shops used to be classified with product categories, which meant the two
+  /// lists could never differ. Their own type lets an admin manage them apart.
+  shop
 }
 
 enum CategoryRequestStatus {

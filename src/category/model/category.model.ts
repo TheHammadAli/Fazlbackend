@@ -18,7 +18,7 @@ export enum CategoryType {
   PRODUCT = "product",
 }
 
-export const CATEGORY_TYPES = ["service", "product"] as const;
+export const CATEGORY_TYPES = ["service", "product", "shop"] as const;
 
 export const CATEGORY_REQUEST_STATUSES = ["pending", "approved", "rejected"] as const;
 export type CategoryRequestStatus = (typeof CATEGORY_REQUEST_STATUSES)[number];
