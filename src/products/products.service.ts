@@ -184,6 +184,48 @@ export class ProductsService {
     return `VID-${String(counter.seq).padStart(6, "0")}`;
   }
 
+  /**
+   * A shop is opened under one category and what it sells has to stay inside
+   * it: an Electronics shop lists electronics, not furniture.
+   *
+   * The app's category picker only offers the shop's own category, so this is
+   * the same rule stated on the server — for direct API calls, for the older
+   * app builds still sending a free choice, and for the admin panel.
+   *
+   * A shop also carries an optional subcategory; both count as inside the shop.
+   */
+  private async assertCategoryAllowedForShop(shopId: string, categoryId: string) {
+    const shop = await this.prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { categoryId: true, subcategoryId: true },
+    });
+    if (!shop) return;
+
+    const allowed = [shop.categoryId, shop.subcategoryId].filter(
+      (id): id is string => !!id,
+    );
+    if (allowed.includes(categoryId)) return;
+
+    // Shops are classified with product categories, which is what makes the
+    // shop's category directly comparable to the listing's. A shop filed under
+    // a shop-type category has no product category to compare against — and
+    // leaving that shop unable to list anything at all would be worse than not
+    // enforcing here.
+    const shopCategory = await this.prisma.category.findUnique({
+      where: { id: shop.categoryId },
+      select: { type: true, name: true },
+    });
+    if (shopCategory?.type !== "product") return;
+
+    const names = (shopCategory.name ?? {}) as Record<string, string>;
+    throw new BadRequestException(
+      this.i18n.translate("auth.products.category_not_in_shop", {
+        lang: this.lang,
+        args: { category: names[this.lang] ?? names.en ?? "" },
+      }),
+    );
+  }
+
   async create(
     entityId: string,
     type: "shop" | "personal",
@@ -241,6 +283,12 @@ export class ProductsService {
 
         shopId = shop.id;
         location = shop.location;
+
+        // A video post carries the internal sentinel category, not a chosen
+        // one, so the shop's category doesn't apply to it.
+        if (!isVideoPost) {
+          await this.assertCategoryAllowedForShop(shop.id, categoryId);
+        }
       } else if (type === "personal") {
         const user = await this.userService.findUserById(entityId);
         if (!user) {
@@ -700,7 +748,23 @@ export class ProductsService {
     if (dto.address !== undefined) data.address = dto.address;
     if (dto.city !== undefined) data.city = dto.city.trim() || null;
     if (dto.area !== undefined) data.area = dto.area.trim() || null;
-    if (dto.category) data.category = { connect: { id: dto.category } };
+    if (dto.category) {
+      // Editing a shop's listing can't move it out of the shop's category
+      // either, or the create-time rule would be one save away from undone.
+      // Resending the category it already has is not a move, and stays
+      // allowed — listings that predate this rule are still editable.
+      if (
+        existingProduct.shopId &&
+        !existingProduct.isVideoPost &&
+        dto.category !== existingProduct.categoryId
+      ) {
+        await this.assertCategoryAllowedForShop(
+          existingProduct.shopId,
+          dto.category,
+        );
+      }
+      data.category = { connect: { id: dto.category } };
+    }
 
     if (dto.location) {
       const { latitude, longitude } = toLatLng(
