@@ -887,6 +887,7 @@ export class ServicesService {
     const filters = [
       Prisma.sql`is_deleted = false`,
       Prisma.sql`is_disabled = false`,
+      Prisma.sql`is_video_post = false`,
       ...(query.category ? [Prisma.sql`category_id = ${query.category}`] : []),
     ];
 
@@ -938,6 +939,7 @@ export class ServicesService {
     const where: Prisma.ServiceWhereInput = {
       isDeleted: false,
       isDisabled: false,
+      isVideoPost: false,
     };
 
     if (query.name) {
