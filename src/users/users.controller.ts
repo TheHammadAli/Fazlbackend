@@ -78,6 +78,21 @@ export class UsersController {
     createUserDto.location = JSON.parse(
       createUserDto.location?.toString() || "{}",
     );
+    // multipart/form-data flattens every field to a string — a client
+    // sending roles as a bare "buyer" (or a JSON-stringified array) both
+    // need normalizing back to a real array, or Prisma rejects the create
+    // with "Expected UserCreaterolesInput or UserRole[], provided String".
+    if (typeof createUserDto.roles === "string") {
+      const rawRoles = createUserDto.roles;
+      try {
+        const parsed = JSON.parse(rawRoles);
+        createUserDto.roles = Array.isArray(parsed) ? parsed : [rawRoles];
+      } catch {
+        createUserDto.roles = [rawRoles];
+      }
+    } else if (!Array.isArray(createUserDto.roles)) {
+      createUserDto.roles = ["buyer"];
+    }
     const user = await this.usersService.createUser(createUserDto);
     if (!user) {
       throw new InternalServerErrorException();
