@@ -265,10 +265,13 @@ export class NotificationsService {
       );
     }
 
+    // Direct chat messages already surface inside the Chat screen itself, so
+    // they're excluded here to avoid showing the same thing twice.
+    const where = { userId, type: { notIn: ["MESSAGE" as const] } };
     const [total, data] = await Promise.all([
-      this.prisma.notification.count({ where: { userId } }),
+      this.prisma.notification.count({ where }),
       this.prisma.notification.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -330,6 +333,10 @@ export class NotificationsService {
       );
     }
 
-    return this.prisma.notification.count({ where: { userId, read: false } });
+    // Kept in sync with findByUser's exclusion — otherwise the bell badge
+    // would count chat messages that never actually show up in the list.
+    return this.prisma.notification.count({
+      where: { userId, read: false, type: { notIn: ["MESSAGE" as const] } },
+    });
   }
 }
