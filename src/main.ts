@@ -10,7 +10,14 @@ import * as express from "express";
 import { join } from "path";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // bodyParser: false so we can raise the JSON/urlencoded size limit past
+  // the default 100kb — a category with a large parameter set (e.g. Cars'
+  // Make/Model/Variant lists) alone serializes past that on a plain JSON
+  // save (no icon file), which the default limit was silently rejecting
+  // as an uncaught PayloadTooLargeError (a bare 500, not even a 413).
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
   app.enableCors({
     origin: true,
     credentials: true,
