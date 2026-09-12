@@ -22,7 +22,11 @@ export type ShopWhatsappClick = ShopWhatsappClickRow;
 /** The relations a shop is read with, matching the old populate() calls. */
 export const SHOP_INCLUDE = {
   owner: { select: { id: true, name: true, email: true } },
-  category: { select: { id: true, name: true } },
+  // type + groupedCategoryIds so a listing form can tell a shop-type
+  // category (which groups several product categories) from a shop still
+  // filed directly under a plain product category, and knows which product
+  // categories that group allows without a second round-trip.
+  category: { select: { id: true, name: true, type: true, groupedCategoryIds: true } },
   subcategory: { select: { id: true, name: true } },
 } satisfies Prisma.ShopInclude;
 

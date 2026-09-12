@@ -80,7 +80,16 @@ export function buildSearchableTags(parameters?: unknown): string[] {
 /** The relations a product is read with, matching the old populate() calls. */
 export const PRODUCT_INCLUDE = {
   category: true,
-  shop: { include: { owner: { select: { id: true, name: true, phone: true } } } },
+  shop: {
+    include: {
+      owner: { select: { id: true, name: true, phone: true } },
+      // type + groupedCategoryIds so an edit form can tell a shop-type
+      // category (grouping several product categories) from a shop still
+      // filed directly under a plain product category, and knows which
+      // product categories that group allows.
+      category: { select: { id: true, name: true, type: true, groupedCategoryIds: true } },
+    },
+  },
   owner: { select: { id: true, name: true, email: true, image: true, phone: true } },
   // Only ever set on a video post — the real listing it optionally promotes.
   // Minimal fields: enough for a card/thumbnail, not a second full product.
