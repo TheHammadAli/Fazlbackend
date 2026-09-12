@@ -16,12 +16,12 @@ export class LoginDto {
   password: string;
 
   @ApiPropertyOptional({
-    enum: ["web", "admin"],
+    enum: ["web", "admin", "app"],
     example: "web",
     description:
-      "Which app the login came from. A member who was promoted from an existing account has a separate admin-panel password — 'admin' checks that one, 'web' (default) checks the account's original password.",
+      "Which app the login came from. A member who was promoted from an existing account has a separate admin-panel password — 'admin' checks that one; 'web' and 'app' (default 'web') both check the account's original password, and only differ in how long the issued access token lasts.",
   })
   @IsOptional()
-  @IsIn(["web", "admin"])
-  loginContext?: "web" | "admin";
+  @IsIn(["web", "admin", "app"])
+  loginContext?: "web" | "admin" | "app";
 }

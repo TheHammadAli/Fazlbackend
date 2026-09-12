@@ -22,6 +22,10 @@ export interface JwtPayload {
   roles: string[];
   principal?: PrincipalType;
   permissions?: PermissionEntry[];
+  // Which client this token was issued for — governs its access-token
+  // lifetime (see USER_ACCESS_TOKEN_EXPIRY in auth.service.ts). Optional
+  // since staff tokens and tokens issued before this existed carry none.
+  platform?: "web" | "app";
   location: Location;
   image: string | null;
 }

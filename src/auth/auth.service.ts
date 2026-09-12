@@ -17,6 +17,16 @@ import { EmailService } from "src/common/email-service/email-service";
 import { ActivityLogService } from "src/activity-log/activity-log.service";
 import { AdminsService } from "src/admins/admins.service";
 
+// A regular user's access token lives longer on the native app than on the
+// website — a phone stays signed in across app restarts far more than a
+// browser tab does, so it gets a longer leash. Admin-panel tokens are a
+// separate concern (loginStaff/refreshStaffTokens) and unaffected by this.
+type UserPlatform = "web" | "app";
+const USER_ACCESS_TOKEN_EXPIRY: Record<UserPlatform, string> = {
+  web: "7d",
+  app: "15d",
+};
+
 @Injectable()
 export class AuthService {
   private twilioClient: Twilio;
@@ -55,6 +65,9 @@ export class AuthService {
       return this.loginStaff(loginDto, ipAddress);
     }
 
+    const platform: UserPlatform =
+      loginDto.loginContext === "app" ? "app" : "web";
+
     const user = await this.userService.validateUserForLogin(
       loginDto.email,
       loginDto.password,
@@ -80,6 +93,9 @@ export class AuthService {
       email: user.email,
       roles: user.roles, // if you have roles
       principal: "user" as const,
+      // Carried through to refreshTokens() so a refreshed access token keeps
+      // the same platform-appropriate lifetime instead of resetting to web's.
+      platform,
       // Stored as latitude/longitude columns; the token has always carried
       // GeoJSON, so it is rebuilt here rather than changing the token shape.
       location: toGeoJson(user.latitude, user.longitude),
@@ -88,7 +104,7 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: "1d",
+      expiresIn: USER_ACCESS_TOKEN_EXPIRY[platform],
     });
 
     const refreshToken = this.jwtService.sign(payload, {
@@ -193,18 +209,24 @@ export class AuthService {
         );
       }
 
+      // The original login's platform travels in the refresh token itself
+      // (set in loginUser); an old refresh token minted before this existed
+      // has no `platform` claim, so it falls back to web's shorter lifetime.
+      const platform: UserPlatform = payload.platform === "app" ? "app" : "web";
+
       const newPayload = {
         sub: user.id,
         email: user.email,
         roles: user.roles,
         principal: "user" as const,
+        platform,
         location: toGeoJson(user.latitude, user.longitude),
         image: user.image,
         isDisabled: user.isDisabled,
       };
 
       const newAccessToken = this.jwtService.sign(newPayload, {
-        expiresIn: "1d",
+        expiresIn: USER_ACCESS_TOKEN_EXPIRY[platform],
       });
 
       const newRefreshToken = this.jwtService.sign(newPayload, {
@@ -531,18 +553,23 @@ export class AuthService {
     };
   }
 
-  async findOrCreateUserByEmail(payload: {
-    sub: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    name?: string;
-    // The declared shape used to be `{ accessToken, returnPayload }`, which this
-    // method never returned: it spreads returnPayload's fields onto the top
-    // level (see the return below), so callers get `email`, `name`,
-    // `refreshToken` and `sub` directly. The old annotation hid that from every
-    // caller and from the type checker.
-  }): Promise<{ accessToken: string } & Record<string, any>> {
+  async findOrCreateUserByEmail(
+    payload: {
+      sub: string;
+      email: string;
+      firstName?: string;
+      lastName?: string;
+      name?: string;
+      // The declared shape used to be `{ accessToken, returnPayload }`, which this
+      // method never returned: it spreads returnPayload's fields onto the top
+      // level (see the return below), so callers get `email`, `name`,
+      // `refreshToken` and `sub` directly. The old annotation hid that from every
+      // caller and from the type checker.
+    },
+    // "web" (the browser redirect flow at google/callback) unless the native
+    // app's google/verify/token path says otherwise.
+    platform: UserPlatform = "web",
+  ): Promise<{ accessToken: string } & Record<string, any>> {
     // Check if user exists
     const user = await this.userService.findUserByEmail(payload.email);
     let returnPayload: any = {};
@@ -598,7 +625,7 @@ export class AuthService {
     }
 
     const accessToken = this.jwtService.sign(returnPayload, {
-      expiresIn: "1d",
+      expiresIn: USER_ACCESS_TOKEN_EXPIRY[platform],
     });
 
     return {
@@ -630,13 +657,20 @@ export class AuthService {
         throw new UnauthorizedException("Invalid Google token");
       }
 
-      const user = await this.findOrCreateUserByEmail({
-        sub: payload["sub"],
-        email: payload["email"] as string,
-        firstName: payload["given_name"],
-        lastName: payload["family_name"],
-        name: payload["name"],
-      });
+      // This endpoint (auth/google/verify/token) is only ever called by the
+      // native app's Google Sign-In SDK flow — the website uses the separate
+      // browser-redirect flow (auth/google/callback) instead, which defaults
+      // to "web" on its own findOrCreateUserByEmail call.
+      const user = await this.findOrCreateUserByEmail(
+        {
+          sub: payload["sub"],
+          email: payload["email"] as string,
+          firstName: payload["given_name"],
+          lastName: payload["family_name"],
+          name: payload["name"],
+        },
+        "app",
+      );
 
       return { user, accessToken: user.accessToken };
     } catch (err) {
