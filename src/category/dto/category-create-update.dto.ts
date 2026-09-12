@@ -171,4 +171,14 @@ export class CreateUpdateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isDraft?: boolean;
+
+  @ApiPropertyOptional({
+    example: ["66f1a2b3c4d5e6f7a8b9c0d1", "66f1a2b3c4d5e6f7a8b9c0d2"],
+    description:
+      "Only used when type = 'shop': ids of the 'product' type categories this shop category groups (e.g. Vehicle -> Car, Bike).",
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  groupedCategoryIds?: string[];
 }

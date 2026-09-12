@@ -70,6 +70,9 @@ export class CategoryController {
     if (dto.parameters && typeof dto.parameters === "string") {
       dto.parameters = JSON.parse(dto.parameters);
     }
+    if (dto.groupedCategoryIds && typeof dto.groupedCategoryIds === "string") {
+      dto.groupedCategoryIds = JSON.parse(dto.groupedCategoryIds);
+    }
     if (icon) {
       dto.icon = await this.fileUploadService.uploadCategoryIcon(icon);
     }
@@ -85,7 +88,7 @@ export class CategoryController {
     example: "en",
   })
   @ApiOperation({ summary: "Get all categories" })
-  @ApiQuery({ name: "type", required: false, description: "Filter by category type", enum: ["product", "service"] })
+  @ApiQuery({ name: "type", required: false, description: "Filter by category type", enum: ["product", "service", "shop"] })
   @ApiResponse({ status: 200, description: "List of categories" })
   findAll(@Query("type") type?: string) {
     return this.categoryService.findAll(type);
@@ -144,6 +147,9 @@ export class CategoryController {
     }
     if (dto.parameters && typeof dto.parameters === "string") {
       dto.parameters = JSON.parse(dto.parameters);
+    }
+    if (dto.groupedCategoryIds && typeof dto.groupedCategoryIds === "string") {
+      dto.groupedCategoryIds = JSON.parse(dto.groupedCategoryIds);
     }
     if (icon) {
       dto.icon = await this.fileUploadService.uploadCategoryIcon(icon);

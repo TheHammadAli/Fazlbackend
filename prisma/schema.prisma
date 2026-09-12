@@ -720,6 +720,11 @@ model Category {
   icon       String?
   type       CategoryType
 
+  /// Only meaningful when type = "shop": the product categories this shop
+  /// category groups (e.g. Vehicle -> [Car's id, Bike's id]). A shop filed
+  /// under this category may list products in any of these.
+  groupedCategoryIds String[] @default([]) @map("grouped_category_ids")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

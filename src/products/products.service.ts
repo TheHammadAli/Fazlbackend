@@ -206,18 +206,24 @@ export class ProductsService {
     );
     if (allowed.includes(categoryId)) return;
 
-    // Shops are classified with product categories, which is what makes the
-    // shop's category directly comparable to the listing's. A shop filed under
-    // a shop-type category has no product category to compare against — and
-    // leaving that shop unable to list anything at all would be worse than not
-    // enforcing here.
     const shopCategory = await this.prisma.category.findUnique({
       where: { id: shop.categoryId },
-      select: { type: true, name: true },
+      select: { type: true, name: true, groupedCategoryIds: true },
     });
-    if (shopCategory?.type !== "product") return;
 
-    const names = (shopCategory.name ?? {}) as Record<string, string>;
+    // A shop-type category groups several product categories (e.g. "Vehicle"
+    // -> Car, Bike) — the listing's category must be one of them. A shop
+    // still filed directly under a plain product category (the pre-grouping
+    // shape) is already covered by the exact-match check above and enforces
+    // nothing further here. Anything else (category missing/disabled) stays
+    // unenforced, same as before.
+    if (shopCategory?.type === "shop") {
+      if ((shopCategory.groupedCategoryIds ?? []).includes(categoryId)) return;
+    } else if (shopCategory?.type !== "product") {
+      return;
+    }
+
+    const names = (shopCategory?.name ?? {}) as Record<string, string>;
     throw new BadRequestException(
       this.i18n.translate("auth.products.category_not_in_shop", {
         lang: this.lang,

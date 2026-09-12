@@ -495,9 +495,42 @@ export class CategoryService {
     }
   }
 
+  /** Only a "shop" category actually groups anything — every other type
+   *  ignores whatever was sent. Each grouped id must be a real "product"
+   *  category, since that's the only thing a listing's own category is ever
+   *  compared against (see products.service.ts's assertCategoryAllowedForShop). */
+  private async normalizeGroupedCategoryIds(
+    type: string | undefined,
+    ids: string[] | undefined,
+  ): Promise<string[]> {
+    if (type !== "shop") return [];
+
+    const uniqueIds = [...new Set((ids ?? []).filter((id) => !!id))];
+    if (uniqueIds.length === 0) return [];
+
+    const found = await this.prisma.category.findMany({
+      where: { id: { in: uniqueIds }, type: "product" },
+      select: { id: true },
+    });
+    const foundIds = new Set(found.map((c) => c.id));
+    const invalidIds = uniqueIds.filter((id) => !foundIds.has(id));
+
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        `Not a valid product category id: ${invalidIds.join(", ")}`,
+      );
+    }
+
+    return uniqueIds;
+  }
+
   async create(dto: CreateUpdateCategoryDto) {
     await this.checkDuplicateName(dto.name);
     await this.checkDuplicateSortNumber(dto.sortNumber, dto.type);
+    const groupedCategoryIds = await this.normalizeGroupedCategoryIds(
+      dto.type,
+      dto.groupedCategoryIds,
+    );
 
     return this.prisma.category.create({
       data: {
@@ -510,6 +543,7 @@ export class CategoryService {
         type: dto.type as CategoryType,
         isDisabled: dto.isDisabled ?? false,
         isDraft: dto.isDraft ?? false,
+        groupedCategoryIds,
       },
     });
   }
@@ -548,6 +582,14 @@ export class CategoryService {
         ...(dto.type !== undefined ? { type: dto.type as CategoryType } : {}),
         ...(dto.isDisabled !== undefined ? { isDisabled: dto.isDisabled } : {}),
         ...(dto.isDraft !== undefined ? { isDraft: dto.isDraft } : {}),
+        ...(dto.groupedCategoryIds !== undefined
+          ? {
+              groupedCategoryIds: await this.normalizeGroupedCategoryIds(
+                dto.type ?? existing.type,
+                dto.groupedCategoryIds,
+              ),
+            }
+          : {}),
       },
     });
   }
