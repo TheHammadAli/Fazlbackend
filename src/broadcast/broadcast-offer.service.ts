@@ -103,7 +103,15 @@ export class BroadcastOfferService {
         "broadcast.offer_submitted",
         "BROADCAST",
         {
-          thread: { id: thread.id, broadcast: thread.broadcastId },
+          // buyer/seller included so the client can deep-link straight into
+          // this thread (ThreadChatScreen requires all three ids) instead of
+          // falling back to the generic broadcasts list.
+          thread: {
+            id: thread.id,
+            buyer: thread.buyerId,
+            seller: thread.sellerId,
+            broadcast: thread.broadcastId,
+          },
           offer: payloadOffer,
         },
         {},
@@ -186,7 +194,16 @@ export class BroadcastOfferService {
     const [offers, total] = await Promise.all([
       this.prisma.broadcastOffer.findMany({
         where: { offererId },
-        include: { broadcast: { select: { id: true, message: true, type: true } } },
+        include: {
+          broadcast: {
+            select: {
+              id: true,
+              message: true,
+              type: true,
+              buyer: { select: { id: true, name: true, image: true } },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
         skip,
         take: limitNum,
@@ -197,6 +214,9 @@ export class BroadcastOfferService {
     return {
       data: offers.map(({ broadcast, ...o }) => ({
         ...this.withLegacyId(o),
+        // Buyer name/image so the native/web "sent offers" list can open the
+        // thread with a proper header instead of falling back to a generic
+        // title once an offer has been accepted.
         broadcast: broadcast ? { ...broadcast, _id: broadcast.id } : null,
       })),
       meta: {
@@ -291,7 +311,15 @@ export class BroadcastOfferService {
         action === "accept" ? "broadcast.offer_accepted" : "broadcast.offer_declined",
         "BROADCAST",
         {
-          thread: { id: offer.threadId, broadcast: offer.broadcastId },
+          // buyer/seller included so the client can deep-link straight into
+          // this thread instead of falling back to the generic broadcasts
+          // list — same fix as the offer-submitted notification above.
+          thread: {
+            id: offer.threadId,
+            buyer: offer.creatorId,
+            seller: offer.offererId,
+            broadcast: offer.broadcastId,
+          },
           offer: payloadOffer,
         },
         {},
