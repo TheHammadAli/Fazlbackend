@@ -1566,8 +1566,11 @@ export class ServicesService {
       );
     }
 
-    const likes = await this.likeService.getLikesByUser(userId, "service", itemIds);
-    const likedServiceIds = new Set(likes.map((like) => like.itemId));
+    const likedServiceIds = await this.likeService.getLikedItemIds(
+      userId,
+      "service",
+      itemIds,
+    );
 
     const data = shaped.map((item) => ({
       ...item,

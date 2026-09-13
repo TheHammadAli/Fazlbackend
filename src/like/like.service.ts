@@ -169,6 +169,35 @@ export class LikeService {
   }
 
   /**
+   * Which of these items the user has liked — a lean existence check, unlike
+   * getLikesByUser below (which re-fetches each liked item's full details,
+   * for the "my likes" list). A feed page only needs the id set: routing it
+   * through getLikesByUser instead (as getProductsWithVideos/
+   * getServicesWithVideos used to) meant one extra getById call per liked
+   * item, and — the real bug — silently dropped that item from the "liked"
+   * set if its own getById ever threw for any reason, however unrelated to
+   * whether the user had actually liked it. That surfaced as a like that
+   * looked saved (the optimistic UI update never reverted, since the POST
+   * itself succeeded) but read back as unliked, with a wrong likesCount to
+   * match, the next time the feed was fetched — e.g. navigating away and
+   * back to it.
+   */
+  async getLikedItemIds(
+    userId: string,
+    itemType: ItemType,
+    itemIds: string[],
+  ): Promise<Set<string>> {
+    if (!userId || itemIds.length === 0) return new Set();
+
+    const likes = await this.prisma.like.findMany({
+      where: { userId, itemType, itemId: { in: itemIds } },
+      select: { itemId: true },
+    });
+
+    return new Set(likes.map((like) => like.itemId));
+  }
+
+  /**
    * Check if liked
    */
   async isLiked(
