@@ -113,11 +113,29 @@ export class ServicesController {
       dto.video = []; // Ensure video is always an array
     }
 
-    dto.parameters = JSON.parse(
-      dto.parameters?.toString() || "{}",
-    );
+    try {
+      dto.parameters = JSON.parse(dto.parameters?.toString() || "{}");
+    } catch {
+      dto.parameters = [];
+    }
 
     dto.isVideoPost = (dto.isVideoPost as unknown) === true || (dto.isVideoPost as unknown) === "true";
+
+    // Multipart form-data fields arrive as raw strings, and this app has no
+    // global ValidationPipe to coerce them — the native app always sends
+    // this as the literal string "true"/"false", never a real boolean.
+    // Left as-is, that string reaches Prisma's `requiresAppointment
+    // Boolean` column directly, which throws an uncaught
+    // PrismaClientValidationError (not an AppError/HttpException) that the
+    // catch-all filter turns into a generic 500 ("An unexpected error
+    // occurred") on every single create-service request. Only coerced when
+    // present, so an omitted field still falls through to the service's
+    // own `?? true` default instead of being forced to false.
+    if (dto.requiresAppointment !== undefined) {
+      dto.requiresAppointment =
+        (dto.requiresAppointment as unknown) === true ||
+        (dto.requiresAppointment as unknown) === "true";
+    }
 
     return await this.servicesService.create(user.sub, dto);
   }
@@ -151,9 +169,19 @@ export class ServicesController {
       dto.video = files.video; // Assuming video is stored as a file object
     }
 
-    dto.parameters = JSON.parse(
-      dto.parameters?.toString() || "{}",
-    );
+    try {
+      dto.parameters = JSON.parse(dto.parameters?.toString() || "{}");
+    } catch {
+      dto.parameters = [];
+    }
+
+    // Same rationale as create() above — coerce only when present, so an
+    // omitted field doesn't override whatever the row already has.
+    if (dto.requiresAppointment !== undefined) {
+      dto.requiresAppointment =
+        (dto.requiresAppointment as unknown) === true ||
+        (dto.requiresAppointment as unknown) === "true";
+    }
 
     return await this.servicesService.update(serviceId, dto, currentUser);
   }
